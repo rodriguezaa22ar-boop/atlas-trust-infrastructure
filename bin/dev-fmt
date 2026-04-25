@@ -3,6 +3,11 @@
 set -euo pipefail
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+atlas_libs=()
+
+if compgen -G "$ROOT/tools/atlas/lib/*.sh" >/dev/null; then
+	atlas_libs=("$ROOT"/tools/atlas/lib/*.sh)
+fi
 
 shfmt -w \
 	"$ROOT/bin/intelctl" \
@@ -12,6 +17,7 @@ shfmt -w \
 	"$ROOT/bin/dev-test" \
 	"$ROOT/lib/common.sh" \
 	"$ROOT/lib/intel.sh" \
+	"${atlas_libs[@]}" \
 	"$ROOT/tools"/*/bin/*
 
 printf 'format: ok\n'

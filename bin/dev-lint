@@ -3,6 +3,11 @@
 set -euo pipefail
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+atlas_libs=()
+
+if compgen -G "$ROOT/tools/atlas/lib/*.sh" >/dev/null; then
+	atlas_libs=("$ROOT"/tools/atlas/lib/*.sh)
+fi
 
 shellcheck -x \
 	"$ROOT/bin/intelctl" \
@@ -14,6 +19,7 @@ shellcheck -x \
 	"$ROOT/bin/dev-qa" \
 	"$ROOT/lib/common.sh" \
 	"$ROOT/lib/intel.sh" \
+	"${atlas_libs[@]}" \
 	"$ROOT/tools"/*/bin/*
 
 printf 'lint: ok\n'

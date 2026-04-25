@@ -24,14 +24,39 @@ teardown() {
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"quick flow:"* ]]
+  [[ "$output" == *"atlas doctor"* ]]
+  [[ "$output" == *"atlas scope status"* ]]
+  [[ "$output" == *"atlas evidence add <path> [--kind kind]"* ]]
   [[ "$output" == *"targets:"* ]]
   [[ "$output" == *"operations:"* ]]
   [[ "$output" == *"story views:"* ]]
+  [[ "$output" == *"scope:"* ]]
   [[ "$output" == *"atlas target story <target>"* ]]
   [[ "$output" == *"atlas story demo-web-app"* ]]
   [[ "$output" == *"atlas op show [name]"* ]]
   [[ "$output" == *"atlas op story [name]"* ]]
   [[ "$output" == *"atlas op report [name] [report-name]"* ]]
+}
+
+@test "atlas doctor reports runtime health and missing adapters" {
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" doctor
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Atlas Doctor"* ]]
+  [[ "$output" == *"Core Paths"* ]]
+  [[ "$output" == *"Shared Intel"* ]]
+  [[ "$output" == *"Atlas Adapters"* ]]
+  [[ "$output" == *"wiremap"* ]]
+  [[ "$output" == *"vector"* ]]
+  [[ "$output" == *"Status: ok"* ]]
+
+  run env LAB_ATLAS_VECTOR_BIN="$TEST_ROOT/toolkit/missing-vector" \
+    "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" doctor
+
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"vector"* ]]
+  [[ "$output" == *"fail"* ]]
+  [[ "$output" == *"Status: attention required"* ]]
 }
 
 @test "atlas operation keeps target key and stores target address separately" {
@@ -49,6 +74,10 @@ EOF
   [[ "$output" == *"address: 10.10.10.10"* ]]
   grep -q '^TARGET=demo-node$' "$TEST_ROOT/toolkit/sessions/cutover/session.env"
   grep -q '^TARGET_ADDRESS=10.10.10.10$' "$TEST_ROOT/toolkit/sessions/cutover/session.env"
+  grep -q '^SCOPE_TARGET=demo-node$' "$TEST_ROOT/toolkit/sessions/cutover/scope.snapshot.env"
+  grep -q 'active-recon' "$TEST_ROOT/toolkit/sessions/cutover/scope.snapshot.env"
+  jq -e 'select(.event == "op.started" and .op == "cutover" and .target == "demo-node")' \
+    "$TEST_ROOT/toolkit/sessions/cutover/ledger.ndjson"
 
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op status cutover
   [ "$status" -eq 0 ]
@@ -70,6 +99,187 @@ EOF
   grep -q '^## Commands Run$' "$report_path"
   grep -q '^## Artifacts$' "$report_path"
   grep -q 'atlas op start cutover demo-node runtime smoke' "$report_path"
+  jq -e 'select(.event == "report.generated" and .status == "ok")' \
+    "$TEST_ROOT/toolkit/sessions/cutover/ledger.ndjson"
+}
+
+@test "atlas scopeguard checks active operation target and records preflight" {
+  mkdir -p "$TEST_ROOT/toolkit/targets"
+  cat > "$TEST_ROOT/toolkit/targets/demo-node.env" <<'EOF'
+NAME=demo-node
+ADDRESS=10.10.10.10
+CREATED_AT=2026-04-23T20:53:16Z
+EOF
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op start scoped demo-node authorized scope
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" scope status
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"ScopeGuard"* ]]
+  [[ "$output" == *"Allowed: read-only passive-recon active-recon safe-validation"* ]]
+  [[ "$output" == *"Blocked: destructive persistence credential-spraying denial-of-service out-of-scope-network"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" scope check active-recon demo-node
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"scope allowed"* ]]
+  [[ "$output" == *"tier: 2"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" scope check active-recon 10.10.10.10
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"scope allowed"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" scope check active-recon other-node
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"scope refused"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" scope check safe-validation demo-node
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"approval required"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" approval grant safe-validation bounded validation approved
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"approval recorded"* ]]
+  [[ "$output" == *"tier: 3"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" approval list
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"safe-validation"* ]]
+  [[ "$output" == *"bounded validation approved"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" scope check safe-validation demo-node
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"scope allowed"* ]]
+
+  jq -e 'select(.event == "scope.preflight" and .status == "allowed" and .capability == "active-recon")' \
+    "$TEST_ROOT/toolkit/sessions/scoped/ledger.ndjson"
+  jq -e 'select(.event == "scope.preflight" and .status == "denied" and (.detail | contains("other-node")))' \
+    "$TEST_ROOT/toolkit/sessions/scoped/ledger.ndjson"
+  jq -e 'select(.event == "approval.granted" and .capability == "safe-validation")' \
+    "$TEST_ROOT/toolkit/sessions/scoped/ledger.ndjson"
+  jq -e 'select(.capability == "safe-validation" and .status == "approved")' \
+    "$TEST_ROOT/toolkit/sessions/scoped/approvals.ndjson"
+}
+
+@test "atlas direct execution routes fail closed or use operation scope" {
+  mkdir -p "$TEST_ROOT/toolkit/targets"
+  cat > "$TEST_ROOT/toolkit/targets/demo-node.env" <<'EOF'
+NAME=demo-node
+ADDRESS=10.10.10.10
+CREATED_AT=2026-04-23T20:53:16Z
+EOF
+  mkdir -p "$TEST_ROOT/toolkit/state/intel"
+  cat >> "$TEST_ROOT/toolkit/state/intel/observations.jsonl" <<'EOF'
+{"observed_at":"2026-04-24T00:00:00Z","source_tool":"wiremap","source_name":"fast","source_run_id":"run-2","target":"demo-node","observation_type":"host_state","confidence":"high","value":{"state":"up"}}
+{"observed_at":"2026-04-24T00:00:01Z","source_tool":"wiremap","source_name":"fast","source_run_id":"run-2","target":"demo-node","observation_type":"service_open","confidence":"high","value":{"service_entity_id":"service:demo-node:22/tcp","portproto":"22/tcp","service":"ssh","detail":"OpenSSH 9.7"}}
+EOF
+  mkdir -p "$TEST_ROOT/fake-bin"
+  cat > "$TEST_ROOT/fake-bin/nmap" <<'EOF'
+#!/usr/bin/env bash
+target="${*: -1}"
+printf 'Starting Nmap 7.98 ( https://nmap.org ) at 2026-04-24 00:00 UTC\n'
+printf 'Nmap scan report for %s\n' "$target"
+printf 'Host is up, received user-set (0.00025s latency).\n'
+printf 'PORT   STATE SERVICE REASON  VERSION\n'
+printf '22/tcp open  ssh     syn-ack OpenSSH 9.7\n'
+printf '\nNmap done: 1 IP address (1 host up) scanned in 0.04 seconds\n'
+EOF
+  chmod +x "$TEST_ROOT/fake-bin/nmap"
+  export LAB_VECTOR_NMAP_BIN="$TEST_ROOT/fake-bin/nmap"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" action run validate demo-node "Direct Validate"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"no active operation"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" recon workflow run perimeter-sweep demo-node
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"scoped execution required"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op start direct-scope demo-node authorized direct route
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" action candidates other-node
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"scope refused"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" action run validate demo-node "Direct Validate"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"approval required"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" approval grant safe-validation approved direct route validation
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" action run validate demo-node "Direct Validate"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Status: success"* ]]
+  [[ "$output" == *"operation_action_session"* ]]
+
+  jq -e 'select(.event == "tool.completed" and (.detail | contains("legacy-route lane=validate")))' \
+    "$TEST_ROOT/toolkit/sessions/direct-scope/ledger.ndjson"
+}
+
+@test "atlas evidence vault copies, hashes, indexes, and enforces scope" {
+  mkdir -p "$TEST_ROOT/toolkit/targets"
+  cat > "$TEST_ROOT/toolkit/targets/demo-node.env" <<'EOF'
+NAME=demo-node
+ADDRESS=10.10.10.10
+CREATED_AT=2026-04-23T20:53:16Z
+EOF
+  artifact="$TEST_ROOT/artifact.txt"
+  printf 'authorized evidence artifact\n' > "$artifact"
+  expected_sha="$(sha256sum "$artifact" | awk '{ print $1 }')"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence hash "$artifact"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"sha256: $expected_sha"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence list
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"no active operation"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op start evidence-op demo-node authorized evidence
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence list
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"no evidence recorded yet"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence add "$artifact" --kind scan-output --classification internal
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"evidence added"* ]]
+  [[ "$output" == *"sha256: $expected_sha"* ]]
+  evidence_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  stored_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "path" { print $2; exit }')"
+  [ -n "$evidence_id" ]
+  [ -f "$stored_path" ]
+  [ "$(sha256sum "$stored_path" | awk '{ print $1 }')" = "$expected_sha" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence list
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"$evidence_id"* ]]
+  [[ "$output" == *"scan-output"* ]]
+  [[ "$output" == *"$expected_sha"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence show "$evidence_id"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Evidence Record"* ]]
+  [[ "$output" == *"ID: $evidence_id"* ]]
+  [[ "$output" == *"SHA256: $expected_sha"* ]]
+  [[ "$output" == *"Redacted: false"* ]]
+
+  jq -e \
+    --arg evidence_id "$evidence_id" \
+    --arg sha256 "$expected_sha" \
+    'select(.id == $evidence_id and .sha256 == $sha256 and .kind == "scan-output" and .target == "demo-node")' \
+    "$TEST_ROOT/toolkit/sessions/evidence-op/evidence.ndjson"
+  jq -e \
+    --arg evidence_id "$evidence_id" \
+    'select(.event == "artifact.created" and (.detail | contains($evidence_id)))' \
+    "$TEST_ROOT/toolkit/sessions/evidence-op/ledger.ndjson"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence add "$artifact" --target other-node --kind scan-output
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"scope refused"* ]]
 }
 
 @test "atlas story demo-web-app renders a canned anonymized story" {

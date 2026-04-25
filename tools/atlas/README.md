@@ -15,7 +15,13 @@ keeping the underlying domains intact:
 ## Commands
 
 ```bash
+atlas doctor
 atlas menu
+atlas scope status
+atlas approval grant safe-validation "approved bounded validation"
+atlas evidence add ./artifact.txt --kind scan-output
+atlas evidence list
+atlas evidence show ev_...
 atlas target list
 atlas target story 10.0.0.8
 atlas target summary 10.0.0.8
@@ -61,6 +67,68 @@ findings, recent shared evidence, and ranked next actions.
 
 `atlas target next <target>` and `atlas op next` keep the operator focused on
 the ranked lanes produced from shared intel.
+
+## Doctor
+
+`atlas doctor` checks the local Atlas runtime before an operation. It verifies
+core state paths, shared-intel files, evidence hashing support, required
+adapters, and optional backend commands such as `nmap`, `tcpdump`, `tshark`,
+`curl`, and `msfconsole`.
+
+## ScopeGuard
+
+`atlas op start` now writes a first scope snapshot beside the operation record.
+`atlas scope status` shows the active operation boundary, allowed capability
+tiers, and blocked capability classes. `atlas scope check <capability> <target>`
+performs a manual preflight and appends the decision to the operation ledger.
+
+Operation-aware recon, capture review, and action commands pass through the
+same preflight path before delegating to `wiremap` or `vector`.
+
+Legacy direct execution routes are fail-closed or operation-bound. For
+example, `atlas action run <lane> <target>` now requires an active operation,
+matching scope, and the same Tier 3 approval used by `atlas op action run`.
+Direct recon execution should use the operation-aware form:
+
+```bash
+atlas op recon <workflow>
+```
+
+Tier 3 `safe-validation` requires an explicit approval record before execution:
+
+```bash
+atlas approval grant safe-validation "approved bounded validation within scope"
+atlas op action run posture
+```
+
+`atlas approval list` shows approval records for the active operation.
+
+## Operation Ledger
+
+Atlas operations now include `ledger.ndjson`, an append-only event stream for
+operation lifecycle events, ScopeGuard preflights, approval records, report
+generation, and successful delegated tool calls. The original
+`notes/history.log` remains for human-readable command reconstruction while the
+ledger becomes the structured audit spine.
+
+## Evidence Vault
+
+Evidence is stored inside the active operation. `atlas evidence add <path>`
+copies the artifact into the operation evidence directory, records a SHA-256
+hash, appends an `evidence.ndjson` record, and writes an `artifact.created`
+ledger event. Evidence capture is scope-checked against the active operation
+target before it mutates state.
+
+```bash
+atlas evidence hash ./artifact.txt
+atlas evidence add ./artifact.txt --kind scan-output
+atlas evidence list
+atlas evidence show ev_20260425T200000Z
+```
+
+The first implementation is intentionally small: IDs, copied artifacts, hashes,
+classification labels, redaction flags, and an operation-owned index. Redaction,
+bundles, and finding links come later.
 
 ## Operation Scope
 

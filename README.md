@@ -103,8 +103,8 @@ Development helpers:
 ./bin/dev-qa
 ```
 
-This keeps the Surface development-ready without forcing every dependency into
-the base system profile.
+This keeps the local system development-ready without forcing every dependency
+into the base system profile.
 
 Suggested local QA gate before staging to the local USB runtime:
 
@@ -124,6 +124,27 @@ That means you can study existing tools without dragging their full source
 trees, build chains, caches, and unused assets into your operating workflow.
 
 Read more in [docs/LEAN.md](./docs/LEAN.md).
+
+## Atlas Blueprint
+
+Atlas is the operator control plane for authorized security assessment work.
+The near-term product direction is captured in
+[docs/ATLAS_BLUEPRINT.md](./docs/ATLAS_BLUEPRINT.md): keep Atlas as the
+single front door, split its internals into focused modules, and build the next
+foundation in this order: doctor, scope, ledger, evidence, findings, reports,
+validation, then AI advisor.
+
+## Safety Boundary
+
+Atlas is designed for authorized assessment orchestration only.
+
+Atlas does not provide autonomous exploitation, persistence, destructive
+testing, credential spraying, denial-of-service workflows, or out-of-scope
+target expansion.
+
+Target-touching operation workflows are expected to pass through scope checks,
+capability classification, operation logging, and evidence recording. Tier 3
+safe-validation actions require an explicit approval record before execution.
 
 ## Shared Intel
 

@@ -11,7 +11,7 @@ Observed USB device:
 - block device: `/dev/sdc1`
 - label: `labvault`
 - format: LUKS encrypted volume
-- status during migration: connected but locked
+- status: environment-dependent; unlock and mount before activation
 
 ## Runtime Model
 

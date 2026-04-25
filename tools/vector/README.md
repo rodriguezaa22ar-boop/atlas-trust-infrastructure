@@ -25,6 +25,8 @@ vector target lateral 10.0.0.8
 vector candidates 10.0.0.8
 vector plan lateral 10.0.0.8
 vector run lateral 10.0.0.8
+vector plan posture 10.0.0.8
+vector run posture 10.0.0.8
 vector outcomes 10.0.0.8
 vector session list
 vector session show lateral-10.0.0.8-...
@@ -35,6 +37,7 @@ vector loot list
 
 - `validate`: confirm and enrich observed surface
 - `web`: bias toward HTTP and TLS follow-up
+- `posture`: review HTTP headers, redirects, metadata routes, and common login/admin routes
 - `credentials`: bias toward auth-bearing services and packet-derived auth material
 - `lateral`: bias toward movement and remote-admin surface
 - `research`: turn versioned evidence into narrow follow-up research
@@ -45,6 +48,7 @@ Each lane maps to a bounded backend:
 
 - `validate` -> `service-refresh`
 - `web` -> `http-scout`
+- `posture` -> `http-posture`
 - `credentials` -> `auth-scout`
 - `lateral` -> `movement-scout`
 - `research` -> `msf-module-scout`

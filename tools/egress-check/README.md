@@ -1,19 +1,22 @@
 # egress-check
 
-check direct and proxied egress
+Scaffold for a future direct and proxied egress check.
 
 ## Intent
 
-Describe what this tool owns and what it should never do.
+This module is currently a placeholder in the release system. Its executable
+supports `egress-check help` and rejects all other subcommands until a real
+egress test is implemented.
 
 ## Inputs
 
-- Define expected flags, arguments, or record dependencies.
+- none yet
 
 ## Outputs
 
-- Define what files, logs, or reports it writes.
+- help text only
 
 ## Notes
 
-- Keep module-specific reasoning here rather than inside the dispatcher.
+- Keep this module small when implemented: it should report egress behavior,
+  not become a general network scanner.

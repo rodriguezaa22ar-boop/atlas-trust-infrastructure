@@ -468,19 +468,27 @@ exercise_atlas() {
   [[ "$output" == *"Retransmission"* ]] || fail "atlas capture anomalies missing retransmission signal"
   operations=$((operations + 1))
 
-  output="$("$ATLAS_TOOL" action candidates "$target")"
-  [[ "$output" == *"Ranked Candidates"* ]] || fail "atlas action candidates missing heading"
+  output="$("$ATLAS_TOOL" op start atlas-stress "$target" stress operation)"
+  [[ "$output" == *"operation: atlas-stress"* ]] || fail "atlas op start did not create operation"
   operations=$((operations + 1))
 
-  output="$("$ATLAS_TOOL" action run validate "$target" "Atlas Stress Validate")"
+  output="$("$ATLAS_TOOL" approval grant safe-validation "stress approval for bounded validation")"
+  [[ "$output" == *"approval recorded"* ]] || fail "atlas approval grant did not record approval"
+  operations=$((operations + 1))
+
+  output="$("$ATLAS_TOOL" op action candidates)"
+  [[ "$output" == *"Ranked Candidates"* ]] || fail "atlas op action candidates missing heading"
+  operations=$((operations + 1))
+
+  output="$("$ATLAS_TOOL" op action run validate "Atlas Stress Validate")"
   [[ "$output" == *"Status: success"* ]] || fail "atlas validate run did not succeed"
   operations=$((operations + 1))
 
-  output="$("$ATLAS_TOOL" action run web "$target" "Atlas Stress Web")"
+  output="$("$ATLAS_TOOL" op action run web "Atlas Stress Web")"
   [[ "$output" == *"Status: success"* ]] || fail "atlas web run did not succeed"
   operations=$((operations + 1))
 
-  output="$("$ATLAS_TOOL" action run research "$target" "Atlas Stress Research")"
+  output="$("$ATLAS_TOOL" op action run research "Atlas Stress Research")"
   [[ "$output" == *"Status: success"* ]] || fail "atlas research run did not succeed"
   [[ "$output" == *"metasploit-backed"* ]] || fail "atlas research run missing metasploit path"
   operations=$((operations + 1))
