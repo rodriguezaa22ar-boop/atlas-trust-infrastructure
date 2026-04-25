@@ -17,11 +17,16 @@ keeping the underlying domains intact:
 ```bash
 atlas doctor
 atlas menu
+atlas profile list
+atlas profile show htb-starting-point
 atlas scope status
 atlas approval grant safe-validation "approved bounded validation"
 atlas evidence add ./artifact.txt --kind scan-output
 atlas evidence list
 atlas evidence show ev_...
+atlas finding add "SSH reachable" --level observed --severity low --evidence ev_...
+atlas finding list
+atlas finding show finding_...
 atlas target list
 atlas target story 10.0.0.8
 atlas target summary 10.0.0.8
@@ -50,7 +55,8 @@ Start with the target, then let shared intel choose the next action:
 ```bash
 atlas target list
 atlas target story <target>
-atlas op start <name> <target> [notes...]
+atlas profile show htb-starting-point
+atlas op start [--profile profile] <name> <target> [notes...]
 atlas op show
 atlas op recon <workflow>
 atlas op action candidates
@@ -63,7 +69,13 @@ atlas op close
 
 `atlas target story <target>` is the fastest cross-tool view. It combines the
 target record, current service and web surface, Vector outcomes, posture
-findings, recent shared evidence, and ranked next actions.
+findings, recent shared evidence, active-operation evidence/findings when the
+target matches, and ranked next actions.
+
+`atlas op brief` and `atlas op story` include operation-owned evidence and
+finding records alongside recon/action tracking. This keeps operator views tied
+to the audit state instead of forcing a separate `evidence list` or
+`finding list` lookup.
 
 `atlas target next <target>` and `atlas op next` keep the operator focused on
 the ranked lanes produced from shared intel.
@@ -81,6 +93,18 @@ adapters, and optional backend commands such as `nmap`, `tcpdump`, `tshark`,
 `atlas scope status` shows the active operation boundary, allowed capability
 tiers, and blocked capability classes. `atlas scope check <capability> <target>`
 performs a manual preflight and appends the decision to the operation ledger.
+
+Profiles let Atlas stamp operation-specific scope guidance into the snapshot:
+
+```bash
+atlas profile list
+atlas profile show htb-starting-point
+atlas op start --profile htb-starting-point htb-run htb-10-129-143-96
+```
+
+The built-in `default` profile keeps the conservative baseline. The
+`htb-starting-point` profile narrows the operator view around authorized
+Hack The Box Starting Point lab work and preserves that guidance in reports.
 
 Operation-aware recon, capture review, and action commands pass through the
 same preflight path before delegating to `wiremap` or `vector`.
@@ -130,6 +154,31 @@ The first implementation is intentionally small: IDs, copied artifacts, hashes,
 classification labels, redaction flags, and an operation-owned index. Redaction,
 bundles, and finding links come later.
 
+## Findings
+
+Findings are operation-owned records. `atlas finding add <title>` writes to the
+active operation, checks the target against ScopeGuard, validates optional
+evidence links, and appends a `finding.recorded` ledger event.
+
+```bash
+atlas finding add "SSH management reachable" \
+  --level observed \
+  --severity low \
+  --confidence high \
+  --evidence ev_20260425T200000Z
+atlas finding list
+atlas finding show finding_20260425T201000Z
+```
+
+Finding levels are deliberately explicit:
+
+- `observed`: raw signal or evidence-backed observation
+- `inferred`: interpreted issue that still needs validation
+- `validated`: confirmed issue with supporting evidence
+
+Operation reports now render recorded findings instead of only leaving a
+placeholder.
+
 ## Operation Scope
 
 Atlas operations are bounded by default. `atlas op show [name]` prints the
@@ -161,7 +210,8 @@ Explicitly out of scope:
 - scope, allowed actions, and out-of-scope actions
 - reconstructed Atlas command history from the operation log
 - tracked recon and action artifacts
-- placeholders for reviewed findings and notes
+- recorded findings when present
+- placeholders for operator notes
 
 ## Demos
 

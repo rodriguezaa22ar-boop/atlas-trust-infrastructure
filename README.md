@@ -50,9 +50,11 @@ Useful commands:
 ./bin/labctl tool list
 ./bin/labctl release build usb-slim egress-check
 ./bin/intelctl summary
+./tools/atlas/bin/atlas profile list
+./tools/atlas/bin/atlas profile show htb-starting-point
 ./tools/atlas/bin/atlas target story 10.0.0.8
 ./tools/atlas/bin/atlas target next 10.0.0.8
-./tools/atlas/bin/atlas op start april-review 10.0.0.8 bounded review
+./tools/atlas/bin/atlas op start --profile htb-starting-point april-review 10.0.0.8 bounded review
 ./tools/atlas/bin/atlas op show april-review
 ./tools/atlas/bin/atlas op action candidates
 ./tools/atlas/bin/atlas op report april-review
@@ -201,6 +203,9 @@ Atlas now also exposes the operator-level story and reporting layer:
   recent evidence, and ranked next actions
 - `atlas op show [name]`: operation scope, allowed actions, out-of-scope
   actions, and tracked artifacts
+- `atlas evidence add <path>`: operation-owned artifact copy with SHA-256 index
+- `atlas finding add <title>`: observed, inferred, or validated finding record
+- `atlas op brief`: operation summary with evidence and findings counts
 - `atlas op report [name] [report-name]`: Markdown operation report stub
 - `atlas story demo-web-app`: canned anonymized demo story with no live target
 

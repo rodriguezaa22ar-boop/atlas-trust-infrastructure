@@ -278,3 +278,67 @@ cmd_evidence_show() {
   ui_kv "Path" "$ATLAS_OP_DIR/$path"
   ui_kv "Created" "$created_at"
 }
+
+atlas_evidence_count_for_target() {
+  local target="${1:-}"
+  local index_file
+
+  index_file="$(atlas_evidence_index_file "$ATLAS_OP_DIR")"
+  if [ ! -s "$index_file" ]; then
+    printf '0\n'
+    return 0
+  fi
+
+  jq -sr \
+    --arg target "$target" '
+      map(select($target == "" or .target == $target))
+      | length
+    ' "$index_file"
+}
+
+atlas_evidence_rows_for_target() {
+  local target="${1:-}"
+  local limit="${2:-8}"
+  local index_file
+
+  intel_require_jq
+
+  index_file="$(atlas_evidence_index_file "$ATLAS_OP_DIR")"
+  [ -s "$index_file" ] || return 0
+
+  jq -sr \
+    --arg target "$target" \
+    --argjson limit "$limit" '
+      map(select($target == "" or .target == $target))
+      | sort_by(.created_at)
+      | reverse
+      | .[:$limit]
+      | .[]
+      | [
+          (.id // "?"),
+          (.kind // "?"),
+          (.classification // "?"),
+          (.sha256 // "?"),
+          (.path // "?")
+        ]
+      | @tsv
+    ' "$index_file"
+}
+
+atlas_evidence_print_table_for_target() {
+  local target="${1:-}"
+  local limit="${2:-8}"
+  local empty_note="${3:-no evidence recorded yet}"
+  local output
+
+  output="$(
+    atlas_evidence_rows_for_target "$target" "$limit" |
+      awk -F'\t' '{ printf "%-22s %-16s %-14s %-20s %s\n", $1, $2, $3, substr($4, 1, 20), $5 }'
+  )"
+
+  if [ -n "$output" ]; then
+    printf '%s\n' "$output"
+  else
+    ui_note "$empty_note"
+  fi
+}

@@ -119,8 +119,12 @@ The near-term roadmap is:
 5. Add an Evidence Vault with IDs and SHA-256 hashes. The first
    operation-owned add/list/show/hash flow is implemented.
 6. Strengthen target story around evidence, unknowns, and next safe steps.
-7. Add finding records that distinguish observed, inferred, and validated.
-8. Add report brief generation from operation state.
+7. Add finding records that distinguish observed, inferred, and validated. The
+   first operation-owned add/list/show flow is implemented with evidence links
+   and report rendering.
+8. Add report brief generation from operation state. `atlas op brief`,
+   `atlas op story`, and matching `atlas target story` views now surface
+   operation-owned evidence and findings.
 9. Add validation planning and approval flow.
 10. Add AI Advisor last, after scope, evidence, and reports exist.
 

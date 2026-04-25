@@ -1,0 +1,462 @@
+#!/usr/bin/env bash
+
+atlas_findings_index_file() {
+  local op_dir="$1"
+
+  printf '%s/findings.ndjson\n' "$op_dir"
+}
+
+atlas_findings_dir() {
+  local op_dir="$1"
+
+  printf '%s/findings\n' "$op_dir"
+}
+
+atlas_findings_next_id() {
+  local findings_dir="$1"
+  local base
+  local candidate
+  local index=1
+
+  base="finding_$(date -u +%Y%m%dT%H%M%SZ)"
+  candidate="$base"
+
+  while [ -e "$findings_dir/$candidate" ]; do
+    index=$((index + 1))
+    candidate="$(printf '%s_%02d' "$base" "$index")"
+  done
+
+  printf '%s\n' "$candidate"
+}
+
+atlas_findings_validate_level() {
+  case "$1" in
+  observed | inferred | validated)
+    return 0
+    ;;
+  *)
+    fail "expected finding level observed, inferred, or validated; got: $1"
+    ;;
+  esac
+}
+
+atlas_findings_validate_severity() {
+  case "$1" in
+  info | low | medium | high | critical)
+    return 0
+    ;;
+  *)
+    fail "expected severity info, low, medium, high, or critical; got: $1"
+    ;;
+  esac
+}
+
+atlas_findings_validate_confidence() {
+  case "$1" in
+  low | medium | high)
+    return 0
+    ;;
+  *)
+    fail "expected confidence low, medium, or high; got: $1"
+    ;;
+  esac
+}
+
+atlas_findings_validate_status() {
+  case "$1" in
+  open | accepted | resolved | validated)
+    return 0
+    ;;
+  *)
+    fail "expected status open, accepted, resolved, or validated; got: $1"
+    ;;
+  esac
+}
+
+atlas_findings_evidence_exists() {
+  local evidence_id="$1"
+  local index_file
+
+  index_file="$(atlas_evidence_index_file "$ATLAS_OP_DIR")"
+  [ -s "$index_file" ] || return 1
+
+  jq -e \
+    --arg evidence_id "$evidence_id" \
+    'select(.id == $evidence_id)' \
+    "$index_file" >/dev/null
+}
+
+atlas_findings_validate_evidence_ids() {
+  local evidence_id
+
+  for evidence_id in "$@"; do
+    [ -n "$evidence_id" ] || continue
+    atlas_findings_evidence_exists "$evidence_id" || fail "unknown evidence id for active operation: $evidence_id"
+  done
+}
+
+atlas_findings_append_record() {
+  local id="$1"
+  local target="$2"
+  local title="$3"
+  local level="$4"
+  local severity="$5"
+  local confidence="$6"
+  local status="$7"
+  local source="$8"
+  local impact="$9"
+  local recommendation="${10}"
+  shift 10
+  local evidence_ids=("$@")
+  local evidence_text
+  local index_file
+
+  intel_require_jq
+
+  index_file="$(atlas_findings_index_file "$ATLAS_OP_DIR")"
+  : >>"$index_file"
+  chmod 600 "$index_file" 2>/dev/null || true
+  evidence_text="${evidence_ids[*]}"
+
+  jq -cn \
+    --arg id "$id" \
+    --arg operation "$ATLAS_OP_SLUG" \
+    --arg target "$target" \
+    --arg title "$title" \
+    --arg level "$level" \
+    --arg severity "$severity" \
+    --arg confidence "$confidence" \
+    --arg status "$status" \
+    --arg source "$source" \
+    --arg impact "$impact" \
+    --arg recommendation "$recommendation" \
+    --arg created_at "$(timestamp)" \
+    --arg evidence_text "$evidence_text" \
+    '{
+      id: $id,
+      operation: $operation,
+      target: $target,
+      title: $title,
+      level: $level,
+      severity: $severity,
+      confidence: $confidence,
+      status: $status,
+      source: $source,
+      impact: $impact,
+      recommendation: $recommendation,
+      evidence: ($evidence_text | split(" ") | map(select(length > 0))),
+      created_at: $created_at
+    }' >>"$index_file"
+}
+
+cmd_finding_add() {
+  need_args 1 "$#" "finding add <title> [--level observed|inferred|validated] [--severity severity] [--confidence confidence]"
+  local title="$1"
+  local target=""
+  local level="inferred"
+  local severity="info"
+  local confidence="medium"
+  local status=""
+  local source="atlas"
+  local impact=""
+  local recommendation=""
+  local evidence_ids=()
+  local findings_root
+  local finding_id
+  local finding_dir
+
+  shift
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+    --target)
+      need_args 2 "$#" "finding add <title> --target <target>"
+      target="$2"
+      shift 2
+      ;;
+    --level)
+      need_args 2 "$#" "finding add <title> --level <observed|inferred|validated>"
+      level="$2"
+      shift 2
+      ;;
+    --severity)
+      need_args 2 "$#" "finding add <title> --severity <severity>"
+      severity="$2"
+      shift 2
+      ;;
+    --confidence)
+      need_args 2 "$#" "finding add <title> --confidence <confidence>"
+      confidence="$2"
+      shift 2
+      ;;
+    --status)
+      need_args 2 "$#" "finding add <title> --status <status>"
+      status="$2"
+      shift 2
+      ;;
+    --source)
+      need_args 2 "$#" "finding add <title> --source <source>"
+      source="$2"
+      shift 2
+      ;;
+    --impact)
+      need_args 2 "$#" "finding add <title> --impact <impact>"
+      impact="$2"
+      shift 2
+      ;;
+    --recommendation)
+      need_args 2 "$#" "finding add <title> --recommendation <recommendation>"
+      recommendation="$2"
+      shift 2
+      ;;
+    --evidence)
+      need_args 2 "$#" "finding add <title> --evidence <evidence-id>"
+      evidence_ids+=("$2")
+      shift 2
+      ;;
+    *)
+      fail "unknown finding add option: $1"
+      ;;
+    esac
+  done
+
+  [ -n "$title" ] || fail "finding title is required"
+  atlas_findings_validate_level "$level"
+  atlas_findings_validate_severity "$severity"
+  atlas_findings_validate_confidence "$confidence"
+  if [ -z "$status" ]; then
+    if [ "$level" = "validated" ]; then
+      status="validated"
+    else
+      status="open"
+    fi
+  fi
+  atlas_findings_validate_status "$status"
+
+  load_active_operation
+  if [ -z "$target" ]; then
+    target="$ATLAS_OP_TARGET"
+  fi
+  atlas_scope_preflight "read-only" "atlas" "$target" "record finding"
+  atlas_findings_validate_evidence_ids "${evidence_ids[@]}"
+
+  findings_root="$(atlas_findings_dir "$ATLAS_OP_DIR")"
+  mkdir -p "$findings_root"
+  chmod 700 "$findings_root" 2>/dev/null || true
+
+  finding_id="$(atlas_findings_next_id "$findings_root")"
+  finding_dir="$findings_root/$finding_id"
+  mkdir -p "$finding_dir"
+  chmod 700 "$finding_dir" 2>/dev/null || true
+
+  atlas_findings_append_record "$finding_id" "$target" "$title" "$level" "$severity" "$confidence" "$status" "$source" "$impact" "$recommendation" "${evidence_ids[@]}"
+  atlas_ledger_append_current "finding.recorded" "read-only" "atlas" "ok" "finding=$finding_id level=$level severity=$severity status=$status"
+
+  ui_ok "finding added"
+  printf 'id: %s\n' "$finding_id"
+  printf 'title: %s\n' "$title"
+  printf 'level: %s\n' "$level"
+  printf 'severity: %s\n' "$severity"
+  printf 'confidence: %s\n' "$confidence"
+  printf 'status: %s\n' "$status"
+  printf 'target: %s\n' "$target"
+  if [ "${#evidence_ids[@]}" -gt 0 ]; then
+    printf 'evidence: %s\n' "${evidence_ids[*]}"
+  fi
+}
+
+cmd_finding_list() {
+  local index_file
+
+  load_active_operation
+  index_file="$(atlas_findings_index_file "$ATLAS_OP_DIR")"
+
+  ui_heading "Findings"
+  ui_rule
+  ui_kv "Operation" "$ATLAS_OP_NAME"
+  ui_kv "Target" "$ATLAS_OP_TARGET"
+  ui_kv "Store" "$index_file"
+  ui_rule
+
+  if [ ! -s "$index_file" ]; then
+    ui_note "no findings recorded yet"
+    return 0
+  fi
+
+  jq -r '
+    [
+      (.id // "?"),
+      (.level // "?"),
+      (.severity // "?"),
+      (.confidence // "?"),
+      (.status // "?"),
+      (.title // "?")
+    ]
+    | @tsv
+  ' "$index_file" |
+    awk -F'\t' '{ printf "%-24s %-10s %-8s %-10s %-10s %s\n", $1, $2, $3, $4, $5, $6 }'
+}
+
+cmd_finding_show() {
+  need_args 1 "$#" "finding show <id>"
+  local finding_id="$1"
+  local index_file
+  local output
+  local id
+  local operation
+  local target
+  local title
+  local level
+  local severity
+  local confidence
+  local status
+  local source
+  local impact
+  local recommendation
+  local evidence
+  local created_at
+
+  load_active_operation
+  index_file="$(atlas_findings_index_file "$ATLAS_OP_DIR")"
+  [ -s "$index_file" ] || fail "unknown finding: $finding_id"
+
+  output="$(
+    jq -r \
+      --arg finding_id "$finding_id" '
+        select(.id == $finding_id)
+        | [
+          (.id // "?"),
+          (.operation // "?"),
+          (.target // "?"),
+          (.title // "?"),
+          (.level // "?"),
+          (.severity // "?"),
+          (.confidence // "?"),
+          (.status // "?"),
+          (.source // "?"),
+          (.impact // ""),
+          (.recommendation // ""),
+          ((.evidence // []) | join(" ")),
+          (.created_at // "?")
+        ]
+        | @tsv
+      ' "$index_file" |
+      head -n 1
+  )"
+  [ -n "$output" ] || fail "unknown finding: $finding_id"
+
+  IFS=$'\t' read -r id operation target title level severity confidence status source impact recommendation evidence created_at <<<"$output"
+
+  ui_heading "Finding Record"
+  ui_rule
+  ui_kv "ID" "$id"
+  ui_kv "Operation" "$operation"
+  ui_kv "Target" "$target"
+  ui_kv "Title" "$title"
+  ui_kv "Level" "$level"
+  ui_kv "Severity" "$severity"
+  ui_kv "Confidence" "$confidence"
+  ui_kv "Status" "$status"
+  ui_kv "Source" "$source"
+  if [ -n "$impact" ]; then
+    ui_kv "Impact" "$impact"
+  fi
+  if [ -n "$recommendation" ]; then
+    ui_kv "Recommendation" "$recommendation"
+  fi
+  if [ -n "$evidence" ]; then
+    ui_kv "Evidence" "$evidence"
+  fi
+  ui_kv "Created" "$created_at"
+}
+
+atlas_findings_report_markdown() {
+  local index_file
+
+  index_file="$(atlas_findings_index_file "$ATLAS_OP_DIR")"
+  if [ ! -s "$index_file" ]; then
+    printf -- '- No reviewed findings recorded yet.\n'
+    return 0
+  fi
+
+  jq -r '
+    def evidence_text:
+      if ((.evidence // []) | length) > 0 then
+        " Evidence: " + ((.evidence // []) | join(", ")) + "."
+      else
+        ""
+      end;
+    "- " + (.severity // "info") + " / " + (.level // "inferred") + " / " + (.status // "open") + ": " +
+    (.title // "untitled finding") +
+    (if (.impact // "") != "" then " Impact: " + .impact + "." else "" end) +
+    (if (.recommendation // "") != "" then " Recommendation: " + .recommendation + "." else "" end) +
+    evidence_text
+  ' "$index_file"
+}
+
+atlas_findings_count_for_target() {
+  local target="${1:-}"
+  local index_file
+
+  index_file="$(atlas_findings_index_file "$ATLAS_OP_DIR")"
+  if [ ! -s "$index_file" ]; then
+    printf '0\n'
+    return 0
+  fi
+
+  jq -sr \
+    --arg target "$target" '
+      map(select($target == "" or .target == $target))
+      | length
+    ' "$index_file"
+}
+
+atlas_findings_rows_for_target() {
+  local target="${1:-}"
+  local limit="${2:-8}"
+  local index_file
+
+  intel_require_jq
+
+  index_file="$(atlas_findings_index_file "$ATLAS_OP_DIR")"
+  [ -s "$index_file" ] || return 0
+
+  jq -sr \
+    --arg target "$target" \
+    --argjson limit "$limit" '
+      map(select($target == "" or .target == $target))
+      | sort_by(.created_at)
+      | reverse
+      | .[:$limit]
+      | .[]
+      | [
+          (.id // "?"),
+          (.level // "?"),
+          (.severity // "?"),
+          (.status // "?"),
+          (.title // "?"),
+          ((.evidence // []) | join(","))
+        ]
+      | @tsv
+    ' "$index_file"
+}
+
+atlas_findings_print_table_for_target() {
+  local target="${1:-}"
+  local limit="${2:-8}"
+  local empty_note="${3:-no findings recorded yet}"
+  local output
+
+  output="$(
+    atlas_findings_rows_for_target "$target" "$limit" |
+      awk -F'\t' '{
+        evidence = $6 == "" ? "-" : $6
+        printf "%-24s %-10s %-8s %-10s %-32s %s\n", $1, $2, $3, $4, $5, evidence
+      }'
+  )"
+
+  if [ -n "$output" ]; then
+    printf '%s\n' "$output"
+  else
+    ui_note "$empty_note"
+  fi
+}

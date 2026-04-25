@@ -26,6 +26,9 @@ TOOL_NAME="atlas"
 # shellcheck source=../lib/evidence.sh
 . "$TOOL_DIR/lib/evidence.sh"
 # shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/findings.sh
+. "$TOOL_DIR/lib/findings.sh"
+# shellcheck source-path=SCRIPTDIR
 # shellcheck source=../lib/doctor.sh
 . "$TOOL_DIR/lib/doctor.sh"
 
@@ -47,6 +50,8 @@ usage:
   atlas help
   atlas doctor
   atlas menu
+  atlas profile list
+  atlas profile show <name>
   atlas scope status
   atlas scope check <capability> <target>
   atlas approval grant <capability> <reason...>
@@ -55,13 +60,17 @@ usage:
   atlas evidence list
   atlas evidence show <id>
   atlas evidence hash <path>
+  atlas finding add <title> [--level observed|inferred|validated]
+  atlas finding list
+  atlas finding show <id>
 
 quick flow:
   atlas doctor
+  atlas profile show htb-starting-point
   atlas scope status
   atlas target list
   atlas target story <target>
-  atlas op start <name> <target> [notes...]
+  atlas op start [--profile profile] <name> <target> [notes...]
   atlas op show [name]
   atlas op recon <workflow> [interface]
   atlas op action candidates
@@ -84,7 +93,7 @@ targets:
   atlas target lateral <target>
 
 operations:
-  atlas op start <name> <target> [notes...]
+  atlas op start [--profile profile] <name> <target> [notes...]
   atlas op resume <name>
   atlas op list
   atlas op show [name]
@@ -145,6 +154,8 @@ shared intel:
   atlas intel relationships [target]
 
 scope:
+  atlas profile list
+  atlas profile show <name>
   atlas scope status
   atlas scope check <capability> <target>
 
@@ -157,6 +168,11 @@ evidence:
   atlas evidence list
   atlas evidence show <id>
   atlas evidence hash <path>
+
+findings:
+  atlas finding add <title> [--level observed|inferred|validated] [--severity severity] [--confidence confidence]
+  atlas finding list
+  atlas finding show <id>
 EOF
 }
 
@@ -188,29 +204,27 @@ run_labctl() {
 }
 
 atlas_scope_text() {
-	cat <<'EOF'
-Bounded authorized reconnaissance and defensive posture review for the named target.
-EOF
+	if [ -n "${ATLAS_SCOPE_TEXT:-}" ]; then
+		printf '%s\n' "$ATLAS_SCOPE_TEXT"
+	else
+		atlas_scope_default_text
+	fi
 }
 
 atlas_allowed_actions() {
-	cat <<'EOF'
-target-first recon against configured scope
-service validation and non-invasive fingerprint refresh
-HTTP/HTTPS probing of observed web surfaces
-HTTP posture review for headers, redirects, metadata routes, and common login/admin routes
-shared-intel summarization, story views, and report generation
-EOF
+	if ! atlas_scope_print_pipe_lines "${ATLAS_SCOPE_ALLOWED_ACTIONS:-}"; then
+		atlas_scope_default_allowed_actions
+	fi
 }
 
 atlas_out_of_scope() {
-	cat <<'EOF'
-exploitation, payload delivery, or persistence
-brute forcing, password guessing, credential stuffing, or session hijacking
-destructive testing, denial of service, fuzzing, or high-volume crawling
-access to third-party systems beyond the configured target
-data extraction beyond minimal service, route, header, and posture evidence
-EOF
+	if ! atlas_scope_print_pipe_lines "${ATLAS_SCOPE_OUT_OF_SCOPE_ACTIONS:-}"; then
+		atlas_scope_default_out_of_scope
+	fi
+}
+
+atlas_recommended_workflows() {
+	atlas_scope_print_pipe_lines "${ATLAS_SCOPE_RECOMMENDED_WORKFLOWS:-}" || true
 }
 
 print_scope_lines() {
@@ -504,6 +518,8 @@ print_operation_summary() {
 	local latest_recon=""
 	local latest_action=""
 
+	atlas_scope_load_snapshot
+
 	if operation_is_active "$ATLAS_OP_SLUG"; then
 		active_flag="yes"
 	fi
@@ -520,6 +536,7 @@ print_operation_summary() {
 	ui_kv "Operation" "$ATLAS_OP_NAME"
 	ui_kv "Target" "$(format_operation_target)"
 	ui_kv "Status" "$ATLAS_OP_STATUS"
+	ui_kv "Profile" "$ATLAS_SCOPE_PROFILE"
 	ui_kv "Active" "$active_flag"
 	ui_kv "Created" "$ATLAS_OP_CREATED_AT"
 	if [ -n "$ATLAS_OP_CLOSED_AT" ]; then
@@ -539,9 +556,51 @@ print_operation_summary() {
 	fi
 	ui_kv "Recon Runs" "$(operation_count_entries "$ATLAS_OP_DIR/recon-runs")"
 	ui_kv "Action Sessions" "$(operation_count_entries "$ATLAS_OP_DIR/action-sessions")"
+	ui_kv "Evidence" "$(atlas_evidence_count_for_target "$ATLAS_OP_TARGET")"
+	ui_kv "Findings" "$(atlas_findings_count_for_target "$ATLAS_OP_TARGET")"
 	ui_kv "Dir" "$ATLAS_OP_DIR"
 	ui_kv "Latest Recon" "${latest_recon:-none}"
 	ui_kv "Latest Action" "${latest_action:-none}"
+}
+
+operation_target_matches_identifier() {
+	local target="$1"
+
+	[ "$target" = "$ATLAS_OP_TARGET" ] && return 0
+	[ -n "${ATLAS_OP_TARGET_ADDRESS:-}" ] && [ "$target" = "$ATLAS_OP_TARGET_ADDRESS" ] && return 0
+	[ -n "${ATLAS_OP_TARGET_LABEL:-}" ] && [ "$target" = "$ATLAS_OP_TARGET_LABEL" ] && return 0
+	return 1
+}
+
+print_operation_evidence_summary() {
+	local target="${1:-$ATLAS_OP_TARGET}"
+	local limit="${2:-8}"
+
+	atlas_evidence_print_table_for_target "$target" "$limit" "no operation evidence recorded yet"
+}
+
+print_operation_findings_summary() {
+	local target="${1:-$ATLAS_OP_TARGET}"
+	local limit="${2:-8}"
+
+	atlas_findings_print_table_for_target "$target" "$limit" "no operation findings recorded yet"
+}
+
+print_active_operation_records_for_target() {
+	local target="$1"
+
+	[ "${ATLAS_SUPPRESS_ACTIVE_OP_CONTEXT:-0}" = "1" ] && return 0
+	has_active_operation || return 0
+	load_active_operation
+	operation_target_matches_identifier "$target" || return 0
+
+	ui_subheading "Active Operation Evidence"
+	print_operation_evidence_summary "$ATLAS_OP_TARGET" 8
+	ui_rule
+
+	ui_subheading "Active Operation Findings"
+	print_operation_findings_summary "$ATLAS_OP_TARGET" 8
+	ui_rule
 }
 
 cmd_target_summary() {
@@ -747,6 +806,8 @@ cmd_target_story() {
 	print_story_observations "$target" "latest:http_posture_finding" "no HTTP posture findings recorded yet" 12
 	ui_rule
 
+	print_active_operation_records_for_target "$target"
+
 	ui_subheading "Recent Evidence"
 	print_story_recent_evidence "$target" 12
 	ui_rule
@@ -830,17 +891,38 @@ cmd_demo_story() {
 }
 
 cmd_op_start() {
-	need_args 2 "$#" "op start <name> <target> [notes...]"
-	local name="$1"
-	local target_input="$2"
+	local profile="default"
+	local name
+	local target_input
 	local notes
 	local slug
 	local dir
 	local file
 
+	while [ "$#" -gt 0 ]; do
+		case "$1" in
+		--profile)
+			need_args 2 "$#" "op start --profile <profile> <name> <target> [notes...]"
+			profile="$2"
+			shift 2
+			;;
+		--)
+			shift
+			break
+			;;
+		*)
+			break
+			;;
+		esac
+	done
+
+	need_args 2 "$#" "op start [--profile profile] <name> <target> [notes...]"
+	name="$1"
+	target_input="$2"
 	shift 2
 	notes="${*:-}"
 	resolve_target_input "$target_input"
+	atlas_scope_load_profile "$profile"
 
 	slug="$(session_slug_for "$name")"
 	[ -n "$slug" ] || fail "operation name produced an empty slug"
@@ -849,8 +931,8 @@ cmd_op_start() {
 
 	[ ! -d "$dir" ] || fail "operation already exists: $slug"
 
-	mkdir -p "$dir/loot" "$dir/pcaps" "$dir/notes" "$dir/logs" "$dir/tmp" "$dir/recon-runs" "$dir/action-sessions" "$dir/evidence"
-	chmod 700 "$dir" "$dir/loot" "$dir/pcaps" "$dir/notes" "$dir/logs" "$dir/tmp" "$dir/recon-runs" "$dir/action-sessions" "$dir/evidence" 2>/dev/null || true
+	mkdir -p "$dir/loot" "$dir/pcaps" "$dir/notes" "$dir/logs" "$dir/tmp" "$dir/recon-runs" "$dir/action-sessions" "$dir/evidence" "$dir/findings"
+	chmod 700 "$dir" "$dir/loot" "$dir/pcaps" "$dir/notes" "$dir/logs" "$dir/tmp" "$dir/recon-runs" "$dir/action-sessions" "$dir/evidence" "$dir/findings" 2>/dev/null || true
 	: >"$file"
 	chmod 600 "$file" 2>/dev/null || true
 	upsert_env "$file" NAME "$name"
@@ -865,13 +947,14 @@ cmd_op_start() {
 	upsert_env "$file" SOURCE_TOOL "$TOOL_NAME"
 	upsert_env "$file" MODE "operation"
 
-	atlas_scope_write_snapshot "$dir" "$ATLAS_TARGET_RESOLVED" "$ATLAS_TARGET_ADDRESS" "$ATLAS_TARGET_LABEL"
-	atlas_ledger_append "$dir" "op.started" "$slug" "$ATLAS_TARGET_RESOLVED" "read-only" "atlas" "ok" "$notes"
+	atlas_scope_write_snapshot "$dir" "$ATLAS_TARGET_RESOLVED" "$ATLAS_TARGET_ADDRESS" "$ATLAS_TARGET_LABEL" "$profile"
+	atlas_ledger_append "$dir" "op.started" "$slug" "$ATLAS_TARGET_RESOLVED" "read-only" "atlas" "ok" "profile=$ATLAS_PROFILE_NAME notes=$notes"
 	record_operation_history "$dir" "start" "$ATLAS_TARGET_RESOLVED"
 	set_active_operation "$slug"
 
 	ui_ok "operation ready"
 	printf 'operation: %s\n' "$name"
+	printf 'profile: %s\n' "$ATLAS_PROFILE_NAME"
 	printf 'target: %s\n' "$ATLAS_TARGET_RESOLVED"
 	if [ "$ATLAS_TARGET_ADDRESS" != "$ATLAS_TARGET_RESOLVED" ]; then
 		printf 'address: %s\n' "$ATLAS_TARGET_ADDRESS"
@@ -952,6 +1035,12 @@ cmd_op_status() {
 	ui_rule
 	ui_subheading "Tracked Action Sessions"
 	print_operation_entries "$ATLAS_OP_DIR/action-sessions" "no action sessions tracked yet"
+	printf '\n'
+	ui_subheading "Operation Evidence"
+	print_operation_evidence_summary "$ATLAS_OP_TARGET" 8
+	printf '\n'
+	ui_subheading "Operation Findings"
+	print_operation_findings_summary "$ATLAS_OP_TARGET" 8
 }
 
 cmd_op_show() {
@@ -1069,6 +1158,8 @@ print_operation_report_artifacts() {
 write_operation_report() {
 	local file="$1"
 
+	atlas_scope_load_snapshot
+
 	{
 		printf '# Atlas Operation Report\n\n'
 		printf 'Generated: %s\n' "$(timestamp)"
@@ -1097,7 +1188,7 @@ write_operation_report() {
 		printf '\n## Artifacts\n\n'
 		print_operation_report_artifacts
 		printf '\n## Findings\n\n'
-		printf -- '- Add reviewed findings here.\n'
+		atlas_findings_report_markdown
 		printf '\n## Notes\n\n'
 		printf -- '- Add operator notes here.\n'
 	} >"$file"
@@ -1266,16 +1357,24 @@ cmd_op_brief() {
 	ui_rule
 	print_operation_summary
 	ui_rule
-	run_vector target summary "$ATLAS_OP_TARGET"
+	print_tool_output_or_note "no surface summary available; run atlas op recon <workflow> first" run_vector target summary "$ATLAS_OP_TARGET"
 	printf '\n'
 	ui_subheading "Tracked Recon Runs"
 	print_operation_entries "$ATLAS_OP_DIR/recon-runs" "no recon runs tracked yet"
 	printf '\n'
 	ui_subheading "Tracked Action Sessions"
 	print_operation_entries "$ATLAS_OP_DIR/action-sessions" "no action sessions tracked yet"
+	printf '\n'
+	ui_subheading "Operation Evidence"
+	print_operation_evidence_summary "$ATLAS_OP_TARGET" 8
+	printf '\n'
+	ui_subheading "Operation Findings"
+	print_operation_findings_summary "$ATLAS_OP_TARGET" 8
 }
 
 cmd_op_story() {
+	local previous_suppression="${ATLAS_SUPPRESS_ACTIVE_OP_CONTEXT:-}"
+
 	if [ "$#" -gt 0 ]; then
 		load_atlas_operation "$1"
 	else
@@ -1292,7 +1391,15 @@ cmd_op_story() {
 	ui_subheading "Tracked Action Sessions"
 	print_operation_entries "$ATLAS_OP_DIR/action-sessions" "no action sessions tracked yet"
 	printf '\n'
+	ui_subheading "Operation Evidence"
+	print_operation_evidence_summary "$ATLAS_OP_TARGET" 8
+	printf '\n'
+	ui_subheading "Operation Findings"
+	print_operation_findings_summary "$ATLAS_OP_TARGET" 8
+	printf '\n'
+	ATLAS_SUPPRESS_ACTIVE_OP_CONTEXT=1
 	cmd_target_story "$ATLAS_OP_TARGET"
+	ATLAS_SUPPRESS_ACTIVE_OP_CONTEXT="$previous_suppression"
 }
 
 cmd_op_next() {
@@ -1468,6 +1575,23 @@ doctor)
 	shift
 	cmd_doctor "$@"
 	;;
+profile)
+	shift
+	case "${1:-list}" in
+	"" | list)
+		[ "$#" -gt 0 ] && shift
+		cmd_profile_list "$@"
+		;;
+	show)
+		shift
+		cmd_profile_show "$@"
+		;;
+	*)
+		usage
+		exit 1
+		;;
+	esac
+	;;
 scope)
 	shift
 	case "${1:-status}" in
@@ -1520,6 +1644,27 @@ evidence)
 	hash)
 		shift
 		cmd_evidence_hash "$@"
+		;;
+	*)
+		usage
+		exit 1
+		;;
+	esac
+	;;
+finding | findings)
+	shift
+	case "${1:-list}" in
+	"" | list)
+		[ "$#" -gt 0 ] && shift
+		cmd_finding_list "$@"
+		;;
+	add)
+		shift
+		cmd_finding_add "$@"
+		;;
+	show)
+		shift
+		cmd_finding_show "$@"
 		;;
 	*)
 		usage

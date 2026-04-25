@@ -27,6 +27,7 @@ teardown() {
   [[ "$output" == *"atlas doctor"* ]]
   [[ "$output" == *"atlas scope status"* ]]
   [[ "$output" == *"atlas evidence add <path> [--kind kind]"* ]]
+  [[ "$output" == *"atlas finding add <title> [--level observed|inferred|validated]"* ]]
   [[ "$output" == *"targets:"* ]]
   [[ "$output" == *"operations:"* ]]
   [[ "$output" == *"story views:"* ]]
@@ -36,6 +37,57 @@ teardown() {
   [[ "$output" == *"atlas op show [name]"* ]]
   [[ "$output" == *"atlas op story [name]"* ]]
   [[ "$output" == *"atlas op report [name] [report-name]"* ]]
+}
+
+@test "atlas profiles list, show, and snapshot operation scope" {
+  mkdir -p "$TEST_ROOT/toolkit/targets"
+  cat > "$TEST_ROOT/toolkit/targets/demo-node.env" <<'EOF'
+NAME=demo-node
+ADDRESS=10.10.10.10
+CREATED_AT=2026-04-23T20:53:16Z
+EOF
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" profile list
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"default"* ]]
+  [[ "$output" == *"htb-starting-point"* ]]
+  [[ "$output" == *"Hack The Box Starting Point authorized lab profile"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" profile show default
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Atlas Profile"* ]]
+  [[ "$output" == *"Profile: default"* ]]
+  [[ "$output" == *"Bounded authorized reconnaissance"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" profile show htb-starting-point
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Profile: htb-starting-point"* ]]
+  [[ "$output" == *"Hack The Box Starting Point assessment"* ]]
+  [[ "$output" == *"Recommended Workflow"* ]]
+  [[ "$output" == *"op recon full-exposure"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op start --profile htb-starting-point htb-profile-op demo-node authorized HTB profile
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"profile: htb-starting-point"* ]]
+  grep -q '^SCOPE_PROFILE=htb-starting-point$' "$TEST_ROOT/toolkit/sessions/htb-profile-op/scope.snapshot.env"
+  grep -q '^BLOCKED_CAPABILITIES=.*intrusive-validation' "$TEST_ROOT/toolkit/sessions/htb-profile-op/scope.snapshot.env"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op show htb-profile-op
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Profile: htb-starting-point"* ]]
+  [[ "$output" == *"Hack The Box Starting Point assessment"* ]]
+  [[ "$output" == *"confirm target reachability through the active HTB lab path"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op report htb-profile-op htb-profile-report
+  [ "$status" -eq 0 ]
+  report_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "report" { print $2; exit }')"
+  [ -f "$report_path" ]
+  grep -q 'Hack The Box Starting Point assessment' "$report_path"
+  grep -q 'confirm target reachability through the active HTB lab path' "$report_path"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" profile show missing-profile
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"unknown Atlas profile"* ]]
 }
 
 @test "atlas doctor reports runtime health and missing adapters" {
@@ -280,6 +332,127 @@ EOF
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence add "$artifact" --target other-node --kind scan-output
   [ "$status" -ne 0 ]
   [[ "$output" == *"scope refused"* ]]
+}
+
+@test "atlas findings record levels, link evidence, and render into reports" {
+  mkdir -p "$TEST_ROOT/toolkit/targets"
+  cat > "$TEST_ROOT/toolkit/targets/demo-node.env" <<'EOF'
+NAME=demo-node
+ADDRESS=10.10.10.10
+CREATED_AT=2026-04-23T20:53:16Z
+EOF
+  artifact="$TEST_ROOT/finding-artifact.txt"
+  printf 'ssh reachable from authorized test node\n' > "$artifact"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding list
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"no active operation"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op start finding-op demo-node authorized findings
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding list
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"no findings recorded yet"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence add "$artifact" --kind scan-output
+  [ "$status" -eq 0 ]
+  evidence_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  [ -n "$evidence_id" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding add "SSH management reachable" \
+    --level observed \
+    --severity low \
+    --confidence high \
+    --evidence "$evidence_id" \
+    --impact "Remote administrative service is reachable" \
+    --recommendation "Restrict SSH to the management subnet"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"finding added"* ]]
+  [[ "$output" == *"level: observed"* ]]
+  [[ "$output" == *"severity: low"* ]]
+  [[ "$output" == *"confidence: high"* ]]
+  [[ "$output" == *"status: open"* ]]
+  finding_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  [ -n "$finding_id" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding add "SSH exposure validated" \
+    --level validated \
+    --severity low \
+    --confidence high \
+    --evidence "$evidence_id"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"status: validated"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding list
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"$finding_id"* ]]
+  [[ "$output" == *"observed"* ]]
+  [[ "$output" == *"SSH management reachable"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding show "$finding_id"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Finding Record"* ]]
+  [[ "$output" == *"ID: $finding_id"* ]]
+  [[ "$output" == *"Level: observed"* ]]
+  [[ "$output" == *"Evidence: $evidence_id"* ]]
+  [[ "$output" == *"Recommendation: Restrict SSH to the management subnet"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op brief
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Operation Brief"* ]]
+  [[ "$output" == *"Evidence: 1"* ]]
+  [[ "$output" == *"Findings: 2"* ]]
+  [[ "$output" == *"Operation Evidence"* ]]
+  [[ "$output" == *"$evidence_id"* ]]
+  [[ "$output" == *"Operation Findings"* ]]
+  [[ "$output" == *"SSH management reachable"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op story
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Operation Story"* ]]
+  [[ "$output" == *"Operation Evidence"* ]]
+  [[ "$output" == *"Operation Findings"* ]]
+  [[ "$output" == *"SSH management reachable"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" target story demo-node
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Active Operation Evidence"* ]]
+  [[ "$output" == *"$evidence_id"* ]]
+  [[ "$output" == *"Active Operation Findings"* ]]
+  [[ "$output" == *"SSH management reachable"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" target story 10.10.10.10
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Active Operation Evidence"* ]]
+  [[ "$output" == *"$evidence_id"* ]]
+  [[ "$output" == *"Active Operation Findings"* ]]
+  [[ "$output" == *"SSH management reachable"* ]]
+
+  jq -e \
+    --arg finding_id "$finding_id" \
+    --arg evidence_id "$evidence_id" \
+    'select(.id == $finding_id and .level == "observed" and .severity == "low" and (.evidence | index($evidence_id)))' \
+    "$TEST_ROOT/toolkit/sessions/finding-op/findings.ndjson"
+  jq -e \
+    --arg finding_id "$finding_id" \
+    'select(.event == "finding.recorded" and (.detail | contains($finding_id)))' \
+    "$TEST_ROOT/toolkit/sessions/finding-op/ledger.ndjson"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding add "Unknown evidence link" --evidence ev_missing
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"unknown evidence id"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding add "Out of scope target" --target other-node
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"scope refused"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op report finding-op finding-report
+  [ "$status" -eq 0 ]
+  report_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "report" { print $2; exit }')"
+  [ -f "$report_path" ]
+  grep -q 'SSH management reachable' "$report_path"
+  grep -q "$evidence_id" "$report_path"
 }
 
 @test "atlas story demo-web-app renders a canned anonymized story" {
