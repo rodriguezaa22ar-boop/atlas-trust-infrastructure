@@ -209,7 +209,8 @@ Atlas now also exposes the operator-level story and reporting layer:
 - `atlas finding add <title>`: observed, inferred, or validated finding record
 - `atlas validation plan <lane>`: plan, approve, and run bounded validation
 - `atlas op brief`: operation summary with evidence, findings, and validation counts
-- `atlas op report [name] [report-name]`: Markdown operation report stub
+- `atlas op report [name] [report-name]`: Markdown assessment brief with
+  executive summary, grouped findings, remediation priorities, and validation status
 - `atlas story demo-web-app`: canned anonymized demo story with no live target
 
 ## Why This Fits Better

@@ -394,6 +394,8 @@ EOF
   [ "$status" -eq 0 ]
   report_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "report" { print $2; exit }')"
   [ -f "$report_path" ]
+  grep -q '## Executive Summary' "$report_path"
+  grep -q '## Remediation Priorities' "$report_path"
   grep -q '## Validation Plans' "$report_path"
   grep -q "$plan_id" "$report_path"
   grep -q 'Result: success' "$report_path"
@@ -604,7 +606,15 @@ EOF
   report_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "report" { print $2; exit }')"
   [ -f "$report_path" ]
   grep -q '## Operator Brief' "$report_path"
+  grep -q '## Executive Summary' "$report_path"
+  grep -q '## Finding Review' "$report_path"
+  grep -q '### Observed' "$report_path"
+  grep -q '### Validated' "$report_path"
+  grep -q '## Remediation Priorities' "$report_path"
+  grep -q 'Findings: 2 total, 1 observed, 0 inferred, 1 validated' "$report_path"
+  grep -q 'Highest recorded severity: low' "$report_path"
   grep -q 'Latest finding:' "$report_path"
+  grep -q 'Restrict SSH to the management subnet' "$report_path"
   grep -q 'SSH management reachable' "$report_path"
   grep -q "$evidence_id" "$report_path"
 }

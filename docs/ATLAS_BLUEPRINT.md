@@ -127,7 +127,9 @@ The near-term roadmap is:
    and report rendering.
 8. Add report brief generation from operation state. `atlas op brief`,
    `atlas op story`, and matching `atlas target story` views now surface
-   operation-owned evidence and findings.
+   operation-owned evidence and findings. Operation reports now include an
+   executive summary, observed/inferred/validated finding review, remediation
+   priorities, operator brief, and validation status.
 9. Add validation planning and approval flow. The first validation plan ledger
    is implemented with plan/list/show/approve/run commands, finding/evidence
    links, profile lane restrictions, and report rendering.

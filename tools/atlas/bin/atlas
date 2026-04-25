@@ -35,6 +35,9 @@ TOOL_NAME="atlas"
 # shellcheck source=../lib/brief.sh
 . "$TOOL_DIR/lib/brief.sh"
 # shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/report.sh
+. "$TOOL_DIR/lib/report.sh"
+# shellcheck source-path=SCRIPTDIR
 # shellcheck source=../lib/doctor.sh
 . "$TOOL_DIR/lib/doctor.sh"
 
@@ -1231,8 +1234,14 @@ write_operation_report() {
 		if [ -n "$ATLAS_OP_NOTES" ]; then
 			printf 'Notes: %s\n' "$ATLAS_OP_NOTES"
 		fi
+		printf '\n## Executive Summary\n\n'
+		atlas_report_executive_summary
 		printf '\n## Operator Brief\n\n'
 		atlas_brief_report_markdown "$ATLAS_OP_TARGET"
+		printf '\n## Finding Review\n\n'
+		atlas_report_finding_review
+		printf '\n## Remediation Priorities\n\n'
+		atlas_report_remediation_priorities
 		printf '\n## Scope\n\n'
 		printf '%s\n\n' "$(atlas_scope_text)"
 		printf '## Allowed Actions\n\n'
@@ -1243,8 +1252,6 @@ write_operation_report() {
 		print_operation_report_commands
 		printf '\n## Artifacts\n\n'
 		print_operation_report_artifacts
-		printf '\n## Findings\n\n'
-		atlas_findings_report_markdown
 		printf '\n## Validation Plans\n\n'
 		atlas_validation_report_markdown
 		printf '\n## Notes\n\n'

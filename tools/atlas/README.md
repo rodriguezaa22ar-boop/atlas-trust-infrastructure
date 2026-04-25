@@ -243,7 +243,10 @@ Explicitly out of scope:
 `$LAB_REPORTS_DIR`. The report includes:
 
 - date, operation id, target, address, status, and notes
+- executive summary with evidence, finding, validation, severity, and next-step counts
 - operator brief with surface, evidence, finding, validation, and next-step state
+- finding review grouped into observed, inferred, and validated sections
+- remediation priorities sorted by severity when recommendations are recorded
 - scope, allowed actions, and out-of-scope actions
 - reconstructed Atlas command history from the operation log
 - tracked recon and action artifacts
