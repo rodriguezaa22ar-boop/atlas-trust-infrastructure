@@ -205,7 +205,8 @@ Atlas now also exposes the operator-level story and reporting layer:
   actions, and tracked artifacts
 - `atlas evidence add <path>`: operation-owned artifact copy with SHA-256 index
 - `atlas finding add <title>`: observed, inferred, or validated finding record
-- `atlas op brief`: operation summary with evidence and findings counts
+- `atlas validation plan <lane>`: plan, approve, and run bounded validation
+- `atlas op brief`: operation summary with evidence, findings, and validation counts
 - `atlas op report [name] [report-name]`: Markdown operation report stub
 - `atlas story demo-web-app`: canned anonymized demo story with no live target
 

@@ -29,6 +29,9 @@ TOOL_NAME="atlas"
 # shellcheck source=../lib/findings.sh
 . "$TOOL_DIR/lib/findings.sh"
 # shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/validation.sh
+. "$TOOL_DIR/lib/validation.sh"
+# shellcheck source-path=SCRIPTDIR
 # shellcheck source=../lib/doctor.sh
 . "$TOOL_DIR/lib/doctor.sh"
 
@@ -63,6 +66,11 @@ usage:
   atlas finding add <title> [--level observed|inferred|validated]
   atlas finding list
   atlas finding show <id>
+  atlas validation plan <lane> [--finding id] [--evidence id]
+  atlas validation list
+  atlas validation show <id>
+  atlas validation approve <id> <reason...>
+  atlas validation run <id> [session-name]
 
 quick flow:
   atlas doctor
@@ -74,9 +82,9 @@ quick flow:
   atlas op show [name]
   atlas op recon <workflow> [interface]
   atlas op action candidates
-  atlas op action plan <lane>
-  atlas approval grant safe-validation <reason...>
-  atlas op action run <lane> [session-name]
+  atlas validation plan <lane>
+  atlas validation approve <id> <reason...>
+  atlas validation run <id> [session-name]
   atlas op story [name]
   atlas op report [name] [report-name]
   atlas op close [name]
@@ -108,6 +116,11 @@ operations:
   atlas op action plan <lane>
   atlas op action run <lane> [session-name]
   atlas op action outcomes
+  atlas op validation plan <lane>
+  atlas op validation list
+  atlas op validation show <id>
+  atlas op validation approve <id> <reason...>
+  atlas op validation run <id> [session-name]
   atlas op brief
 
 story views:
@@ -173,6 +186,13 @@ findings:
   atlas finding add <title> [--level observed|inferred|validated] [--severity severity] [--confidence confidence]
   atlas finding list
   atlas finding show <id>
+
+validation:
+  atlas validation plan <lane> [--finding id] [--evidence id] [--reason text]
+  atlas validation list
+  atlas validation show <id>
+  atlas validation approve <id> <reason...>
+  atlas validation run <id> [session-name]
 EOF
 }
 
@@ -558,6 +578,7 @@ print_operation_summary() {
 	ui_kv "Action Sessions" "$(operation_count_entries "$ATLAS_OP_DIR/action-sessions")"
 	ui_kv "Evidence" "$(atlas_evidence_count_for_target "$ATLAS_OP_TARGET")"
 	ui_kv "Findings" "$(atlas_findings_count_for_target "$ATLAS_OP_TARGET")"
+	ui_kv "Validation Plans" "$(atlas_validation_count_for_target "$ATLAS_OP_TARGET")"
 	ui_kv "Dir" "$ATLAS_OP_DIR"
 	ui_kv "Latest Recon" "${latest_recon:-none}"
 	ui_kv "Latest Action" "${latest_action:-none}"
@@ -600,6 +621,10 @@ print_active_operation_records_for_target() {
 
 	ui_subheading "Active Operation Findings"
 	print_operation_findings_summary "$ATLAS_OP_TARGET" 8
+	ui_rule
+
+	ui_subheading "Active Validation Plans"
+	atlas_validation_print_table_for_target "$ATLAS_OP_TARGET" 8 "no operation validation plans recorded yet"
 	ui_rule
 }
 
@@ -931,8 +956,8 @@ cmd_op_start() {
 
 	[ ! -d "$dir" ] || fail "operation already exists: $slug"
 
-	mkdir -p "$dir/loot" "$dir/pcaps" "$dir/notes" "$dir/logs" "$dir/tmp" "$dir/recon-runs" "$dir/action-sessions" "$dir/evidence" "$dir/findings"
-	chmod 700 "$dir" "$dir/loot" "$dir/pcaps" "$dir/notes" "$dir/logs" "$dir/tmp" "$dir/recon-runs" "$dir/action-sessions" "$dir/evidence" "$dir/findings" 2>/dev/null || true
+	mkdir -p "$dir/loot" "$dir/pcaps" "$dir/notes" "$dir/logs" "$dir/tmp" "$dir/recon-runs" "$dir/action-sessions" "$dir/evidence" "$dir/findings" "$dir/validation-plans"
+	chmod 700 "$dir" "$dir/loot" "$dir/pcaps" "$dir/notes" "$dir/logs" "$dir/tmp" "$dir/recon-runs" "$dir/action-sessions" "$dir/evidence" "$dir/findings" "$dir/validation-plans" 2>/dev/null || true
 	: >"$file"
 	chmod 600 "$file" 2>/dev/null || true
 	upsert_env "$file" NAME "$name"
@@ -1041,6 +1066,9 @@ cmd_op_status() {
 	printf '\n'
 	ui_subheading "Operation Findings"
 	print_operation_findings_summary "$ATLAS_OP_TARGET" 8
+	printf '\n'
+	ui_subheading "Validation Plans"
+	atlas_validation_print_table_for_target "$ATLAS_OP_TARGET" 8 "no operation validation plans recorded yet"
 }
 
 cmd_op_show() {
@@ -1189,6 +1217,8 @@ write_operation_report() {
 		print_operation_report_artifacts
 		printf '\n## Findings\n\n'
 		atlas_findings_report_markdown
+		printf '\n## Validation Plans\n\n'
+		atlas_validation_report_markdown
 		printf '\n## Notes\n\n'
 		printf -- '- Add operator notes here.\n'
 	} >"$file"
@@ -1370,6 +1400,9 @@ cmd_op_brief() {
 	printf '\n'
 	ui_subheading "Operation Findings"
 	print_operation_findings_summary "$ATLAS_OP_TARGET" 8
+	printf '\n'
+	ui_subheading "Validation Plans"
+	atlas_validation_print_table_for_target "$ATLAS_OP_TARGET" 8 "no operation validation plans recorded yet"
 }
 
 cmd_op_story() {
@@ -1396,6 +1429,9 @@ cmd_op_story() {
 	printf '\n'
 	ui_subheading "Operation Findings"
 	print_operation_findings_summary "$ATLAS_OP_TARGET" 8
+	printf '\n'
+	ui_subheading "Validation Plans"
+	atlas_validation_print_table_for_target "$ATLAS_OP_TARGET" 8 "no operation validation plans recorded yet"
 	printf '\n'
 	ATLAS_SUPPRESS_ACTIVE_OP_CONTEXT=1
 	cmd_target_story "$ATLAS_OP_TARGET"
@@ -1567,6 +1603,35 @@ cmd_menu() {
 	done
 }
 
+dispatch_validation_command() {
+	case "${1:-list}" in
+	"" | list)
+		[ "$#" -gt 0 ] && shift
+		cmd_validation_list "$@"
+		;;
+	plan)
+		shift
+		cmd_validation_plan "$@"
+		;;
+	show)
+		shift
+		cmd_validation_show "$@"
+		;;
+	approve)
+		shift
+		cmd_validation_approve "$@"
+		;;
+	run)
+		shift
+		cmd_validation_run "$@"
+		;;
+	*)
+		usage
+		exit 1
+		;;
+	esac
+}
+
 case "${1:-help}" in
 help | -h | --help)
 	usage
@@ -1672,6 +1737,10 @@ finding | findings)
 		;;
 	esac
 	;;
+validation | validations)
+	shift
+	dispatch_validation_command "$@"
+	;;
 menu)
 	shift
 	cmd_menu "$@"
@@ -1747,6 +1816,10 @@ op)
 			exit 1
 			;;
 		esac
+		;;
+	validation | validations)
+		shift
+		dispatch_validation_command "$@"
 		;;
 	brief)
 		shift

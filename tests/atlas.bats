@@ -28,10 +28,12 @@ teardown() {
   [[ "$output" == *"atlas scope status"* ]]
   [[ "$output" == *"atlas evidence add <path> [--kind kind]"* ]]
   [[ "$output" == *"atlas finding add <title> [--level observed|inferred|validated]"* ]]
+  [[ "$output" == *"atlas validation plan <lane> [--finding id] [--evidence id]"* ]]
   [[ "$output" == *"targets:"* ]]
   [[ "$output" == *"operations:"* ]]
   [[ "$output" == *"story views:"* ]]
   [[ "$output" == *"scope:"* ]]
+  [[ "$output" == *"validation:"* ]]
   [[ "$output" == *"atlas target story <target>"* ]]
   [[ "$output" == *"atlas story demo-web-app"* ]]
   [[ "$output" == *"atlas op show [name]"* ]]
@@ -268,6 +270,149 @@ EOF
 
   jq -e 'select(.event == "tool.completed" and (.detail | contains("legacy-route lane=validate")))' \
     "$TEST_ROOT/toolkit/sessions/direct-scope/ledger.ndjson"
+}
+
+@test "atlas validation plans require approval and track execution" {
+  mkdir -p "$TEST_ROOT/toolkit/targets" "$TEST_ROOT/toolkit/state/intel"
+  cat > "$TEST_ROOT/toolkit/targets/demo-node.env" <<'EOF'
+NAME=demo-node
+ADDRESS=10.10.10.10
+CREATED_AT=2026-04-23T20:53:16Z
+EOF
+  cat > "$TEST_ROOT/toolkit/state/intel/observations.jsonl" <<'EOF'
+{"observed_at":"2026-04-24T00:00:00Z","source_tool":"wiremap","source_name":"fast","source_run_id":"run-2","target":"demo-node","observation_type":"host_state","confidence":"high","value":{"state":"up"}}
+{"observed_at":"2026-04-24T00:00:01Z","source_tool":"wiremap","source_name":"fast","source_run_id":"run-2","target":"demo-node","observation_type":"service_open","confidence":"high","value":{"service_entity_id":"service:demo-node:22/tcp","portproto":"22/tcp","service":"ssh","detail":"OpenSSH 9.7"}}
+EOF
+  cat > "$TEST_ROOT/toolkit/state/intel/entities.jsonl" <<'EOF'
+{"observed_at":"2026-04-24T00:00:01Z","entity_type":"service","entity_id":"service:demo-node:22/tcp","target":"demo-node","attributes":{"portproto":"22/tcp","service":"ssh","detail":"OpenSSH 9.7"}}
+EOF
+  : > "$TEST_ROOT/toolkit/state/intel/outcomes.jsonl"
+  : > "$TEST_ROOT/toolkit/state/intel/relationships.jsonl"
+  mkdir -p "$TEST_ROOT/fake-bin"
+  cat > "$TEST_ROOT/fake-bin/nmap" <<'EOF'
+#!/usr/bin/env bash
+target="${*: -1}"
+printf 'Starting Nmap 7.98 ( https://nmap.org ) at 2026-04-24 00:00 UTC\n'
+printf 'Nmap scan report for %s\n' "$target"
+printf 'Host is up, received user-set (0.00025s latency).\n'
+printf 'PORT   STATE SERVICE REASON  VERSION\n'
+printf '22/tcp open  ssh     syn-ack OpenSSH 9.7\n'
+printf '\nNmap done: 1 IP address (1 host up) scanned in 0.04 seconds\n'
+EOF
+  chmod +x "$TEST_ROOT/fake-bin/nmap"
+  export LAB_VECTOR_NMAP_BIN="$TEST_ROOT/fake-bin/nmap"
+  artifact="$TEST_ROOT/validation-artifact.txt"
+  printf 'ssh reachable from authorized test node\n' > "$artifact"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" validation list
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"no active operation"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op start --profile htb-starting-point validation-op demo-node authorized validation planning
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" validation list
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"no validation plans recorded yet"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" validation plan credentials --reason "credential checks are not part of this profile"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"validation lane 'credentials' is not allowed"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence add "$artifact" --kind scan-output
+  [ "$status" -eq 0 ]
+  evidence_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  [ -n "$evidence_id" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding add "SSH management reachable" \
+    --level observed \
+    --severity low \
+    --confidence high \
+    --evidence "$evidence_id"
+  [ "$status" -eq 0 ]
+  finding_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  [ -n "$finding_id" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" validation plan validate \
+    --finding "$finding_id" \
+    --evidence "$evidence_id" \
+    --reason "confirm observed SSH service"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"validation plan recorded"* ]]
+  [[ "$output" == *"status: planned"* ]]
+  [[ "$output" == *"Lane Plan"* ]]
+  plan_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  plan_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "plan" { print $2; exit }')"
+  [ -n "$plan_id" ]
+  [ -f "$plan_path" ]
+  grep -q 'Lane Plan' "$plan_path"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" validation show "$plan_id"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Validation Plan"* ]]
+  [[ "$output" == *"Status: planned"* ]]
+  [[ "$output" == *"Finding: $finding_id"* ]]
+  [[ "$output" == *"Evidence: $evidence_id"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" validation run "$plan_id" "Validation Session"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"requires approval before run"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" validation approve "$plan_id" bounded validation approved
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"validation plan approved"* ]]
+  [[ "$output" == *"status: approved"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" approval list
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"validation_plan=$plan_id bounded validation approved"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" validation list
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"$plan_id"* ]]
+  [[ "$output" == *"approved"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" validation run "$plan_id" "Validation Session"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Status: success"* ]]
+  [[ "$output" == *"validation_plan: $plan_id"* ]]
+  [[ "$output" == *"validation_status: executed"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" validation show "$plan_id"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Status: executed"* ]]
+  [[ "$output" == *"Result: success"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op brief
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Validation Plans"* ]]
+  [[ "$output" == *"$plan_id"* ]]
+  [[ "$output" == *"executed"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op report validation-op validation-report
+  [ "$status" -eq 0 ]
+  report_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "report" { print $2; exit }')"
+  [ -f "$report_path" ]
+  grep -q '## Validation Plans' "$report_path"
+  grep -q "$plan_id" "$report_path"
+  grep -q 'Result: success' "$report_path"
+
+  jq -e \
+    --arg plan_id "$plan_id" \
+    --arg finding_id "$finding_id" \
+    --arg evidence_id "$evidence_id" \
+    'select(.id == $plan_id and .status == "planned" and .finding == $finding_id and (.evidence | index($evidence_id)))' \
+    "$TEST_ROOT/toolkit/sessions/validation-op/validation-plans.ndjson"
+  jq -e --arg plan_id "$plan_id" 'select(.id == $plan_id and .status == "approved")' \
+    "$TEST_ROOT/toolkit/sessions/validation-op/validation-plans.ndjson"
+  jq -e --arg plan_id "$plan_id" 'select(.id == $plan_id and .status == "executed" and .result_status == "success")' \
+    "$TEST_ROOT/toolkit/sessions/validation-op/validation-plans.ndjson"
+  jq -e --arg plan_id "$plan_id" 'select(.event == "validation.planned" and (.detail | contains($plan_id)))' \
+    "$TEST_ROOT/toolkit/sessions/validation-op/ledger.ndjson"
+  jq -e --arg plan_id "$plan_id" 'select(.event == "validation.approved" and (.detail | contains($plan_id)))' \
+    "$TEST_ROOT/toolkit/sessions/validation-op/ledger.ndjson"
+  jq -e --arg plan_id "$plan_id" 'select(.event == "validation.executed" and (.detail | contains($plan_id)))' \
+    "$TEST_ROOT/toolkit/sessions/validation-op/ledger.ndjson"
 }
 
 @test "atlas evidence vault copies, hashes, indexes, and enforces scope" {

@@ -125,7 +125,9 @@ The near-term roadmap is:
 8. Add report brief generation from operation state. `atlas op brief`,
    `atlas op story`, and matching `atlas target story` views now surface
    operation-owned evidence and findings.
-9. Add validation planning and approval flow.
+9. Add validation planning and approval flow. The first validation plan ledger
+   is implemented with plan/list/show/approve/run commands, finding/evidence
+   links, profile lane restrictions, and report rendering.
 10. Add AI Advisor last, after scope, evidence, and reports exist.
 
 ## First Serious Version

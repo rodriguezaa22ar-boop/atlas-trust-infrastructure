@@ -27,6 +27,9 @@ atlas evidence show ev_...
 atlas finding add "SSH reachable" --level observed --severity low --evidence ev_...
 atlas finding list
 atlas finding show finding_...
+atlas validation plan validate --finding finding_... --evidence ev_...
+atlas validation approve vp_... "approved bounded validation"
+atlas validation run vp_...
 atlas target list
 atlas target story 10.0.0.8
 atlas target summary 10.0.0.8
@@ -60,8 +63,9 @@ atlas op start [--profile profile] <name> <target> [notes...]
 atlas op show
 atlas op recon <workflow>
 atlas op action candidates
-atlas op action plan <lane>
-atlas op action run <lane> [session-name]
+atlas validation plan <lane>
+atlas validation approve <id> <reason...>
+atlas validation run <id> [session-name]
 atlas op story
 atlas op report
 atlas op close
@@ -118,11 +122,14 @@ Direct recon execution should use the operation-aware form:
 atlas op recon <workflow>
 ```
 
-Tier 3 `safe-validation` requires an explicit approval record before execution:
+Tier 3 `safe-validation` requires an explicit approval record before execution.
+The preferred path is to create a validation plan, approve that plan, then run
+it:
 
 ```bash
-atlas approval grant safe-validation "approved bounded validation within scope"
-atlas op action run posture
+atlas validation plan validate --reason "confirm observed service evidence"
+atlas validation approve vp_20260425T200000Z "approved bounded validation within scope"
+atlas validation run vp_20260425T200000Z
 ```
 
 `atlas approval list` shows approval records for the active operation.
@@ -179,6 +186,28 @@ Finding levels are deliberately explicit:
 Operation reports now render recorded findings instead of only leaving a
 placeholder.
 
+## Validation Plans
+
+Validation plans are operation-owned records that sit between a finding and a
+Vector lane run. `atlas validation plan <lane>` stores the Vector lane plan as
+an artifact, links optional findings/evidence, writes a `validation.planned`
+ledger event, and leaves the plan in `planned` status.
+
+```bash
+atlas validation plan validate \
+  --finding finding_20260425T201000Z \
+  --evidence ev_20260425T200000Z \
+  --reason "confirm observed SSH service"
+atlas validation approve vp_20260425T202000Z "approved safe validation"
+atlas validation run vp_20260425T202000Z
+```
+
+The run path requires both an approved validation plan and the normal
+ScopeGuard Tier 3 approval check. Execution still delegates to `vector`; Atlas
+records the validation status, linked action session, ledger events, and report
+entries. Profiles can restrict validation lanes with `VALIDATION_LANES`, as the
+`htb-starting-point` profile does.
+
 ## Operation Scope
 
 Atlas operations are bounded by default. `atlas op show [name]` prints the
@@ -211,6 +240,7 @@ Explicitly out of scope:
 - reconstructed Atlas command history from the operation log
 - tracked recon and action artifacts
 - recorded findings when present
+- validation plans and run status when present
 - placeholders for operator notes
 
 ## Demos
