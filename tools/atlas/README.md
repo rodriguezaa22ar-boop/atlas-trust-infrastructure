@@ -31,6 +31,7 @@ atlas validation plan validate --finding finding_... --evidence ev_...
 atlas validation approve vp_... "approved bounded validation"
 atlas validation run vp_...
 atlas target list
+atlas target brief 10.0.0.8
 atlas target story 10.0.0.8
 atlas target summary 10.0.0.8
 atlas target next 10.0.0.8
@@ -57,6 +58,7 @@ Start with the target, then let shared intel choose the next action:
 
 ```bash
 atlas target list
+atlas target brief <target>
 atlas target story <target>
 atlas profile show htb-starting-point
 atlas op start [--profile profile] <name> <target> [notes...]
@@ -71,15 +73,20 @@ atlas op report
 atlas op close
 ```
 
-`atlas target story <target>` is the fastest cross-tool view. It combines the
-target record, current service and web surface, Vector outcomes, posture
-findings, recent shared evidence, active-operation evidence/findings when the
-target matches, and ranked next actions.
+`atlas target brief <target>` gives the fast operator readout: surface counts,
+active-operation evidence/findings/validation counts when available, latest
+outcome/finding/validation status, and the next practical step.
+
+`atlas target story <target>` is the full cross-tool view. It starts with the
+same operator brief, then expands into the target record, current service and
+web surface, Vector outcomes, posture findings, recent shared evidence,
+active-operation evidence/findings/validation plans when the target matches,
+and ranked next actions.
 
 `atlas op brief` and `atlas op story` include operation-owned evidence and
-finding records alongside recon/action tracking. This keeps operator views tied
-to the audit state instead of forcing a separate `evidence list` or
-`finding list` lookup.
+finding records alongside validation plans and recon/action tracking. This
+keeps operator views tied to the audit state instead of forcing separate
+`evidence list`, `finding list`, or `validation list` lookups.
 
 `atlas target next <target>` and `atlas op next` keep the operator focused on
 the ranked lanes produced from shared intel.
@@ -236,6 +243,7 @@ Explicitly out of scope:
 `$LAB_REPORTS_DIR`. The report includes:
 
 - date, operation id, target, address, status, and notes
+- operator brief with surface, evidence, finding, validation, and next-step state
 - scope, allowed actions, and out-of-scope actions
 - reconstructed Atlas command history from the operation log
 - tracked recon and action artifacts

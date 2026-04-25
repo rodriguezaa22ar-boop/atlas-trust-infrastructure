@@ -32,6 +32,9 @@ TOOL_NAME="atlas"
 # shellcheck source=../lib/validation.sh
 . "$TOOL_DIR/lib/validation.sh"
 # shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/brief.sh
+. "$TOOL_DIR/lib/brief.sh"
+# shellcheck source-path=SCRIPTDIR
 # shellcheck source=../lib/doctor.sh
 . "$TOOL_DIR/lib/doctor.sh"
 
@@ -93,6 +96,7 @@ targets:
   atlas target add <name> <address> [notes...]
   atlas target list
   atlas target show <name>
+  atlas target brief <target>
   atlas target story <target>
   atlas target summary <target>
   atlas target next <target>
@@ -637,6 +641,24 @@ cmd_target_summary() {
 	run_vector candidates "$target"
 }
 
+cmd_target_brief() {
+	need_args 1 "$#" "target brief <target>"
+	local target_input="$1"
+	local target
+
+	resolve_target_input "$target_input"
+	target="$ATLAS_TARGET_RESOLVED"
+
+	ui_heading "Operator Brief"
+	ui_rule
+	ui_kv "Target" "$target"
+	if [ "$ATLAS_TARGET_ADDRESS" != "$target" ]; then
+		ui_kv "Address" "$ATLAS_TARGET_ADDRESS"
+	fi
+	ui_rule
+	atlas_brief_print_target "$target"
+}
+
 print_tool_output_or_note() {
 	local empty_note="$1"
 	shift
@@ -809,6 +831,10 @@ cmd_target_story() {
 		ui_kv "Address" "$ATLAS_TARGET_ADDRESS"
 	fi
 	ui_kv "Shared Intel" "$LAB_INTEL_DIR"
+	ui_rule
+
+	ui_subheading "Operator Brief"
+	atlas_brief_print_target "$target"
 	ui_rule
 
 	ui_subheading "Target Record"
@@ -1205,6 +1231,8 @@ write_operation_report() {
 		if [ -n "$ATLAS_OP_NOTES" ]; then
 			printf 'Notes: %s\n' "$ATLAS_OP_NOTES"
 		fi
+		printf '\n## Operator Brief\n\n'
+		atlas_brief_report_markdown "$ATLAS_OP_TARGET"
 		printf '\n## Scope\n\n'
 		printf '%s\n\n' "$(atlas_scope_text)"
 		printf '## Allowed Actions\n\n'
@@ -1387,6 +1415,9 @@ cmd_op_brief() {
 	ui_rule
 	print_operation_summary
 	ui_rule
+	ui_subheading "Operator Brief"
+	atlas_brief_print_operation "$ATLAS_OP_TARGET"
+	ui_rule
 	print_tool_output_or_note "no surface summary available; run atlas op recon <workflow> first" run_vector target summary "$ATLAS_OP_TARGET"
 	printf '\n'
 	ui_subheading "Tracked Recon Runs"
@@ -1417,6 +1448,9 @@ cmd_op_story() {
 	ui_heading "Operation Story"
 	ui_rule
 	print_operation_summary
+	ui_rule
+	ui_subheading "Operator Brief"
+	atlas_brief_print_operation "$ATLAS_OP_TARGET"
 	ui_rule
 	ui_subheading "Tracked Recon Runs"
 	print_operation_entries "$ATLAS_OP_DIR/recon-runs" "no recon runs tracked yet"
@@ -1845,6 +1879,10 @@ target)
 	show)
 		shift
 		run_labctl target show "$@"
+		;;
+	brief)
+		shift
+		cmd_target_brief "$@"
 		;;
 	story)
 		shift

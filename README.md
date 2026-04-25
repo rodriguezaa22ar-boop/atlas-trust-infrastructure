@@ -199,6 +199,8 @@ That gives the toolkit a full operator loop:
 
 Atlas now also exposes the operator-level story and reporting layer:
 
+- `atlas target brief <target>`: concise surface, operation-state, validation,
+  and next-step readout
 - `atlas target story <target>`: target record, surface, outcomes, findings,
   recent evidence, and ranked next actions
 - `atlas op show [name]`: operation scope, allowed actions, out-of-scope

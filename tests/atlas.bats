@@ -39,6 +39,7 @@ teardown() {
   [[ "$output" == *"atlas op show [name]"* ]]
   [[ "$output" == *"atlas op story [name]"* ]]
   [[ "$output" == *"atlas op report [name] [report-name]"* ]]
+  [[ "$output" == *"atlas target brief <target>"* ]]
 }
 
 @test "atlas profiles list, show, and snapshot operation scope" {
@@ -546,8 +547,12 @@ EOF
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op brief
   [ "$status" -eq 0 ]
   [[ "$output" == *"Operation Brief"* ]]
+  [[ "$output" == *"Operator Brief"* ]]
   [[ "$output" == *"Evidence: 1"* ]]
   [[ "$output" == *"Findings: 2"* ]]
+  [[ "$output" == *"Operation State: evidence=1, findings=2"* ]]
+  [[ "$output" == *"Latest Finding:"* ]]
+  [[ "$output" == *"low/validated/validated SSH exposure validated"* ]]
   [[ "$output" == *"Operation Evidence"* ]]
   [[ "$output" == *"$evidence_id"* ]]
   [[ "$output" == *"Operation Findings"* ]]
@@ -562,6 +567,7 @@ EOF
 
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" target story demo-node
   [ "$status" -eq 0 ]
+  [[ "$output" == *"Operator Brief"* ]]
   [[ "$output" == *"Active Operation Evidence"* ]]
   [[ "$output" == *"$evidence_id"* ]]
   [[ "$output" == *"Active Operation Findings"* ]]
@@ -569,6 +575,7 @@ EOF
 
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" target story 10.10.10.10
   [ "$status" -eq 0 ]
+  [[ "$output" == *"Operator Brief"* ]]
   [[ "$output" == *"Active Operation Evidence"* ]]
   [[ "$output" == *"$evidence_id"* ]]
   [[ "$output" == *"Active Operation Findings"* ]]
@@ -596,6 +603,8 @@ EOF
   [ "$status" -eq 0 ]
   report_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "report" { print $2; exit }')"
   [ -f "$report_path" ]
+  grep -q '## Operator Brief' "$report_path"
+  grep -q 'Latest finding:' "$report_path"
   grep -q 'SSH management reachable' "$report_path"
   grep -q "$evidence_id" "$report_path"
 }
@@ -637,6 +646,9 @@ EOF
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"Target Story"* ]]
+  [[ "$output" == *"Operator Brief"* ]]
+  [[ "$output" == *"Surface: host=up, services=1, web=1"* ]]
+  [[ "$output" == *"Operation State: no active operation for this target"* ]]
   [[ "$output" == *"Target Record"* ]]
   [[ "$output" == *"Current Surface"* ]]
   [[ "$output" == *"Web Surface"* ]]
@@ -652,4 +664,11 @@ EOF
       awk '/Recent Evidence/{capture=1; next}/Next Actions/{capture=0}capture'
   )"
   [ "$(printf '%s\n' "$recent" | grep -c 'web_surface.*https://demo-node')" -eq 1 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" target brief demo-node
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Operator Brief"* ]]
+  [[ "$output" == *"Surface: host=up, services=1, web=1"* ]]
+  [[ "$output" == *"Latest Outcome: posture success 1 HTTP posture finding recorded"* ]]
+  [[ "$output" == *"Next Step: Start or resume an Atlas operation before recording evidence or validation."* ]]
 }
