@@ -1,0 +1,309 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/common.sh
+. "$SCRIPT_DIR/../lib/common.sh"
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/intel.sh
+. "$SCRIPT_DIR/../lib/intel.sh"
+
+load_config
+ensure_layout
+intel_ensure_store
+intel_require_jq
+
+usage() {
+	cat <<'EOF'
+usage:
+  intelctl summary
+  intelctl observations [target] [type]
+  intelctl entities [entity-type] [target]
+  intelctl outcomes [target]
+  intelctl relationships [target]
+EOF
+}
+
+print_or_note() {
+	local output="$1"
+	local empty_note="$2"
+
+	if [ -z "$output" ]; then
+		ui_note "$empty_note"
+		return 0
+	fi
+
+	printf '%s\n' "$output"
+}
+
+cmd_summary() {
+	local obs_count
+	local entity_count
+	local outcome_count
+	local relationship_count
+	local output
+
+	obs_count="$(intel_record_count observations)"
+	entity_count="$(intel_record_count entities)"
+	outcome_count="$(intel_record_count outcomes)"
+	relationship_count="$(intel_record_count relationships)"
+
+	ui_heading "Shared Intel"
+	ui_rule
+	ui_kv "Store" "$LAB_INTEL_DIR"
+	ui_kv "Observations" "$obs_count"
+	ui_kv "Entities" "$entity_count"
+	ui_kv "Outcomes" "$outcome_count"
+	ui_kv "Relationships" "$relationship_count"
+	ui_rule
+
+	ui_subheading "Observation Types"
+	output="$(
+		if [ -s "$LAB_INTEL_OBSERVATIONS_FILE" ]; then
+			jq -sr '
+        group_by(.observation_type)
+        | sort_by(.[0].observation_type)
+        | .[]
+        | "\(. [0].observation_type)\t\(length)"
+      ' "$LAB_INTEL_OBSERVATIONS_FILE" |
+				awk -F'\t' '{ printf "%-22s %s\n", $1, $2 }'
+		fi
+	)"
+	print_or_note "$output" "no observations recorded yet"
+	ui_rule
+
+	ui_subheading "Recent Outcomes"
+	output="$(
+		if [ -s "$LAB_INTEL_OUTCOMES_FILE" ]; then
+			jq -r '
+        [
+          (.recorded_at // "?"),
+          (.source_tool // "?"),
+          (.source_name // "?"),
+          (.target // "?"),
+          (.status // "?"),
+          (
+            if .source_tool == "vector" then
+              "loot=" + ((.loot_count // 0) | tostring) +
+              " observations=" + ((.observation_count // 0) | tostring)
+            else
+              "services=" + ((.service_count // 0) | tostring) +
+              " web=" + ((.web_surface_count // 0) | tostring) +
+              " lateral=" + ((.lateral_surface_count // 0) | tostring)
+            end
+          )
+        ]
+        | @tsv
+      ' "$LAB_INTEL_OUTCOMES_FILE" |
+				tail -n 8 |
+				awk -F'\t' '{ printf "%-20s %-10s %-18s %-16s %-8s %s\n", $1, $2, $3, $4, $5, $6 }'
+		fi
+	)"
+	print_or_note "$output" "no outcomes recorded yet"
+}
+
+cmd_observations() {
+	local target="${1:-}"
+	local observation_type="${2:-}"
+	local output
+
+	ui_heading "Observations"
+	ui_rule
+	ui_kv "Store" "$LAB_INTEL_OBSERVATIONS_FILE"
+	ui_kv "Target Filter" "${target:-all}"
+	ui_kv "Type Filter" "${observation_type:-all}"
+	ui_rule
+
+	output="$(
+		jq -r \
+			--arg target "$target" \
+			--arg observation_type "$observation_type" '
+        def clean: tostring | gsub("[\r\n\t]+"; " ") | gsub("^ +| +$"; "");
+        def service_detail:
+          ((.value.portproto // "?") + " " + (.value.service // "?") +
+          (if (.value.detail // "") != "" then " " + (.value.detail | clean) else "" end));
+        select(($target == "" or .target == $target) and ($observation_type == "" or .observation_type == $observation_type))
+        | [
+            (.observed_at // "?"),
+            (.target // "?"),
+            (.observation_type // "?"),
+            (.confidence // "?"),
+            (.source_tool // "?"),
+            (
+              if .observation_type == "service_open" then
+                service_detail
+              elif .observation_type == "web_surface" then
+                (.value.endpoint // (.value.portproto // "?"))
+              elif .observation_type == "web_probe" then
+                (.value.endpoint // "?") + " status=" + (.value.status_code // "?") +
+                (if (.value.server // "") != "" then " server=" + (.value.server | clean) else "" end) +
+                (if (.value.title // "") != "" then " title=" + (.value.title | clean) else "" end)
+              elif .observation_type == "http_posture" then
+                (.value.url // "?") + " status=" + (.value.status_code // "?") +
+                (if (.value.location // "") != "" then " location=" + (.value.location | clean) else "" end)
+              elif .observation_type == "http_posture_finding" then
+                (.value.severity // "?") + " " + (.value.label // "finding") + " " + (.value.url // "?") +
+                (if (.value.detail // "") != "" then " " + (.value.detail | clean) else "" end)
+              elif .observation_type == "lateral_surface" then
+                (.value.label // "surface") + " " + service_detail
+              elif .observation_type == "host_state" then
+                (.value.state // "unknown")
+              elif .observation_type == "credential_hint" or .observation_type == "capture_anomaly" then
+                (.value.label // "signal") + (if (.value.evidence // "") != "" then " " + (.value.evidence | clean) else "" end)
+              elif .observation_type == "service_validation" or .observation_type == "credential_surface" then
+                service_detail
+              elif .observation_type == "module_candidate" then
+                (.value.portproto // "?") + " " + (.value.module_name // "?") + " [" + (.value.module_source // "?") + "] " +
+                (.value.rationale // "")
+              else
+                (.source_name // "?")
+              end
+            )
+          ]
+        | @tsv
+      ' "$LAB_INTEL_OBSERVATIONS_FILE" |
+			awk -F'\t' '{ printf "%-20s %-16s %-18s %-8s %-10s %s\n", $1, $2, $3, $4, $5, $6 }'
+	)"
+
+	print_or_note "$output" "no matching observations found"
+}
+
+cmd_entities() {
+	local entity_type="${1:-}"
+	local target="${2:-}"
+	local output
+
+	ui_heading "Entities"
+	ui_rule
+	ui_kv "Store" "$LAB_INTEL_ENTITIES_FILE"
+	ui_kv "Type Filter" "${entity_type:-all}"
+	ui_kv "Target Filter" "${target:-all}"
+	ui_rule
+
+	output="$(
+		jq -r \
+			--arg entity_type "$entity_type" \
+			--arg target "$target" '
+        select(($entity_type == "" or .entity_type == $entity_type) and ($target == "" or .target == $target))
+        | [
+            (.observed_at // "?"),
+            (.entity_type // "?"),
+            (.entity_id // "?"),
+            (
+              if .entity_type == "service" then
+                (.attributes.portproto // "?") + " " + (.attributes.service // "?") +
+                (if (.attributes.detail // "") != "" then " " + .attributes.detail else "" end)
+              else
+                (.attributes.address // (.target // "?"))
+              end
+            )
+          ]
+        | @tsv
+      ' "$LAB_INTEL_ENTITIES_FILE" |
+			awk -F'\t' '{ printf "%-20s %-10s %-36s %s\n", $1, $2, $3, $4 }'
+	)"
+
+	print_or_note "$output" "no matching entities found"
+}
+
+cmd_outcomes() {
+	local target="${1:-}"
+	local output
+
+	ui_heading "Outcomes"
+	ui_rule
+	ui_kv "Store" "$LAB_INTEL_OUTCOMES_FILE"
+	ui_kv "Target Filter" "${target:-all}"
+	ui_rule
+
+	output="$(
+		jq -r \
+			--arg target "$target" '
+        select($target == "" or .target == $target)
+        | [
+            (.recorded_at // "?"),
+            (.source_tool // "?"),
+            (.source_name // "?"),
+            (.target // "?"),
+            (.status // "?"),
+            (
+              if .source_tool == "vector" then
+                "backend=" + (.backend // "?") +
+                " loot=" + ((.loot_count // 0) | tostring) +
+                " observations=" + ((.observation_count // 0) | tostring) +
+                (if (.summary // "") != "" then " " + .summary else "" end)
+              else
+                "services=" + ((.service_count // 0) | tostring) +
+                " web=" + ((.web_surface_count // 0) | tostring) +
+                " lateral=" + ((.lateral_surface_count // 0) | tostring) +
+                (if (.host_state // "") != "" then " host=" + .host_state else "" end)
+              end
+            )
+          ]
+        | @tsv
+      ' "$LAB_INTEL_OUTCOMES_FILE" |
+			awk -F'\t' '{ printf "%-20s %-10s %-18s %-16s %-8s %s\n", $1, $2, $3, $4, $5, $6 }'
+	)"
+
+	print_or_note "$output" "no matching outcomes found"
+}
+
+cmd_relationships() {
+	local target="${1:-}"
+	local output
+
+	ui_heading "Relationships"
+	ui_rule
+	ui_kv "Store" "$LAB_INTEL_RELATIONSHIPS_FILE"
+	ui_kv "Target Filter" "${target:-all}"
+	ui_rule
+
+	output="$(
+		jq -r \
+			--arg target "$target" '
+        select($target == "" or .target == $target)
+        | [
+            (.observed_at // "?"),
+            (.relationship_type // "?"),
+            (.from_entity // "?"),
+            (.to_entity // "?")
+          ]
+        | @tsv
+      ' "$LAB_INTEL_RELATIONSHIPS_FILE" |
+			awk -F'\t' '{ printf "%-20s %-22s %-30s %s\n", $1, $2, $3, $4 }'
+	)"
+
+	print_or_note "$output" "no matching relationships found"
+}
+
+case "${1:-}" in
+summary)
+	shift
+	cmd_summary "$@"
+	;;
+observations)
+	shift
+	cmd_observations "$@"
+	;;
+entities)
+	shift
+	cmd_entities "$@"
+	;;
+outcomes)
+	shift
+	cmd_outcomes "$@"
+	;;
+relationships)
+	shift
+	cmd_relationships "$@"
+	;;
+help | -h | --help | "")
+	usage
+	;;
+*)
+	usage
+	exit 1
+	;;
+esac

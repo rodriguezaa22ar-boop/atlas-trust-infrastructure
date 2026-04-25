@@ -1,0 +1,536 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+WORKDIR="$(mktemp -d)"
+FIXTURE="$WORKDIR/toolkit"
+FAKE_BIN="$WORKDIR/fake-bin"
+RUNS_DIR="$WORKDIR/runs"
+TOOL=""
+ATLAS_TOOL=""
+
+cleanup() {
+  rm -rf "$WORKDIR"
+}
+
+trap cleanup EXIT
+
+note() {
+  printf 'stress: %s\n' "$*"
+}
+
+fail() {
+  printf 'stress-fail: %s\n' "$*" >&2
+  exit 1
+}
+
+capture_field() {
+  local key="$1"
+  awk -F': ' -v wanted="$key" '$1 == wanted { print $2; exit }'
+}
+
+copy_toolkit() {
+  mkdir -p "$FIXTURE" "$FAKE_BIN" "$RUNS_DIR"
+  rsync -a \
+    --exclude '.git/' \
+    --exclude '.direnv/' \
+    --exclude 'state/' \
+    --exclude 'logs/' \
+    --exclude 'reports/' \
+    --exclude 'sessions/' \
+    --exclude 'releases/' \
+    "$ROOT/" "$FIXTURE/"
+}
+
+install_fake_nmap() {
+  cat > "$FAKE_BIN/fake-nmap" <<'EOF'
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+args=("$@")
+joined="$*"
+target="${args[$(( ${#args[@]} - 1 ))]:-unknown}"
+target_tail="${target##*.}"
+
+emit_common() {
+  printf '%s\n' "22/tcp open  ssh      OpenSSH 9.7"
+}
+
+emit_web() {
+  printf '%s\n' "80/tcp open  http     nginx 1.25.5"
+  printf '%s\n' "443/tcp open  ssl/http Apache httpd"
+}
+
+emit_admin() {
+  printf '%s\n' "88/tcp open  kerberos-sec"
+  printf '%s\n' "389/tcp open  ldap"
+  printf '%s\n' "445/tcp open  microsoft-ds"
+  printf '%s\n' "5985/tcp open  http     WinRM"
+}
+
+emit_udp() {
+  printf '%s\n' "53/udp open  domain"
+  printf '%s\n' "161/udp open  snmp"
+}
+
+emit_deep() {
+  printf '%s\n' "3389/tcp open  ms-wbt-server"
+  printf '%s\n' "5432/tcp open  postgresql PostgreSQL"
+  printf '%s\n' "8443/tcp open  ssl/http Jetty"
+}
+
+printf 'Nmap scan report for %s\n' "$target"
+
+if [[ "$joined" == *"-sn"* ]]; then
+  printf '%s\n' "Host is up"
+  exit 0
+fi
+
+emit_common
+
+if [[ "$joined" == *"-F"* ]]; then
+  printf '%s\n' "80/tcp open  http     nginx 1.25.5"
+fi
+
+if [[ "$joined" == *"-sV"* ]]; then
+  emit_web
+fi
+
+if [[ "$joined" == *"-p 80,443,8080,8443"* ]] || [[ "$joined" == *"T:80"* ]]; then
+  emit_web
+  printf '%s\n' "8080/tcp open  http     Jetty"
+fi
+
+if [[ "$joined" == *"-p 22,53,88,135,139,389,445,464,593,636,1433,1521,2049,2375,2376,3306,3389,5432,5985,5986,6379,8000,8080,8443,9000"* ]] || [[ "$joined" == *"T:445"* ]]; then
+  emit_admin
+  printf '%s\n' "3306/tcp open  mysql    MySQL"
+fi
+
+if [[ "$joined" == *"-p-"* ]]; then
+  emit_web
+  emit_admin
+  emit_deep
+fi
+
+if [[ "$joined" == *"-sU"* ]]; then
+  emit_udp
+fi
+
+case "$target_tail" in
+  21|31|41)
+    printf '%s\n' "8080/tcp open  http     admin-panel"
+    ;;
+  22|32|42)
+    printf '%s\n' "445/tcp open  microsoft-ds"
+    ;;
+  23|33|43)
+    printf '%s\n' "8443/tcp open  ssl/http service-gateway"
+    ;;
+esac
+EOF
+  chmod +x "$FAKE_BIN/fake-nmap"
+}
+
+install_fake_tcpdump() {
+  cat > "$FAKE_BIN/fake-tcpdump" <<'EOF'
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+mode="capture"
+file=""
+args=("$@")
+
+for ((i = 0; i < ${#args[@]}; i++)); do
+  if [ "${args[$i]}" = "-w" ] && [ $((i + 1)) -lt ${#args[@]} ]; then
+    file="${args[$((i + 1))]}"
+  fi
+  if [ "${args[$i]}" = "-nnr" ] && [ $((i + 1)) -lt ${#args[@]} ]; then
+    mode="read"
+    file="${args[$((i + 1))]}"
+  fi
+done
+
+if [ "$mode" = "read" ]; then
+  [ -f "$file" ] || exit 0
+  cat "$file"
+  exit 0
+fi
+
+[ -n "$file" ] || exit 0
+printf 'fake capture for %s\n' "$*" > "$file"
+trap 'exit 0' TERM INT
+while :; do
+  sleep 1
+done
+EOF
+  chmod +x "$FAKE_BIN/fake-tcpdump"
+}
+
+install_fake_tshark() {
+  cat > "$FAKE_BIN/fake-tshark" <<'EOF'
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+joined=" $* "
+file=""
+args=("$@")
+
+for ((i = 0; i < ${#args[@]}; i++)); do
+  if [ "${args[$i]}" = "-r" ] && [ $((i + 1)) -lt ${#args[@]} ]; then
+    file="${args[$((i + 1))]}"
+  fi
+done
+
+case "$joined" in
+  *" -z io,phs "*)
+    printf 'Protocol Hierarchy Statistics\n'
+    printf 'eth frames:12 bytes:1024\n'
+    printf '  ip frames:12 bytes:980\n'
+    printf '    tcp frames:9 bytes:760\n'
+    printf '      http frames:4 bytes:320\n'
+    ;;
+  *" -z conv,tcp "*)
+    printf 'TCP Conversations\n'
+    printf '10.20.0.21:52344 <-> 10.20.0.1:80  12 frames\n'
+    ;;
+  *" -z conv,udp "*)
+    printf 'UDP Conversations\n'
+    printf '10.20.0.21:5353 <-> 224.0.0.251:5353  2 frames\n'
+    ;;
+  *" -V "*)
+    printf 'Authorization: Basic dXNlcjpwYXNz\n'
+    printf 'Cookie: session=abc123\n'
+    ;;
+  *"tcp.flags.reset==1"*|*"tcp.analysis.retransmission"*|*"icmp.type==3"*)
+    printf '12 0.150000 10.20.0.21 -> 10.20.0.1 TCP [RST]\n'
+    printf '13 0.190000 10.20.0.21 -> 10.20.0.1 TCP Retransmission\n'
+    ;;
+  *)
+    printf 'fake-tshark review: %s\n' "${file:-unknown}"
+    printf '1 0.000000 10.20.0.21 -> 10.20.0.1 HTTP GET /login\n'
+    ;;
+esac
+EOF
+  chmod +x "$FAKE_BIN/fake-tshark"
+}
+
+install_fake_curl() {
+  cat > "$FAKE_BIN/curl" <<'EOF'
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+headers=""
+body=""
+url=""
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    -skL)
+      shift
+      ;;
+    --max-time)
+      shift 2
+      ;;
+    -D)
+      headers="$2"
+      shift 2
+      ;;
+    -o)
+      body="$2"
+      shift 2
+      ;;
+    *)
+      url="$1"
+      shift
+      ;;
+  esac
+done
+
+printf 'HTTP/1.1 200 OK\r\nServer: fake-nginx\r\nContent-Type: text/html\r\n\r\n' > "$headers"
+printf '<html><head><title>Admin Portal</title></head><body>%s</body></html>\n' "$url" > "$body"
+EOF
+  chmod +x "$FAKE_BIN/curl"
+}
+
+install_fake_msfconsole() {
+  cat > "$FAKE_BIN/msfconsole" <<'EOF'
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+command_string=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    -q)
+      shift
+      ;;
+    -x)
+      command_string="$2"
+      shift 2
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+
+printf 'Matching Modules\n'
+printf '================\n\n'
+printf '   #  Name                                  Disclosure Date  Rank    Check  Description\n'
+printf '   -  ----                                  ---------------  ----    -----  -----------\n'
+
+case "$command_string" in
+  *"search ssh"*|*"search openssh"*)
+    printf '   0  auxiliary/scanner/ssh/ssh_version                      normal  No     SSH Version Scanner\n'
+    printf '   1  auxiliary/scanner/ssh/ssh_login                        normal  No     SSH Login Check Scanner\n'
+    ;;
+  *"search http"*|*"search nginx"*)
+    printf '   0  auxiliary/scanner/http/http_version                    normal  No     HTTP Version Detection\n'
+    printf '   1  auxiliary/scanner/http/title                           normal  No     HTTP Title Scanner\n'
+    printf '   2  auxiliary/scanner/http/robots_txt                      normal  No     HTTP robots.txt Scanner\n'
+    ;;
+  *"search smb"*|*"search samba"*)
+    printf '   0  auxiliary/scanner/smb/smb_version                      normal  No     SMB Version Detection\n'
+    printf '   1  auxiliary/scanner/smb/smb_login                        normal  No     SMB Login Check Scanner\n'
+    ;;
+esac
+EOF
+  chmod +x "$FAKE_BIN/msfconsole"
+}
+
+prepare_fixture() {
+  copy_toolkit
+  install_fake_nmap
+  install_fake_tcpdump
+  install_fake_tshark
+  install_fake_curl
+  install_fake_msfconsole
+
+  chmod +x \
+    "$FIXTURE/tools/atlas/bin/atlas" \
+    "$FIXTURE/tools/vector/bin/vector" \
+    "$FIXTURE/bin/intelctl" \
+    "$FIXTURE/bin/labctl" \
+    "$FIXTURE/bin/dev-lint" \
+    "$FIXTURE/bin/dev-fmt" \
+    "$FIXTURE/bin/dev-test" \
+    "$FIXTURE/bin/dev-stress" \
+    "$FIXTURE/bin/dev-qa" \
+    "$FIXTURE/lib/common.sh" \
+    "$FIXTURE/lib/intel.sh" \
+    "$FIXTURE/tools/wiremap/bin/wiremap"
+
+  TOOL="$FIXTURE/tools/wiremap/bin/wiremap"
+  ATLAS_TOOL="$FIXTURE/tools/atlas/bin/atlas"
+
+  unset LAB_CONFIG
+  export LAB_ROOT="$FIXTURE"
+  export LAB_WIREMAP_RUNS_DIR="$RUNS_DIR"
+  export LAB_WIREMAP_UPSTREAM_BIN="fake-nmap"
+  export LAB_CAPTURE_BIN="fake-tcpdump"
+  export LAB_DECODE_BIN="fake-tshark"
+  export LAB_VECTOR_NMAP_BIN="fake-nmap"
+  export LAB_VECTOR_CURL_BIN="curl"
+  export LAB_VECTOR_MSFCONSOLE_BIN="msfconsole"
+  export PATH="$FAKE_BIN:$PATH"
+}
+
+exercise_workflows() {
+  local workflows=(perimeter-sweep web-stack lateral-check udp-scout full-exposure)
+  local targets=(10.20.0.21 10.20.0.22 10.20.0.23 10.20.0.31 10.20.0.32 10.20.0.33 10.20.0.41 10.20.0.42 10.20.0.43 10.20.0.51)
+  local workflow_count=0
+  local captured_count=0
+  local workflow
+  local target
+  local output
+  local run_dir
+  local index=0
+
+  for target in "${targets[@]}"; do
+    workflow="${workflows[$((index % ${#workflows[@]}))]}"
+    if [ $((index % 2)) -eq 0 ]; then
+      output="$("$TOOL" workflow run "$workflow" "$target" eth0)"
+      captured_count=$((captured_count + 1))
+    else
+      output="$("$TOOL" workflow run "$workflow" "$target")"
+    fi
+    run_dir="$(printf '%s\n' "$output" | capture_field "workflow_run_dir")"
+    [ -d "$run_dir" ] || fail "missing workflow run dir for $workflow $target"
+    workflow_count=$((workflow_count + 1))
+    index=$((index + 1))
+  done
+
+  printf '%s\t%s\n' "$workflow_count" "$captured_count"
+}
+
+build_large_run() {
+  local dir="$RUNS_DIR/massive-run"
+  local port
+
+  mkdir -p "$dir"
+  cat > "$dir/meta.env" <<'EOF'
+TARGET=172.16.50.10
+EOF
+
+  {
+    printf '%s\n' "22/tcp open  ssh      OpenSSH 9.7"
+    printf '%s\n' "80/tcp open  http     nginx 1.25.5"
+    printf '%s\n' "443/tcp open  ssl/http Apache httpd"
+    printf '%s\n' "445/tcp open  microsoft-ds"
+    printf '%s\n' "3389/tcp open  ms-wbt-server"
+    for port in $(seq 7000 7119); do
+      printf '%s/tcp open  http     synthetic-%s\n' "$port" "$port"
+    done
+  } > "$dir/scan.txt"
+
+  printf '%s\n' "$dir"
+}
+
+exercise_analysis() {
+  local large_run="$1"
+  local first_run
+  local last_run
+  local output
+  local review_target
+
+  first_run="$(find "$RUNS_DIR" -mindepth 1 -maxdepth 1 -type d ! -name 'massive-run' | sort | head -n 1)"
+  last_run="$(find "$RUNS_DIR" -mindepth 1 -maxdepth 1 -type d ! -name 'massive-run' | sort | tail -n 1)"
+  review_target="$(find "$RUNS_DIR" -mindepth 2 -maxdepth 2 -type f -name 'capture.pcap' | sort | head -n 1 | xargs -r dirname)"
+
+  output="$("$TOOL" analyze brief "$large_run")"
+  [[ "$output" == *"Operator Brief"* ]] || fail "brief output missing heading"
+  [[ "$output" == *"web-stack"* ]] || fail "brief output missing web recommendation"
+
+  output="$("$TOOL" analyze services "$large_run")"
+  [[ "$output" == *"Service Inventory"* ]] || fail "services output missing heading"
+
+  output="$("$TOOL" analyze web-focus "$large_run")"
+  [[ "$output" == *"Web Focus"* ]] || fail "web-focus output missing heading"
+
+  output="$("$TOOL" analyze lateral-trace "$large_run")"
+  [[ "$output" == *"Lateral Trace"* ]] || fail "lateral output missing heading"
+
+  output="$("$TOOL" analyze service-diff "$first_run" "$last_run")"
+  [[ "$output" == *"Service Diff"* ]] || fail "service-diff output missing heading"
+
+  [ -n "$review_target" ] || fail "no captured run found for review"
+  output="$("$TOOL" review "$review_target")"
+  [[ "$output" == *"Packet Review"* || "$output" == *"fake-tshark review:"* ]] || fail "review output missing packet review"
+}
+
+exercise_prune() {
+  local index
+  local output
+
+  for index in $(seq 1 25); do
+    mkdir -p "$RUNS_DIR/2026-01-01T00:00:${index}Z-stale-$index"
+  done
+
+  output="$("$TOOL" prune 8)"
+  [[ "$output" == *"pruned:"* ]] || fail "prune output missing summary"
+}
+
+exercise_atlas() {
+  local target="10.20.0.21"
+  local captured_run
+  local output
+  local operations=0
+
+  captured_run="$(find "$RUNS_DIR" -mindepth 2 -maxdepth 2 -type f -name 'capture.pcap' | sort | head -n 1 | xargs -r dirname)"
+  [ -n "$captured_run" ] || fail "no captured run found for atlas stress"
+
+  output="$("$ATLAS_TOOL" target summary "$target")"
+  [[ "$output" == *"Target Summary"* ]] || fail "atlas target summary missing summary"
+  [[ "$output" == *"Ranked Candidates"* ]] || fail "atlas target summary missing candidates"
+  operations=$((operations + 1))
+
+  output="$("$ATLAS_TOOL" recon workflow list)"
+  [[ "$output" == *"Named Workflows"* ]] || fail "atlas recon workflow list missing heading"
+  operations=$((operations + 1))
+
+  output="$("$ATLAS_TOOL" capture inspect "$captured_run")"
+  [[ "$output" == *"Capture Inspect"* ]] || fail "atlas capture inspect missing heading"
+  [[ "$output" == *"Protocol Hierarchy"* ]] || fail "atlas capture inspect missing protocol hierarchy"
+  operations=$((operations + 1))
+
+  output="$("$ATLAS_TOOL" capture creds "$captured_run")"
+  [[ "$output" == *"Credential Hints"* ]] || fail "atlas capture creds missing heading"
+  [[ "$output" == *"Authorization: Basic"* ]] || fail "atlas capture creds missing auth material"
+  operations=$((operations + 1))
+
+  output="$("$ATLAS_TOOL" capture anomalies "$captured_run")"
+  [[ "$output" == *"Capture Anomalies"* ]] || fail "atlas capture anomalies missing heading"
+  [[ "$output" == *"Retransmission"* ]] || fail "atlas capture anomalies missing retransmission signal"
+  operations=$((operations + 1))
+
+  output="$("$ATLAS_TOOL" action candidates "$target")"
+  [[ "$output" == *"Ranked Candidates"* ]] || fail "atlas action candidates missing heading"
+  operations=$((operations + 1))
+
+  output="$("$ATLAS_TOOL" action run validate "$target" "Atlas Stress Validate")"
+  [[ "$output" == *"Status: success"* ]] || fail "atlas validate run did not succeed"
+  operations=$((operations + 1))
+
+  output="$("$ATLAS_TOOL" action run web "$target" "Atlas Stress Web")"
+  [[ "$output" == *"Status: success"* ]] || fail "atlas web run did not succeed"
+  operations=$((operations + 1))
+
+  output="$("$ATLAS_TOOL" action run research "$target" "Atlas Stress Research")"
+  [[ "$output" == *"Status: success"* ]] || fail "atlas research run did not succeed"
+  [[ "$output" == *"metasploit-backed"* ]] || fail "atlas research run missing metasploit path"
+  operations=$((operations + 1))
+
+  output="$("$ATLAS_TOOL" session list)"
+  [[ "$output" == *"atlas-stress-validate"* ]] || fail "atlas session list missing validate session"
+  [[ "$output" == *"atlas-stress-web"* ]] || fail "atlas session list missing web session"
+  [[ "$output" == *"atlas-stress-research"* ]] || fail "atlas session list missing research session"
+  operations=$((operations + 1))
+
+  output="$("$ATLAS_TOOL" intel summary)"
+  [[ "$output" == *"Shared Intel"* ]] || fail "atlas intel summary missing heading"
+  [[ "$output" == *"credential_hint"* ]] || fail "atlas intel summary missing credential hints"
+  [[ "$output" == *"capture_anomaly"* ]] || fail "atlas intel summary missing capture anomalies"
+  operations=$((operations + 1))
+
+  printf '%s\n' "$operations"
+}
+
+main() {
+  local workflow_runs
+  local captured_runs
+  local large_run
+  local line
+  local atlas_operations
+
+  prepare_fixture
+
+  note "running synthetic workflow stress"
+  line="$(exercise_workflows)"
+  workflow_runs="${line%%$'\t'*}"
+  captured_runs="${line##*$'\t'}"
+
+  note "building large synthetic run"
+  large_run="$(build_large_run)"
+
+  note "running saved-run analysis stress"
+  exercise_analysis "$large_run"
+
+  note "running prune stress"
+  exercise_prune
+
+  note "running atlas front-door stress"
+  atlas_operations="$(exercise_atlas)"
+
+  note "workflow runs: $workflow_runs"
+  note "captured runs: $captured_runs"
+  note "atlas operations: $atlas_operations"
+  note "synthetic inventory size: 125"
+  printf 'stress: ok\n'
+}
+
+main "$@"

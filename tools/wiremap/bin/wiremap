@@ -1,0 +1,2300 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+TOOL_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+LAB_ROOT="$(cd -- "$TOOL_DIR/../.." && pwd)"
+TOOL_NAME="wiremap"
+UPSTREAM_COMMAND="${LAB_WIREMAP_UPSTREAM_BIN:-${LAB_NMAP_BIN:-nmap}}"
+CAPTURE_COMMAND="${LAB_CAPTURE_BIN:-tcpdump}"
+DECODE_COMMAND="${LAB_DECODE_BIN:-tshark}"
+
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../../../lib/common.sh
+. "$LAB_ROOT/lib/common.sh"
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../../../lib/intel.sh
+. "$LAB_ROOT/lib/intel.sh"
+
+load_config
+RUNS_DIR="${LAB_WIREMAP_RUNS_DIR:-${LAB_NMAP_RUNS_DIR:-$LAB_STATE_DIR/wiremap-runs}}"
+ensure_layout
+intel_ensure_store
+mkdir -p "$RUNS_DIR"
+
+usage() {
+	cat <<'USAGE'
+usage:
+  wiremap help
+  wiremap intel
+  wiremap menu
+  wiremap workflow list
+  wiremap workflow show <name>
+  wiremap workflow plan <name> <target> [interface]
+  wiremap workflow run <name> <target> [interface]
+  wiremap profile list
+  wiremap profile show <name>
+  wiremap plan <profile> <target> [interface]
+  wiremap run <profile> <target> [interface]
+  wiremap analyze brief <run-dir-or-scan-file>
+  wiremap analyze services <run-dir-or-scan-file>
+  wiremap analyze web-focus <run-dir-or-scan-file>
+  wiremap analyze lateral-trace <run-dir-or-scan-file>
+  wiremap analyze service-diff <baseline-run> <candidate-run>
+  wiremap capture inspect <run-dir-or-pcap>
+  wiremap capture streams <run-dir-or-pcap>
+  wiremap capture creds <run-dir-or-pcap>
+  wiremap capture anomalies <run-dir-or-pcap>
+  wiremap review <run-dir-or-pcap>
+  wiremap prune [keep]
+USAGE
+}
+
+profile_list() {
+	cat <<'EOF'
+discover|Discovery|Map live hosts before deeper work|-sn -n --reason|Use first when you need presence, host state, and quick response clues.|optional
+fast|Baseline|Quick TCP baseline for responsive targets|-Pn -n -T4 -F --reason|Use when you need a fast operating picture before deeper probes.|recommended
+service|Fingerprint|Identify likely services on common ports|-Pn -n -T4 -sT -sV --version-light --reason|Use after baseline reachability to understand what is actually listening.|recommended
+full-tcp|Deep TCP|Sweep all TCP ports with service probing|-Pn -n -T4 -sT -p- -sV --version-light --reason|Use when the target matters enough to justify time and heavier output.|recommended
+web|Web Focus|Concentrate on likely web-facing attack surface|-Pn -n -T4 -sT -sV -p 80,443,8080,8443 --reason|Use when the target is expected to expose HTTP or TLS services.|recommended
+admin|Internal|Focus on common admin and movement services|-Pn -n -T4 -sT -sV -p 22,53,88,135,139,389,445,464,593,636,1433,1521,2049,2375,2376,3306,3389,5432,5985,5986,6379,8000,8080,8443,9000 --reason|Use on internal targets where authentication, management, and movement paths matter.|recommended
+udp-top|UDP Sketch|Sample the highest-value UDP surface|-Pn -n -T3 -sU --top-ports 30 --reason|Use for an initial UDP picture without committing to a full slow sweep.|recommended
+EOF
+}
+
+workflow_list() {
+	cat <<'EOF'
+perimeter-sweep|Initial Recon|Stage from presence to common service picture|discover,fast,service|Start here for a mostly unknown host when you need a clean first map.|recommended
+web-stack|Application Recon|Bias toward HTTP/TLS surface with supporting context|fast,web,service|Use when the likely value is in web services and adjacent exposure.|recommended
+lateral-check|Internal Movement|Bias toward internal admin and movement surfaces|discover,admin,service|Use for internal hosts where movement paths matter more than public exposure.|recommended
+udp-scout|Protocol Recon|Bounded UDP-first survey with host context|discover,udp-top|Use when UDP matters but you want a disciplined first pass.|recommended
+full-exposure|Deep Recon|Escalate from presence to full TCP service mapping|discover,fast,full-tcp|Use when the target warrants deeper time, more packets, and richer output.|recommended
+EOF
+}
+
+load_profile() {
+	local name="$1"
+	local line
+
+	line="$(profile_list | awk -F'|' -v key="$name" '$1 == key { print; exit }')"
+	[ -n "$line" ] || fail "unknown profile: $name"
+
+	IFS='|' read -r PROFILE_NAME PROFILE_CATEGORY PROFILE_SUMMARY PROFILE_SCAN_ARGS PROFILE_GUIDANCE PROFILE_CAPTURE <<<"$line"
+}
+
+load_workflow() {
+	local name="$1"
+	local line
+
+	line="$(workflow_list | awk -F'|' -v key="$name" '$1 == key { print; exit }')"
+	[ -n "$line" ] || fail "unknown workflow: $name"
+
+	IFS='|' read -r WORKFLOW_NAME WORKFLOW_CATEGORY WORKFLOW_SUMMARY WORKFLOW_STEPS_RAW WORKFLOW_GUIDANCE WORKFLOW_CAPTURE <<<"$line"
+}
+
+profile_number() {
+	case "$1" in
+	discover) printf '1' ;;
+	fast) printf '2' ;;
+	service) printf '3' ;;
+	full-tcp) printf '4' ;;
+	web) printf '5' ;;
+	admin) printf '6' ;;
+	udp-top) printf '7' ;;
+	*) printf '?' ;;
+	esac
+}
+
+workflow_number() {
+	case "$1" in
+	perimeter-sweep) printf '1' ;;
+	web-stack) printf '2' ;;
+	lateral-check) printf '3' ;;
+	udp-scout) printf '4' ;;
+	full-exposure) printf '5' ;;
+	*) printf '?' ;;
+	esac
+}
+
+workflow_from_number() {
+	case "$1" in
+	1) printf 'perimeter-sweep' ;;
+	2) printf 'web-stack' ;;
+	3) printf 'lateral-check' ;;
+	4) printf 'udp-scout' ;;
+	5) printf 'full-exposure' ;;
+	*) printf '' ;;
+	esac
+}
+
+profile_badge() {
+	case "$1" in
+	Discovery)
+		ui_good "[DISCOVERY]"
+		;;
+	Baseline)
+		ui_accent "[BASELINE]"
+		;;
+	Fingerprint)
+		ui_focus "[FINGERPRINT]"
+		;;
+	"Deep TCP")
+		ui_warn "[DEEP TCP]"
+		;;
+	"Web Focus")
+		ui_info "[WEB]"
+		;;
+	Internal)
+		ui_warn "[INTERNAL]"
+		;;
+	"UDP Sketch")
+		ui_bad "[UDP]"
+		;;
+	*)
+		printf '[%s]' "$1"
+		;;
+	esac
+}
+
+workflow_badge() {
+	case "$1" in
+	"Initial Recon")
+		ui_good "[INITIAL]"
+		;;
+	"Application Recon")
+		ui_info "[APPLICATION]"
+		;;
+	"Internal Movement")
+		ui_warn "[LATERAL]"
+		;;
+	"Protocol Recon")
+		ui_bad "[PROTOCOL]"
+		;;
+	"Deep Recon")
+		ui_focus "[DEEP]"
+		;;
+	*)
+		printf '[%s]' "$1"
+		;;
+	esac
+}
+
+profile_scan_words() {
+	PROFILE_SCAN_WORDS=()
+	read -r -a PROFILE_SCAN_WORDS <<<"$PROFILE_SCAN_ARGS"
+}
+
+workflow_step_words() {
+	WORKFLOW_STEP_WORDS=()
+	IFS=',' read -r -a WORKFLOW_STEP_WORDS <<<"$WORKFLOW_STEPS_RAW"
+}
+
+quote_join() {
+	local item
+	local rendered=""
+
+	for item in "$@"; do
+		rendered+=$(printf '%q ' "$item")
+	done
+
+	printf '%s' "${rendered% }"
+}
+
+need_command() {
+	local command_name="$1"
+	command -v "$command_name" >/dev/null 2>&1 || fail "command not found: $command_name"
+}
+
+target_slug() {
+	slugify "$1"
+}
+
+resolve_target_address() {
+	local target="$1"
+	local slug
+	local file
+	local ADDRESS=""
+
+	slug="$(target_slug "$target")"
+	file="$LAB_TARGETS_DIR/$slug.env"
+
+	if [ -f "$file" ]; then
+		# shellcheck disable=SC1090
+		. "$file"
+		if [ -n "$ADDRESS" ]; then
+			printf '%s' "$ADDRESS"
+			return 0
+		fi
+	fi
+
+	printf '%s' "$target"
+}
+
+capture_filter_for_target() {
+	local target="$1"
+	printf 'host %s' "$target"
+}
+
+profile_output_file() {
+	local run_dir="$1"
+	printf '%s/scan.txt' "$run_dir"
+}
+
+workflow_stage_output_file() {
+	local run_dir="$1"
+	local index="$2"
+	local profile_name="$3"
+	printf '%s/%02d-%s.txt' "$run_dir" "$index" "$profile_name"
+}
+
+workflow_stage_command_file() {
+	local run_dir="$1"
+	local index="$2"
+	local profile_name="$3"
+	printf '%s/%02d-%s.command.txt' "$run_dir" "$index" "$profile_name"
+}
+
+render_profile_line() {
+	printf '%s %s %s\n' \
+		"$(ui_dim "[$(profile_number "$PROFILE_NAME")]")" \
+		"$(profile_badge "$PROFILE_CATEGORY")" \
+		"$(ui_accent "$PROFILE_NAME")"
+	printf '    %s\n' "$PROFILE_SUMMARY"
+	printf '    %s %s\n' "$(ui_dim "use:")" "$PROFILE_GUIDANCE"
+	printf '    %s %s\n' "$(ui_dim "capture:")" "$PROFILE_CAPTURE"
+}
+
+render_workflow_line() {
+	printf '%s %s %s\n' \
+		"$(ui_dim "[$(workflow_number "$WORKFLOW_NAME")]")" \
+		"$(workflow_badge "$WORKFLOW_CATEGORY")" \
+		"$(ui_accent "$WORKFLOW_NAME")"
+	printf '    %s\n' "$WORKFLOW_SUMMARY"
+	printf '    %s %s\n' "$(ui_dim "use:")" "$WORKFLOW_GUIDANCE"
+	printf '    %s %s\n' "$(ui_dim "capture:")" "$WORKFLOW_CAPTURE"
+	printf '    %s %s\n' "$(ui_dim "steps:")" "$WORKFLOW_STEPS_RAW"
+}
+
+list_profiles() {
+	local line
+
+	ui_heading "Recon Profiles"
+	ui_rule
+	while IFS= read -r line; do
+		[ -n "$line" ] || continue
+		IFS='|' read -r PROFILE_NAME PROFILE_CATEGORY PROFILE_SUMMARY PROFILE_SCAN_ARGS PROFILE_GUIDANCE PROFILE_CAPTURE <<<"$line"
+		render_profile_line
+		ui_rule
+	done < <(profile_list)
+}
+
+list_workflows() {
+	local line
+
+	ui_heading "Named Workflows"
+	ui_rule
+	while IFS= read -r line; do
+		[ -n "$line" ] || continue
+		IFS='|' read -r WORKFLOW_NAME WORKFLOW_CATEGORY WORKFLOW_SUMMARY WORKFLOW_STEPS_RAW WORKFLOW_GUIDANCE WORKFLOW_CAPTURE <<<"$line"
+		render_workflow_line
+		ui_rule
+	done < <(workflow_list)
+}
+
+show_profile() {
+	load_profile "$1"
+	profile_scan_words
+
+	ui_heading "Profile Detail"
+	ui_rule
+	ui_kv "Profile" "$(ui_accent "$PROFILE_NAME") $(profile_badge "$PROFILE_CATEGORY")"
+	ui_kv "Summary" "$PROFILE_SUMMARY"
+	ui_kv "Use" "$PROFILE_GUIDANCE"
+	ui_kv "Capture" "$PROFILE_CAPTURE"
+	ui_kv "Scan Args" "$(quote_join "${PROFILE_SCAN_WORDS[@]}")"
+	ui_rule
+}
+
+show_workflow() {
+	local stage
+
+	load_workflow "$1"
+	workflow_step_words
+
+	ui_heading "Workflow Detail"
+	ui_rule
+	ui_kv "Workflow" "$(ui_accent "$WORKFLOW_NAME") $(workflow_badge "$WORKFLOW_CATEGORY")"
+	ui_kv "Summary" "$WORKFLOW_SUMMARY"
+	ui_kv "Use" "$WORKFLOW_GUIDANCE"
+	ui_kv "Capture" "$WORKFLOW_CAPTURE"
+	ui_subheading "Stages"
+	for stage in "${WORKFLOW_STEP_WORDS[@]}"; do
+		load_profile "$stage"
+		printf '  %s %s %s\n' "$(ui_dim "-")" "$(ui_accent "$PROFILE_NAME")" "$(profile_badge "$PROFILE_CATEGORY")"
+		printf '    %s\n' "$PROFILE_SUMMARY"
+	done
+	ui_rule
+}
+
+write_profile_meta() {
+	local file="$1"
+	local profile_name="$2"
+	local target="$3"
+	local target_address="$4"
+	local iface="${5:-}"
+
+	: >"$file"
+	upsert_env "$file" RUN_KIND "profile"
+	upsert_env "$file" PROFILE "$profile_name"
+	upsert_env "$file" TARGET "$target"
+	upsert_env "$file" TARGET_ADDRESS "$target_address"
+	upsert_env "$file" INTERFACE "$iface"
+	upsert_env "$file" CATEGORY "$PROFILE_CATEGORY"
+	upsert_env "$file" SUMMARY "$PROFILE_SUMMARY"
+	upsert_env "$file" CREATED_AT "$(timestamp)"
+}
+
+write_workflow_meta() {
+	local file="$1"
+	local workflow_name="$2"
+	local target="$3"
+	local target_address="$4"
+	local iface="${5:-}"
+
+	: >"$file"
+	upsert_env "$file" RUN_KIND "workflow"
+	upsert_env "$file" WORKFLOW "$workflow_name"
+	upsert_env "$file" TARGET "$target"
+	upsert_env "$file" TARGET_ADDRESS "$target_address"
+	upsert_env "$file" INTERFACE "$iface"
+	upsert_env "$file" CATEGORY "$WORKFLOW_CATEGORY"
+	upsert_env "$file" SUMMARY "$WORKFLOW_SUMMARY"
+	upsert_env "$file" STEPS "$WORKFLOW_STEPS_RAW"
+	upsert_env "$file" CREATED_AT "$(timestamp)"
+}
+
+emit_profile_plan_metadata() {
+	local profile_name="$1"
+	local target="$2"
+	local scan_target="$3"
+	local iface="$4"
+	local run_dir="$5"
+
+	printf 'profile: %s\n' "$profile_name"
+	printf 'summary: %s\n' "$PROFILE_SUMMARY"
+	printf 'target: %s\n' "$target"
+	printf 'target_address: %s\n' "$scan_target"
+	printf 'run_dir: %s\n' "$run_dir"
+	if [ -n "$iface" ]; then
+		printf 'capture_interface: %s\n' "$iface"
+		printf 'capture_file: %s\n' "$run_dir/capture.pcap"
+		printf 'capture_filter: %s\n' "$(capture_filter_for_target "$scan_target")"
+		printf 'capture_command: %s\n' "$(quote_join "$CAPTURE_COMMAND" -i "$iface" -n -s0 -w "$run_dir/capture.pcap" "$(capture_filter_for_target "$scan_target")")"
+	else
+		printf 'capture_interface: none\n'
+	fi
+	printf 'scan_file: %s\n' "$(profile_output_file "$run_dir")"
+	printf 'scan_command: %s\n' "$(quote_join "$UPSTREAM_COMMAND" "${PROFILE_SCAN_WORDS[@]}" "$scan_target")"
+}
+
+emit_workflow_plan_metadata() {
+	local workflow_name="$1"
+	local target="$2"
+	local scan_target="$3"
+	local iface="$4"
+	local run_dir="$5"
+	local index=1
+	local stage
+
+	printf 'workflow: %s\n' "$workflow_name"
+	printf 'workflow_summary: %s\n' "$WORKFLOW_SUMMARY"
+	printf 'workflow_target: %s\n' "$target"
+	printf 'workflow_target_address: %s\n' "$scan_target"
+	printf 'workflow_run_dir: %s\n' "$run_dir"
+	if [ -n "$iface" ]; then
+		printf 'workflow_capture_interface: %s\n' "$iface"
+		printf 'workflow_capture_file: %s\n' "$run_dir/capture.pcap"
+		printf 'workflow_capture_filter: %s\n' "$(capture_filter_for_target "$scan_target")"
+		printf 'workflow_capture_command: %s\n' "$(quote_join "$CAPTURE_COMMAND" -i "$iface" -n -s0 -w "$run_dir/capture.pcap" "$(capture_filter_for_target "$scan_target")")"
+	else
+		printf 'workflow_capture_interface: none\n'
+	fi
+	printf 'workflow_steps: %s\n' "$WORKFLOW_STEPS_RAW"
+	for stage in "${WORKFLOW_STEP_WORDS[@]}"; do
+		load_profile "$stage"
+		profile_scan_words
+		printf 'workflow_step_%d: %s\n' "$index" "$PROFILE_NAME"
+		printf 'workflow_step_%d_command: %s\n' "$index" "$(quote_join "$UPSTREAM_COMMAND" "${PROFILE_SCAN_WORDS[@]}" "$scan_target")"
+		printf 'workflow_step_%d_output: %s\n' "$index" "$(workflow_stage_output_file "$run_dir" "$index" "$PROFILE_NAME")"
+		index=$((index + 1))
+	done
+}
+
+plan_profile_context() {
+	local profile_name="$1"
+	local target="$2"
+	local iface="${3:-}"
+	local run_id
+	local run_dir
+	local scan_target
+
+	load_profile "$profile_name"
+	profile_scan_words
+
+	run_id="$(timestamp)-${PROFILE_NAME}-$(target_slug "$target")"
+	run_dir="$RUNS_DIR/$run_id"
+	scan_target="$(resolve_target_address "$target")"
+
+	ui_heading "Profile Plan"
+	ui_rule
+	ui_kv "Profile" "$(ui_accent "$PROFILE_NAME") $(profile_badge "$PROFILE_CATEGORY")"
+	ui_kv "Summary" "$PROFILE_SUMMARY"
+	ui_kv "Use" "$PROFILE_GUIDANCE"
+	ui_kv "Target" "$target"
+	if [ "$scan_target" != "$target" ]; then
+		ui_kv "Address" "$scan_target"
+	fi
+	ui_kv "Run Dir" "$run_dir"
+	ui_rule
+	ui_subheading "Scan"
+	ui_kv "Command" "$(quote_join "$UPSTREAM_COMMAND" "${PROFILE_SCAN_WORDS[@]}" "$scan_target")"
+	ui_kv "Output" "$(profile_output_file "$run_dir")"
+	if [ -n "$iface" ]; then
+		ui_subheading "Capture"
+		ui_kv "Interface" "$iface"
+		ui_kv "File" "$run_dir/capture.pcap"
+		ui_kv "Filter" "$(capture_filter_for_target "$scan_target")"
+		ui_kv "Command" "$(quote_join "$CAPTURE_COMMAND" -i "$iface" -n -s0 -w "$run_dir/capture.pcap" "$(capture_filter_for_target "$scan_target")")"
+		ui_alert "capture may require root or packet-capture capabilities on the runtime node"
+	else
+		ui_note "no capture interface selected"
+	fi
+
+	emit_profile_plan_metadata "$PROFILE_NAME" "$target" "$scan_target" "$iface" "$run_dir"
+}
+
+plan_workflow_context() {
+	local workflow_name="$1"
+	local target="$2"
+	local iface="${3:-}"
+	local run_id
+	local run_dir
+	local index=1
+	local stage
+	local scan_target
+
+	load_workflow "$workflow_name"
+	workflow_step_words
+
+	run_id="$(timestamp)-${WORKFLOW_NAME}-$(target_slug "$target")"
+	run_dir="$RUNS_DIR/$run_id"
+	scan_target="$(resolve_target_address "$target")"
+
+	ui_heading "Workflow Plan"
+	ui_rule
+	ui_kv "Workflow" "$(ui_accent "$WORKFLOW_NAME") $(workflow_badge "$WORKFLOW_CATEGORY")"
+	ui_kv "Summary" "$WORKFLOW_SUMMARY"
+	ui_kv "Use" "$WORKFLOW_GUIDANCE"
+	ui_kv "Target" "$target"
+	if [ "$scan_target" != "$target" ]; then
+		ui_kv "Address" "$scan_target"
+	fi
+	ui_kv "Run Dir" "$run_dir"
+	ui_rule
+	ui_subheading "Stages"
+	for stage in "${WORKFLOW_STEP_WORDS[@]}"; do
+		load_profile "$stage"
+		profile_scan_words
+		ui_kv "Stage $index" "$(ui_accent "$PROFILE_NAME") $(profile_badge "$PROFILE_CATEGORY")"
+		ui_kv "  Goal" "$PROFILE_SUMMARY"
+		ui_kv "  Command" "$(quote_join "$UPSTREAM_COMMAND" "${PROFILE_SCAN_WORDS[@]}" "$scan_target")"
+		ui_kv "  Output" "$(workflow_stage_output_file "$run_dir" "$index" "$PROFILE_NAME")"
+		index=$((index + 1))
+	done
+	if [ -n "$iface" ]; then
+		ui_rule
+		ui_subheading "Capture"
+		ui_kv "Interface" "$iface"
+		ui_kv "File" "$run_dir/capture.pcap"
+		ui_kv "Filter" "$(capture_filter_for_target "$scan_target")"
+		ui_kv "Command" "$(quote_join "$CAPTURE_COMMAND" -i "$iface" -n -s0 -w "$run_dir/capture.pcap" "$(capture_filter_for_target "$scan_target")")"
+		ui_alert "capture may require root or packet-capture capabilities on the runtime node"
+	else
+		ui_note "no capture interface selected"
+	fi
+
+	emit_workflow_plan_metadata "$WORKFLOW_NAME" "$target" "$scan_target" "$iface" "$run_dir"
+}
+
+run_capture() {
+	local iface="$1"
+	local pcap_file="$2"
+	local target="$3"
+
+	need_command "$CAPTURE_COMMAND"
+	"$CAPTURE_COMMAND" -i "$iface" -n -s0 -w "$pcap_file" "$(capture_filter_for_target "$target")" &
+	CAPTURE_PID="$!"
+}
+
+stop_capture() {
+	if [ -n "${CAPTURE_PID:-}" ]; then
+		kill "$CAPTURE_PID" >/dev/null 2>&1 || true
+		wait "$CAPTURE_PID" 2>/dev/null || true
+		unset CAPTURE_PID
+	fi
+}
+
+run_profile_stage() {
+	local profile_name="$1"
+	local scan_target="$2"
+	local scan_file="$3"
+
+	load_profile "$profile_name"
+	profile_scan_words
+	"$UPSTREAM_COMMAND" "${PROFILE_SCAN_WORDS[@]}" "$scan_target" | tee "$scan_file"
+}
+
+run_workflow_stage() {
+	local stage_index="$1"
+	local profile_name="$2"
+	local scan_target="$3"
+	local run_dir="$4"
+	local scan_file
+	local command_file
+
+	load_profile "$profile_name"
+	profile_scan_words
+
+	scan_file="$(workflow_stage_output_file "$run_dir" "$stage_index" "$PROFILE_NAME")"
+	command_file="$(workflow_stage_command_file "$run_dir" "$stage_index" "$PROFILE_NAME")"
+
+	printf '%s\n' "$(quote_join "$UPSTREAM_COMMAND" "${PROFILE_SCAN_WORDS[@]}" "$scan_target")" >"$command_file"
+	ui_subheading "Stage $stage_index"
+	ui_kv "Profile" "$(ui_accent "$PROFILE_NAME") $(profile_badge "$PROFILE_CATEGORY")"
+	ui_kv "Goal" "$PROFILE_SUMMARY"
+	ui_kv "Command" "$(quote_join "$UPSTREAM_COMMAND" "${PROFILE_SCAN_WORDS[@]}" "$scan_target")"
+	ui_kv "Output" "$scan_file"
+	"$UPSTREAM_COMMAND" "${PROFILE_SCAN_WORDS[@]}" "$scan_target" | tee "$scan_file"
+}
+
+preview_run_dir() {
+	local dir="$1"
+	local scan_file="$dir/scan.txt"
+	local stage_files=()
+	local file
+
+	if [ -f "$scan_file" ]; then
+		ui_subheading "Scan Preview"
+		sed -n '1,80p' "$scan_file"
+		printf '\n'
+		return 0
+	fi
+
+	while IFS= read -r file; do
+		stage_files+=("$file")
+	done < <(find "$dir" -mindepth 1 -maxdepth 1 -type f -name '[0-9][0-9]-*.txt' ! -name '*.command.txt' | sort)
+
+	if [ "${#stage_files[@]}" -eq 0 ]; then
+		return 0
+	fi
+
+	ui_subheading "Workflow Preview"
+	for file in "${stage_files[@]}"; do
+		printf '%s\n' "$(ui_dim "$(basename "$file")")"
+		sed -n '1,40p' "$file"
+		printf '\n'
+	done
+}
+
+capture_source_run_id() {
+	local input="$1"
+
+	if [ -d "$input" ]; then
+		basename "$input"
+		return 0
+	fi
+
+	slugify "$(basename "$input")"
+}
+
+capture_target() {
+	local input="$1"
+	run_target "$input"
+}
+
+resolve_pcap_file() {
+	local input="$1"
+
+	if [ -d "$input" ]; then
+		printf '%s/capture.pcap\n' "$input"
+		return 0
+	fi
+
+	printf '%s\n' "$input"
+}
+
+require_pcap_file() {
+	local input="$1"
+	local pcap_file
+
+	pcap_file="$(resolve_pcap_file "$input")"
+	[ -f "$pcap_file" ] || fail "missing pcap: $pcap_file"
+	printf '%s\n' "$pcap_file"
+}
+
+pcap_size_bytes() {
+	local file="$1"
+	wc -c <"$file" | tr -d ' '
+}
+
+capture_credential_label() {
+	local line_lower
+
+	line_lower="$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')"
+
+	case "$line_lower" in
+	*"proxy-authorization: basic"*)
+		printf 'proxy-basic-auth'
+		;;
+	*"authorization: basic"*)
+		printf 'basic-auth'
+		;;
+	*"ntlmssp"*)
+		printf 'ntlm-material'
+		;;
+	*"user "* | *"pass "*)
+		printf 'cleartext-auth'
+		;;
+	*"login="* | *"username="* | *"password="* | *"passwd="* | *"token="* | *"api_key="* | *"apikey="*)
+		printf 'secret-parameter'
+		;;
+	*"cookie:"*)
+		printf 'session-material'
+		;;
+	*)
+		printf 'auth-material'
+		;;
+	esac
+}
+
+capture_anomaly_label() {
+	local line_lower
+
+	line_lower="$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')"
+
+	case "$line_lower" in
+	*"flags [r]"* | *" reset "*)
+		printf 'reset'
+		;;
+	*"retransmission"*)
+		printf 'retransmission'
+		;;
+	*"dup ack"* | *"duplicate ack"*)
+		printf 'duplicate-ack'
+		;;
+	*"unreachable"*)
+		printf 'unreachable'
+		;;
+	*"lost segment"*)
+		printf 'lost-segment'
+		;;
+	*)
+		printf 'transport-signal'
+		;;
+	esac
+}
+
+publish_capture_hints() {
+	local input="$1"
+	local observation_type="$2"
+	local confidence="$3"
+	local hints_file="$4"
+	local target
+	local pcap_file
+	local source_run_id
+	local line
+	local label
+	local payload
+	local published=0
+
+	[ -s "$hints_file" ] || return 0
+	command -v jq >/dev/null 2>&1 || return 0
+
+	target="$(capture_target "$input")"
+	[ "$target" != "unknown" ] || return 0
+
+	pcap_file="$(require_pcap_file "$input")"
+	source_run_id="$(capture_source_run_id "$input")"
+	intel_ensure_store
+
+	while IFS= read -r line; do
+		[ -n "$line" ] || continue
+		case "$observation_type" in
+		credential_hint)
+			label="$(capture_credential_label "$line")"
+			;;
+		capture_anomaly)
+			label="$(capture_anomaly_label "$line")"
+			;;
+		*)
+			label="signal"
+			;;
+		esac
+
+		payload="$(
+			jq -cn \
+				--arg observed_at "$(timestamp)" \
+				--arg source_tool "$TOOL_NAME" \
+				--arg source_kind "capture" \
+				--arg source_name "$observation_type" \
+				--arg source_run_id "$source_run_id" \
+				--arg target "$target" \
+				--arg input_path "$pcap_file" \
+				--arg observation_type "$observation_type" \
+				--arg confidence "$confidence" \
+				--arg label "$label" \
+				--arg evidence "$line" \
+				'{
+          observed_at: $observed_at,
+          source_tool: $source_tool,
+          source_kind: $source_kind,
+          source_name: $source_name,
+          source_run_id: $source_run_id,
+          target: $target,
+          input_path: $input_path,
+          observation_type: $observation_type,
+          confidence: $confidence,
+          value: {
+            label: $label,
+            evidence: $evidence
+          }
+        }'
+		)"
+		intel_append_record observations "$payload"
+		published=$((published + 1))
+	done <"$hints_file"
+
+	if [ "$published" -gt 0 ]; then
+		ui_note "published $published $observation_type record(s) into shared intel"
+	fi
+}
+
+capture_credential_hints() {
+	local pcap_file="$1"
+	local patterns='Authorization: Basic|Proxy-Authorization: Basic|(^|[^A-Za-z])(USER|PASS)[[:space:]]|(^|[^A-Za-z])(login|username|password|passwd|token|api[_-]?key)=|[?&](login|username|password|passwd|token|api[_-]?key)=|NTLMSSP|Cookie:'
+
+	if command -v "$DECODE_COMMAND" >/dev/null 2>&1; then
+		"$DECODE_COMMAND" -r "$pcap_file" -n -V 2>/dev/null | grep -aim 20 -E "$patterns" || true
+		return 0
+	fi
+
+	if command -v "$CAPTURE_COMMAND" >/dev/null 2>&1; then
+		"$CAPTURE_COMMAND" -A -nnr "$pcap_file" 2>/dev/null | grep -aim 20 -E "$patterns" || true
+		return 0
+	fi
+
+	fail "no decoder available; install tshark or tcpdump"
+}
+
+capture_anomaly_hints() {
+	local pcap_file="$1"
+
+	if command -v "$DECODE_COMMAND" >/dev/null 2>&1; then
+		"$DECODE_COMMAND" -r "$pcap_file" -n -Y "tcp.flags.reset==1 or tcp.analysis.retransmission or tcp.analysis.fast_retransmission or tcp.analysis.lost_segment or tcp.analysis.duplicate_ack or icmp.type==3" 2>/dev/null | sed -n '1,20p'
+		return 0
+	fi
+
+	if command -v "$CAPTURE_COMMAND" >/dev/null 2>&1; then
+		"$CAPTURE_COMMAND" -nnr "$pcap_file" 2>/dev/null | grep -aE 'Flags \[R\]|retransmission|dup ack|unreachable' | sed -n '1,20p' || true
+		return 0
+	fi
+
+	fail "no decoder available; install tshark or tcpdump"
+}
+
+scan_sources() {
+	local input="$1"
+
+	[ -e "$input" ] || fail "missing input: $input"
+
+	if [ -d "$input" ]; then
+		if [ -f "$input/scan.txt" ]; then
+			printf '%s\n' "$input/scan.txt"
+		fi
+		find "$input" -mindepth 1 -maxdepth 1 -type f -name '[0-9][0-9]-*.txt' ! -name '*.command.txt' | sort
+		return 0
+	fi
+
+	printf '%s\n' "$input"
+}
+
+run_label() {
+	local input="$1"
+	basename "$input"
+}
+
+run_target() {
+	local input="$1"
+
+	if [ -d "$input" ] && [ -f "$input/meta.env" ]; then
+		(
+			set -a
+			# shellcheck disable=SC1091
+			. "$input/meta.env"
+			set +a
+			printf '%s' "${TARGET:-unknown}"
+		)
+		return 0
+	fi
+
+	printf 'unknown'
+}
+
+run_target_address() {
+	local input="$1"
+
+	if [ -d "$input" ] && [ -f "$input/meta.env" ]; then
+		(
+			set -a
+			# shellcheck disable=SC1091
+			. "$input/meta.env"
+			set +a
+			printf '%s' "${TARGET_ADDRESS:-${TARGET:-unknown}}"
+		)
+		return 0
+	fi
+
+	printf 'unknown'
+}
+
+service_inventory() {
+	local input="$1"
+	local file
+
+	while IFS= read -r file; do
+		[ -f "$file" ] || continue
+		awk '
+      $1 ~ /^[0-9]+\/(tcp|udp)$/ && $2 ~ /^open/ {
+        detail = ""
+        for (i = 4; i <= NF; i++) {
+          detail = detail (i == 4 ? "" : " ") $i
+        }
+        printf "%s\t%s\t%s\t%s\n", $1, $2, $3, detail
+      }
+    ' "$file"
+	done < <(scan_sources "$input") |
+		awk -F'\t' '
+      {
+        key = $1 FS $3
+        score = length($4)
+        if (!(key in best_score) || score > best_score[key]) {
+          best_score[key] = score
+          line[key] = $0
+        }
+      }
+      END {
+        for (key in line) {
+          print line[key]
+        }
+      }
+    ' |
+		sort
+}
+
+format_inventory() {
+	awk -F'\t' '
+    {
+      printf "%-10s %-14s %s\n", $1, $3, $4
+    }
+  '
+}
+
+web_inventory() {
+	local input="$1"
+	local target_address
+	local portproto
+	local _state
+	local service
+	local detail
+	local endpoint
+	local scheme
+	local port
+
+	target_address="$(run_target_address "$input")"
+
+	while IFS=$'\t' read -r portproto _state service detail; do
+		[ -n "$portproto" ] || continue
+		if is_web_record "$portproto" "$service" "$detail"; then
+			scheme="$(web_scheme_for_record "$portproto" "$service" "$detail")"
+			port="${portproto%/*}"
+			if [ "$target_address" = "unknown" ]; then
+				endpoint="${scheme}://<target>:${port}"
+			else
+				endpoint="${scheme}://${target_address}:${port}"
+			fi
+			printf '%s\t%s\t%s\t%s\n' "$endpoint" "$portproto" "$service" "$detail"
+		fi
+	done < <(service_inventory "$input")
+}
+
+is_web_record() {
+	local portproto="$1"
+	local service="$2"
+	local detail="$3"
+
+	case "$portproto" in
+	80/tcp | 443/tcp | 8000/tcp | 8080/tcp | 8443/tcp | 8888/tcp | 9000/tcp)
+		return 0
+		;;
+	esac
+
+	case "$service $detail" in
+	*ssl/http* | *https* | *http*)
+		return 0
+		;;
+	esac
+
+	return 1
+}
+
+web_scheme_for_record() {
+	local portproto="$1"
+	local service="$2"
+	local detail="$3"
+
+	case "$portproto $service $detail" in
+	443/tcp* | 8443/tcp* | *https* | *ssl/http*)
+		printf 'https'
+		;;
+	*)
+		printf 'http'
+		;;
+	esac
+}
+
+lateral_label() {
+	local portproto="$1"
+	local service="$2"
+	local detail="$3"
+
+	case "$portproto $service $detail" in
+	22/tcp* | *ssh*)
+		printf 'remote-admin'
+		;;
+	88/tcp* | *kerberos*)
+		printf 'auth'
+		;;
+	389/tcp* | 636/tcp* | *ldap*)
+		printf 'directory'
+		;;
+	135/tcp* | 139/tcp* | 445/tcp* | *msrpc* | *microsoft-ds* | *netbios*)
+		printf 'windows-surface'
+		;;
+	5985/tcp* | 5986/tcp* | *winrm*)
+		printf 'remote-admin'
+		;;
+	3389/tcp*)
+		printf 'remote-desktop'
+		;;
+	1433/tcp* | 1521/tcp* | 3306/tcp* | 5432/tcp* | 6379/tcp*)
+		printf 'data-plane'
+		;;
+	2375/tcp* | 2376/tcp* | *docker*)
+		printf 'container-control'
+		;;
+	53/tcp* | 2049/tcp*)
+		printf 'infrastructure'
+		;;
+	*)
+		printf 'internal'
+		;;
+	esac
+}
+
+is_lateral_record() {
+	local portproto="$1"
+	local service="$2"
+	local detail="$3"
+	local label
+
+	label="$(lateral_label "$portproto" "$service" "$detail")"
+	[ "$label" != "internal" ] && return 0
+
+	case "$portproto" in
+	53/tcp | 53/udp | 464/tcp | 464/udp | 593/tcp | 2049/tcp)
+		return 0
+		;;
+	esac
+
+	return 1
+}
+
+lateral_inventory() {
+	local input="$1"
+	local portproto
+	local _state
+	local service
+	local detail
+	local label
+
+	while IFS=$'\t' read -r portproto _state service detail; do
+		[ -n "$portproto" ] || continue
+		if is_lateral_record "$portproto" "$service" "$detail"; then
+			label="$(lateral_label "$portproto" "$service" "$detail")"
+			printf '%s\t%s\t%s\t%s\n' "$label" "$portproto" "$service" "$detail"
+		fi
+	done < <(service_inventory "$input")
+}
+
+host_is_up() {
+	local input="$1"
+	local file
+
+	while IFS= read -r file; do
+		[ -f "$file" ] || continue
+		if grep -q "Host is up" "$file"; then
+			return 0
+		fi
+	done < <(scan_sources "$input")
+
+	return 1
+}
+
+publish_intel_for_run() {
+	local source_kind="$1"
+	local source_name="$2"
+	local target="$3"
+	local run_dir="$4"
+	local target_address="${5:-$target}"
+	local run_id
+	local observed_at
+	local host_entity_id
+	local inventory_file
+	local web_file
+	local lateral_file
+	local service_count
+	local web_count
+	local lateral_count
+	local host_state
+	local payload
+	local portproto
+	local _state
+	local service
+	local detail
+	local endpoint
+	local label
+	local service_entity_id
+
+	if ! command -v jq >/dev/null 2>&1; then
+		ui_note "jq not available; skipping intel publish"
+		return 0
+	fi
+
+	intel_ensure_store
+
+	run_id="$(basename "$run_dir")"
+	observed_at="$(timestamp)"
+	host_entity_id="$(intel_host_entity_id "$target")"
+	inventory_file="$(mktemp)"
+	web_file="$(mktemp)"
+	lateral_file="$(mktemp)"
+
+	service_inventory "$run_dir" >"$inventory_file"
+	web_inventory "$run_dir" >"$web_file"
+	lateral_inventory "$run_dir" >"$lateral_file"
+
+	service_count="$(wc -l <"$inventory_file" | tr -d ' ')"
+	web_count="$(wc -l <"$web_file" | tr -d ' ')"
+	lateral_count="$(wc -l <"$lateral_file" | tr -d ' ')"
+
+	if host_is_up "$run_dir"; then
+		host_state="up"
+	else
+		host_state="unknown"
+	fi
+
+	payload="$(
+		jq -cn \
+			--arg observed_at "$observed_at" \
+			--arg source_tool "$TOOL_NAME" \
+			--arg source_kind "$source_kind" \
+			--arg source_name "$source_name" \
+			--arg source_run_id "$run_id" \
+			--arg target "$target" \
+			--arg input_path "$run_dir" \
+			--arg confidence "high" \
+			--arg state "$host_state" \
+			'{
+        observed_at: $observed_at,
+        source_tool: $source_tool,
+        source_kind: $source_kind,
+        source_name: $source_name,
+        source_run_id: $source_run_id,
+        target: $target,
+        input_path: $input_path,
+        observation_type: "host_state",
+        confidence: $confidence,
+        value: {
+          state: $state
+        }
+      }'
+	)"
+	intel_append_record observations "$payload"
+
+	payload="$(
+		jq -cn \
+			--arg observed_at "$observed_at" \
+			--arg source_tool "$TOOL_NAME" \
+			--arg source_kind "$source_kind" \
+			--arg source_name "$source_name" \
+			--arg source_run_id "$run_id" \
+			--arg target "$target" \
+			--arg entity_id "$host_entity_id" \
+			--arg address "$target_address" \
+			'{
+        observed_at: $observed_at,
+        source_tool: $source_tool,
+        source_kind: $source_kind,
+        source_name: $source_name,
+        source_run_id: $source_run_id,
+        entity_type: "host",
+        entity_id: $entity_id,
+        target: $target,
+        attributes: {
+          address: $address
+        }
+      }'
+	)"
+	intel_append_record entities "$payload"
+
+	while IFS=$'\t' read -r portproto _state service detail; do
+		[ -n "$portproto" ] || continue
+		service_entity_id="$(intel_service_entity_id "$target" "$portproto")"
+
+		payload="$(
+			jq -cn \
+				--arg observed_at "$observed_at" \
+				--arg source_tool "$TOOL_NAME" \
+				--arg source_kind "$source_kind" \
+				--arg source_name "$source_name" \
+				--arg source_run_id "$run_id" \
+				--arg target "$target" \
+				--arg input_path "$run_dir" \
+				--arg confidence "high" \
+				--arg portproto "$portproto" \
+				--arg service "$service" \
+				--arg detail "$detail" \
+				--arg service_entity_id "$service_entity_id" \
+				'{
+          observed_at: $observed_at,
+          source_tool: $source_tool,
+          source_kind: $source_kind,
+          source_name: $source_name,
+          source_run_id: $source_run_id,
+          target: $target,
+          input_path: $input_path,
+          observation_type: "service_open",
+          confidence: $confidence,
+          value: {
+            service_entity_id: $service_entity_id,
+            portproto: $portproto,
+            service: $service,
+            detail: $detail
+          }
+        }'
+		)"
+		intel_append_record observations "$payload"
+
+		payload="$(
+			jq -cn \
+				--arg observed_at "$observed_at" \
+				--arg source_tool "$TOOL_NAME" \
+				--arg source_kind "$source_kind" \
+				--arg source_name "$source_name" \
+				--arg source_run_id "$run_id" \
+				--arg target "$target" \
+				--arg entity_id "$service_entity_id" \
+				--arg address "$target_address" \
+				--arg portproto "$portproto" \
+				--arg service "$service" \
+				--arg detail "$detail" \
+				'{
+          observed_at: $observed_at,
+          source_tool: $source_tool,
+          source_kind: $source_kind,
+          source_name: $source_name,
+          source_run_id: $source_run_id,
+          entity_type: "service",
+          entity_id: $entity_id,
+          target: $target,
+          attributes: {
+            target: $target,
+            address: $address,
+            portproto: $portproto,
+            service: $service,
+            detail: $detail
+          }
+        }'
+		)"
+		intel_append_record entities "$payload"
+
+		payload="$(
+			jq -cn \
+				--arg observed_at "$observed_at" \
+				--arg source_tool "$TOOL_NAME" \
+				--arg source_kind "$source_kind" \
+				--arg source_name "$source_name" \
+				--arg source_run_id "$run_id" \
+				--arg target "$target" \
+				--arg from_entity "$host_entity_id" \
+				--arg to_entity "$service_entity_id" \
+				--arg portproto "$portproto" \
+				--arg service "$service" \
+				--arg detail "$detail" \
+				'{
+          observed_at: $observed_at,
+          source_tool: $source_tool,
+          source_kind: $source_kind,
+          source_name: $source_name,
+          source_run_id: $source_run_id,
+          relationship_type: "host-exposes-service",
+          from_entity: $from_entity,
+          to_entity: $to_entity,
+          target: $target,
+          attributes: {
+            portproto: $portproto,
+            service: $service,
+            detail: $detail
+          }
+        }'
+		)"
+		intel_append_record relationships "$payload"
+	done <"$inventory_file"
+
+	while IFS=$'\t' read -r endpoint portproto service detail; do
+		[ -n "$endpoint" ] || continue
+		service_entity_id="$(intel_service_entity_id "$target" "$portproto")"
+		payload="$(
+			jq -cn \
+				--arg observed_at "$observed_at" \
+				--arg source_tool "$TOOL_NAME" \
+				--arg source_kind "$source_kind" \
+				--arg source_name "$source_name" \
+				--arg source_run_id "$run_id" \
+				--arg target "$target" \
+				--arg input_path "$run_dir" \
+				--arg confidence "medium" \
+				--arg endpoint "$endpoint" \
+				--arg portproto "$portproto" \
+				--arg service "$service" \
+				--arg detail "$detail" \
+				--arg service_entity_id "$service_entity_id" \
+				'{
+          observed_at: $observed_at,
+          source_tool: $source_tool,
+          source_kind: $source_kind,
+          source_name: $source_name,
+          source_run_id: $source_run_id,
+          target: $target,
+          input_path: $input_path,
+          observation_type: "web_surface",
+          confidence: $confidence,
+          value: {
+            service_entity_id: $service_entity_id,
+            endpoint: $endpoint,
+            portproto: $portproto,
+            service: $service,
+            detail: $detail
+          }
+        }'
+		)"
+		intel_append_record observations "$payload"
+	done <"$web_file"
+
+	while IFS=$'\t' read -r label portproto service detail; do
+		[ -n "$label" ] || continue
+		service_entity_id="$(intel_service_entity_id "$target" "$portproto")"
+		payload="$(
+			jq -cn \
+				--arg observed_at "$observed_at" \
+				--arg source_tool "$TOOL_NAME" \
+				--arg source_kind "$source_kind" \
+				--arg source_name "$source_name" \
+				--arg source_run_id "$run_id" \
+				--arg target "$target" \
+				--arg input_path "$run_dir" \
+				--arg confidence "medium" \
+				--arg label "$label" \
+				--arg portproto "$portproto" \
+				--arg service "$service" \
+				--arg detail "$detail" \
+				--arg service_entity_id "$service_entity_id" \
+				'{
+          observed_at: $observed_at,
+          source_tool: $source_tool,
+          source_kind: $source_kind,
+          source_name: $source_name,
+          source_run_id: $source_run_id,
+          target: $target,
+          input_path: $input_path,
+          observation_type: "lateral_surface",
+          confidence: $confidence,
+          value: {
+            service_entity_id: $service_entity_id,
+            label: $label,
+            portproto: $portproto,
+            service: $service,
+            detail: $detail
+          }
+        }'
+		)"
+		intel_append_record observations "$payload"
+	done <"$lateral_file"
+
+	payload="$(
+		jq -cn \
+			--arg recorded_at "$observed_at" \
+			--arg source_tool "$TOOL_NAME" \
+			--arg source_kind "$source_kind" \
+			--arg source_name "$source_name" \
+			--arg source_run_id "$run_id" \
+			--arg target "$target" \
+			--arg input_path "$run_dir" \
+			--arg status "success" \
+			--arg host_state "$host_state" \
+			--argjson service_count "$service_count" \
+			--argjson web_surface_count "$web_count" \
+			--argjson lateral_surface_count "$lateral_count" \
+			'{
+        recorded_at: $recorded_at,
+        source_tool: $source_tool,
+        source_kind: $source_kind,
+        source_name: $source_name,
+        source_run_id: $source_run_id,
+        target: $target,
+        input_path: $input_path,
+        status: $status,
+        host_state: $host_state,
+        service_count: $service_count,
+        web_surface_count: $web_surface_count,
+        lateral_surface_count: $lateral_surface_count
+      }'
+	)"
+	intel_append_record outcomes "$payload"
+
+	rm -f "$inventory_file" "$web_file" "$lateral_file"
+}
+
+recommend_workflows() {
+	local inventory_file="$1"
+	local web_file="$2"
+	local lateral_file="$3"
+	local total="$4"
+
+	if [ -s "$web_file" ]; then
+		printf '%s\n' "web-stack"
+	fi
+
+	if [ -s "$lateral_file" ]; then
+		printf '%s\n' "lateral-check"
+	fi
+
+	if [ "$total" -ge 6 ]; then
+		printf '%s\n' "full-exposure"
+	elif [ ! -s "$web_file" ] && [ ! -s "$lateral_file" ] && [ "$total" -gt 0 ]; then
+		printf '%s\n' "perimeter-sweep"
+	fi
+}
+
+print_recommendations() {
+	local inventory_file="$1"
+	local web_file="$2"
+	local lateral_file="$3"
+	local total="$4"
+	local workflow_count=0
+	local workflow_name
+
+	ui_subheading "Recommended Next Moves"
+	while IFS= read -r workflow_name; do
+		[ -n "$workflow_name" ] || continue
+		workflow_count=$((workflow_count + 1))
+		printf '  %s %s\n' "$(ui_dim "-")" "$(ui_accent "$workflow_name")"
+	done < <(recommend_workflows "$inventory_file" "$web_file" "$lateral_file" "$total")
+
+	if [ "$workflow_count" -eq 0 ]; then
+		ui_note "no follow-on workflow suggested from current evidence"
+	fi
+}
+
+cmd_analyze_brief() {
+	need_args 1 "$#" "analyze brief <run-dir-or-scan-file>"
+	local input="$1"
+	local inventory_file
+	local web_file
+	local lateral_file
+	local total
+	local web_count
+	local lateral_count
+
+	inventory_file="$(mktemp)"
+	web_file="$(mktemp)"
+	lateral_file="$(mktemp)"
+
+	service_inventory "$input" >"$inventory_file"
+	web_inventory "$input" >"$web_file"
+	lateral_inventory "$input" >"$lateral_file"
+
+	total="$(wc -l <"$inventory_file" | tr -d ' ')"
+	web_count="$(wc -l <"$web_file" | tr -d ' ')"
+	lateral_count="$(wc -l <"$lateral_file" | tr -d ' ')"
+
+	ui_heading "Operator Brief"
+	ui_rule
+	ui_kv "Source" "$(run_label "$input")"
+	ui_kv "Target" "$(run_target "$input")"
+	ui_kv "Open Services" "$total"
+	ui_kv "Web Surfaces" "$web_count"
+	ui_kv "Lateral Surfaces" "$lateral_count"
+	ui_rule
+
+	ui_subheading "Exposure Snapshot"
+	if [ -s "$inventory_file" ]; then
+		format_inventory <"$inventory_file" | sed -n '1,8p'
+	else
+		ui_note "no open services parsed from input"
+	fi
+
+	ui_rule
+	ui_subheading "Priority Signals"
+	if [ -s "$web_file" ]; then
+		ui_ok "web-facing surface present"
+		awk -F'\t' 'NR <= 3 { printf "  - %s %s %s\n", $1, $2, $4 }' "$web_file"
+	else
+		ui_note "no obvious web-facing surface detected"
+	fi
+
+	if [ -s "$lateral_file" ]; then
+		ui_alert "internal admin or movement surface present"
+		awk -F'\t' 'NR <= 4 { printf "  - %s %s %s\n", $1, $2, $4 }' "$lateral_file"
+	else
+		ui_note "no obvious lateral-movement surface detected"
+	fi
+
+	ui_rule
+	print_recommendations "$inventory_file" "$web_file" "$lateral_file" "$total"
+
+	rm -f "$inventory_file" "$web_file" "$lateral_file"
+}
+
+cmd_analyze_services() {
+	need_args 1 "$#" "analyze services <run-dir-or-scan-file>"
+	local input="$1"
+	local inventory_file
+	local count
+
+	inventory_file="$(mktemp)"
+	service_inventory "$input" >"$inventory_file"
+	count="$(wc -l <"$inventory_file" | tr -d ' ')"
+
+	ui_heading "Service Inventory"
+	ui_rule
+	ui_kv "Source" "$(run_label "$input")"
+	ui_kv "Target" "$(run_target "$input")"
+	ui_kv "Open Services" "$count"
+	ui_rule
+
+	if [ ! -s "$inventory_file" ]; then
+		ui_note "no open services parsed from input"
+		rm -f "$inventory_file"
+		return 0
+	fi
+
+	format_inventory <"$inventory_file"
+	rm -f "$inventory_file"
+}
+
+cmd_analyze_web_focus() {
+	need_args 1 "$#" "analyze web-focus <run-dir-or-scan-file>"
+	local input="$1"
+	local matches_file
+	local count
+
+	matches_file="$(mktemp)"
+	web_inventory "$input" >"$matches_file"
+
+	count="$(wc -l <"$matches_file" | tr -d ' ')"
+
+	ui_heading "Web Focus"
+	ui_rule
+	ui_kv "Source" "$(run_label "$input")"
+	ui_kv "Target" "$(run_target "$input")"
+	ui_kv "Candidates" "$count"
+	ui_rule
+
+	if [ ! -s "$matches_file" ]; then
+		ui_note "no likely web surfaces found"
+		rm -f "$matches_file"
+		return 0
+	fi
+
+	awk -F'\t' '
+    {
+      printf "%-28s %-10s %-14s %s\n", $1, $2, $3, $4
+    }
+  ' "$matches_file"
+
+	rm -f "$matches_file"
+}
+
+cmd_analyze_lateral_trace() {
+	need_args 1 "$#" "analyze lateral-trace <run-dir-or-scan-file>"
+	local input="$1"
+	local matches_file
+	local count
+
+	matches_file="$(mktemp)"
+	lateral_inventory "$input" >"$matches_file"
+
+	count="$(wc -l <"$matches_file" | tr -d ' ')"
+
+	ui_heading "Lateral Trace"
+	ui_rule
+	ui_kv "Source" "$(run_label "$input")"
+	ui_kv "Target" "$(run_target "$input")"
+	ui_kv "Movement Surfaces" "$count"
+	ui_rule
+
+	if [ ! -s "$matches_file" ]; then
+		ui_note "no likely internal movement surfaces found"
+		rm -f "$matches_file"
+		return 0
+	fi
+
+	awk -F'\t' '
+    {
+      printf "%-18s %-10s %-14s %s\n", $1, $2, $3, $4
+    }
+  ' "$matches_file"
+
+	rm -f "$matches_file"
+}
+
+cmd_analyze_service_diff() {
+	need_args 2 "$#" "analyze service-diff <baseline-run> <candidate-run>"
+	local baseline="$1"
+	local candidate="$2"
+	local baseline_file
+	local candidate_file
+	local added_file
+	local removed_file
+	local common_file
+
+	baseline_file="$(mktemp)"
+	candidate_file="$(mktemp)"
+	added_file="$(mktemp)"
+	removed_file="$(mktemp)"
+	common_file="$(mktemp)"
+
+	service_inventory "$baseline" >"$baseline_file"
+	service_inventory "$candidate" >"$candidate_file"
+
+	comm -13 "$baseline_file" "$candidate_file" >"$added_file"
+	comm -23 "$baseline_file" "$candidate_file" >"$removed_file"
+	comm -12 "$baseline_file" "$candidate_file" >"$common_file"
+
+	ui_heading "Service Diff"
+	ui_rule
+	ui_kv "Baseline" "$(run_label "$baseline")"
+	ui_kv "Candidate" "$(run_label "$candidate")"
+	ui_kv "Added" "$(wc -l <"$added_file" | tr -d ' ')"
+	ui_kv "Removed" "$(wc -l <"$removed_file" | tr -d ' ')"
+	ui_kv "Common" "$(wc -l <"$common_file" | tr -d ' ')"
+	ui_rule
+
+	ui_subheading "Added In Candidate"
+	if [ -s "$added_file" ]; then
+		format_inventory <"$added_file"
+	else
+		ui_note "no added services"
+	fi
+
+	ui_rule
+	ui_subheading "Removed From Candidate"
+	if [ -s "$removed_file" ]; then
+		format_inventory <"$removed_file"
+	else
+		ui_note "no removed services"
+	fi
+
+	rm -f "$baseline_file" "$candidate_file" "$added_file" "$removed_file" "$common_file"
+}
+
+cmd_capture_inspect() {
+	need_args 1 "$#" "capture inspect <run-dir-or-pcap>"
+	local input="$1"
+	local pcap_file
+
+	if [ -d "$input" ]; then
+		preview_run_dir "$input"
+	fi
+
+	pcap_file="$(require_pcap_file "$input")"
+
+	ui_heading "Capture Inspect"
+	ui_rule
+	ui_kv "Source" "$(run_label "$input")"
+	ui_kv "Target" "$(capture_target "$input")"
+	ui_kv "Pcap" "$pcap_file"
+	ui_kv "Bytes" "$(pcap_size_bytes "$pcap_file")"
+	ui_rule
+
+	if command -v "$DECODE_COMMAND" >/dev/null 2>&1; then
+		ui_subheading "Protocol Hierarchy"
+		"$DECODE_COMMAND" -r "$pcap_file" -q -z io,phs
+		printf '\n'
+		ui_subheading "Sample Packets"
+		"$DECODE_COMMAND" -r "$pcap_file" -n | sed -n '1,15p'
+		return 0
+	fi
+
+	if command -v "$CAPTURE_COMMAND" >/dev/null 2>&1; then
+		ui_subheading "Packet Sample"
+		"$CAPTURE_COMMAND" -nnr "$pcap_file" | sed -n '1,20p'
+		return 0
+	fi
+
+	fail "no decoder available; install tshark or tcpdump"
+}
+
+cmd_capture_streams() {
+	need_args 1 "$#" "capture streams <run-dir-or-pcap>"
+	local input="$1"
+	local pcap_file
+
+	pcap_file="$(require_pcap_file "$input")"
+
+	ui_heading "Capture Streams"
+	ui_rule
+	ui_kv "Source" "$(run_label "$input")"
+	ui_kv "Target" "$(capture_target "$input")"
+	ui_kv "Pcap" "$pcap_file"
+	ui_rule
+
+	if command -v "$DECODE_COMMAND" >/dev/null 2>&1; then
+		ui_subheading "TCP Conversations"
+		"$DECODE_COMMAND" -r "$pcap_file" -q -z conv,tcp
+		printf '\n'
+		ui_subheading "UDP Conversations"
+		"$DECODE_COMMAND" -r "$pcap_file" -q -z conv,udp
+		return 0
+	fi
+
+	if command -v "$CAPTURE_COMMAND" >/dev/null 2>&1; then
+		ui_subheading "Conversation Hints"
+		"$CAPTURE_COMMAND" -nnr "$pcap_file" | awk '
+      {
+        if (match($0, /^IP ([^ ]+) > ([^:]+):/, parts)) {
+          key = parts[1] " -> " parts[2]
+          counts[key]++
+        }
+      }
+      END {
+        for (key in counts) {
+          printf "%6d %s\n", counts[key], key
+        }
+      }
+    ' | sort -nr | sed -n '1,20p'
+		return 0
+	fi
+
+	fail "no decoder available; install tshark or tcpdump"
+}
+
+cmd_capture_creds() {
+	need_args 1 "$#" "capture creds <run-dir-or-pcap>"
+	local input="$1"
+	local pcap_file
+	local hints_file
+	local hint_count
+
+	pcap_file="$(require_pcap_file "$input")"
+	hints_file="$(mktemp)"
+	capture_credential_hints "$pcap_file" >"$hints_file"
+	hint_count="$(wc -l <"$hints_file" | tr -d ' ')"
+
+	ui_heading "Credential Hints"
+	ui_rule
+	ui_kv "Source" "$(run_label "$input")"
+	ui_kv "Target" "$(capture_target "$input")"
+	ui_kv "Pcap" "$pcap_file"
+	ui_kv "Hints" "$hint_count"
+	ui_rule
+
+	if [ ! -s "$hints_file" ]; then
+		ui_note "no clear credential or auth-material hints detected"
+		rm -f "$hints_file"
+		return 0
+	fi
+
+	sed -n '1,20p' "$hints_file"
+	publish_capture_hints "$input" "credential_hint" "medium" "$hints_file"
+	rm -f "$hints_file"
+}
+
+cmd_capture_anomalies() {
+	need_args 1 "$#" "capture anomalies <run-dir-or-pcap>"
+	local input="$1"
+	local pcap_file
+	local hints_file
+	local hint_count
+
+	pcap_file="$(require_pcap_file "$input")"
+	hints_file="$(mktemp)"
+	capture_anomaly_hints "$pcap_file" >"$hints_file"
+	hint_count="$(wc -l <"$hints_file" | tr -d ' ')"
+
+	ui_heading "Capture Anomalies"
+	ui_rule
+	ui_kv "Source" "$(run_label "$input")"
+	ui_kv "Target" "$(capture_target "$input")"
+	ui_kv "Pcap" "$pcap_file"
+	ui_kv "Signals" "$hint_count"
+	ui_rule
+
+	if [ ! -s "$hints_file" ]; then
+		ui_note "no obvious transport anomalies detected"
+		rm -f "$hints_file"
+		return 0
+	fi
+
+	sed -n '1,20p' "$hints_file"
+	publish_capture_hints "$input" "capture_anomaly" "medium" "$hints_file"
+	rm -f "$hints_file"
+}
+
+analysis_prompt() {
+	ui_heading "Saved Run Analysis"
+	ui_rule
+	printf '%s %s\n' "$(ui_dim "[1]")" "operator brief"
+	printf '%s %s\n' "$(ui_dim "[2]")" "service inventory"
+	printf '%s %s\n' "$(ui_dim "[3]")" "web focus"
+	printf '%s %s\n' "$(ui_dim "[4]")" "lateral trace"
+	printf '%s %s\n' "$(ui_dim "[5]")" "service diff"
+	printf '%s %s\n' "$(ui_dim "[0]")" "back"
+	ui_rule
+}
+
+analysis_action() {
+	case "$1" in
+	1) printf 'brief\n' ;;
+	2) printf 'services\n' ;;
+	3) printf 'web-focus\n' ;;
+	4) printf 'lateral-trace\n' ;;
+	5) printf 'service-diff\n' ;;
+	0) printf 'back\n' ;;
+	*) printf 'invalid\n' ;;
+	esac
+}
+
+cmd_analysis_menu() {
+	local selection
+	local action
+	local left
+	local right
+
+	while true; do
+		analysis_prompt
+		prompt_input selection "analysis"
+		action="$(analysis_action "$selection")"
+
+		case "$action" in
+		back)
+			return 0
+			;;
+		brief | services | web-focus | lateral-trace)
+			prompt_input left "run directory or scan file"
+			[ -n "$left" ] || fail "input is required"
+			case "$action" in
+			brief) cmd_analyze_brief "$left" ;;
+			services) cmd_analyze_services "$left" ;;
+			web-focus) cmd_analyze_web_focus "$left" ;;
+			lateral-trace) cmd_analyze_lateral_trace "$left" ;;
+			esac
+			return 0
+			;;
+		service-diff)
+			prompt_input left "baseline run"
+			prompt_input right "candidate run"
+			[ -n "$left" ] || fail "baseline run is required"
+			[ -n "$right" ] || fail "candidate run is required"
+			cmd_analyze_service_diff "$left" "$right"
+			return 0
+			;;
+		invalid)
+			printf 'invalid choice\n' >&2
+			;;
+		esac
+	done
+}
+
+cmd_profile_plan() {
+	need_args 2 "$#" "plan <profile> <target> [interface]"
+	plan_profile_context "$@"
+}
+
+cmd_workflow_plan() {
+	need_args 2 "$#" "workflow plan <name> <target> [interface]"
+	plan_workflow_context "$@"
+}
+
+cmd_profile_run() {
+	need_args 2 "$#" "run <profile> <target> [interface]"
+	local profile_name="$1"
+	local target="$2"
+	local iface="${3:-}"
+	local scan_target
+	local run_id
+	local run_dir
+	local scan_file
+	local meta_file
+	local pcap_file=""
+
+	load_profile "$profile_name"
+	profile_scan_words
+	need_command "$UPSTREAM_COMMAND"
+	scan_target="$(resolve_target_address "$target")"
+
+	run_id="$(timestamp)-${PROFILE_NAME}-$(target_slug "$target")"
+	run_dir="$RUNS_DIR/$run_id"
+	scan_file="$(profile_output_file "$run_dir")"
+	meta_file="$run_dir/meta.env"
+	pcap_file="$run_dir/capture.pcap"
+
+	mkdir -p "$run_dir"
+	write_profile_meta "$meta_file" "$PROFILE_NAME" "$target" "$scan_target" "$iface"
+	printf '%s\n' "$(quote_join "$UPSTREAM_COMMAND" "${PROFILE_SCAN_WORDS[@]}" "$scan_target")" >"$run_dir/command.txt"
+
+	ui_heading "Profile Run"
+	ui_rule
+	ui_kv "Profile" "$(ui_accent "$PROFILE_NAME") $(profile_badge "$PROFILE_CATEGORY")"
+	ui_kv "Target" "$target"
+	if [ "$scan_target" != "$target" ]; then
+		ui_kv "Address" "$scan_target"
+	fi
+	ui_kv "Run Dir" "$run_dir"
+	if [ -n "$iface" ]; then
+		ui_kv "Capture" "$iface -> $pcap_file"
+	fi
+	ui_rule
+
+	trap stop_capture EXIT
+	if [ -n "$iface" ]; then
+		run_capture "$iface" "$pcap_file" "$scan_target"
+	fi
+
+	run_profile_stage "$PROFILE_NAME" "$scan_target" "$scan_file"
+	stop_capture
+	trap - EXIT
+
+	if ! publish_intel_for_run "profile" "$PROFILE_NAME" "$target" "$run_dir" "$scan_target"; then
+		ui_alert "intel publish failed for $run_dir"
+	fi
+
+	ui_ok "profile run complete"
+	printf 'run_dir: %s\n' "$run_dir"
+	if [ -n "$iface" ]; then
+		printf 'pcap_file: %s\n' "$pcap_file"
+	fi
+}
+
+cmd_workflow_run() {
+	need_args 2 "$#" "workflow run <name> <target> [interface]"
+	local workflow_name="$1"
+	local target="$2"
+	local iface="${3:-}"
+	local scan_target
+	local run_id
+	local run_dir
+	local meta_file
+	local pcap_file=""
+	local stage_index=1
+	local stage
+
+	load_workflow "$workflow_name"
+	workflow_step_words
+	need_command "$UPSTREAM_COMMAND"
+	scan_target="$(resolve_target_address "$target")"
+
+	run_id="$(timestamp)-${WORKFLOW_NAME}-$(target_slug "$target")"
+	run_dir="$RUNS_DIR/$run_id"
+	meta_file="$run_dir/meta.env"
+	pcap_file="$run_dir/capture.pcap"
+
+	mkdir -p "$run_dir"
+	write_workflow_meta "$meta_file" "$WORKFLOW_NAME" "$target" "$scan_target" "$iface"
+
+	ui_heading "Workflow Run"
+	ui_rule
+	ui_kv "Workflow" "$(ui_accent "$WORKFLOW_NAME") $(workflow_badge "$WORKFLOW_CATEGORY")"
+	ui_kv "Target" "$target"
+	if [ "$scan_target" != "$target" ]; then
+		ui_kv "Address" "$scan_target"
+	fi
+	ui_kv "Run Dir" "$run_dir"
+	if [ -n "$iface" ]; then
+		ui_kv "Capture" "$iface -> $pcap_file"
+	fi
+	ui_rule
+
+	trap stop_capture EXIT
+	if [ -n "$iface" ]; then
+		run_capture "$iface" "$pcap_file" "$scan_target"
+	fi
+
+	for stage in "${WORKFLOW_STEP_WORDS[@]}"; do
+		run_workflow_stage "$stage_index" "$stage" "$scan_target" "$run_dir"
+		stage_index=$((stage_index + 1))
+	done
+
+	stop_capture
+	trap - EXIT
+
+	if ! publish_intel_for_run "workflow" "$WORKFLOW_NAME" "$target" "$run_dir" "$scan_target"; then
+		ui_alert "intel publish failed for $run_dir"
+	fi
+
+	ui_ok "workflow run complete"
+	printf 'workflow_run_dir: %s\n' "$run_dir"
+	if [ -n "$iface" ]; then
+		printf 'workflow_pcap_file: %s\n' "$pcap_file"
+	fi
+}
+
+cmd_review() {
+	cmd_capture_inspect "$@"
+}
+
+cmd_prune() {
+	local keep="${1:-5}"
+	local runs=()
+	local prune_list=()
+	local path
+
+	while IFS= read -r path; do
+		runs+=("$path")
+	done < <(find "$RUNS_DIR" -mindepth 1 -maxdepth 1 -type d | sort -r)
+
+	if [ "${#runs[@]}" -le "$keep" ]; then
+		ui_note "nothing to prune"
+		printf 'pruned: 0\n'
+		return 0
+	fi
+
+	prune_list=("${runs[@]:$keep}")
+	for path in "${prune_list[@]}"; do
+		rm -rf "$path"
+		ui_alert "removed stale run $path"
+		printf 'removed: %s\n' "$path"
+	done
+	printf 'pruned: %s\n' "${#prune_list[@]}"
+}
+
+prompt_input() {
+	local __var="$1"
+	local label="$2"
+	local value
+
+	printf '%s ' "$(ui_dim "$label:")"
+	IFS= read -r value
+	printf -v "$__var" '%s' "$value"
+}
+
+menu_prompt() {
+	ui_heading "Wiremap Workflow Console"
+	ui_rule
+	list_workflows
+	ui_subheading "Utilities"
+	printf '%s %s\n' "$(ui_dim "[6]")" "show workflow detail"
+	printf '%s %s\n' "$(ui_dim "[7]")" "browse profile catalog"
+	printf '%s %s\n' "$(ui_dim "[8]")" "show profile detail"
+	printf '%s %s\n' "$(ui_dim "[9]")" "analyze saved run or compare runs"
+	printf '%s %s\n' "$(ui_dim "[c]")" "packet capture analysis"
+	printf '%s %s\n' "$(ui_dim "[r]")" "review saved run or pcap"
+	printf '%s %s\n' "$(ui_dim "[0]")" "exit"
+	ui_rule
+}
+
+menu_action() {
+	local selection="$1"
+	local workflow_name
+
+	workflow_name="$(workflow_from_number "$selection")"
+	if [ -n "$workflow_name" ]; then
+		printf '%s\n' "$workflow_name"
+		return 0
+	fi
+
+	case "$selection" in
+	6) printf 'workflow-detail\n' ;;
+	7) printf 'profile-list\n' ;;
+	8) printf 'profile-detail\n' ;;
+	9) printf 'analyze\n' ;;
+	c | C) printf 'capture\n' ;;
+	r | R) printf 'review\n' ;;
+	0) printf 'exit\n' ;;
+	*) printf 'invalid\n' ;;
+	esac
+}
+
+capture_prompt() {
+	ui_heading "Packet Capture Analysis"
+	ui_rule
+	printf '%s %s\n' "$(ui_dim "[1]")" "inspect protocol mix and sample packets"
+	printf '%s %s\n' "$(ui_dim "[2]")" "summarize streams and conversations"
+	printf '%s %s\n' "$(ui_dim "[3]")" "surface credential or auth-material hints"
+	printf '%s %s\n' "$(ui_dim "[4]")" "surface resets, retransmissions, and anomalies"
+	printf '%s %s\n' "$(ui_dim "[0]")" "back"
+	ui_rule
+}
+
+capture_action() {
+	case "$1" in
+	1) printf 'inspect\n' ;;
+	2) printf 'streams\n' ;;
+	3) printf 'creds\n' ;;
+	4) printf 'anomalies\n' ;;
+	0) printf 'back\n' ;;
+	*) printf 'invalid\n' ;;
+	esac
+}
+
+cmd_capture_menu() {
+	local selection
+	local action
+
+	while true; do
+		capture_prompt
+		prompt_input selection "capture"
+		action="$(capture_action "$selection")"
+
+		case "$action" in
+		back)
+			return 0
+			;;
+		inspect | streams | creds | anomalies)
+			prompt_input selection "run directory or pcap path"
+			[ -n "$selection" ] || fail "path is required"
+			case "$action" in
+			inspect) cmd_capture_inspect "$selection" ;;
+			streams) cmd_capture_streams "$selection" ;;
+			creds) cmd_capture_creds "$selection" ;;
+			anomalies) cmd_capture_anomalies "$selection" ;;
+			esac
+			return 0
+			;;
+		invalid)
+			printf 'invalid choice\n' >&2
+			;;
+		esac
+	done
+}
+
+cmd_menu() {
+	local selection
+	local action
+	local workflow_name
+	local target
+	local iface
+
+	while true; do
+		menu_prompt
+		prompt_input selection "choice"
+		action="$(menu_action "$selection")"
+
+		case "$action" in
+		exit)
+			return 0
+			;;
+		workflow-detail)
+			prompt_input selection "workflow name"
+			[ -n "$selection" ] || fail "workflow is required"
+			show_workflow "$selection"
+			return 0
+			;;
+		profile-list)
+			list_profiles
+			return 0
+			;;
+		profile-detail)
+			prompt_input selection "profile name"
+			[ -n "$selection" ] || fail "profile is required"
+			show_profile "$selection"
+			return 0
+			;;
+		analyze)
+			cmd_analysis_menu
+			return 0
+			;;
+		capture)
+			cmd_capture_menu
+			return 0
+			;;
+		review)
+			prompt_input selection "run directory or pcap path"
+			[ -n "$selection" ] || fail "path is required"
+			cmd_review "$selection"
+			return 0
+			;;
+		invalid)
+			printf 'invalid choice\n' >&2
+			;;
+		*)
+			workflow_name="$action"
+			prompt_input target "target"
+			[ -n "$target" ] || fail "target is required"
+			prompt_input iface "capture interface (blank for none)"
+			prompt_input selection "plan or run [p/r] (default p)"
+			if [ -z "$selection" ] || [ "$selection" = "p" ] || [ "$selection" = "P" ]; then
+				cmd_workflow_plan "$workflow_name" "$target" "$iface"
+			elif [ "$selection" = "r" ] || [ "$selection" = "R" ]; then
+				cmd_workflow_run "$workflow_name" "$target" "$iface"
+			else
+				fail "invalid action: use p or r"
+			fi
+			return 0
+			;;
+		esac
+	done
+}
+
+case "${1:-help}" in
+help | -h | --help)
+	usage
+	;;
+intel)
+	sed -n '1,120p' "$TOOL_DIR/intel/help.txt"
+	;;
+menu)
+	shift
+	cmd_menu "$@"
+	;;
+workflow)
+	shift
+	case "${1:-}" in
+	list)
+		shift
+		list_workflows "$@"
+		;;
+	show)
+		shift
+		need_args 1 "$#" "workflow show <name>"
+		show_workflow "$@"
+		;;
+	plan)
+		shift
+		cmd_workflow_plan "$@"
+		;;
+	run)
+		shift
+		cmd_workflow_run "$@"
+		;;
+	*)
+		usage
+		exit 1
+		;;
+	esac
+	;;
+profile)
+	shift
+	case "${1:-}" in
+	list)
+		shift
+		list_profiles "$@"
+		;;
+	show)
+		shift
+		need_args 1 "$#" "profile show <name>"
+		show_profile "$@"
+		;;
+	*)
+		usage
+		exit 1
+		;;
+	esac
+	;;
+plan)
+	shift
+	cmd_profile_plan "$@"
+	;;
+run)
+	shift
+	cmd_profile_run "$@"
+	;;
+analyze)
+	shift
+	case "${1:-}" in
+	brief)
+		shift
+		cmd_analyze_brief "$@"
+		;;
+	services)
+		shift
+		cmd_analyze_services "$@"
+		;;
+	web-focus)
+		shift
+		cmd_analyze_web_focus "$@"
+		;;
+	lateral-trace)
+		shift
+		cmd_analyze_lateral_trace "$@"
+		;;
+	service-diff)
+		shift
+		cmd_analyze_service_diff "$@"
+		;;
+	*)
+		usage
+		exit 1
+		;;
+	esac
+	;;
+capture)
+	shift
+	case "${1:-}" in
+	inspect)
+		shift
+		cmd_capture_inspect "$@"
+		;;
+	streams)
+		shift
+		cmd_capture_streams "$@"
+		;;
+	creds)
+		shift
+		cmd_capture_creds "$@"
+		;;
+	anomalies)
+		shift
+		cmd_capture_anomalies "$@"
+		;;
+	*)
+		usage
+		exit 1
+		;;
+	esac
+	;;
+review)
+	shift
+	cmd_review "$@"
+	;;
+prune)
+	shift
+	cmd_prune "$@"
+	;;
+*)
+	printf '%s\n' "$TOOL_NAME: unknown subcommand '$1'" >&2
+	usage >&2
+	exit 1
+	;;
+esac

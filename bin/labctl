@@ -1,0 +1,924 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/common.sh
+. "$SCRIPT_DIR/../lib/common.sh"
+
+load_config
+ensure_layout
+
+usage() {
+	cat <<'EOF'
+usage:
+  labctl init
+  labctl status
+  labctl paths
+  labctl tree
+  labctl target add <name> <address> [notes...]
+  labctl target list
+  labctl target show <name>
+  labctl session open <name> [target]
+  labctl session close <name>
+  labctl session list
+  labctl report new <name>
+  labctl tool new <name> [summary...]
+  labctl tool distill <name> <command> [capture args...]
+  labctl tool list
+  labctl tool path <name>
+  labctl tool run <name> [args...]
+  labctl release build <name> [tool...]
+  labctl release list
+  labctl release inspect <name>
+  labctl deploy activate <release> <runtime-root>
+EOF
+}
+
+cmd_init() {
+	ensure_layout
+	printf 'lab_root: %s\n' "$LAB_ROOT"
+	printf 'status: initialized\n'
+}
+
+cmd_status() {
+	printf 'lab_root: %s\n' "$LAB_ROOT"
+	printf 'role: %s\n' "$LAB_ROLE"
+	printf 'runtime_target: %s\n' "$LAB_RUNTIME_TARGET"
+	printf 'targets: %s\n' "$(count_entries "$LAB_TARGETS_DIR")"
+	printf 'sessions: %s\n' "$(count_entries "$LAB_SESSIONS_DIR")"
+	printf 'tools: %s\n' "$(count_entries "$LAB_TOOLS_DIR")"
+	printf 'reports: %s\n' "$(count_entries "$LAB_REPORTS_DIR")"
+	printf 'releases: %s\n' "$(count_entries "$LAB_RELEASES_DIR")"
+}
+
+cmd_paths() {
+	cat <<EOF
+LAB_ROOT=$LAB_ROOT
+LAB_PERSIST_DIR=$LAB_PERSIST_DIR
+LAB_STATE_DIR=$LAB_STATE_DIR
+LAB_TARGETS_DIR=$LAB_TARGETS_DIR
+LAB_SESSIONS_DIR=$LAB_SESSIONS_DIR
+LAB_TOOLS_DIR=$LAB_TOOLS_DIR
+LAB_REPORTS_DIR=$LAB_REPORTS_DIR
+LAB_LOGS_DIR=$LAB_LOGS_DIR
+LAB_DOCS_DIR=$LAB_DOCS_DIR
+LAB_RELEASES_DIR=$LAB_RELEASES_DIR
+LAB_INTEL_DIR=$LAB_INTEL_DIR
+LAB_ROLE=$LAB_ROLE
+LAB_RUNTIME_TARGET=$LAB_RUNTIME_TARGET
+EOF
+}
+
+cmd_tree() {
+	find "$LAB_ROOT" -maxdepth 2 | sort | sed "s#^$LAB_ROOT#.#"
+}
+
+cmd_target_add() {
+	need_args 2 "$#" "target add <name> <address> [notes...]"
+	local name="$1"
+	local address="$2"
+	shift 2
+	local notes="${*:-}"
+	local slug
+	local file
+
+	slug="$(slugify "$name")"
+	[ -n "$slug" ] || fail "target name produced an empty slug"
+	file="$LAB_TARGETS_DIR/$slug.env"
+
+	[ ! -e "$file" ] || fail "target already exists: $slug"
+
+	: >"$file"
+	upsert_env "$file" NAME "$name"
+	upsert_env "$file" ADDRESS "$address"
+	upsert_env "$file" NOTES "$notes"
+	upsert_env "$file" CREATED_AT "$(timestamp)"
+
+	printf 'created target: %s\n' "$slug"
+}
+
+cmd_target_list() {
+	local file
+	local NAME=""
+	local ADDRESS=""
+	local CREATED_AT=""
+	printf '%-24s %-24s %s\n' "TARGET" "ADDRESS" "CREATED_AT"
+	for file in "$LAB_TARGETS_DIR"/*.env; do
+		[ -e "$file" ] || return 0
+		# shellcheck disable=SC1090
+		. "$file"
+		printf '%-24s %-24s %s\n' "$NAME" "$ADDRESS" "$CREATED_AT"
+	done
+}
+
+cmd_target_show() {
+	need_args 1 "$#" "target show <name>"
+	local slug
+	local file
+
+	slug="$(slugify "$1")"
+	file="$LAB_TARGETS_DIR/$slug.env"
+	[ -f "$file" ] || fail "unknown target: $slug"
+	cat "$file"
+}
+
+cmd_session_open() {
+	need_args 1 "$#" "session open <name> [target]"
+	local name="$1"
+	local target="${2:-}"
+	local slug
+	local dir
+	local file
+
+	slug="$(slugify "$name")"
+	[ -n "$slug" ] || fail "session name produced an empty slug"
+	dir="$LAB_SESSIONS_DIR/$slug"
+	file="$dir/session.env"
+
+	[ ! -d "$dir" ] || fail "session already exists: $slug"
+
+	mkdir -p "$dir/loot" "$dir/pcaps" "$dir/notes" "$dir/logs" "$dir/tmp"
+	: >"$file"
+	upsert_env "$file" NAME "$name"
+	upsert_env "$file" SLUG "$slug"
+	upsert_env "$file" TARGET "$target"
+	upsert_env "$file" STATUS "open"
+	upsert_env "$file" CREATED_AT "$(timestamp)"
+
+	printf 'opened session: %s\n' "$slug"
+}
+
+cmd_session_close() {
+	need_args 1 "$#" "session close <name>"
+	local slug
+	local dir
+	local file
+
+	slug="$(slugify "$1")"
+	dir="$LAB_SESSIONS_DIR/$slug"
+	file="$dir/session.env"
+	[ -f "$file" ] || fail "unknown session: $slug"
+
+	upsert_env "$file" STATUS "closed"
+	upsert_env "$file" CLOSED_AT "$(timestamp)"
+	printf 'closed session: %s\n' "$slug"
+}
+
+cmd_session_list() {
+	local file
+	local NAME=""
+	local STATUS=""
+	local TARGET=""
+	printf '%-24s %-16s %s\n' "SESSION" "STATUS" "TARGET"
+	for file in "$LAB_SESSIONS_DIR"/*/session.env; do
+		[ -e "$file" ] || return 0
+		# shellcheck disable=SC1090
+		. "$file"
+		printf '%-24s %-16s %s\n' "$NAME" "$STATUS" "${TARGET:-}"
+	done
+}
+
+cmd_report_new() {
+	need_args 1 "$#" "report new <name>"
+	local name="$1"
+	local slug
+	local file
+
+	slug="$(slugify "$name")"
+	[ -n "$slug" ] || fail "report name produced an empty slug"
+	file="$LAB_REPORTS_DIR/$slug.md"
+	[ ! -e "$file" ] || fail "report already exists: $slug"
+
+	cat >"$file" <<EOF
+# $name
+
+Created: $(timestamp)
+
+## Scope
+
+## Findings
+
+## Evidence
+
+## Actions
+
+## Notes
+EOF
+
+	printf 'created report: %s\n' "$file"
+}
+
+create_tool_scaffold() {
+	local slug="$1"
+	local summary="$2"
+	local kind="$3"
+	local dir="$LAB_TOOLS_DIR/$slug"
+	local file="$dir/bin/$slug"
+	local readme="$dir/README.md"
+	local meta="$dir/tool.env"
+
+	[ ! -d "$dir" ] || fail "tool already exists: $slug"
+
+	mkdir -p "$dir/bin"
+
+	cat >"$file" <<EOF
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+TOOL_DIR="\$(cd -- "\$(dirname -- "\${BASH_SOURCE[0]}")/.." && pwd)"
+TOOL_NAME="$slug"
+
+usage() {
+  cat <<'USAGE'
+usage:
+  $slug help
+USAGE
+}
+
+case "\${1:-help}" in
+  help|-h|--help)
+    usage
+    ;;
+  *)
+    printf '%s\n' "\$TOOL_NAME: implement subcommand '\$1' in \$TOOL_DIR/bin/$slug" >&2
+    exit 1
+    ;;
+esac
+EOF
+	chmod +x "$file"
+
+	: >"$meta"
+	upsert_env "$meta" NAME "$slug"
+	upsert_env "$meta" SUMMARY "$summary"
+	upsert_env "$meta" TOOL_KIND "$kind"
+	upsert_env "$meta" CREATED_AT "$(timestamp)"
+
+	cat >"$readme" <<EOF
+# $slug
+
+$summary
+
+## Intent
+
+Describe what this tool owns and what it should never do.
+
+## Inputs
+
+- Define expected flags, arguments, or record dependencies.
+
+## Outputs
+
+- Define what files, logs, or reports it writes.
+
+## Notes
+
+- Keep module-specific reasoning here rather than inside the dispatcher.
+EOF
+
+	printf '%s\n' "$dir"
+}
+
+create_runtime_tool_wrapper() {
+	local runtime_dir="$1"
+	local tool_slug="$2"
+	local wrapper="$runtime_dir/bin/$tool_slug"
+
+	cat >"$wrapper" <<EOF
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+RUNTIME_ROOT="\$(cd -- "\$(dirname -- "\${BASH_SOURCE[0]}")/.." && pwd)"
+exec "\$RUNTIME_ROOT/tools/$tool_slug/bin/$tool_slug" "\$@"
+EOF
+	chmod +x "$wrapper"
+}
+
+cmd_tool_new() {
+	need_args 1 "$#" "tool new <name> [summary...]"
+	local name="$1"
+	shift
+	local summary="${*:-native tool stub}"
+	local slug
+
+	slug="$(slugify "$name")"
+	[ -n "$slug" ] || fail "tool name produced an empty slug"
+	printf 'created tool: %s\n' "$(create_tool_scaffold "$slug" "$summary" "native")"
+}
+
+cmd_tool_distill() {
+	need_args 2 "$#" "tool distill <name> <command> [capture args...]"
+	local name="$1"
+	local upstream="$2"
+	shift 2
+	local slug
+	local summary
+	local dir
+	local file
+	local intel_dir
+	local help_file
+	local version_file
+	local capture_desc
+	local captured="yes"
+
+	command -v "$upstream" >/dev/null 2>&1 || fail "command not found: $upstream"
+
+	slug="$(slugify "$name")"
+	[ -n "$slug" ] || fail "tool name produced an empty slug"
+	summary="distilled skeleton for $upstream"
+	dir="$(create_tool_scaffold "$slug" "$summary" "distilled")"
+	file="$dir/bin/$slug"
+	intel_dir="$dir/intel"
+	help_file="$intel_dir/help.txt"
+	version_file="$intel_dir/version.txt"
+
+	mkdir -p "$intel_dir"
+
+	if [ "$#" -gt 0 ]; then
+		capture_desc="$upstream $*"
+		if ! "$upstream" "$@" >"$help_file" 2>&1; then
+			captured="partial"
+		fi
+	else
+		capture_desc="$upstream --help"
+		if ! "$upstream" --help >"$help_file" 2>&1; then
+			capture_desc="$upstream -h"
+			if ! "$upstream" -h >"$help_file" 2>&1; then
+				captured="no"
+				printf 'help capture unavailable for %s\n' "$upstream" >"$help_file"
+			fi
+		fi
+	fi
+
+	if ! "$upstream" --version >"$version_file" 2>&1; then
+		printf 'version capture unavailable for %s\n' "$upstream" >"$version_file"
+	fi
+
+	cat >"$file" <<EOF
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+TOOL_DIR="\$(cd -- "\$(dirname -- "\${BASH_SOURCE[0]}")/.." && pwd)"
+TOOL_NAME="$slug"
+UPSTREAM_COMMAND="$upstream"
+
+usage() {
+  cat <<'USAGE'
+usage:
+  $slug help
+  $slug intel
+USAGE
+}
+
+case "\${1:-help}" in
+  help|-h|--help)
+    usage
+    ;;
+  intel)
+    sed -n '1,120p' "\$TOOL_DIR/intel/help.txt"
+    ;;
+  *)
+    printf '%s\n' "\$TOOL_NAME: distilled from '\$UPSTREAM_COMMAND'. Implement subcommand '\$1' in \$TOOL_DIR/bin/$slug" >&2
+    exit 1
+    ;;
+esac
+EOF
+	chmod +x "$file"
+
+	cat >"$dir/README.md" <<EOF
+# $slug
+
+This is a distilled native tool scaffold based on the command shape of
+\`$upstream\`.
+
+## Distillation Policy
+
+- capture help and version output
+- keep operator-relevant command structure
+- discard upstream implementation, build artifacts, and cache-heavy content
+
+## Captured Source
+
+- command: \`$upstream\`
+- capture: \`$capture_desc\`
+- help_captured: \`$captured\`
+
+## Next Step
+
+Implement native subcommands in \`bin/$slug\` using the saved intel under
+\`intel/\`.
+EOF
+
+	upsert_env "$dir/tool.env" SOURCE_COMMAND "$upstream"
+	upsert_env "$dir/tool.env" CAPTURE_COMMAND "$capture_desc"
+	upsert_env "$dir/tool.env" HELP_CAPTURED "$captured"
+	upsert_env "$dir/tool.env" DISTILL_POLICY "shape-only"
+
+	printf 'distilled tool: %s\n' "$dir"
+}
+
+cmd_tool_list() {
+	local file
+	local NAME=""
+	local SUMMARY=""
+	printf '%-24s %s\n' "TOOL" "SUMMARY"
+	for file in "$LAB_TOOLS_DIR"/*/tool.env; do
+		[ -e "$file" ] || return 0
+		# shellcheck disable=SC1090
+		. "$file"
+		printf '%-24s %s\n' "$NAME" "$SUMMARY"
+	done
+}
+
+cmd_tool_path() {
+	need_args 1 "$#" "tool path <name>"
+	local slug
+	slug="$(slugify "$1")"
+	[ -d "$LAB_TOOLS_DIR/$slug" ] || fail "unknown tool: $slug"
+	printf '%s\n' "$LAB_TOOLS_DIR/$slug"
+}
+
+cmd_tool_run() {
+	need_args 1 "$#" "tool run <name> [args...]"
+	local slug
+	local runner
+
+	slug="$(slugify "$1")"
+	shift
+	runner="$LAB_TOOLS_DIR/$slug/bin/$slug"
+	[ -x "$runner" ] || fail "missing runnable for tool: $slug"
+	exec "$runner" "$@"
+}
+
+cmd_release_build() {
+	need_args 1 "$#" "release build <name> [tool...]"
+	local name="$1"
+	shift
+	local slug
+	local release_dir
+	local runtime_dir
+	local tool
+	local tool_slug
+	local included_tools=()
+
+	slug="$(slugify "$name")"
+	[ -n "$slug" ] || fail "release name produced an empty slug"
+	release_dir="$LAB_RELEASES_DIR/$slug"
+	runtime_dir="$release_dir/native"
+
+	[ ! -e "$release_dir" ] || fail "release already exists: $slug"
+
+	mkdir -p \
+		"$runtime_dir/bin" \
+		"$runtime_dir/lib" \
+		"$runtime_dir/etc" \
+		"$runtime_dir/tools" \
+		"$runtime_dir/state" \
+		"$runtime_dir/targets" \
+		"$runtime_dir/sessions" \
+		"$runtime_dir/reports" \
+		"$runtime_dir/logs"
+
+	cp "$LAB_BIN_DIR/labctl" "$runtime_dir/bin/labctl"
+	cp "$LAB_LIB_DIR/common.sh" "$runtime_dir/lib/common.sh"
+	if [ -f "$LAB_BIN_DIR/intelctl" ]; then
+		cp "$LAB_BIN_DIR/intelctl" "$runtime_dir/bin/intelctl"
+	fi
+	if [ -f "$LAB_LIB_DIR/intel.sh" ]; then
+		cp "$LAB_LIB_DIR/intel.sh" "$runtime_dir/lib/intel.sh"
+	fi
+	chmod +x "$runtime_dir/bin/labctl" "$runtime_dir/lib/common.sh"
+	if [ -f "$runtime_dir/bin/intelctl" ]; then
+		chmod +x "$runtime_dir/bin/intelctl"
+	fi
+
+	if [ "$#" -gt 0 ]; then
+		for tool in "$@"; do
+			tool_slug="$(slugify "$tool")"
+			[ -d "$LAB_TOOLS_DIR/$tool_slug" ] || fail "unknown tool: $tool_slug"
+			cp -R "$LAB_TOOLS_DIR/$tool_slug" "$runtime_dir/tools/$tool_slug"
+			if [ -d "$runtime_dir/tools/$tool_slug/bin" ]; then
+				find "$runtime_dir/tools/$tool_slug/bin" -mindepth 1 -maxdepth 1 -type f -exec chmod +x {} +
+			fi
+			create_runtime_tool_wrapper "$runtime_dir" "$tool_slug"
+			included_tools+=("$tool_slug")
+		done
+	else
+		for tool in "$LAB_TOOLS_DIR"/*; do
+			[ -d "$tool" ] || continue
+			tool_slug="$(basename "$tool")"
+			cp -R "$tool" "$runtime_dir/tools/$tool_slug"
+			if [ -d "$runtime_dir/tools/$tool_slug/bin" ]; then
+				find "$runtime_dir/tools/$tool_slug/bin" -mindepth 1 -maxdepth 1 -type f -exec chmod +x {} +
+			fi
+			create_runtime_tool_wrapper "$runtime_dir" "$tool_slug"
+			included_tools+=("$tool_slug")
+		done
+	fi
+
+	cat >"$runtime_dir/etc/lab.env" <<EOF
+LAB_ROLE=runtime
+LAB_RUNTIME_TARGET=$LAB_RUNTIME_TARGET
+LAB_RUNTIME_BASE="\${LAB_RUNTIME_BASE:-\$(cd -P -- "\$LAB_ROOT/../../.." && pwd)}"
+LAB_PERSIST_DIR="\${LAB_PERSIST_DIR:-\$LAB_RUNTIME_BASE/shared}"
+LAB_STATE_DIR="\${LAB_STATE_DIR:-\$LAB_PERSIST_DIR/state}"
+LAB_TARGETS_DIR="\${LAB_TARGETS_DIR:-\$LAB_PERSIST_DIR/targets}"
+LAB_SESSIONS_DIR="\${LAB_SESSIONS_DIR:-\$LAB_PERSIST_DIR/sessions}"
+LAB_REPORTS_DIR="\${LAB_REPORTS_DIR:-\$LAB_PERSIST_DIR/reports}"
+LAB_LOGS_DIR="\${LAB_LOGS_DIR:-\$LAB_PERSIST_DIR/logs}"
+EOF
+
+	cat >"$runtime_dir/README.md" <<EOF
+# Lean Runtime Release
+
+This runtime tree is intentionally slim.
+
+- included tools only
+- no tests
+- no builder-only docs
+- no prior sessions, reports, or logs inside the release tree
+- runtime state is read from the shared runtime data root
+
+Use the local entrypoint:
+
+\`\`\`bash
+./bin/labctl status
+./bin/intelctl summary
+\`\`\`
+
+By default, deployed releases resolve shared runtime data from:
+
+\`\`\`bash
+../../.. relative to this native/ tree, then shared/
+\`\`\`
+
+Override \`LAB_PERSIST_DIR\` if a runtime needs to keep state somewhere else.
+EOF
+
+	: >"$release_dir/manifest.env"
+	upsert_env "$release_dir/manifest.env" RELEASE_NAME "$slug"
+	upsert_env "$release_dir/manifest.env" CREATED_AT "$(timestamp)"
+	upsert_env "$release_dir/manifest.env" TOOL_COUNT "${#included_tools[@]}"
+	upsert_env "$release_dir/manifest.env" INCLUDED_TOOLS "${included_tools[*]:-}"
+
+	printf 'created release: %s\n' "$release_dir"
+	printf 'runtime_root: %s\n' "$runtime_dir"
+	printf 'included_tools: %s\n' "${included_tools[*]:-none}"
+}
+
+cmd_release_list() {
+	local file
+	local RELEASE_NAME=""
+	local CREATED_AT=""
+	local TOOL_COUNT=""
+
+	printf '%-24s %-8s %s\n' "RELEASE" "TOOLS" "CREATED_AT"
+	for file in "$LAB_RELEASES_DIR"/*/manifest.env; do
+		[ -e "$file" ] || return 0
+		# shellcheck disable=SC1090
+		. "$file"
+		printf '%-24s %-8s %s\n' "$RELEASE_NAME" "$TOOL_COUNT" "$CREATED_AT"
+	done
+}
+
+cmd_release_inspect() {
+	need_args 1 "$#" "release inspect <name>"
+	local slug
+	local file
+
+	slug="$(slugify "$1")"
+	file="$LAB_RELEASES_DIR/$slug/manifest.env"
+	[ -f "$file" ] || fail "unknown release: $slug"
+	cat "$file"
+}
+
+deploy_is_remote() {
+	local destination="$1"
+
+	case "$destination" in
+	/*)
+		return 1
+		;;
+	*:*)
+		return 0
+		;;
+	*)
+		return 1
+		;;
+	esac
+}
+
+deploy_remote_host() {
+	printf '%s\n' "${1%%:*}"
+}
+
+deploy_remote_root() {
+	printf '%s\n' "${1#*:}"
+}
+
+deploy_prepare_local() {
+	local root="$1"
+	local name
+
+	if [ -e "$root/current" ] && [ ! -L "$root/current" ]; then
+		fail "runtime current exists and is not a symlink: $root/current"
+	fi
+
+	mkdir -p \
+		"$root/releases" \
+		"$root/shared/targets" \
+		"$root/shared/state" \
+		"$root/shared/sessions" \
+		"$root/shared/reports" \
+		"$root/shared/logs"
+
+	for name in targets state sessions reports logs; do
+		if [ -d "$root/current/native/$name" ]; then
+			cp -a "$root/current/native/$name/." "$root/shared/$name/"
+		fi
+	done
+}
+
+deploy_prepare_remote() {
+	local destination="$1"
+	local host
+	local root
+	local root_q
+
+	host="$(deploy_remote_host "$destination")"
+	root="$(deploy_remote_root "$destination")"
+	root_q="$(printf '%q' "$root")"
+
+	# shellcheck disable=SC2029
+	ssh "$host" "set -euo pipefail
+root=$root_q
+if [ -e \"\$root/current\" ] && [ ! -L \"\$root/current\" ]; then
+  printf 'error: runtime current exists and is not a symlink: %s\n' \"\$root/current\" >&2
+  exit 1
+fi
+mkdir -p \
+  \"\$root/releases\" \
+  \"\$root/shared/targets\" \
+  \"\$root/shared/state\" \
+  \"\$root/shared/sessions\" \
+  \"\$root/shared/reports\" \
+  \"\$root/shared/logs\"
+for name in targets state sessions reports logs; do
+  if [ -d \"\$root/current/native/\$name\" ]; then
+    cp -a \"\$root/current/native/\$name/.\" \"\$root/shared/\$name/\"
+  fi
+done"
+}
+
+deploy_rsync_release() {
+	local release_dir="$1"
+	local slug="$2"
+	local destination="$3"
+
+	if deploy_is_remote "$destination"; then
+		rsync -a "$release_dir/" "$destination/releases/$slug/"
+	else
+		rsync -a "$release_dir/" "$destination/releases/$slug/"
+	fi
+}
+
+deploy_sync_targets() {
+	local destination="$1"
+
+	if deploy_is_remote "$destination"; then
+		rsync -a "$LAB_TARGETS_DIR/" "$destination/shared/targets/"
+	else
+		rsync -a "$LAB_TARGETS_DIR/" "$destination/shared/targets/"
+	fi
+}
+
+deploy_switch_local() {
+	local root="$1"
+	local slug="$2"
+
+	ln -sfn "$root/releases/$slug" "$root/current"
+}
+
+deploy_switch_remote() {
+	local destination="$1"
+	local slug="$2"
+	local host
+	local root
+	local root_q
+	local slug_q
+
+	host="$(deploy_remote_host "$destination")"
+	root="$(deploy_remote_root "$destination")"
+	root_q="$(printf '%q' "$root")"
+	slug_q="$(printf '%q' "$slug")"
+
+	# shellcheck disable=SC2029
+	ssh "$host" "set -euo pipefail
+root=$root_q
+slug=$slug_q
+ln -sfn \"\$root/releases/\$slug\" \"\$root/current\""
+}
+
+deploy_status() {
+	local destination="$1"
+	local host
+	local root
+	local root_q
+
+	if deploy_is_remote "$destination"; then
+		host="$(deploy_remote_host "$destination")"
+		root="$(deploy_remote_root "$destination")"
+		root_q="$(printf '%q' "$root")"
+		# shellcheck disable=SC2029
+		ssh "$host" "set -euo pipefail
+root=$root_q
+\"\$root/current/native/bin/labctl\" status"
+	else
+		"$destination/current/native/bin/labctl" status
+	fi
+}
+
+cmd_deploy_activate() {
+	need_args 2 "$#" "deploy activate <release> <runtime-root>"
+	local release="$1"
+	local destination="$2"
+	local slug
+	local release_dir
+
+	slug="$(slugify "$release")"
+	release_dir="$LAB_RELEASES_DIR/$slug"
+	[ -d "$release_dir" ] || fail "unknown release: $slug"
+	[ -f "$release_dir/manifest.env" ] || fail "missing release manifest: $slug"
+
+	command -v rsync >/dev/null 2>&1 || fail "command not found: rsync"
+	if deploy_is_remote "$destination"; then
+		command -v ssh >/dev/null 2>&1 || fail "command not found: ssh"
+		deploy_prepare_remote "$destination"
+	else
+		deploy_prepare_local "$destination"
+	fi
+
+	deploy_rsync_release "$release_dir" "$slug" "$destination"
+	deploy_sync_targets "$destination"
+
+	if deploy_is_remote "$destination"; then
+		deploy_switch_remote "$destination" "$slug"
+	else
+		deploy_switch_local "$destination" "$slug"
+	fi
+
+	printf 'activated_release: %s\n' "$slug"
+	printf 'runtime_root: %s\n' "$destination"
+	printf 'current: %s/current\n' "$destination"
+	printf 'shared: %s/shared\n' "$destination"
+	printf 'targets_synced: %s\n' "$(count_entries "$LAB_TARGETS_DIR")"
+	deploy_status "$destination"
+}
+
+case "${1:-}" in
+init)
+	shift
+	cmd_init "$@"
+	;;
+status)
+	shift
+	cmd_status "$@"
+	;;
+paths)
+	shift
+	cmd_paths "$@"
+	;;
+tree)
+	shift
+	cmd_tree "$@"
+	;;
+target)
+	shift
+	case "${1:-}" in
+	add)
+		shift
+		cmd_target_add "$@"
+		;;
+	list)
+		shift
+		cmd_target_list "$@"
+		;;
+	show)
+		shift
+		cmd_target_show "$@"
+		;;
+	*)
+		usage
+		exit 1
+		;;
+	esac
+	;;
+session)
+	shift
+	case "${1:-}" in
+	open)
+		shift
+		cmd_session_open "$@"
+		;;
+	close)
+		shift
+		cmd_session_close "$@"
+		;;
+	list)
+		shift
+		cmd_session_list "$@"
+		;;
+	*)
+		usage
+		exit 1
+		;;
+	esac
+	;;
+report)
+	shift
+	case "${1:-}" in
+	new)
+		shift
+		cmd_report_new "$@"
+		;;
+	*)
+		usage
+		exit 1
+		;;
+	esac
+	;;
+tool)
+	shift
+	case "${1:-}" in
+	new)
+		shift
+		cmd_tool_new "$@"
+		;;
+	distill)
+		shift
+		cmd_tool_distill "$@"
+		;;
+	list)
+		shift
+		cmd_tool_list "$@"
+		;;
+	path)
+		shift
+		cmd_tool_path "$@"
+		;;
+	run)
+		shift
+		cmd_tool_run "$@"
+		;;
+	*)
+		usage
+		exit 1
+		;;
+	esac
+	;;
+release)
+	shift
+	case "${1:-}" in
+	build)
+		shift
+		cmd_release_build "$@"
+		;;
+	list)
+		shift
+		cmd_release_list "$@"
+		;;
+	inspect)
+		shift
+		cmd_release_inspect "$@"
+		;;
+	*)
+		usage
+		exit 1
+		;;
+	esac
+	;;
+deploy)
+	shift
+	case "${1:-}" in
+	activate)
+		shift
+		cmd_deploy_activate "$@"
+		;;
+	*)
+		usage
+		exit 1
+		;;
+	esac
+	;;
+"" | -h | --help | help)
+	usage
+	;;
+*)
+	usage
+	exit 1
+	;;
+esac

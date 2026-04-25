@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+
+"$ROOT/bin/dev-test"
+"$ROOT/bin/dev-lint"
+"$ROOT/bin/dev-stress"
+
+printf 'qa: ok\n'

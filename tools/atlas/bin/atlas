@@ -1,0 +1,1562 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+TOOL_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+LAB_ROOT="$(cd -- "$TOOL_DIR/../.." && pwd)"
+TOOL_NAME="atlas"
+
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../../../lib/common.sh
+. "$LAB_ROOT/lib/common.sh"
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../../../lib/intel.sh
+. "$LAB_ROOT/lib/intel.sh"
+
+load_config
+ensure_layout
+
+WIREMAP_BIN="${LAB_ATLAS_WIREMAP_BIN:-$LAB_ROOT/tools/wiremap/bin/wiremap}"
+VECTOR_BIN="${LAB_ATLAS_VECTOR_BIN:-$LAB_ROOT/tools/vector/bin/vector}"
+INTELCTL_BIN="${LAB_ATLAS_INTELCTL_BIN:-$LAB_ROOT/bin/intelctl}"
+LABCTL_BIN="${LAB_ATLAS_LABCTL_BIN:-$LAB_ROOT/bin/labctl}"
+ATLAS_STATE_DIR="$LAB_STATE_DIR/atlas"
+ATLAS_ACTIVE_OP_FILE="$ATLAS_STATE_DIR/active.env"
+
+mkdir -p "$ATLAS_STATE_DIR"
+
+usage() {
+	cat <<'EOF'
+usage:
+  atlas help
+  atlas menu
+
+quick flow:
+  atlas target list
+  atlas target story <target>
+  atlas op start <name> <target> [notes...]
+  atlas op show [name]
+  atlas op recon <workflow> [interface]
+  atlas op action candidates
+  atlas op action plan <lane>
+  atlas op action run <lane> [session-name]
+  atlas op story [name]
+  atlas op report [name] [report-name]
+  atlas op close [name]
+
+targets:
+  atlas target add <name> <address> [notes...]
+  atlas target list
+  atlas target show <name>
+  atlas target story <target>
+  atlas target summary <target>
+  atlas target next <target>
+  atlas target services <target>
+  atlas target web <target>
+  atlas target lateral <target>
+
+operations:
+  atlas op start <name> <target> [notes...]
+  atlas op resume <name>
+  atlas op list
+  atlas op show [name]
+  atlas op status [name]
+  atlas op story [name]
+  atlas op report [name] [report-name]
+  atlas op next
+  atlas op close [name]
+  atlas op recon <workflow> [interface]
+  atlas op capture <inspect|streams|creds|anomalies> [run-dir-or-pcap|latest]
+  atlas op action candidates
+  atlas op action plan <lane>
+  atlas op action run <lane> [session-name]
+  atlas op action outcomes
+  atlas op brief
+
+story views:
+  atlas story <target>
+  atlas story demo-web-app
+  atlas target story <target>
+  atlas op story [name]
+
+recon:
+  atlas recon menu
+  atlas recon workflow ...
+  atlas recon profile ...
+  atlas recon plan ...
+  atlas recon run ...
+  atlas recon analyze ...
+  atlas recon review <run-dir-or-pcap>
+  atlas recon prune [keep]
+
+capture:
+  atlas capture inspect <run-dir-or-pcap>
+  atlas capture streams <run-dir-or-pcap>
+  atlas capture creds <run-dir-or-pcap>
+  atlas capture anomalies <run-dir-or-pcap>
+
+actions:
+  atlas action menu
+  atlas action lanes
+  atlas action lane show <name>
+  atlas action candidates <target>
+  atlas action plan <lane> <target>
+  atlas action run <lane> <target> [session-name]
+  atlas action outcomes [target]
+
+sessions and loot:
+  atlas session list
+  atlas session show <name>
+  atlas loot list [session]
+
+shared intel:
+  atlas intel summary
+  atlas intel observations [target] [type]
+  atlas intel entities [entity-type] [target]
+  atlas intel outcomes [target]
+  atlas intel relationships [target]
+EOF
+}
+
+ensure_runner() {
+	local runner="$1"
+	local label="$2"
+
+	[ -x "$runner" ] || fail "missing $label runtime: $runner"
+}
+
+run_wiremap() {
+	ensure_runner "$WIREMAP_BIN" "wiremap"
+	"$WIREMAP_BIN" "$@"
+}
+
+run_vector() {
+	ensure_runner "$VECTOR_BIN" "vector"
+	"$VECTOR_BIN" "$@"
+}
+
+run_intelctl() {
+	ensure_runner "$INTELCTL_BIN" "intelctl"
+	"$INTELCTL_BIN" "$@"
+}
+
+run_labctl() {
+	ensure_runner "$LABCTL_BIN" "labctl"
+	"$LABCTL_BIN" "$@"
+}
+
+atlas_scope_text() {
+	cat <<'EOF'
+Bounded authorized reconnaissance and defensive posture review for the named target.
+EOF
+}
+
+atlas_allowed_actions() {
+	cat <<'EOF'
+target-first recon against configured scope
+service validation and non-invasive fingerprint refresh
+HTTP/HTTPS probing of observed web surfaces
+HTTP posture review for headers, redirects, metadata routes, and common login/admin routes
+shared-intel summarization, story views, and report generation
+EOF
+}
+
+atlas_out_of_scope() {
+	cat <<'EOF'
+exploitation, payload delivery, or persistence
+brute forcing, password guessing, credential stuffing, or session hijacking
+destructive testing, denial of service, fuzzing, or high-volume crawling
+access to third-party systems beyond the configured target
+data extraction beyond minimal service, route, header, and posture evidence
+EOF
+}
+
+print_scope_lines() {
+	local producer="$1"
+
+	while IFS= read -r line; do
+		[ -n "$line" ] || continue
+		printf '  %s %s\n' "$(ui_dim "-")" "$line"
+	done < <("$producer")
+}
+
+prompt_input() {
+	local __var="$1"
+	local label="$2"
+	local value
+
+	printf '%s ' "$(ui_dim "$label:")"
+	IFS= read -r value
+	printf -v "$__var" '%s' "$value"
+}
+
+capture_field() {
+	local key="$1"
+	awk -F': ' -v wanted="$key" '$1 == wanted { print $2; exit }'
+}
+
+session_slug_for() {
+	slugify "$1"
+}
+
+atlas_op_dir_for_slug() {
+	local slug="$1"
+	printf '%s/%s\n' "$LAB_SESSIONS_DIR" "$slug"
+}
+
+atlas_op_file_for_slug() {
+	local slug="$1"
+	printf '%s/session.env\n' "$(atlas_op_dir_for_slug "$slug")"
+}
+
+resolve_target_input() {
+	local input="$1"
+	local target_slug
+	local target_file
+	local NAME=""
+	local ADDRESS=""
+
+	target_slug="$(slugify "$input")"
+	target_file="$LAB_TARGETS_DIR/$target_slug.env"
+
+	if [ -f "$target_file" ]; then
+		# shellcheck disable=SC1090
+		. "$target_file"
+		ATLAS_TARGET_RESOLVED="${NAME:-$input}"
+		ATLAS_TARGET_LABEL="${NAME:-$input}"
+		ATLAS_TARGET_ADDRESS="${ADDRESS:-$ATLAS_TARGET_RESOLVED}"
+		return 0
+	fi
+
+	ATLAS_TARGET_RESOLVED="$input"
+	ATLAS_TARGET_LABEL="$input"
+	ATLAS_TARGET_ADDRESS="$input"
+}
+
+load_atlas_operation_by_slug() {
+	local slug="$1"
+	local file
+	local NAME=""
+	local SLUG=""
+	local TARGET=""
+	local TARGET_ADDRESS=""
+	local TARGET_LABEL=""
+	local STATUS=""
+	local CREATED_AT=""
+	local CLOSED_AT=""
+	local LAST_RESUMED_AT=""
+	local LAST_RECON_RUN=""
+	local LAST_RECON_AT=""
+	local LAST_ACTION_SESSION=""
+	local LAST_ACTION_AT=""
+	local NOTES=""
+	local SOURCE_TOOL=""
+	local MODE=""
+
+	file="$(atlas_op_file_for_slug "$slug")"
+	[ -f "$file" ] || fail "unknown operation: $slug"
+
+	# shellcheck disable=SC1090
+	. "$file"
+
+	[ "${SOURCE_TOOL:-}" = "$TOOL_NAME" ] || fail "not an atlas operation: $slug"
+	[ "${MODE:-}" = "operation" ] || fail "invalid atlas operation record: $slug"
+
+	ATLAS_OP_NAME="$NAME"
+	ATLAS_OP_SLUG="$SLUG"
+	ATLAS_OP_TARGET="$TARGET"
+	ATLAS_OP_TARGET_ADDRESS="${TARGET_ADDRESS:-$TARGET}"
+	ATLAS_OP_TARGET_LABEL="${TARGET_LABEL:-$TARGET}"
+	ATLAS_OP_STATUS="$STATUS"
+	ATLAS_OP_CREATED_AT="$CREATED_AT"
+	ATLAS_OP_CLOSED_AT="${CLOSED_AT:-}"
+	ATLAS_OP_LAST_RESUMED_AT="${LAST_RESUMED_AT:-}"
+	ATLAS_OP_LAST_RECON_RUN="${LAST_RECON_RUN:-}"
+	ATLAS_OP_LAST_RECON_AT="${LAST_RECON_AT:-}"
+	ATLAS_OP_LAST_ACTION_SESSION="${LAST_ACTION_SESSION:-}"
+	ATLAS_OP_LAST_ACTION_AT="${LAST_ACTION_AT:-}"
+	ATLAS_OP_NOTES="${NOTES:-}"
+	ATLAS_OP_DIR="$(dirname "$file")"
+	ATLAS_OP_FILE="$file"
+}
+
+load_atlas_operation() {
+	local slug
+	slug="$(session_slug_for "$1")"
+	load_atlas_operation_by_slug "$slug"
+}
+
+set_active_operation() {
+	local slug="$1"
+
+	: >"$ATLAS_ACTIVE_OP_FILE"
+	upsert_env "$ATLAS_ACTIVE_OP_FILE" ACTIVE_OPERATION "$slug"
+	upsert_env "$ATLAS_ACTIVE_OP_FILE" SET_AT "$(timestamp)"
+}
+
+clear_active_operation() {
+	rm -f "$ATLAS_ACTIVE_OP_FILE"
+}
+
+active_operation_slug() {
+	local ACTIVE_OPERATION=""
+
+	[ -f "$ATLAS_ACTIVE_OP_FILE" ] || return 1
+	# shellcheck disable=SC1090
+	. "$ATLAS_ACTIVE_OP_FILE"
+	[ -n "${ACTIVE_OPERATION:-}" ] || return 1
+	[ -f "$(atlas_op_file_for_slug "$ACTIVE_OPERATION")" ] || return 1
+
+	printf '%s\n' "$ACTIVE_OPERATION"
+}
+
+has_active_operation() {
+	active_operation_slug >/dev/null 2>&1
+}
+
+load_active_operation() {
+	local slug
+
+	slug="$(active_operation_slug)" || fail "no active operation; use 'atlas op start' or 'atlas op resume'"
+	load_atlas_operation_by_slug "$slug"
+}
+
+operation_is_active() {
+	local slug="$1"
+	local active_slug
+
+	active_slug="$(active_operation_slug 2>/dev/null || true)"
+	[ -n "$active_slug" ] && [ "$active_slug" = "$slug" ]
+}
+
+list_atlas_operation_files() {
+	local file
+	local SOURCE_TOOL=""
+	local MODE=""
+
+	for file in "$LAB_SESSIONS_DIR"/*/session.env; do
+		[ -e "$file" ] || return 0
+		SOURCE_TOOL=""
+		MODE=""
+		# shellcheck disable=SC1090
+		. "$file"
+		if [ "${SOURCE_TOOL:-}" = "$TOOL_NAME" ] && [ "${MODE:-}" = "operation" ]; then
+			printf '%s\n' "$file"
+		fi
+	done
+}
+
+operation_count_entries() {
+	local dir="$1"
+
+	if [ ! -d "$dir" ]; then
+		printf '0'
+		return 0
+	fi
+
+	find "$dir" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' '
+}
+
+operation_latest_entry() {
+	local dir="$1"
+	local entries=()
+	local path
+
+	if [ ! -d "$dir" ]; then
+		return 0
+	fi
+
+	while IFS= read -r path; do
+		entries+=("$path")
+	done < <(find "$dir" -mindepth 1 -maxdepth 1 | sort)
+
+	[ "${#entries[@]}" -gt 0 ] || return 0
+	printf '%s\n' "${entries[$((${#entries[@]} - 1))]}"
+}
+
+print_operation_entries() {
+	local dir="$1"
+	local empty_note="$2"
+	local path
+	local count=0
+
+	if [ ! -d "$dir" ]; then
+		ui_note "$empty_note"
+		return 0
+	fi
+
+	for path in "$dir"/*; do
+		[ -e "$path" ] || continue
+		printf '  %s %s\n' "$(ui_dim "-")" "$(basename "$path")"
+		count=$((count + 1))
+	done
+
+	if [ "$count" -eq 0 ]; then
+		ui_note "$empty_note"
+	fi
+}
+
+record_operation_history() {
+	local dir="$1"
+	local event="$2"
+	local detail="$3"
+
+	printf '%s\t%s\t%s\n' "$(timestamp)" "$event" "$detail" >>"$dir/notes/history.log"
+}
+
+track_operation_recon_run() {
+	local dir="$1"
+	local file="$2"
+	local run_dir="$3"
+	local link
+
+	link="$dir/recon-runs/$(basename "$run_dir")"
+	ln -sfn "$run_dir" "$link"
+	upsert_env "$file" LAST_RECON_RUN "$run_dir"
+	upsert_env "$file" LAST_RECON_AT "$(timestamp)"
+
+	printf '%s\n' "$link"
+}
+
+track_operation_action_session() {
+	local dir="$1"
+	local file="$2"
+	local session_dir="$3"
+	local link
+
+	link="$dir/action-sessions/$(basename "$session_dir")"
+	ln -sfn "$session_dir" "$link"
+	upsert_env "$file" LAST_ACTION_SESSION "$session_dir"
+	upsert_env "$file" LAST_ACTION_AT "$(timestamp)"
+
+	printf '%s\n' "$link"
+}
+
+latest_operation_recon_run() {
+	if [ -n "$ATLAS_OP_LAST_RECON_RUN" ] && [ -e "$ATLAS_OP_LAST_RECON_RUN" ]; then
+		printf '%s\n' "$ATLAS_OP_LAST_RECON_RUN"
+		return 0
+	fi
+
+	operation_latest_entry "$ATLAS_OP_DIR/recon-runs" | xargs -r readlink -f
+}
+
+format_operation_target() {
+	local rendered
+
+	if [ "$ATLAS_OP_TARGET_LABEL" = "$ATLAS_OP_TARGET" ]; then
+		rendered="$ATLAS_OP_TARGET"
+	else
+		rendered="$ATLAS_OP_TARGET ($ATLAS_OP_TARGET_LABEL)"
+	fi
+
+	if [ -n "${ATLAS_OP_TARGET_ADDRESS:-}" ] && [ "$ATLAS_OP_TARGET_ADDRESS" != "$ATLAS_OP_TARGET" ]; then
+		printf '%s -> %s\n' "$rendered" "$ATLAS_OP_TARGET_ADDRESS"
+	else
+		printf '%s\n' "$rendered"
+	fi
+}
+
+print_operation_summary() {
+	local active_flag="no"
+	local latest_recon=""
+	local latest_action=""
+
+	if operation_is_active "$ATLAS_OP_SLUG"; then
+		active_flag="yes"
+	fi
+
+	latest_recon="${ATLAS_OP_LAST_RECON_RUN:-}"
+	if [ -z "$latest_recon" ]; then
+		latest_recon="$(latest_operation_recon_run)"
+	fi
+	latest_action="${ATLAS_OP_LAST_ACTION_SESSION:-}"
+	if [ -z "$latest_action" ]; then
+		latest_action="$(operation_latest_entry "$ATLAS_OP_DIR/action-sessions" | xargs -r readlink -f)"
+	fi
+
+	ui_kv "Operation" "$ATLAS_OP_NAME"
+	ui_kv "Target" "$(format_operation_target)"
+	ui_kv "Status" "$ATLAS_OP_STATUS"
+	ui_kv "Active" "$active_flag"
+	ui_kv "Created" "$ATLAS_OP_CREATED_AT"
+	if [ -n "$ATLAS_OP_CLOSED_AT" ]; then
+		ui_kv "Closed" "$ATLAS_OP_CLOSED_AT"
+	fi
+	if [ -n "$ATLAS_OP_LAST_RESUMED_AT" ]; then
+		ui_kv "Resumed" "$ATLAS_OP_LAST_RESUMED_AT"
+	fi
+	if [ -n "$ATLAS_OP_LAST_RECON_AT" ]; then
+		ui_kv "Last Recon At" "$ATLAS_OP_LAST_RECON_AT"
+	fi
+	if [ -n "$ATLAS_OP_LAST_ACTION_AT" ]; then
+		ui_kv "Last Action At" "$ATLAS_OP_LAST_ACTION_AT"
+	fi
+	if [ -n "$ATLAS_OP_NOTES" ]; then
+		ui_kv "Notes" "$ATLAS_OP_NOTES"
+	fi
+	ui_kv "Recon Runs" "$(operation_count_entries "$ATLAS_OP_DIR/recon-runs")"
+	ui_kv "Action Sessions" "$(operation_count_entries "$ATLAS_OP_DIR/action-sessions")"
+	ui_kv "Dir" "$ATLAS_OP_DIR"
+	ui_kv "Latest Recon" "${latest_recon:-none}"
+	ui_kv "Latest Action" "${latest_action:-none}"
+}
+
+cmd_target_summary() {
+	need_args 1 "$#" "target summary <target>"
+	local target="$1"
+
+	run_vector target summary "$target"
+	printf '\n'
+	run_vector candidates "$target"
+}
+
+print_tool_output_or_note() {
+	local empty_note="$1"
+	shift
+	local output
+
+	if output="$("$@" 2>/dev/null)" && [ -n "$output" ]; then
+		printf '%s\n' "$output"
+	else
+		ui_note "$empty_note"
+	fi
+}
+
+story_observation_rows() {
+	local target="$1"
+	local observation_type="${2:-}"
+	local limit="${3:-12}"
+	local latest_only="0"
+
+	if [[ "$observation_type" == latest:* ]]; then
+		latest_only="1"
+		observation_type="${observation_type#latest:}"
+	fi
+
+	intel_ensure_store
+	intel_require_jq
+
+	jq -sr \
+		--arg target "$target" \
+		--arg observation_type "$observation_type" \
+		--arg latest_only "$latest_only" \
+		--argjson limit "$limit" '
+    def clean: tostring | gsub("[\r\n\t]+"; " ") | gsub("^ +| +$"; "");
+    def story_evidence_types:
+      [
+        "host_state",
+        "service_open",
+        "service_validation",
+        "web_surface",
+        "web_probe",
+        "credential_surface",
+        "credential_hint",
+        "capture_anomaly",
+        "lateral_surface"
+      ];
+    def service_detail:
+      ((.value.portproto // "?") + " " + (.value.service // "?") +
+      (if (.value.detail // "") != "" then " " + (.value.detail | clean) else "" end));
+    def observation_detail:
+      if .observation_type == "service_open" then
+        service_detail
+      elif .observation_type == "web_surface" then
+        (.value.endpoint // (.value.portproto // "?"))
+      elif .observation_type == "web_probe" then
+        (.value.endpoint // "?") + " status=" + (.value.status_code // "?") +
+        (if (.value.server // "") != "" then " server=" + (.value.server | clean) else "" end) +
+        (if (.value.title // "") != "" then " title=" + (.value.title | clean) else "" end)
+      elif .observation_type == "http_posture" then
+        (.value.url // "?") + " status=" + (.value.status_code // "?") +
+        (if (.value.location // "") != "" then " location=" + (.value.location | clean) else "" end)
+      elif .observation_type == "http_posture_finding" then
+        (.value.severity // "?") + " " + (.value.label // "finding") + " " + (.value.url // "?") +
+        (if (.value.detail // "") != "" then " " + (.value.detail | clean) else "" end)
+      elif .observation_type == "lateral_surface" then
+        (.value.label // "surface") + " " + service_detail
+      elif .observation_type == "host_state" then
+        (.value.state // "unknown")
+      elif .observation_type == "credential_hint" or .observation_type == "capture_anomaly" then
+        (.value.label // "signal") + (if (.value.evidence // "") != "" then " " + (.value.evidence | clean) else "" end)
+      elif .observation_type == "service_validation" or .observation_type == "credential_surface" then
+        service_detail
+      elif .observation_type == "module_candidate" then
+        (.value.portproto // "?") + " " + (.value.module_name // "?") + " [" + (.value.module_source // "?") + "] " +
+        (.value.rationale // "")
+      else
+        (.source_name // "?")
+      end;
+    map(select(
+      .target == $target
+      and (
+        if $observation_type == "__story_evidence" then
+          ((.observation_type // "") as $type | story_evidence_types | index($type))
+        else
+          ($observation_type == "" or .observation_type == $observation_type)
+        end
+      )
+    ))
+    | sort_by(.observed_at)
+    | if $latest_only == "1" and length > 0 then
+        (.[-1].source_run_id // "") as $latest_run
+        | map(select((.source_run_id // "") == $latest_run))
+      else
+        .
+      end
+    | sort_by(.observed_at)
+    | reverse
+    | .[:$limit]
+    | .[]
+    | [
+        (.observed_at // "?"),
+        (.observation_type // "?"),
+        (.confidence // "?"),
+        (.source_tool // "?"),
+        observation_detail
+      ]
+    | @tsv
+  ' "$LAB_INTEL_OBSERVATIONS_FILE"
+}
+
+print_story_observations() {
+	local target="$1"
+	local observation_type="$2"
+	local empty_note="$3"
+	local limit="${4:-12}"
+	local output
+
+	output="$(
+		story_observation_rows "$target" "$observation_type" "$limit" |
+			awk -F'\t' '{ printf "%-20s %-22s %-8s %-10s %s\n", $1, $2, $3, $4, $5 }'
+	)"
+	if [ -n "$output" ]; then
+		printf '%s\n' "$output"
+	else
+		ui_note "$empty_note"
+	fi
+}
+
+print_story_recent_evidence() {
+	local target="$1"
+	local limit="${2:-12}"
+	local output
+
+	output="$(
+		story_observation_rows "$target" "__story_evidence" 200 |
+			awk -F'\t' -v limit="$limit" '
+        !seen[$2 SUBSEP $5] {
+          seen[$2 SUBSEP $5] = 1
+          printf "%-20s %-22s %-8s %-10s %s\n", $1, $2, $3, $4, $5
+          count++
+          if (count >= limit) {
+            exit
+          }
+        }
+      '
+	)"
+
+	if [ -n "$output" ]; then
+		printf '%s\n' "$output"
+	else
+		ui_note "no recent cross-tool evidence recorded yet"
+	fi
+}
+
+cmd_target_story() {
+	need_args 1 "$#" "target story <target>"
+	local target_input="$1"
+	local target
+
+	if [ "$target_input" = "demo-web-app" ]; then
+		cmd_demo_story
+		return 0
+	fi
+
+	resolve_target_input "$target_input"
+	target="$ATLAS_TARGET_RESOLVED"
+
+	ui_heading "Target Story"
+	ui_rule
+	ui_kv "Target" "$target"
+	if [ "$ATLAS_TARGET_ADDRESS" != "$target" ]; then
+		ui_kv "Address" "$ATLAS_TARGET_ADDRESS"
+	fi
+	ui_kv "Shared Intel" "$LAB_INTEL_DIR"
+	ui_rule
+
+	ui_subheading "Target Record"
+	print_tool_output_or_note "no target record found; add one with atlas target add <name> <address>" run_labctl target show "$target"
+	ui_rule
+
+	ui_subheading "Current Surface"
+	print_tool_output_or_note "no surface summary available; run atlas op recon <workflow> first" run_vector target summary "$target"
+	ui_rule
+
+	ui_subheading "Web Surface"
+	print_tool_output_or_note "no web surface recorded yet" run_vector target web "$target"
+	ui_rule
+
+	ui_subheading "Action Outcomes"
+	print_tool_output_or_note "no Vector outcomes recorded yet" run_vector outcomes "$target"
+	ui_rule
+
+	ui_subheading "Posture Findings"
+	print_story_observations "$target" "latest:http_posture_finding" "no HTTP posture findings recorded yet" 12
+	ui_rule
+
+	ui_subheading "Recent Evidence"
+	print_story_recent_evidence "$target" 12
+	ui_rule
+
+	ui_subheading "Next Actions"
+	print_tool_output_or_note "no candidate lanes produced from current intel" run_vector candidates "$target"
+	ui_rule
+	ui_note "research module candidates are omitted here; use 'atlas intel observations $target module_candidate' for raw module detail"
+}
+
+cmd_target_next() {
+	need_args 1 "$#" "target next <target>"
+	run_vector candidates "$1"
+}
+
+cmd_demo_story() {
+	ui_heading "Target Story"
+	ui_rule
+	ui_kv "Target" "demo-web-app"
+	ui_kv "Address" "demo.internal"
+	ui_kv "Shared Intel" "built-in demo fixture"
+	ui_rule
+
+	ui_subheading "Target Record"
+	printf '%s\n' "NAME=demo-web-app"
+	printf '%s\n' "ADDRESS=demo.internal"
+	printf '%s\n' "NOTES=anonymized web application demo"
+	ui_rule
+
+	ui_subheading "Current Surface"
+	ui_heading "Target Summary"
+	ui_rule
+	ui_kv "Target" "demo-web-app"
+	ui_kv "Host State" "up"
+	ui_kv "Services" "2"
+	ui_kv "Web Surfaces" "2"
+	ui_kv "Lateral Surfaces" "0"
+	ui_kv "Credential Hints" "0"
+	ui_kv "Capture Anomalies" "0"
+	ui_kv "Vector Successes" "3"
+	ui_kv "Vector Failures" "0"
+	ui_rule
+	ui_subheading "Service Snapshot"
+	printf '%-10s %-14s %s\n' "443/tcp" "https" "reverse-proxy demo edge"
+	printf '%-10s %-14s %s\n' "80/tcp" "http" "redirects to HTTPS"
+	ui_rule
+
+	ui_subheading "Web Surface"
+	printf '%-40s %-10s %-14s %s\n' "https://demo.internal:443" "443/tcp" "https" "Demo Web App"
+	printf '%-40s %-10s %-14s %s\n' "http://demo.internal:80" "80/tcp" "http" "HTTPS redirect"
+	ui_rule
+
+	ui_subheading "Action Outcomes"
+	printf '%-20s %-12s %-15s %-8s %-16s %s\n' "2026-04-25T00:03:00Z" "posture" "demo-web-app" "success" "http-posture" "14 HTTP posture probe(s), 2 review finding(s)"
+	printf '%-20s %-12s %-15s %-8s %-16s %s\n' "2026-04-25T00:02:00Z" "web" "demo-web-app" "success" "http-scout" "2 web endpoint(s) probed successfully"
+	printf '%-20s %-12s %-15s %-8s %-16s %s\n' "2026-04-25T00:01:00Z" "validate" "demo-web-app" "success" "service-refresh" "2 service(s) refreshed for validation"
+	ui_rule
+
+	ui_subheading "Posture Findings"
+	printf '%-20s %-22s %-8s %-10s %s\n' "2026-04-25T00:03:00Z" "http_posture_finding" "medium" "vector" "low missing-security-headers https://demo.internal/ X-Frame-Options,X-Content-Type-Options,Referrer-Policy"
+	printf '%-20s %-22s %-8s %-10s %s\n' "2026-04-25T00:03:00Z" "http_posture_finding" "medium" "vector" "info public-metadata https://demo.internal/sitemap.xml /sitemap.xml returned 200"
+	ui_rule
+
+	ui_subheading "Recent Evidence"
+	printf '%-20s %-22s %-8s %-10s %s\n' "2026-04-25T00:02:00Z" "web_probe" "medium" "vector" "https://demo.internal:443 status=200 server=demo-edge title=Demo Web App"
+	printf '%-20s %-22s %-8s %-10s %s\n' "2026-04-25T00:01:00Z" "service_validation" "high" "vector" "443/tcp https reverse-proxy demo edge"
+	printf '%-20s %-22s %-8s %-10s %s\n' "2026-04-25T00:00:00Z" "web_surface" "medium" "wiremap" "https://demo.internal:443"
+	printf '%-20s %-22s %-8s %-10s %s\n' "2026-04-25T00:00:00Z" "host_state" "high" "wiremap" "up"
+	ui_rule
+
+	ui_subheading "Next Actions"
+	printf '%s %s %s\n' "$(ui_dim "[1]")" "$(ui_info "[POSTURE]")" "$(ui_accent "posture")"
+	printf '    %s %s  %s %s\n' "$(ui_dim "score:")" "82" "$(ui_dim "confidence:")" "high"
+	printf '    %s\n' "2 web surface(s) ready for HTTP posture review; history: 1 prior success"
+	printf '%s %s %s\n' "$(ui_dim "[2]")" "$(ui_info "[WEB]")" "$(ui_accent "web")"
+	printf '    %s %s  %s %s\n' "$(ui_dim "score:")" "80" "$(ui_dim "confidence:")" "high"
+	printf '    %s\n' "2 web surface(s) observed from shared intel; history: 1 prior success"
+	printf '%s %s %s\n' "$(ui_dim "[3]")" "$(ui_good "[VALIDATE]")" "$(ui_accent "validate")"
+	printf '    %s %s  %s %s\n' "$(ui_dim "score:")" "58" "$(ui_dim "confidence:")" "high"
+	printf '    %s\n' "2 observed service(s) and host state up"
+}
+
+cmd_op_start() {
+	need_args 2 "$#" "op start <name> <target> [notes...]"
+	local name="$1"
+	local target_input="$2"
+	local notes
+	local slug
+	local dir
+	local file
+
+	shift 2
+	notes="${*:-}"
+	resolve_target_input "$target_input"
+
+	slug="$(session_slug_for "$name")"
+	[ -n "$slug" ] || fail "operation name produced an empty slug"
+	dir="$(atlas_op_dir_for_slug "$slug")"
+	file="$dir/session.env"
+
+	[ ! -d "$dir" ] || fail "operation already exists: $slug"
+
+	mkdir -p "$dir/loot" "$dir/pcaps" "$dir/notes" "$dir/logs" "$dir/tmp" "$dir/recon-runs" "$dir/action-sessions"
+	: >"$file"
+	upsert_env "$file" NAME "$name"
+	upsert_env "$file" SLUG "$slug"
+	upsert_env "$file" TARGET "$ATLAS_TARGET_RESOLVED"
+	upsert_env "$file" TARGET_ADDRESS "$ATLAS_TARGET_ADDRESS"
+	upsert_env "$file" TARGET_LABEL "$ATLAS_TARGET_LABEL"
+	upsert_env "$file" STATUS "active"
+	upsert_env "$file" CREATED_AT "$(timestamp)"
+	upsert_env "$file" LAST_RESUMED_AT "$(timestamp)"
+	upsert_env "$file" NOTES "$notes"
+	upsert_env "$file" SOURCE_TOOL "$TOOL_NAME"
+	upsert_env "$file" MODE "operation"
+
+	record_operation_history "$dir" "start" "$ATLAS_TARGET_RESOLVED"
+	set_active_operation "$slug"
+
+	ui_ok "operation ready"
+	printf 'operation: %s\n' "$name"
+	printf 'target: %s\n' "$ATLAS_TARGET_RESOLVED"
+	if [ "$ATLAS_TARGET_ADDRESS" != "$ATLAS_TARGET_RESOLVED" ]; then
+		printf 'address: %s\n' "$ATLAS_TARGET_ADDRESS"
+	fi
+	printf 'op_dir: %s\n' "$dir"
+	printf 'active_operation: %s\n' "$slug"
+}
+
+cmd_op_resume() {
+	need_args 1 "$#" "op resume <name>"
+
+	load_atlas_operation "$1"
+	upsert_env "$ATLAS_OP_FILE" STATUS "active"
+	upsert_env "$ATLAS_OP_FILE" LAST_RESUMED_AT "$(timestamp)"
+	upsert_env "$ATLAS_OP_FILE" CLOSED_AT ""
+	set_active_operation "$ATLAS_OP_SLUG"
+	record_operation_history "$ATLAS_OP_DIR" "resume" "$ATLAS_OP_TARGET"
+
+	ui_ok "operation active"
+	printf 'operation: %s\n' "$ATLAS_OP_NAME"
+	printf 'target: %s\n' "$ATLAS_OP_TARGET"
+	if [ "$ATLAS_OP_TARGET_ADDRESS" != "$ATLAS_OP_TARGET" ]; then
+		printf 'address: %s\n' "$ATLAS_OP_TARGET_ADDRESS"
+	fi
+	printf 'active_operation: %s\n' "$ATLAS_OP_SLUG"
+}
+
+cmd_op_list() {
+	local file
+	local NAME=""
+	local TARGET=""
+	local TARGET_LABEL=""
+	local STATUS=""
+	local SLUG=""
+	local active="no"
+	local count=0
+
+	printf '%-24s %-16s %-24s %s\n' "OPERATION" "STATUS" "TARGET" "ACTIVE"
+	while IFS= read -r file; do
+		NAME=""
+		TARGET=""
+		TARGET_LABEL=""
+		STATUS=""
+		SLUG=""
+		# shellcheck disable=SC1090
+		. "$file"
+		active="no"
+		if operation_is_active "$SLUG"; then
+			active="yes"
+		fi
+		if [ -n "${TARGET_LABEL:-}" ] && [ "$TARGET_LABEL" != "$TARGET" ]; then
+			printf '%-24s %-16s %-24s %s\n' "$NAME" "$STATUS" "$TARGET_LABEL" "$active"
+		else
+			printf '%-24s %-16s %-24s %s\n' "$NAME" "$STATUS" "$TARGET" "$active"
+		fi
+		count=$((count + 1))
+	done < <(list_atlas_operation_files)
+
+	if [ "$count" -eq 0 ]; then
+		ui_note "no atlas operations recorded yet"
+	fi
+}
+
+cmd_op_status() {
+	if [ "$#" -gt 0 ]; then
+		load_atlas_operation "$1"
+	else
+		load_active_operation
+	fi
+
+	ui_heading "Operation Status"
+	ui_rule
+	print_operation_summary
+	ui_rule
+	ui_subheading "Tracked Recon Runs"
+	print_operation_entries "$ATLAS_OP_DIR/recon-runs" "no recon runs tracked yet"
+	ui_rule
+	ui_subheading "Tracked Action Sessions"
+	print_operation_entries "$ATLAS_OP_DIR/action-sessions" "no action sessions tracked yet"
+}
+
+cmd_op_show() {
+	if [ "$#" -gt 0 ]; then
+		load_atlas_operation "$1"
+	else
+		load_active_operation
+	fi
+
+	ui_heading "Operation Scope"
+	ui_rule
+	print_operation_summary
+	ui_rule
+	ui_subheading "Scope"
+	printf '%s\n' "$(atlas_scope_text)"
+	ui_rule
+	ui_subheading "Allowed Actions"
+	print_scope_lines atlas_allowed_actions
+	ui_rule
+	ui_subheading "Explicitly Out Of Scope"
+	print_scope_lines atlas_out_of_scope
+	ui_rule
+	ui_subheading "Artifacts"
+	ui_kv "Operation Dir" "$ATLAS_OP_DIR"
+	ui_kv "Latest Recon" "$(latest_operation_recon_run || true)"
+	ui_kv "Latest Action" "${ATLAS_OP_LAST_ACTION_SESSION:-none}"
+}
+
+print_markdown_list_from_function() {
+	local producer="$1"
+
+	while IFS= read -r line; do
+		[ -n "$line" ] || continue
+		printf -- '- %s\n' "$line"
+	done < <("$producer")
+}
+
+print_operation_report_commands() {
+	local history_file="$ATLAS_OP_DIR/notes/history.log"
+	local event
+	local detail
+	local lane
+	local session_name
+
+	if [ ! -s "$history_file" ]; then
+		printf -- "- \`%s\`\n" "atlas op start $ATLAS_OP_SLUG $ATLAS_OP_TARGET"
+		return 0
+	fi
+
+	while IFS=$'\t' read -r _ts event detail; do
+		[ -n "$event" ] || continue
+		case "$event" in
+		start)
+			if [ -n "$ATLAS_OP_NOTES" ]; then
+				printf -- "- \`%s\`\n" "atlas op start $ATLAS_OP_SLUG $ATLAS_OP_TARGET $ATLAS_OP_NOTES"
+			else
+				printf -- "- \`%s\`\n" "atlas op start $ATLAS_OP_SLUG $ATLAS_OP_TARGET"
+			fi
+			;;
+		resume)
+			printf -- "- \`%s\`\n" "atlas op resume $ATLAS_OP_SLUG"
+			;;
+		recon:*)
+			printf -- "- \`%s\`\n" "atlas op recon ${event#recon:}"
+			;;
+		capture:*)
+			printf -- "- \`%s\`\n" "atlas op capture ${event#capture:} latest"
+			;;
+		action:*)
+			lane="${event#action:}"
+			session_name="$(basename "$detail")"
+			printf -- "- \`%s\`\n" "atlas op action run $lane $session_name"
+			;;
+		close)
+			printf -- "- \`%s\`\n" "atlas op close $ATLAS_OP_SLUG"
+			;;
+		*)
+			printf -- "- \`%s\`\n" "atlas op $event"
+			;;
+		esac
+	done <"$history_file"
+}
+
+print_operation_report_artifacts() {
+	local path
+	local resolved
+	local count=0
+
+	printf -- "- Operation directory: \`%s\`\n" "$ATLAS_OP_DIR"
+	count=$((count + 1))
+
+	if [ -d "$ATLAS_OP_DIR/recon-runs" ]; then
+		for path in "$ATLAS_OP_DIR"/recon-runs/*; do
+			[ -e "$path" ] || continue
+			resolved="$(readlink -f "$path" 2>/dev/null || printf '%s' "$path")"
+			printf -- "- Recon run: \`%s\`\n" "$resolved"
+			count=$((count + 1))
+		done
+	fi
+
+	if [ -d "$ATLAS_OP_DIR/action-sessions" ]; then
+		for path in "$ATLAS_OP_DIR"/action-sessions/*; do
+			[ -e "$path" ] || continue
+			resolved="$(readlink -f "$path" 2>/dev/null || printf '%s' "$path")"
+			printf -- "- Action session: \`%s\`\n" "$resolved"
+			count=$((count + 1))
+		done
+	fi
+
+	if [ "$count" -eq 1 ]; then
+		printf -- '- No recon or action artifacts tracked yet.\n'
+	fi
+}
+
+write_operation_report() {
+	local file="$1"
+
+	{
+		printf '# Atlas Operation Report\n\n'
+		printf 'Generated: %s\n' "$(timestamp)"
+		printf 'Operation: %s\n' "$ATLAS_OP_NAME"
+		printf 'Operation ID: %s\n' "$ATLAS_OP_SLUG"
+		printf 'Target: %s\n' "$ATLAS_OP_TARGET"
+		if [ -n "${ATLAS_OP_TARGET_ADDRESS:-}" ] && [ "$ATLAS_OP_TARGET_ADDRESS" != "$ATLAS_OP_TARGET" ]; then
+			printf 'Address: %s\n' "$ATLAS_OP_TARGET_ADDRESS"
+		fi
+		printf 'Status: %s\n' "$ATLAS_OP_STATUS"
+		printf 'Created: %s\n' "$ATLAS_OP_CREATED_AT"
+		if [ -n "$ATLAS_OP_CLOSED_AT" ]; then
+			printf 'Closed: %s\n' "$ATLAS_OP_CLOSED_AT"
+		fi
+		if [ -n "$ATLAS_OP_NOTES" ]; then
+			printf 'Notes: %s\n' "$ATLAS_OP_NOTES"
+		fi
+		printf '\n## Scope\n\n'
+		printf '%s\n\n' "$(atlas_scope_text)"
+		printf '## Allowed Actions\n\n'
+		print_markdown_list_from_function atlas_allowed_actions
+		printf '\n## Explicitly Out Of Scope\n\n'
+		print_markdown_list_from_function atlas_out_of_scope
+		printf '\n## Commands Run\n\n'
+		print_operation_report_commands
+		printf '\n## Artifacts\n\n'
+		print_operation_report_artifacts
+		printf '\n## Findings\n\n'
+		printf -- '- Add reviewed findings here.\n'
+		printf '\n## Notes\n\n'
+		printf -- '- Add operator notes here.\n'
+	} >"$file"
+}
+
+cmd_op_report() {
+	local report_name="${2:-}"
+	local report_slug
+	local report_file
+
+	if [ "$#" -gt 0 ]; then
+		load_atlas_operation "$1"
+	else
+		load_active_operation
+	fi
+
+	if [ -z "$report_name" ]; then
+		report_name="$ATLAS_OP_SLUG-report"
+	fi
+	report_slug="$(slugify "$report_name")"
+	[ -n "$report_slug" ] || fail "report name produced an empty slug"
+	report_file="$LAB_REPORTS_DIR/$report_slug.md"
+	mkdir -p "$LAB_REPORTS_DIR"
+	write_operation_report "$report_file"
+
+	ui_ok "operation report written"
+	printf 'report: %s\n' "$report_file"
+}
+
+cmd_op_close() {
+	if [ "$#" -gt 0 ]; then
+		load_atlas_operation "$1"
+	else
+		load_active_operation
+	fi
+
+	upsert_env "$ATLAS_OP_FILE" STATUS "closed"
+	upsert_env "$ATLAS_OP_FILE" CLOSED_AT "$(timestamp)"
+	record_operation_history "$ATLAS_OP_DIR" "close" "$ATLAS_OP_TARGET"
+
+	if operation_is_active "$ATLAS_OP_SLUG"; then
+		clear_active_operation
+	fi
+
+	ui_ok "operation closed"
+	printf 'operation: %s\n' "$ATLAS_OP_NAME"
+	printf 'status: closed\n'
+}
+
+cmd_op_recon() {
+	need_args 1 "$#" "op recon <workflow> [interface]"
+	local workflow="$1"
+	local iface="${2:-}"
+	local output
+	local run_dir
+	local link
+
+	load_active_operation
+
+	if [ -n "$iface" ]; then
+		output="$(run_wiremap workflow run "$workflow" "$ATLAS_OP_TARGET" "$iface")"
+	else
+		output="$(run_wiremap workflow run "$workflow" "$ATLAS_OP_TARGET")"
+	fi
+	printf '%s\n' "$output"
+
+	run_dir="$(printf '%s\n' "$output" | capture_field "workflow_run_dir")"
+	[ -n "$run_dir" ] || fail "unable to determine workflow run directory"
+	link="$(track_operation_recon_run "$ATLAS_OP_DIR" "$ATLAS_OP_FILE" "$run_dir")"
+	record_operation_history "$ATLAS_OP_DIR" "recon:$workflow" "$run_dir"
+
+	printf 'operation_recon_run: %s\n' "$run_dir"
+	printf 'operation_recon_link: %s\n' "$link"
+}
+
+resolve_operation_capture_input() {
+	local input="${1:-latest}"
+	local latest
+
+	load_active_operation
+
+	if [ -z "$input" ] || [ "$input" = "latest" ]; then
+		latest="$(latest_operation_recon_run)"
+		[ -n "$latest" ] || fail "no recon run tracked for the active operation"
+		printf '%s\n' "$latest"
+		return 0
+	fi
+
+	printf '%s\n' "$input"
+}
+
+cmd_op_capture() {
+	need_args 1 "$#" "op capture <inspect|streams|creds|anomalies> [run-dir-or-pcap|latest]"
+	local mode="$1"
+	local input="${2:-latest}"
+	local resolved
+	local output
+
+	resolved="$(resolve_operation_capture_input "$input")"
+	load_active_operation
+	output="$(run_wiremap capture "$mode" "$resolved")"
+	printf '%s\n' "$output"
+	record_operation_history "$ATLAS_OP_DIR" "capture:$mode" "$resolved"
+	printf 'operation_capture_source: %s\n' "$resolved"
+}
+
+cmd_op_action_candidates() {
+	load_active_operation
+	run_vector candidates "$ATLAS_OP_TARGET"
+}
+
+cmd_op_action_plan() {
+	need_args 1 "$#" "op action plan <lane>"
+	local lane="$1"
+
+	load_active_operation
+	run_vector plan "$lane" "$ATLAS_OP_TARGET"
+}
+
+cmd_op_action_run() {
+	need_args 1 "$#" "op action run <lane> [session-name]"
+	local lane="$1"
+	local session_name="${2:-}"
+	local output
+	local session_dir
+	local link
+
+	load_active_operation
+
+	if [ -z "$session_name" ]; then
+		session_name="$ATLAS_OP_NAME $lane"
+	fi
+
+	output="$(run_vector run "$lane" "$ATLAS_OP_TARGET" "$session_name")"
+	printf '%s\n' "$output"
+
+	session_dir="$(printf '%s\n' "$output" | capture_field "Session Dir")"
+	[ -n "$session_dir" ] || fail "unable to determine vector session directory"
+	link="$(track_operation_action_session "$ATLAS_OP_DIR" "$ATLAS_OP_FILE" "$session_dir")"
+	record_operation_history "$ATLAS_OP_DIR" "action:$lane" "$session_dir"
+
+	printf 'operation_action_session: %s\n' "$session_dir"
+	printf 'operation_action_link: %s\n' "$link"
+}
+
+cmd_op_action_outcomes() {
+	load_active_operation
+	run_vector outcomes "$ATLAS_OP_TARGET"
+}
+
+cmd_op_brief() {
+	load_active_operation
+
+	ui_heading "Operation Brief"
+	ui_rule
+	print_operation_summary
+	ui_rule
+	run_vector target summary "$ATLAS_OP_TARGET"
+	printf '\n'
+	ui_subheading "Tracked Recon Runs"
+	print_operation_entries "$ATLAS_OP_DIR/recon-runs" "no recon runs tracked yet"
+	printf '\n'
+	ui_subheading "Tracked Action Sessions"
+	print_operation_entries "$ATLAS_OP_DIR/action-sessions" "no action sessions tracked yet"
+}
+
+cmd_op_story() {
+	if [ "$#" -gt 0 ]; then
+		load_atlas_operation "$1"
+	else
+		load_active_operation
+	fi
+
+	ui_heading "Operation Story"
+	ui_rule
+	print_operation_summary
+	ui_rule
+	ui_subheading "Tracked Recon Runs"
+	print_operation_entries "$ATLAS_OP_DIR/recon-runs" "no recon runs tracked yet"
+	printf '\n'
+	ui_subheading "Tracked Action Sessions"
+	print_operation_entries "$ATLAS_OP_DIR/action-sessions" "no action sessions tracked yet"
+	printf '\n'
+	cmd_target_story "$ATLAS_OP_TARGET"
+}
+
+cmd_op_next() {
+	load_active_operation
+	run_vector candidates "$ATLAS_OP_TARGET"
+}
+
+menu_prompt() {
+	local active_name="none"
+	local active_target="none"
+
+	if has_active_operation; then
+		load_active_operation
+		active_name="$ATLAS_OP_NAME"
+		active_target="$ATLAS_OP_TARGET"
+	fi
+
+	ui_heading "Atlas Operator Console"
+	ui_rule
+	ui_kv "Role" "$LAB_ROLE"
+	ui_kv "Runtime Target" "$LAB_RUNTIME_TARGET"
+	ui_kv "Active Operation" "$active_name"
+	ui_kv "Active Target" "$active_target"
+	ui_kv "Recon Engine" "$(basename "$WIREMAP_BIN")"
+	ui_kv "Action Engine" "$(basename "$VECTOR_BIN")"
+	ui_rule
+	printf '%s %s\n' "$(ui_dim "[1]")" "operation status"
+	printf '%s %s\n' "$(ui_dim "[2]")" "target story"
+	printf '%s %s\n' "$(ui_dim "[3]")" "recon console"
+	printf '%s %s\n' "$(ui_dim "[4]")" "action console"
+	printf '%s %s\n' "$(ui_dim "[5]")" "intel summary"
+	printf '%s %s\n' "$(ui_dim "[6]")" "target list"
+	printf '%s %s\n' "$(ui_dim "[7]")" "session list"
+	printf '%s %s\n' "$(ui_dim "[0]")" "exit"
+	ui_rule
+}
+
+menu_action() {
+	case "$1" in
+	1) printf 'op-status\n' ;;
+	2) printf 'target-story\n' ;;
+	3) printf 'recon-menu\n' ;;
+	4) printf 'action-menu\n' ;;
+	5) printf 'intel-summary\n' ;;
+	6) printf 'target-list\n' ;;
+	7) printf 'session-list\n' ;;
+	0) printf 'exit\n' ;;
+	*) printf 'invalid\n' ;;
+	esac
+}
+
+cmd_menu() {
+	local selection
+	local action
+	local target
+
+	while true; do
+		menu_prompt
+		prompt_input selection "choice"
+		action="$(menu_action "$selection")"
+
+		case "$action" in
+		exit)
+			return 0
+			;;
+		op-status)
+			if has_active_operation; then
+				cmd_op_status
+			else
+				ui_note "no active operation; use 'atlas op start' or 'atlas op resume'"
+			fi
+			return 0
+			;;
+		target-story)
+			prompt_input target "target"
+			[ -n "$target" ] || fail "target is required"
+			cmd_target_story "$target"
+			return 0
+			;;
+		recon-menu)
+			run_wiremap menu
+			return 0
+			;;
+		action-menu)
+			run_vector menu
+			return 0
+			;;
+		intel-summary)
+			run_intelctl summary
+			return 0
+			;;
+		target-list)
+			run_labctl target list
+			return 0
+			;;
+		session-list)
+			run_vector session list
+			return 0
+			;;
+		invalid)
+			printf 'invalid choice\n' >&2
+			;;
+		esac
+	done
+}
+
+case "${1:-help}" in
+help | -h | --help)
+	usage
+	;;
+menu)
+	shift
+	cmd_menu "$@"
+	;;
+op)
+	shift
+	case "${1:-}" in
+	start)
+		shift
+		cmd_op_start "$@"
+		;;
+	resume)
+		shift
+		cmd_op_resume "$@"
+		;;
+	list)
+		shift
+		cmd_op_list "$@"
+		;;
+	show)
+		shift
+		cmd_op_show "$@"
+		;;
+	status)
+		shift
+		cmd_op_status "$@"
+		;;
+	story)
+		shift
+		cmd_op_story "$@"
+		;;
+	report)
+		shift
+		cmd_op_report "$@"
+		;;
+	next)
+		shift
+		cmd_op_next "$@"
+		;;
+	close)
+		shift
+		cmd_op_close "$@"
+		;;
+	recon)
+		shift
+		cmd_op_recon "$@"
+		;;
+	capture)
+		shift
+		cmd_op_capture "$@"
+		;;
+	action)
+		shift
+		case "${1:-}" in
+		candidates)
+			shift
+			cmd_op_action_candidates "$@"
+			;;
+		plan)
+			shift
+			cmd_op_action_plan "$@"
+			;;
+		run)
+			shift
+			cmd_op_action_run "$@"
+			;;
+		outcomes)
+			shift
+			cmd_op_action_outcomes "$@"
+			;;
+		*)
+			usage
+			exit 1
+			;;
+		esac
+		;;
+	brief)
+		shift
+		cmd_op_brief "$@"
+		;;
+	*)
+		usage
+		exit 1
+		;;
+	esac
+	;;
+target)
+	shift
+	case "${1:-}" in
+	add)
+		shift
+		run_labctl target add "$@"
+		;;
+	list)
+		shift
+		run_labctl target list "$@"
+		;;
+	show)
+		shift
+		run_labctl target show "$@"
+		;;
+	story)
+		shift
+		cmd_target_story "$@"
+		;;
+	summary)
+		shift
+		cmd_target_summary "$@"
+		;;
+	next)
+		shift
+		cmd_target_next "$@"
+		;;
+	services | web | lateral)
+		run_vector target "$@"
+		;;
+	*)
+		usage
+		exit 1
+		;;
+	esac
+	;;
+recon)
+	shift
+	case "${1:-}" in
+	menu)
+		shift
+		run_wiremap menu "$@"
+		;;
+	workflow | profile | plan | run | analyze | review | prune | intel)
+		run_wiremap "$@"
+		;;
+	*)
+		usage
+		exit 1
+		;;
+	esac
+	;;
+capture)
+	shift
+	case "${1:-}" in
+	inspect | streams | creds | anomalies)
+		run_wiremap capture "$@"
+		;;
+	*)
+		usage
+		exit 1
+		;;
+	esac
+	;;
+action)
+	shift
+	case "${1:-}" in
+	menu | lanes | lane | candidates | plan | run | outcomes | target)
+		run_vector "$@"
+		;;
+	*)
+		usage
+		exit 1
+		;;
+	esac
+	;;
+session)
+	shift
+	case "${1:-}" in
+	list | show)
+		run_vector session "$@"
+		;;
+	*)
+		usage
+		exit 1
+		;;
+	esac
+	;;
+loot)
+	shift
+	case "${1:-}" in
+	list)
+		run_vector loot "$@"
+		;;
+	*)
+		usage
+		exit 1
+		;;
+	esac
+	;;
+story)
+	shift
+	cmd_target_story "$@"
+	;;
+intel)
+	shift
+	case "${1:-summary}" in
+	"")
+		run_intelctl summary
+		;;
+	summary | observations | entities | outcomes | relationships)
+		if [ "$#" -eq 0 ]; then
+			run_intelctl summary
+		else
+			run_intelctl "$@"
+		fi
+		;;
+	*)
+		usage
+		exit 1
+		;;
+	esac
+	;;
+*)
+	printf '%s\n' "$TOOL_NAME: unknown subcommand '$1'" >&2
+	usage >&2
+	exit 1
+	;;
+esac

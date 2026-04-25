@@ -1,0 +1,12 @@
+.direnv/
+releases/
+result
+tmp/
+sessions/
+state/
+shared/
+logs/
+reports/
+targets/*.env
+docs/retired-targets/*.env
+.tmp/

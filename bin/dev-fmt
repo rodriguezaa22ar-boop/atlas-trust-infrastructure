@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+
+shfmt -w \
+	"$ROOT/bin/intelctl" \
+	"$ROOT/bin/labctl" \
+	"$ROOT/bin/dev-lint" \
+	"$ROOT/bin/dev-fmt" \
+	"$ROOT/bin/dev-test" \
+	"$ROOT/lib/common.sh" \
+	"$ROOT/lib/intel.sh" \
+	"$ROOT/tools"/*/bin/*
+
+printf 'format: ok\n'

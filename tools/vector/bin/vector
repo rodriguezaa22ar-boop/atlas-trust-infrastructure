@@ -1,0 +1,2182 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+TOOL_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+LAB_ROOT="$(cd -- "$TOOL_DIR/../.." && pwd)"
+TOOL_NAME="vector"
+
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../../../lib/common.sh
+. "$LAB_ROOT/lib/common.sh"
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../../../lib/intel.sh
+. "$LAB_ROOT/lib/intel.sh"
+
+load_config
+ensure_layout
+intel_ensure_store
+intel_require_jq
+
+VECTOR_NMAP_BIN="${LAB_VECTOR_NMAP_BIN:-nmap}"
+VECTOR_CURL_BIN="${LAB_VECTOR_CURL_BIN:-curl}"
+VECTOR_MSFCONSOLE_BIN="${LAB_VECTOR_MSFCONSOLE_BIN:-msfconsole}"
+VECTOR_MSF_TIMEOUT_SECONDS="${LAB_VECTOR_MSF_TIMEOUT_SECONDS:-45}"
+
+usage() {
+	cat <<'EOF'
+usage:
+  vector help
+  vector menu
+  vector lanes
+  vector lane show <name>
+  vector target summary <target>
+  vector target services <target>
+  vector target web <target>
+  vector target lateral <target>
+  vector candidates <target>
+  vector plan <lane> <target>
+  vector run <lane> <target> [session-name]
+  vector outcomes [target]
+  vector session list
+  vector session show <session>
+  vector loot list [session]
+EOF
+}
+
+lane_list() {
+	cat <<'EOF'
+validate|Validate|Confirm and enrich observed surface before deeper action|Use when you need cleaner evidence, anomaly checks, and lower-noise follow-up.|low|service_open,host_state,capture_anomaly|service-refresh|Targeted Nmap refresh against observed or likely ports
+web|Web|Bias toward HTTP and TLS follow-up from observed endpoints.|Use when web surface is present and likely to carry the highest-value path.|medium|web_surface|http-scout|Header and title probe across observed web endpoints
+posture|Posture|Check HTTP posture signals without fuzzing or exploit traffic.|Use after web surface is confirmed to review redirects, security headers, crawl metadata, and common login/admin exposure.|low|web_surface,web_probe|http-posture|Bounded HTTP posture check for headers, redirects, robots, sitemap, and login/admin routes
+credentials|Credentials|Focus on authentication paths, credential leverage, and access checks.|Use when services expose login or identity surfaces, or packet evidence shows auth material worth validating.|medium|service_open,lateral_surface,credential_hint|auth-scout|Targeted auth-surface refresh against login-bearing services
+lateral|Lateral|Bias toward remote-admin and movement-oriented surface.|Use when the target already exposes admin or internal movement paths.|high|lateral_surface|movement-scout|Targeted movement-surface refresh on admin and lateral ports
+research|Research|Convert versioned evidence into targeted module or technique research.|Use when you have enough service/version detail to narrow the action space.|medium|service_open|msf-module-scout|Service-to-module mapping with Metasploit-backed search when available
+EOF
+}
+
+load_lane() {
+	local lane_name="$1"
+	local line
+
+	line="$(lane_list | awk -F'|' -v key="$lane_name" '$1 == key { print; exit }')"
+	[ -n "$line" ] || fail "unknown lane: $lane_name"
+
+	IFS='|' read -r \
+		LANE_NAME \
+		LANE_CATEGORY \
+		LANE_SUMMARY \
+		LANE_GUIDANCE \
+		LANE_NOISE \
+		LANE_TRIGGERS \
+		LANE_BACKEND \
+		LANE_BACKEND_SUMMARY <<<"$line"
+}
+
+lane_number() {
+	case "$1" in
+	validate) printf '1' ;;
+	web) printf '2' ;;
+	posture) printf '3' ;;
+	credentials) printf '4' ;;
+	lateral) printf '5' ;;
+	research) printf '6' ;;
+	*) printf '?' ;;
+	esac
+}
+
+lane_badge() {
+	case "$1" in
+	Validate)
+		ui_good "[VALIDATE]"
+		;;
+	Web)
+		ui_info "[WEB]"
+		;;
+	Posture)
+		ui_info "[POSTURE]"
+		;;
+	Credentials)
+		ui_warn "[CREDENTIALS]"
+		;;
+	Lateral)
+		ui_bad "[LATERAL]"
+		;;
+	Research)
+		ui_focus "[RESEARCH]"
+		;;
+	*)
+		printf '[%s]' "$1"
+		;;
+	esac
+}
+
+render_lane_line() {
+	printf '%s %s %s\n' \
+		"$(ui_dim "[$(lane_number "$LANE_NAME")]")" \
+		"$(lane_badge "$LANE_CATEGORY")" \
+		"$(ui_accent "$LANE_NAME")"
+	printf '    %s\n' "$LANE_SUMMARY"
+	printf '    %s %s\n' "$(ui_dim "use:")" "$LANE_GUIDANCE"
+	printf '    %s %s\n' "$(ui_dim "noise:")" "$LANE_NOISE"
+	printf '    %s %s\n' "$(ui_dim "triggers:")" "$LANE_TRIGGERS"
+	printf '    %s %s\n' "$(ui_dim "backend:")" "$LANE_BACKEND"
+}
+
+target_has_intel() {
+	local target="$1"
+	jq -e --arg target "$target" '
+    select(.target == $target) | .target
+  ' "$LAB_INTEL_OBSERVATIONS_FILE" >/dev/null 2>&1
+}
+
+target_service_rows() {
+	local target="$1"
+
+	[ -s "$LAB_INTEL_ENTITIES_FILE" ] || return 0
+	jq -sr --arg target "$target" '
+    map(select(.entity_type == "service" and .target == $target))
+    | sort_by(.observed_at, .entity_id)
+    | reverse
+    | unique_by(.entity_id)
+    | sort_by(.attributes.portproto, .attributes.service, .attributes.detail)
+    | .[]
+    | [
+        (.attributes.portproto // "?"),
+        (.attributes.service // "?"),
+        (.attributes.detail // "")
+      ]
+    | @tsv
+  ' "$LAB_INTEL_ENTITIES_FILE"
+}
+
+target_web_rows() {
+	local target="$1"
+
+	[ -s "$LAB_INTEL_OBSERVATIONS_FILE" ] || return 0
+	jq -sr --arg target "$target" '
+    map(select(.target == $target and (.observation_type == "web_surface" or .observation_type == "web_probe")))
+    | sort_by(.observed_at, .value.endpoint, .value.portproto)
+    | reverse
+    | unique_by((.value.endpoint // "?") + "|" + (.value.portproto // "?"))
+    | sort_by(.value.portproto, .value.endpoint)
+    | .[]
+    | [
+        (.value.endpoint // "?"),
+        (.value.portproto // "?"),
+        (.value.service // "?"),
+        (.value.detail // .value.title // "")
+      ]
+    | @tsv
+  ' "$LAB_INTEL_OBSERVATIONS_FILE"
+}
+
+target_lateral_rows() {
+	local target="$1"
+
+	[ -s "$LAB_INTEL_OBSERVATIONS_FILE" ] || return 0
+	jq -sr --arg target "$target" '
+    map(select(.target == $target and .observation_type == "lateral_surface"))
+    | sort_by(.observed_at, .value.portproto, .value.label)
+    | reverse
+    | unique_by((.value.label // "?") + "|" + (.value.portproto // "?"))
+    | sort_by(.value.portproto, .value.label)
+    | .[]
+    | [
+        (.value.label // "?"),
+        (.value.portproto // "?"),
+        (.value.service // "?"),
+        (.value.detail // "")
+      ]
+    | @tsv
+  ' "$LAB_INTEL_OBSERVATIONS_FILE"
+}
+
+target_observation_count() {
+	local target="$1"
+	local observation_type="$2"
+
+	[ -s "$LAB_INTEL_OBSERVATIONS_FILE" ] || {
+		printf '0'
+		return 0
+	}
+
+	jq -sr --arg target "$target" --arg observation_type "$observation_type" '
+    map(select(.target == $target and .observation_type == $observation_type))
+    | length
+  ' "$LAB_INTEL_OBSERVATIONS_FILE"
+}
+
+count_lines() {
+	awk 'END { print NR + 0 }'
+}
+
+target_service_count() {
+	local target="$1"
+	target_service_rows "$target" | count_lines
+}
+
+target_web_count() {
+	local target="$1"
+	target_web_rows "$target" | count_lines
+}
+
+target_lateral_count() {
+	local target="$1"
+	target_lateral_rows "$target" | count_lines
+}
+
+target_credential_surface_count() {
+	local target="$1"
+
+	target_service_rows "$target" | awk -F'\t' '
+    $1 ~ /^(21\/tcp|22\/tcp|88\/tcp|389\/tcp|445\/tcp|464\/tcp|636\/tcp|1433\/tcp|3306\/tcp|5432\/tcp|5985\/tcp|5986\/tcp)$/ { count++ ; next }
+    $2 ~ /^(ssh|kerberos-sec|ldap|microsoft-ds|mysql|postgresql)$/ { count++ ; next }
+    $3 ~ /(WinRM|OpenSSH|LDAP|Kerberos|MySQL|PostgreSQL)/ { count++ ; next }
+    END { print count + 0 }
+  '
+}
+
+target_credential_hint_rows() {
+	local target="$1"
+
+	[ -s "$LAB_INTEL_OBSERVATIONS_FILE" ] || return 0
+	jq -sr --arg target "$target" '
+    map(select(.target == $target and .observation_type == "credential_hint"))
+    | sort_by(.observed_at, .value.label, .value.evidence)
+    | reverse
+    | unique_by((.value.label // "?") + "|" + (.value.evidence // "?"))
+    | sort_by(.value.label, .value.evidence)
+    | .[]
+    | [
+        (.value.label // "?"),
+        (.value.evidence // "")
+      ]
+    | @tsv
+  ' "$LAB_INTEL_OBSERVATIONS_FILE"
+}
+
+target_credential_hint_count() {
+	local target="$1"
+	target_credential_hint_rows "$target" | count_lines
+}
+
+target_capture_anomaly_rows() {
+	local target="$1"
+
+	[ -s "$LAB_INTEL_OBSERVATIONS_FILE" ] || return 0
+	jq -sr --arg target "$target" '
+    map(select(.target == $target and .observation_type == "capture_anomaly"))
+    | sort_by(.observed_at, .value.label, .value.evidence)
+    | reverse
+    | unique_by((.value.label // "?") + "|" + (.value.evidence // "?"))
+    | sort_by(.value.label, .value.evidence)
+    | .[]
+    | [
+        (.value.label // "?"),
+        (.value.evidence // "")
+      ]
+    | @tsv
+  ' "$LAB_INTEL_OBSERVATIONS_FILE"
+}
+
+target_capture_anomaly_count() {
+	local target="$1"
+	target_capture_anomaly_rows "$target" | count_lines
+}
+
+target_versioned_service_count() {
+	local target="$1"
+
+	target_service_rows "$target" | awk -F'\t' '
+    $3 != "" { count++ }
+    END { print count + 0 }
+  '
+}
+
+target_host_state() {
+	local target="$1"
+
+	[ -s "$LAB_INTEL_OBSERVATIONS_FILE" ] || {
+		printf 'unknown'
+		return 0
+	}
+
+	jq -r --arg target "$target" '
+    select(.target == $target and .observation_type == "host_state")
+    | .value.state
+  ' "$LAB_INTEL_OBSERVATIONS_FILE" | tail -n 1
+}
+
+vector_lane_outcome_count() {
+	local target="$1"
+	local lane_name="$2"
+	local status="$3"
+
+	[ -s "$LAB_INTEL_OUTCOMES_FILE" ] || {
+		printf '0'
+		return 0
+	}
+
+	jq -sr --arg target "$target" --arg lane_name "$lane_name" --arg status "$status" '
+    map(select(.source_tool == "vector" and .target == $target and .source_name == $lane_name and .status == $status))
+    | length
+  ' "$LAB_INTEL_OUTCOMES_FILE"
+}
+
+emit_candidate() {
+	local target="$1"
+	local base_score="$2"
+	local confidence="$3"
+	local lane_name="$4"
+	local rationale="$5"
+	local success_count
+	local failure_count
+	local score="$base_score"
+
+	success_count="$(vector_lane_outcome_count "$target" "$lane_name" "success")"
+	failure_count="$(vector_lane_outcome_count "$target" "$lane_name" "failed")"
+
+	if [ "$success_count" -gt 0 ]; then
+		score=$((score + (success_count * 4)))
+		[ "$score" -gt 99 ] && score=99
+		rationale="$rationale; history: $success_count prior success"
+	fi
+
+	if [ "$failure_count" -gt 0 ]; then
+		score=$((score - (failure_count * 6)))
+		[ "$score" -lt 1 ] && score=1
+		rationale="$rationale; history: $failure_count prior failure"
+	fi
+
+	printf '%s|%s|%s|%s\n' "$score" "$confidence" "$lane_name" "$rationale"
+}
+
+candidate_rows() {
+	local target="$1"
+	local service_count
+	local web_count
+	local lateral_count
+	local credential_count
+	local credential_hint_count
+	local anomaly_count
+	local versioned_count
+	local host_state
+	local score
+	local rationale
+
+	service_count="$(target_service_count "$target")"
+	web_count="$(target_web_count "$target")"
+	lateral_count="$(target_lateral_count "$target")"
+	credential_count="$(target_credential_surface_count "$target")"
+	credential_hint_count="$(target_credential_hint_count "$target")"
+	anomaly_count="$(target_capture_anomaly_count "$target")"
+	versioned_count="$(target_versioned_service_count "$target")"
+	host_state="$(target_host_state "$target")"
+
+	if [ "$service_count" -gt 0 ] || [ "$host_state" = "up" ]; then
+		score=$((50 + (service_count * 2)))
+		rationale="$service_count observed service(s) and host state $host_state"
+		if [ "$anomaly_count" -gt 0 ]; then
+			score=$((score + (anomaly_count * 4)))
+			rationale="$rationale; $anomaly_count capture anomaly hint(s) observed"
+		fi
+		[ "$score" -gt 68 ] && score=68
+		emit_candidate "$target" "$score" "high" "validate" "$rationale"
+	fi
+
+	if [ "$web_count" -gt 0 ]; then
+		score=$((70 + (web_count * 6)))
+		[ "$score" -gt 92 ] && score=92
+		emit_candidate "$target" "$score" "high" "web" "$web_count web surface(s) observed from shared intel"
+
+		score=$((66 + (web_count * 5)))
+		[ "$score" -gt 88 ] && score=88
+		emit_candidate "$target" "$score" "high" "posture" "$web_count web surface(s) ready for HTTP posture review"
+	fi
+
+	if [ "$credential_count" -gt 0 ] || [ "$credential_hint_count" -gt 0 ]; then
+		score=$((68 + (credential_count * 5) + (credential_hint_count * 8)))
+		rationale="$credential_count credential-relevant service(s) observed"
+		if [ "$credential_hint_count" -gt 0 ]; then
+			rationale="$rationale; $credential_hint_count credential hint(s) from capture"
+		fi
+		[ "$score" -gt 96 ] && score=96
+		emit_candidate "$target" "$score" "high" "credentials" "$rationale"
+	fi
+
+	if [ "$lateral_count" -gt 0 ]; then
+		score=$((74 + (lateral_count * 4)))
+		[ "$score" -gt 95 ] && score=95
+		emit_candidate "$target" "$score" "high" "lateral" "$lateral_count movement-oriented surface(s) observed"
+	fi
+
+	if [ "$versioned_count" -gt 0 ]; then
+		score=$((60 + (versioned_count * 3)))
+		[ "$score" -gt 82 ] && score=82
+		emit_candidate "$target" "$score" "medium" "research" "$versioned_count versioned service(s) available for targeted follow-up"
+	fi
+}
+
+print_evidence_preview() {
+	local target="$1"
+	local lane_name="$2"
+
+	case "$lane_name" in
+	validate | research)
+		{
+			target_capture_anomaly_rows "$target" | awk -F'\t' 'NR <= 3 { printf "%-18s %s\n", $1, $2 }'
+			target_service_rows "$target" | awk -F'\t' 'NR <= 6 { printf "%-10s %-14s %s\n", $1, $2, $3 }'
+		}
+		;;
+	web | posture)
+		target_web_rows "$target" | awk -F'\t' 'NR <= 5 { printf "%-28s %-10s %-14s %s\n", $1, $2, $3, $4 }'
+		;;
+	credentials)
+		{
+			target_credential_hint_rows "$target" | awk -F'\t' 'NR <= 4 { printf "%-18s %s\n", $1, $2 }'
+			target_service_rows "$target" | awk -F'\t' '
+          $1 ~ /^(21\/tcp|22\/tcp|88\/tcp|389\/tcp|445\/tcp|464\/tcp|636\/tcp|1433\/tcp|3306\/tcp|5432\/tcp|5985\/tcp|5986\/tcp)$/ || $2 ~ /^(ssh|kerberos-sec|ldap|microsoft-ds|mysql|postgresql)$/ {
+            printf "%-10s %-14s %s\n", $1, $2, $3
+            count++
+          }
+          count >= 6 { exit }
+        '
+		}
+		;;
+	lateral)
+		target_lateral_rows "$target" | awk -F'\t' 'NR <= 6 { printf "%-18s %-10s %-14s %s\n", $1, $2, $3, $4 }'
+		;;
+	esac
+}
+
+print_lane_focus() {
+	case "$1" in
+	validate)
+		printf '%s\n' "confirm banner accuracy, auth edges, and inventory confidence"
+		printf '%s\n' "reduce ambiguity before deeper action or noisy follow-up"
+		;;
+	web)
+		printf '%s\n' "follow observed HTTP or TLS endpoints and isolate application surface"
+		printf '%s\n' "prioritize panels, stacks, and externally reachable workflows"
+		;;
+	posture)
+		printf '%s\n' "check redirects, security headers, crawl metadata, and common public routes"
+		printf '%s\n' "keep this as a posture review, not broad content discovery or fuzzing"
+		;;
+	credentials)
+		printf '%s\n' "prioritize login-bearing services and account validation paths"
+		printf '%s\n' "look for reused access, weak auth boundaries, and operator-safe checks"
+		;;
+	lateral)
+		printf '%s\n' "focus on remote-admin, directory, SMB, and movement-oriented control paths"
+		printf '%s\n' "treat this lane as the internal-access map, not just another service list"
+		;;
+	research)
+		printf '%s\n' "turn versioned evidence into narrow, service-specific follow-up research"
+		printf '%s\n' "prefer targeted technique selection over broad exploit sprawl"
+		;;
+	esac
+}
+
+target_service_ports() {
+	local target="$1"
+	target_service_rows "$target" | awk -F'\t' '$1 != "" { print $1 }' | normalize_nmap_ports
+}
+
+target_web_endpoints() {
+	local target="$1"
+	target_web_rows "$target" | awk -F'\t' '$1 != "" { print $1 }'
+}
+
+normalize_nmap_ports() {
+	awk -F'/' '
+    {
+      if ($1 == "" || $2 == "") {
+        next
+      }
+      protocol = tolower($2)
+      if (protocol == "tcp") {
+        value = "T:" $1
+      } else if (protocol == "udp") {
+        value = "U:" $1
+      } else {
+        next
+      }
+      if (!seen[value]++) {
+        values[++count] = value
+      }
+    }
+    END {
+      for (i = 1; i <= count; i++) {
+        printf "%s%s", values[i], (i < count ? "," : "")
+      }
+      printf "\n"
+    }
+  '
+}
+
+target_credential_ports() {
+	local target="$1"
+	target_service_rows "$target" | awk -F'\t' '
+    $1 ~ /^(21\/tcp|22\/tcp|88\/tcp|389\/tcp|445\/tcp|464\/tcp|636\/tcp|1433\/tcp|3306\/tcp|5432\/tcp|5985\/tcp|5986\/tcp)$/ { print $1; next }
+    $2 ~ /^(ssh|kerberos-sec|ldap|microsoft-ds|mysql|postgresql)$/ { print $1; next }
+    $3 ~ /(WinRM|OpenSSH|LDAP|Kerberos|MySQL|PostgreSQL)/ { print $1; next }
+  ' | normalize_nmap_ports
+}
+
+target_lateral_ports() {
+	local target="$1"
+	target_lateral_rows "$target" | awk -F'\t' '$2 != "" { print $2 }' | normalize_nmap_ports
+}
+
+ensure_command() {
+	local command_name="$1"
+	command -v "$command_name" >/dev/null 2>&1 || fail "command not found: $command_name"
+}
+
+quote_command() {
+	local rendered=""
+	local arg
+
+	for arg in "$@"; do
+		if [ -n "$rendered" ]; then
+			rendered="$rendered "
+		fi
+		rendered="$rendered$(printf '%q' "$arg")"
+	done
+
+	printf '%s\n' "$rendered"
+}
+
+resolve_target_address() {
+	local target="$1"
+	local slug
+	local file
+	local ADDRESS=""
+
+	slug="$(slugify "$target")"
+	file="$LAB_TARGETS_DIR/$slug.env"
+
+	if [ -f "$file" ]; then
+		# shellcheck disable=SC1090
+		. "$file"
+		if [ -n "$ADDRESS" ]; then
+			printf '%s' "$ADDRESS"
+			return 0
+		fi
+	fi
+
+	printf '%s' "$target"
+}
+
+allocate_session_slug() {
+	local base_slug="$1"
+	local slug="$base_slug"
+	local counter=2
+
+	while [ -e "$LAB_SESSIONS_DIR/$slug" ]; do
+		slug="${base_slug}-${counter}"
+		counter=$((counter + 1))
+	done
+
+	printf '%s\n' "$slug"
+}
+
+session_dir_for() {
+	local session_name="$1"
+	printf '%s/%s\n' "$LAB_SESSIONS_DIR" "$(slugify "$session_name")"
+}
+
+create_vector_session() {
+	local lane_name="$1"
+	local target="$2"
+	local requested_name="${3:-}"
+	local created_at
+	local base_slug
+	local slug
+	local dir
+	local file
+	local display_name
+
+	load_lane "$lane_name"
+	created_at="$(timestamp)"
+	if [ -n "$requested_name" ]; then
+		display_name="$requested_name"
+		base_slug="$(slugify "$requested_name")"
+	else
+		display_name="$lane_name $target $created_at"
+		base_slug="$(slugify "${lane_name}-${target}-${created_at}")"
+	fi
+	[ -n "$base_slug" ] || fail "session name produced an empty slug"
+
+	slug="$(allocate_session_slug "$base_slug")"
+	dir="$LAB_SESSIONS_DIR/$slug"
+	file="$dir/session.env"
+
+	mkdir -p "$dir/loot" "$dir/pcaps" "$dir/notes" "$dir/logs" "$dir/tmp"
+	: >"$file"
+	upsert_env "$file" NAME "$display_name"
+	upsert_env "$file" SLUG "$slug"
+	upsert_env "$file" TARGET "$target"
+	upsert_env "$file" STATUS "running"
+	upsert_env "$file" CREATED_AT "$created_at"
+	upsert_env "$file" SOURCE_TOOL "$TOOL_NAME"
+	upsert_env "$file" LANE "$lane_name"
+	upsert_env "$file" BACKEND "$LANE_BACKEND"
+
+	printf '%s\n' "$dir"
+}
+
+load_session_record() {
+	local session_name="$1"
+	local dir
+	local file
+
+	dir="$(session_dir_for "$session_name")"
+	file="$dir/session.env"
+	[ -f "$file" ] || fail "unknown session: $session_name"
+
+	NAME=""
+	SLUG=""
+	TARGET=""
+	STATUS=""
+	CREATED_AT=""
+	COMPLETED_AT=""
+	SOURCE_TOOL=""
+	LANE=""
+	BACKEND=""
+	RESULT_SUMMARY=""
+	RUN_LOG=""
+	LOOT_COUNT=""
+	OBSERVATION_COUNT=""
+
+	# shellcheck disable=SC1090
+	. "$file"
+
+	[ "${SOURCE_TOOL:-}" = "$TOOL_NAME" ] || fail "not a vector session: $session_name"
+
+	VECTOR_SESSION_DIR="$dir"
+}
+
+vector_session_files() {
+	local file
+	local SOURCE_TOOL=""
+
+	for file in "$LAB_SESSIONS_DIR"/*/session.env; do
+		[ -e "$file" ] || return 0
+		SOURCE_TOOL=""
+		# shellcheck disable=SC1090
+		. "$file"
+		if [ "${SOURCE_TOOL:-}" = "$TOOL_NAME" ]; then
+			printf '%s\n' "$file"
+		fi
+	done
+}
+
+update_vector_session() {
+	local session_file="$1"
+	local status="$2"
+	local summary="$3"
+	local run_log="$4"
+	local loot_count="$5"
+	local observation_count="$6"
+
+	upsert_env "$session_file" STATUS "$status"
+	upsert_env "$session_file" COMPLETED_AT "$(timestamp)"
+	upsert_env "$session_file" RESULT_SUMMARY "$summary"
+	upsert_env "$session_file" RUN_LOG "$run_log"
+	upsert_env "$session_file" LOOT_COUNT "$loot_count"
+	upsert_env "$session_file" OBSERVATION_COUNT "$observation_count"
+}
+
+intel_observation_payload() {
+	local lane_name="$1"
+	local session_slug="$2"
+	local target="$3"
+	local observation_type="$4"
+	local confidence="$5"
+	local value_json="$6"
+
+	jq -cn \
+		--arg observed_at "$(timestamp)" \
+		--arg source_tool "$TOOL_NAME" \
+		--arg source_kind "lane" \
+		--arg source_name "$lane_name" \
+		--arg source_run_id "$session_slug" \
+		--arg target "$target" \
+		--arg observation_type "$observation_type" \
+		--arg confidence "$confidence" \
+		--argjson value "$value_json" \
+		'{
+      observed_at: $observed_at,
+      source_tool: $source_tool,
+      source_kind: $source_kind,
+      source_name: $source_name,
+      source_run_id: $source_run_id,
+      target: $target,
+      observation_type: $observation_type,
+      confidence: $confidence,
+      value: $value
+    }'
+}
+
+record_vector_outcome() {
+	local lane_name="$1"
+	local target="$2"
+	local session_slug="$3"
+	local backend_name="$4"
+	local status="$5"
+	local summary="$6"
+	local run_log="$7"
+	local loot_count="$8"
+	local observation_count="$9"
+
+	local payload
+
+	payload="$(
+		jq -cn \
+			--arg recorded_at "$(timestamp)" \
+			--arg source_tool "$TOOL_NAME" \
+			--arg source_kind "lane" \
+			--arg source_name "$lane_name" \
+			--arg source_run_id "$session_slug" \
+			--arg target "$target" \
+			--arg backend "$backend_name" \
+			--arg status "$status" \
+			--arg summary "$summary" \
+			--arg run_log "$run_log" \
+			--argjson loot_count "${loot_count:-0}" \
+			--argjson observation_count "${observation_count:-0}" \
+			'{
+        recorded_at: $recorded_at,
+        source_tool: $source_tool,
+        source_kind: $source_kind,
+        source_name: $source_name,
+        source_run_id: $source_run_id,
+        target: $target,
+        backend: $backend,
+        status: $status,
+        summary: $summary,
+        run_log: $run_log,
+        loot_count: $loot_count,
+        observation_count: $observation_count
+      }'
+	)"
+	intel_append_record outcomes "$payload"
+}
+
+extract_header_value() {
+	local file="$1"
+	local header_name="$2"
+
+	awk -F': *' -v key="$header_name" '
+    BEGIN { IGNORECASE = 1 }
+    tolower($1) == tolower(key) {
+      value = substr($0, index($0, ":") + 1)
+      sub(/^[[:space:]]+/, "", value)
+      sub(/\r$/, "", value)
+      print value
+      exit
+    }
+  ' "$file"
+}
+
+extract_http_status() {
+	local file="$1"
+	awk '
+    toupper($1) ~ /^HTTP/ {
+      status = $2
+    }
+    END {
+      if (status != "") {
+        print status
+      }
+    }
+  ' "$file"
+}
+
+extract_html_title() {
+	local file="$1"
+	tr '\n' ' ' <"$file" |
+		sed -nE 's/.*<[Tt][Ii][Tt][Ll][Ee][^>]*>([^<]+)<\/[Tt][Ii][Tt][Ll][Ee]>.*/\1/p' |
+		head -n 1 |
+		sed 's/^[[:space:]]*//; s/[[:space:]]*$//'
+}
+
+http_posture_paths() {
+	cat <<'EOF'
+/
+/robots.txt
+/sitemap.xml
+/.well-known/security.txt
+/login
+/admin
+/wp-login.php
+EOF
+}
+
+append_http_path() {
+	local endpoint="${1%/}"
+	local path="$2"
+
+	if [ "$path" = "/" ]; then
+		printf '%s/\n' "$endpoint"
+	else
+		printf '%s%s\n' "$endpoint" "$path"
+	fi
+}
+
+http_endpoint_scheme() {
+	case "$1" in
+	https://*) printf 'https' ;;
+	http://*) printf 'http' ;;
+	*) printf 'unknown' ;;
+	esac
+}
+
+http_success_status() {
+	case "$1" in
+	2* | 3*) return 0 ;;
+	*) return 1 ;;
+	esac
+}
+
+http_ok_status() {
+	case "$1" in
+	2*) return 0 ;;
+	*) return 1 ;;
+	esac
+}
+
+missing_security_headers() {
+	local headers_file="$1"
+	local scheme="$2"
+	local missing=()
+	local header
+
+	for header in \
+		Content-Security-Policy \
+		X-Frame-Options \
+		X-Content-Type-Options \
+		Referrer-Policy \
+		Permissions-Policy; do
+		if [ -z "$(extract_header_value "$headers_file" "$header")" ]; then
+			missing+=("$header")
+		fi
+	done
+
+	if [ "$scheme" = "https" ] && [ -z "$(extract_header_value "$headers_file" "Strict-Transport-Security")" ]; then
+		missing+=("Strict-Transport-Security")
+	fi
+
+	(
+		IFS=,
+		printf '%s\n' "${missing[*]:-}"
+	)
+}
+
+append_posture_finding() {
+	local file="$1"
+	local severity="$2"
+	local label="$3"
+	local url="$4"
+	local evidence="$5"
+
+	printf '%s\t%s\t%s\t%s\n' "$severity" "$label" "$url" "$evidence" >>"$file"
+}
+
+parse_nmap_open_rows() {
+	local file="$1"
+	awk '
+    /^[0-9]+\/(tcp|udp)[[:space:]]+open[[:space:]]+/ {
+      portproto = $1
+      service = $3
+      detail = ""
+      for (i = 5; i <= NF; i++) {
+        detail = detail (detail == "" ? "" : " ") $i
+      }
+      printf "%s\t%s\t%s\n", portproto, service, detail
+    }
+  ' "$file"
+}
+
+lateral_label_for_record() {
+	local portproto="$1"
+	local service="$2"
+	local detail="$3"
+
+	case "$portproto $service $detail" in
+	22/tcp* | *ssh*)
+		printf 'remote-admin'
+		;;
+	88/tcp* | *kerberos*)
+		printf 'auth'
+		;;
+	389/tcp* | 636/tcp* | *ldap*)
+		printf 'directory'
+		;;
+	135/tcp* | 139/tcp* | 445/tcp* | *msrpc* | *microsoft-ds* | *netbios*)
+		printf 'windows-surface'
+		;;
+	5985/tcp* | 5986/tcp* | *winrm*)
+		printf 'remote-admin'
+		;;
+	3389/tcp*)
+		printf 'remote-desktop'
+		;;
+	1433/tcp* | 1521/tcp* | 3306/tcp* | 5432/tcp* | 6379/tcp*)
+		printf 'data-plane'
+		;;
+	2375/tcp* | 2376/tcp* | *docker*)
+		printf 'container-control'
+		;;
+	53/tcp* | 2049/tcp*)
+		printf 'infrastructure'
+		;;
+	*)
+		printf 'internal'
+		;;
+	esac
+}
+
+module_candidates_for_record() {
+	local portproto="$1"
+	local service="$2"
+	local detail="$3"
+
+	case "$portproto $service $detail" in
+	443/tcp* | 8443/tcp* | *https* | *ssl/http*)
+		printf 'auxiliary/scanner/http/http_version\tconfirm TLS-backed HTTP surface\n'
+		printf 'auxiliary/scanner/http/title\tpull titles through HTTPS for surface triage\n'
+		printf 'auxiliary/scanner/http/ssl\tinspect certificate and SSL exposure\n'
+		;;
+	22/tcp* | *ssh*OpenSSH*)
+		printf 'auxiliary/scanner/ssh/ssh_version\trefresh SSH fingerprint from observed banner\n'
+		printf 'auxiliary/scanner/ssh/ssh_login\tvalidate credential paths once approved credentials exist\n'
+		;;
+	80/tcp* | 8080/tcp* | 8000/tcp* | *http* | *nginx* | *Apache*)
+		printf 'auxiliary/scanner/http/http_version\tconfirm HTTP stack and banner surface\n'
+		printf 'auxiliary/scanner/http/title\tpull stable page titles for quick triage\n'
+		printf 'auxiliary/scanner/http/robots_txt\tlook for exposed crawl hints and operator paths\n'
+		;;
+	445/tcp* | 139/tcp* | *microsoft-ds* | *smb*)
+		printf 'auxiliary/scanner/smb/smb_version\trefresh SMB version and dialect evidence\n'
+		printf 'auxiliary/scanner/smb/smb_login\tstage bounded credential validation for SMB\n'
+		;;
+	389/tcp* | 636/tcp* | *ldap*)
+		printf 'auxiliary/gather/ldap_query\tmap LDAP exposure and accessible naming context\n'
+		;;
+	5985/tcp* | 5986/tcp* | *winrm*)
+		printf 'auxiliary/scanner/winrm/winrm_auth_methods\tidentify WinRM auth options before access attempts\n'
+		;;
+	3389/tcp* | *ms-wbt-server*)
+		printf 'auxiliary/scanner/rdp/rdp_scanner\tconfirm RDP exposure and protocol details\n'
+		;;
+	3306/tcp* | *mysql*)
+		printf 'auxiliary/scanner/mysql/mysql_version\trefresh MySQL banner and version evidence\n'
+		printf 'auxiliary/scanner/mysql/mysql_login\tstage bounded credential checks for MySQL\n'
+		;;
+	5432/tcp* | *postgres*)
+		printf 'auxiliary/scanner/postgres/postgres_version\trefresh PostgreSQL fingerprint evidence\n'
+		printf 'auxiliary/scanner/postgres/postgres_login\tstage bounded credential checks for PostgreSQL\n'
+		;;
+	esac
+}
+
+vector_has_msf() {
+	command -v "$VECTOR_MSFCONSOLE_BIN" >/dev/null 2>&1
+}
+
+msf_search_terms_for_record() {
+	local portproto="$1"
+	local service="$2"
+	local detail="$3"
+	local record_lower
+
+	record_lower="$(printf '%s %s %s' "$portproto" "$service" "$detail" | tr '[:upper:]' '[:lower:]')"
+
+	if [[ "$record_lower" == *openssh* ]]; then
+		printf '%s\n' "openssh"
+	elif [[ "$portproto" == "22/tcp" ]] || [[ "$record_lower" == *ssh* ]]; then
+		printf '%s\n' "ssh"
+	elif [[ "$portproto" == "443/tcp" ]] || [[ "$portproto" == "8443/tcp" ]]; then
+		if [[ "$record_lower" == *nginx* ]]; then
+			printf '%s\n' "nginx"
+		elif [[ "$record_lower" == *apache* ]]; then
+			printf '%s\n' "apache"
+		elif [[ "$record_lower" == *https* ]] || [[ "$record_lower" == *ssl/http* ]]; then
+			printf '%s\n' "https"
+		fi
+	elif [[ "$portproto" == "80/tcp" ]] || [[ "$portproto" == "8080/tcp" ]] || [[ "$portproto" == "8000/tcp" ]]; then
+		if [[ "$record_lower" == *nginx* ]]; then
+			printf '%s\n' "nginx"
+		elif [[ "$record_lower" == *apache* ]]; then
+			printf '%s\n' "apache"
+		elif [[ "$record_lower" == *http* ]]; then
+			printf '%s\n' "http"
+		fi
+	elif [[ "$record_lower" == *samba* ]]; then
+		printf '%s\n' "samba"
+	elif [[ "$portproto" == "445/tcp" ]] || [[ "$portproto" == "139/tcp" ]] || [[ "$record_lower" == *microsoft-ds* ]] || [[ "$record_lower" == *smb* ]]; then
+		printf '%s\n' "smb"
+	elif [[ "$portproto" == "389/tcp" ]] || [[ "$portproto" == "636/tcp" ]] || [[ "$record_lower" == *ldap* ]]; then
+		printf '%s\n' "ldap"
+	elif [[ "$portproto" == "5985/tcp" ]] || [[ "$portproto" == "5986/tcp" ]] || [[ "$record_lower" == *winrm* ]]; then
+		printf '%s\n' "winrm"
+	elif [[ "$portproto" == "3389/tcp" ]] || [[ "$record_lower" == *ms-wbt-server* ]]; then
+		printf '%s\n' "rdp"
+	elif [[ "$portproto" == "3306/tcp" ]] || [[ "$record_lower" == *mysql* ]]; then
+		printf '%s\n' "mysql"
+	elif [[ "$portproto" == "5432/tcp" ]] || [[ "$record_lower" == *postgres* ]]; then
+		printf '%s\n' "postgres"
+	fi
+
+	printf '%s %s\n' "$service" "$detail" |
+		tr '[:upper:]' '[:lower:]' |
+		grep -Eo '[a-z][a-z0-9._-]{3,}' |
+		grep -Ev '^(open|syn|syn-ack|ack|conn-refused|protocol|version|service|server|windows|remote|admin|surface|received|latency|user-set|interactive|scanner|login|check|normal|manual|good|great|excellent|average|target|action|linux|unix|command|shell|multi|http|https|ssh|smb|ldap|winrm|rdp|mysql|postgres|tcp|udp)$' |
+		head -n 1 ||
+		true
+}
+
+parse_msf_search_results() {
+	awk '
+    /^[[:space:]]*[0-9]+[[:space:]]+[[:alnum:]_\/-]+/ {
+      line = $0
+      sub(/^[[:space:]]*[0-9]+[[:space:]]+/, "", line)
+      n = split(line, parts, /[[:space:]]{2,}/)
+      module = parts[1]
+      desc = parts[n]
+      rank = ""
+      if (n >= 4 && (parts[n - 1] == "Yes" || parts[n - 1] == "No")) {
+        rank = parts[n - 2]
+      } else if (n >= 2) {
+        rank = parts[n - 1]
+      }
+      if (module ~ /^(auxiliary|exploit|post|payload)\//) {
+        printf "%s\t%s\t%s\n", module, rank, desc
+      }
+    }
+  '
+}
+
+msf_module_candidates_for_record() {
+	local portproto="$1"
+	local service="$2"
+	local detail="$3"
+	local log_file="$4"
+	local term
+	local search_command
+	local output
+	local status_code
+	local results_file
+
+	vector_has_msf || return 0
+	results_file="$(mktemp)"
+
+	while IFS= read -r term; do
+		[ -n "$term" ] || continue
+		printf '>>> search %s\n' "$term" >>"$log_file"
+		search_command="search $term; exit -y"
+		set +e
+		output="$(timeout "$VECTOR_MSF_TIMEOUT_SECONDS" "$VECTOR_MSFCONSOLE_BIN" -q -x "$search_command" 2>&1)"
+		status_code=$?
+		set -e
+		printf '%s\n' "$output" >>"$log_file"
+		if [ "$status_code" -eq 124 ]; then
+			printf '>>> timeout %s\n' "$term" >>"$log_file"
+		fi
+		while IFS=$'\t' read -r module_name rank description; do
+			[ -n "$module_name" ] || continue
+			printf '%s\t%s\t%s\t%s\n' "$term" "$module_name" "$rank" "$description" >>"$results_file"
+		done < <(printf '%s\n' "$output" | parse_msf_search_results)
+	done < <(msf_search_terms_for_record "$portproto" "$service" "$detail" | awk '!seen[$0]++')
+
+	if [ -s "$results_file" ]; then
+		awk -F'\t' '!seen[$2]++ { print }' "$results_file"
+	fi
+
+	rm -f "$results_file"
+}
+
+run_nmap_refresh() {
+	local lane_name="$1"
+	local target="$2"
+	local session_slug="$3"
+	local session_dir="$4"
+	local ports="$5"
+	local summary_label="$6"
+	local observation_type="$7"
+	local scan_target
+	local log_file="$session_dir/logs/${lane_name}-nmap.txt"
+	local loot_file="$session_dir/loot/${lane_name}-services.tsv"
+	local command_file="$session_dir/notes/${lane_name}-command.txt"
+	local summary_file="$session_dir/notes/${lane_name}-summary.txt"
+	local cmd=()
+	local validated_count=0
+	local observation_count=0
+	local summary
+	local status
+	local portproto
+	local service
+	local detail
+	local label
+	local service_entity_id
+	local payload
+
+	ensure_command "$VECTOR_NMAP_BIN"
+	scan_target="$(resolve_target_address "$target")"
+	if [ -n "$ports" ]; then
+		cmd=("$VECTOR_NMAP_BIN" -Pn -n -T4 -sT -sV --version-light --reason -p "$ports" "$scan_target")
+	else
+		cmd=("$VECTOR_NMAP_BIN" -Pn -n -T4 -F --reason "$scan_target")
+	fi
+
+	quote_command "${cmd[@]}" >"$command_file"
+	if "${cmd[@]}" >"$log_file" 2>&1; then
+		parse_nmap_open_rows "$log_file" >"$loot_file"
+		validated_count="$(wc -l <"$loot_file" | tr -d ' ')"
+		while IFS=$'\t' read -r portproto service detail; do
+			[ -n "$portproto" ] || continue
+			service_entity_id="$(intel_service_entity_id "$target" "$portproto")"
+			if [ "$observation_type" = "lateral_surface" ]; then
+				label="$(lateral_label_for_record "$portproto" "$service" "$detail")"
+				payload="$(
+					intel_observation_payload \
+						"$lane_name" \
+						"$session_slug" \
+						"$target" \
+						"$observation_type" \
+						"high" \
+						"$(jq -cn \
+							--arg service_entity_id "$service_entity_id" \
+							--arg label "$label" \
+							--arg portproto "$portproto" \
+							--arg service "$service" \
+							--arg detail "$detail" \
+							'{
+                  service_entity_id: $service_entity_id,
+                  label: $label,
+                  portproto: $portproto,
+                  service: $service,
+                  detail: $detail
+                }')"
+				)"
+			else
+				payload="$(
+					intel_observation_payload \
+						"$lane_name" \
+						"$session_slug" \
+						"$target" \
+						"$observation_type" \
+						"high" \
+						"$(jq -cn \
+							--arg service_entity_id "$service_entity_id" \
+							--arg portproto "$portproto" \
+							--arg service "$service" \
+							--arg detail "$detail" \
+							'{
+                  service_entity_id: $service_entity_id,
+                  portproto: $portproto,
+                  service: $service,
+                  detail: $detail
+                }')"
+				)"
+			fi
+			intel_append_record observations "$payload"
+			observation_count=$((observation_count + 1))
+		done <"$loot_file"
+
+		summary="$validated_count $summary_label"
+		status="success"
+	else
+		: >"$loot_file"
+		summary="$lane_name backend failed; inspect $log_file"
+		status="failed"
+	fi
+
+	printf '%s\n' "$summary" >"$summary_file"
+	RUN_STATUS="$status"
+	RUN_SUMMARY="$summary"
+	RUN_LOG="$log_file"
+	RUN_LOOT_COUNT="$validated_count"
+	RUN_OBSERVATION_COUNT="$observation_count"
+}
+
+run_web_probe() {
+	local lane_name="$1"
+	local target="$2"
+	local session_slug="$3"
+	local session_dir="$4"
+	local endpoint
+	local portproto
+	local service
+	local detail
+	local command_file="$session_dir/notes/${lane_name}-command.txt"
+	local loot_file="$session_dir/loot/${lane_name}-probes.tsv"
+	local summary_file="$session_dir/notes/${lane_name}-summary.txt"
+	local attempt_count=0
+	local success_count=0
+	local observation_count=0
+	local first_log=""
+	local endpoint_slug
+	local headers_file
+	local body_file
+	local status_code
+	local server
+	local title
+	local payload
+
+	ensure_command "$VECTOR_CURL_BIN"
+	: >"$loot_file"
+	printf '%s\n' "$(quote_command "$VECTOR_CURL_BIN" -skL --max-time 8 -D HEADERS_FILE -o BODY_FILE ENDPOINT)" >"$command_file"
+
+	while IFS=$'\t' read -r endpoint portproto service detail; do
+		[ -n "$endpoint" ] || continue
+		attempt_count=$((attempt_count + 1))
+		endpoint_slug="$(slugify "$endpoint")"
+		headers_file="$session_dir/logs/${lane_name}-${endpoint_slug}.headers"
+		body_file="$session_dir/loot/${lane_name}-${endpoint_slug}.body"
+		[ -n "$first_log" ] || first_log="$headers_file"
+
+		if "$VECTOR_CURL_BIN" -skL --max-time 8 -D "$headers_file" -o "$body_file" "$endpoint" >/dev/null 2>&1; then
+			status_code="$(extract_http_status "$headers_file")"
+			server="$(extract_header_value "$headers_file" "Server")"
+			title="$(extract_html_title "$body_file")"
+			printf '%s\t%s\t%s\t%s\n' "$endpoint" "${status_code:-?}" "${server:-}" "${title:-}" >>"$loot_file"
+			payload="$(
+				intel_observation_payload \
+					"$lane_name" \
+					"$session_slug" \
+					"$target" \
+					"web_probe" \
+					"medium" \
+					"$(jq -cn \
+						--arg endpoint "$endpoint" \
+						--arg portproto "$portproto" \
+						--arg service "$service" \
+						--arg status_code "${status_code:-}" \
+						--arg server "${server:-}" \
+						--arg title "${title:-}" \
+						'{
+                endpoint: $endpoint,
+                portproto: $portproto,
+                service: $service,
+                status_code: $status_code,
+                server: $server,
+                title: $title,
+                detail: (($server + " " + $title) | gsub("^ +| +$"; ""))
+              }')"
+			)"
+			intel_append_record observations "$payload"
+			observation_count=$((observation_count + 1))
+			success_count=$((success_count + 1))
+		fi
+	done < <(target_web_rows "$target")
+
+	if [ "$attempt_count" -eq 0 ]; then
+		RUN_STATUS="failed"
+		RUN_SUMMARY="no observed web endpoints available for probing"
+		RUN_LOG="$session_dir/logs/${lane_name}-none.log"
+		RUN_LOOT_COUNT="0"
+		RUN_OBSERVATION_COUNT="0"
+		printf '%s\n' "$RUN_SUMMARY" >"$RUN_LOG"
+	elif [ "$success_count" -gt 0 ]; then
+		RUN_STATUS="success"
+		RUN_SUMMARY="$success_count web endpoint(s) probed successfully"
+		RUN_LOG="${first_log:-$session_dir/logs/${lane_name}-none.log}"
+		RUN_LOOT_COUNT="$success_count"
+		RUN_OBSERVATION_COUNT="$observation_count"
+	else
+		RUN_STATUS="failed"
+		RUN_SUMMARY="web probes failed; inspect session logs"
+		RUN_LOG="${first_log:-$session_dir/logs/${lane_name}-none.log}"
+		RUN_LOOT_COUNT="0"
+		RUN_OBSERVATION_COUNT="0"
+	fi
+
+	printf '%s\n' "$RUN_SUMMARY" >"$summary_file"
+}
+
+run_http_posture() {
+	local lane_name="$1"
+	local target="$2"
+	local session_slug="$3"
+	local session_dir="$4"
+	local command_file="$session_dir/notes/${lane_name}-command.txt"
+	local route_file="$session_dir/loot/${lane_name}-routes.tsv"
+	local findings_file="$session_dir/loot/${lane_name}-findings.tsv"
+	local summary_file="$session_dir/notes/${lane_name}-summary.txt"
+	local endpoint
+	local portproto
+	local service
+	local detail
+	local path
+	local url
+	local endpoint_slug
+	local path_slug
+	local headers_file
+	local body_file
+	local status_code
+	local server
+	local title
+	local content_type
+	local location
+	local scheme
+	local missing_headers
+	local route_count=0
+	local finding_count=0
+	local observation_count=0
+	local endpoint_count=0
+	local first_log=""
+	local payload
+
+	ensure_command "$VECTOR_CURL_BIN"
+	: >"$route_file"
+	: >"$findings_file"
+	printf '%s\n' "$(quote_command "$VECTOR_CURL_BIN" -sk --max-time 8 -D HEADERS_FILE -o BODY_FILE URL)" >"$command_file"
+
+	while IFS=$'\t' read -r endpoint portproto service detail; do
+		[ -n "$endpoint" ] || continue
+		endpoint_count=$((endpoint_count + 1))
+		endpoint_slug="$(slugify "$endpoint")"
+		scheme="$(http_endpoint_scheme "$endpoint")"
+
+		while IFS= read -r path; do
+			[ -n "$path" ] || continue
+			url="$(append_http_path "$endpoint" "$path")"
+			path_slug="$(slugify "$path")"
+			[ -n "$path_slug" ] || path_slug="root"
+			headers_file="$session_dir/logs/${lane_name}-${endpoint_slug}-${path_slug}.headers"
+			body_file="$session_dir/loot/${lane_name}-${endpoint_slug}-${path_slug}.body"
+			[ -n "$first_log" ] || first_log="$headers_file"
+
+			if "$VECTOR_CURL_BIN" -sk --max-time 8 -D "$headers_file" -o "$body_file" "$url" >/dev/null 2>&1; then
+				status_code="$(extract_http_status "$headers_file")"
+				server="$(extract_header_value "$headers_file" "Server")"
+				content_type="$(extract_header_value "$headers_file" "Content-Type")"
+				location="$(extract_header_value "$headers_file" "Location")"
+				title="$(extract_html_title "$body_file")"
+				missing_headers=""
+				if [ "$path" = "/" ]; then
+					missing_headers="$(missing_security_headers "$headers_file" "$scheme")"
+				fi
+
+				printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+					"$url" \
+					"$path" \
+					"${status_code:-?}" \
+					"${server:-}" \
+					"${content_type:-}" \
+					"${title:-}" \
+					"${missing_headers:-}" >>"$route_file"
+
+				payload="$(
+					intel_observation_payload \
+						"$lane_name" \
+						"$session_slug" \
+						"$target" \
+						"http_posture" \
+						"medium" \
+						"$(jq -cn \
+							--arg endpoint "$endpoint" \
+							--arg url "$url" \
+							--arg path "$path" \
+							--arg portproto "$portproto" \
+							--arg service "$service" \
+							--arg status_code "${status_code:-}" \
+							--arg server "${server:-}" \
+							--arg content_type "${content_type:-}" \
+							--arg title "${title:-}" \
+							--arg location "${location:-}" \
+							--arg missing_security_headers "${missing_headers:-}" \
+							'{
+                  endpoint: $endpoint,
+                  url: $url,
+                  path: $path,
+                  portproto: $portproto,
+                  service: $service,
+                  status_code: $status_code,
+                  server: $server,
+                  content_type: $content_type,
+                  title: $title,
+                  location: $location,
+                  missing_security_headers: $missing_security_headers
+                }')"
+				)"
+				intel_append_record observations "$payload"
+				observation_count=$((observation_count + 1))
+
+				if [ -n "${status_code:-}" ]; then
+					route_count=$((route_count + 1))
+				fi
+
+				if [ "$path" = "/" ] && http_ok_status "${status_code:-}" && [ -n "$missing_headers" ]; then
+					append_posture_finding "$findings_file" "low" "missing-security-headers" "$url" "$missing_headers"
+					finding_count=$((finding_count + 1))
+				fi
+				if [ "$scheme" = "http" ] && [ "$path" = "/" ] && http_success_status "${status_code:-}" && [ -z "$location" ]; then
+					append_posture_finding "$findings_file" "medium" "http-without-redirect-signal" "$url" "HTTP endpoint returned ${status_code:-?} without Location header"
+					finding_count=$((finding_count + 1))
+				fi
+				case "$path" in
+				/robots.txt | /sitemap.xml | /.well-known/security.txt)
+					if http_ok_status "${status_code:-}"; then
+						append_posture_finding "$findings_file" "info" "public-metadata" "$url" "$path returned ${status_code:-?}"
+						finding_count=$((finding_count + 1))
+					fi
+					;;
+				/login | /admin | /wp-login.php)
+					if http_ok_status "${status_code:-}"; then
+						append_posture_finding "$findings_file" "low" "login-admin-route-review" "$url" "$path returned ${status_code:-?}"
+						finding_count=$((finding_count + 1))
+					fi
+					;;
+				esac
+			fi
+		done < <(http_posture_paths)
+	done < <(target_web_rows "$target")
+
+	while IFS=$'\t' read -r severity label url detail; do
+		[ -n "$label" ] || continue
+		payload="$(
+			intel_observation_payload \
+				"$lane_name" \
+				"$session_slug" \
+				"$target" \
+				"http_posture_finding" \
+				"medium" \
+				"$(jq -cn \
+					--arg severity "$severity" \
+					--arg label "$label" \
+					--arg url "$url" \
+					--arg detail "$detail" \
+					'{
+              severity: $severity,
+              label: $label,
+              url: $url,
+              detail: $detail
+            }')"
+		)"
+		intel_append_record observations "$payload"
+		observation_count=$((observation_count + 1))
+	done <"$findings_file"
+
+	if [ "$endpoint_count" -eq 0 ]; then
+		RUN_STATUS="failed"
+		RUN_SUMMARY="no observed web endpoints available for posture review"
+		RUN_LOG="$session_dir/logs/${lane_name}-none.log"
+		RUN_LOOT_COUNT="0"
+		RUN_OBSERVATION_COUNT="0"
+		printf '%s\n' "$RUN_SUMMARY" >"$RUN_LOG"
+	elif [ "$route_count" -gt 0 ]; then
+		RUN_STATUS="success"
+		RUN_SUMMARY="$route_count HTTP posture probe(s), $finding_count review finding(s)"
+		RUN_LOG="${first_log:-$session_dir/logs/${lane_name}-none.log}"
+		RUN_LOOT_COUNT="$((route_count + finding_count))"
+		RUN_OBSERVATION_COUNT="$observation_count"
+	else
+		RUN_STATUS="failed"
+		RUN_SUMMARY="HTTP posture probes failed; inspect session logs"
+		RUN_LOG="${first_log:-$session_dir/logs/${lane_name}-none.log}"
+		RUN_LOOT_COUNT="0"
+		RUN_OBSERVATION_COUNT="$observation_count"
+	fi
+
+	printf '%s\n' "$RUN_SUMMARY" >"$summary_file"
+}
+
+run_research_modules() {
+	local lane_name="$1"
+	local target="$2"
+	local session_slug="$3"
+	local session_dir="$4"
+	local loot_file="$session_dir/loot/module-candidates.tsv"
+	local summary_file="$session_dir/notes/${lane_name}-summary.txt"
+	local notes_file="$session_dir/notes/${lane_name}-modules.txt"
+	local log_file="$session_dir/logs/${lane_name}-msf.txt"
+	local aggregate_file
+	local candidate_count=0
+	local observation_count=0
+	local metasploit_count=0
+	local mapped_count=0
+	local msf_enabled="no"
+	local portproto
+	local service
+	local detail
+	local candidate_source
+	local module_name
+	local rank
+	local rationale
+	local query_term
+	local payload
+	local service_entity_id
+
+	aggregate_file="$(mktemp)"
+	: >"$loot_file"
+	: >"$notes_file"
+	: >"$log_file"
+
+	if vector_has_msf; then
+		msf_enabled="yes"
+	else
+		printf '%s\n' "metasploit unavailable; using mapped module candidates only" >>"$notes_file"
+	fi
+
+	while IFS=$'\t' read -r portproto service detail; do
+		[ -n "$portproto" ] || continue
+		while IFS=$'\t' read -r module_name rationale; do
+			[ -n "$module_name" ] || continue
+			printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+				"$portproto" \
+				"$service" \
+				"$module_name" \
+				"mapped" \
+				"" \
+				"$rationale" \
+				"$detail" >>"$aggregate_file"
+		done < <(module_candidates_for_record "$portproto" "$service" "$detail")
+
+		if [ "$msf_enabled" = "yes" ]; then
+			while IFS=$'\t' read -r query_term module_name rank rationale; do
+				[ -n "$module_name" ] || continue
+				printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+					"$portproto" \
+					"$service" \
+					"$module_name" \
+					"metasploit" \
+					"$rank" \
+					"${rationale:-metasploit search result}" \
+					"$detail" \
+					"$query_term" >>"$aggregate_file"
+			done < <(msf_module_candidates_for_record "$portproto" "$service" "$detail" "$log_file")
+		fi
+	done < <(target_service_rows "$target")
+
+	if [ -s "$aggregate_file" ]; then
+		awk -F'\t' '
+      {
+        key = $1 FS $3
+        score = ($4 == "metasploit" ? 2 : 1)
+        if (!(key in best) || score > best_score[key]) {
+          best[key] = $0
+          best_score[key] = score
+        }
+      }
+      END {
+        for (key in best) {
+          print best[key]
+        }
+      }
+    ' "$aggregate_file" | sort >"$loot_file"
+	fi
+
+	rm -f "$aggregate_file"
+
+	while IFS=$'\t' read -r portproto service module_name candidate_source rank rationale detail query_term; do
+		[ -n "$module_name" ] || continue
+		service_entity_id="$(intel_service_entity_id "$target" "$portproto")"
+		printf '%s %s [%s] %s\n' "$portproto" "$module_name" "$candidate_source" "$rationale" >>"$notes_file"
+		payload="$(
+			intel_observation_payload \
+				"$lane_name" \
+				"$session_slug" \
+				"$target" \
+				"module_candidate" \
+				"medium" \
+				"$(jq -cn \
+					--arg service_entity_id "$service_entity_id" \
+					--arg portproto "$portproto" \
+					--arg service "$service" \
+					--arg detail "$detail" \
+					--arg module_name "$module_name" \
+					--arg module_source "$candidate_source" \
+					--arg module_rank "$rank" \
+					--arg query_term "${query_term:-}" \
+					--arg rationale "$rationale" \
+					'{
+                service_entity_id: $service_entity_id,
+                portproto: $portproto,
+                service: $service,
+                detail: $detail,
+                module_name: $module_name,
+                module_source: $module_source,
+                module_rank: $module_rank,
+                query_term: $query_term,
+                rationale: $rationale
+              }')"
+		)"
+		intel_append_record observations "$payload"
+		observation_count=$((observation_count + 1))
+		candidate_count=$((candidate_count + 1))
+		if [ "$candidate_source" = "metasploit" ]; then
+			metasploit_count=$((metasploit_count + 1))
+		else
+			mapped_count=$((mapped_count + 1))
+		fi
+	done <"$loot_file"
+
+	if [ "$candidate_count" -gt 0 ]; then
+		RUN_STATUS="success"
+		if [ "$metasploit_count" -gt 0 ]; then
+			RUN_SUMMARY="$candidate_count module candidate(s) derived from observed services ($metasploit_count metasploit-backed)"
+		elif [ "$msf_enabled" = "yes" ]; then
+			RUN_SUMMARY="$candidate_count module candidate(s) derived from observed services (mapped fallback only)"
+		else
+			RUN_SUMMARY="$candidate_count module candidate(s) derived from observed services (metasploit unavailable)"
+		fi
+		RUN_LOG="$log_file"
+		RUN_LOOT_COUNT="$candidate_count"
+		RUN_OBSERVATION_COUNT="$observation_count"
+	else
+		RUN_STATUS="failed"
+		RUN_SUMMARY="no module candidates derived from current service evidence"
+		RUN_LOG="$log_file"
+		RUN_LOOT_COUNT="0"
+		RUN_OBSERVATION_COUNT="0"
+	fi
+
+	printf '%s\n' "$RUN_SUMMARY" >"$summary_file"
+}
+
+run_lane_backend() {
+	local lane_name="$1"
+	local target="$2"
+	local session_slug="$3"
+	local session_dir="$4"
+	local ports
+
+	RUN_STATUS="failed"
+	RUN_SUMMARY=""
+	RUN_LOG=""
+	RUN_LOOT_COUNT="0"
+	RUN_OBSERVATION_COUNT="0"
+
+	case "$lane_name" in
+	validate)
+		ports="$(target_service_ports "$target")"
+		run_nmap_refresh "$lane_name" "$target" "$session_slug" "$session_dir" "$ports" "service(s) refreshed for validation" "service_validation"
+		;;
+	web)
+		run_web_probe "$lane_name" "$target" "$session_slug" "$session_dir"
+		;;
+	posture)
+		run_http_posture "$lane_name" "$target" "$session_slug" "$session_dir"
+		;;
+	credentials)
+		ports="$(target_credential_ports "$target")"
+		if [ -z "$ports" ]; then
+			RUN_STATUS="failed"
+			RUN_SUMMARY="no credential-relevant services available from current intel"
+			RUN_LOG="$session_dir/logs/${lane_name}-none.log"
+			printf '%s\n' "$RUN_SUMMARY" >"$RUN_LOG"
+		else
+			run_nmap_refresh "$lane_name" "$target" "$session_slug" "$session_dir" "$ports" "credential-bearing service(s) refreshed" "credential_surface"
+		fi
+		;;
+	lateral)
+		ports="$(target_lateral_ports "$target")"
+		if [ -z "$ports" ]; then
+			RUN_STATUS="failed"
+			RUN_SUMMARY="no movement-oriented services available from current intel"
+			RUN_LOG="$session_dir/logs/${lane_name}-none.log"
+			printf '%s\n' "$RUN_SUMMARY" >"$RUN_LOG"
+		else
+			run_nmap_refresh "$lane_name" "$target" "$session_slug" "$session_dir" "$ports" "lateral surface(s) refreshed" "lateral_surface"
+		fi
+		;;
+	research)
+		run_research_modules "$lane_name" "$target" "$session_slug" "$session_dir"
+		;;
+	*)
+		fail "no backend implemented for lane: $lane_name"
+		;;
+	esac
+}
+
+cmd_menu() {
+	ui_heading "Vector Console"
+	ui_rule
+	printf '%s\n' "Shared-intel action console for exploit, auth, and follow-up planning."
+	ui_rule
+	ui_subheading "Main Flow"
+	printf '  %s %s\n' "$(ui_dim "1.")" "vector target summary <target>"
+	printf '  %s %s\n' "$(ui_dim "2.")" "vector candidates <target>"
+	printf '  %s %s\n' "$(ui_dim "3.")" "vector plan <lane> <target>"
+	printf '  %s %s\n' "$(ui_dim "4.")" "vector run <lane> <target>"
+	printf '  %s %s\n' "$(ui_dim "5.")" "vector session list"
+	printf '  %s %s\n' "$(ui_dim "6.")" "vector outcomes [target]"
+	ui_rule
+	list_lanes
+}
+
+list_lanes() {
+	local line
+
+	ui_heading "Action Lanes"
+	ui_rule
+	while IFS= read -r line; do
+		[ -n "$line" ] || continue
+		IFS='|' read -r \
+			LANE_NAME \
+			LANE_CATEGORY \
+			LANE_SUMMARY \
+			LANE_GUIDANCE \
+			LANE_NOISE \
+			LANE_TRIGGERS \
+			LANE_BACKEND \
+			LANE_BACKEND_SUMMARY <<<"$line"
+		render_lane_line
+		ui_rule
+	done < <(lane_list)
+}
+
+show_lane() {
+	load_lane "$1"
+
+	ui_heading "Lane Detail"
+	ui_rule
+	ui_kv "Lane" "$(ui_accent "$LANE_NAME") $(lane_badge "$LANE_CATEGORY")"
+	ui_kv "Summary" "$LANE_SUMMARY"
+	ui_kv "Use" "$LANE_GUIDANCE"
+	ui_kv "Noise" "$LANE_NOISE"
+	ui_kv "Triggers" "$LANE_TRIGGERS"
+	ui_kv "Backend" "$LANE_BACKEND"
+	ui_kv "Backend Use" "$LANE_BACKEND_SUMMARY"
+	ui_rule
+}
+
+cmd_target_summary() {
+	need_args 1 "$#" "target summary <target>"
+	local target="$1"
+	local service_count
+	local web_count
+	local lateral_count
+	local credential_hint_count
+	local anomaly_count
+	local host_state
+	local vector_success
+	local vector_failure
+
+	target_has_intel "$target" || fail "no shared intel for target: $target"
+
+	service_count="$(target_service_count "$target")"
+	web_count="$(target_web_count "$target")"
+	lateral_count="$(target_lateral_count "$target")"
+	credential_hint_count="$(target_credential_hint_count "$target")"
+	anomaly_count="$(target_capture_anomaly_count "$target")"
+	host_state="$(target_host_state "$target")"
+	vector_success="$(jq -sr --arg target "$target" 'map(select(.source_tool == "vector" and .target == $target and .status == "success")) | length' "$LAB_INTEL_OUTCOMES_FILE")"
+	vector_failure="$(jq -sr --arg target "$target" 'map(select(.source_tool == "vector" and .target == $target and .status == "failed")) | length' "$LAB_INTEL_OUTCOMES_FILE")"
+
+	ui_heading "Target Summary"
+	ui_rule
+	ui_kv "Target" "$target"
+	ui_kv "Host State" "$host_state"
+	ui_kv "Services" "$service_count"
+	ui_kv "Web Surfaces" "$web_count"
+	ui_kv "Lateral Surfaces" "$lateral_count"
+	ui_kv "Credential Hints" "$credential_hint_count"
+	ui_kv "Capture Anomalies" "$anomaly_count"
+	ui_kv "Vector Successes" "$vector_success"
+	ui_kv "Vector Failures" "$vector_failure"
+	ui_rule
+
+	ui_subheading "Service Snapshot"
+	if [ "$service_count" -gt 0 ]; then
+		target_service_rows "$target" | awk -F'\t' 'NR <= 8 { printf "%-10s %-14s %s\n", $1, $2, $3 }'
+	else
+		ui_note "no service evidence recorded yet"
+	fi
+}
+
+cmd_target_services() {
+	need_args 1 "$#" "target services <target>"
+	local target="$1"
+
+	target_has_intel "$target" || fail "no shared intel for target: $target"
+
+	ui_heading "Target Services"
+	ui_rule
+	ui_kv "Target" "$target"
+	ui_rule
+
+	if [ "$(target_service_count "$target")" -eq 0 ]; then
+		ui_note "no service evidence recorded yet"
+		return 0
+	fi
+
+	target_service_rows "$target" | awk -F'\t' '{ printf "%-10s %-14s %s\n", $1, $2, $3 }'
+}
+
+cmd_target_web() {
+	need_args 1 "$#" "target web <target>"
+	local target="$1"
+
+	target_has_intel "$target" || fail "no shared intel for target: $target"
+
+	ui_heading "Target Web Surface"
+	ui_rule
+	ui_kv "Target" "$target"
+	ui_rule
+
+	if [ "$(target_web_count "$target")" -eq 0 ]; then
+		ui_note "no web surface recorded yet"
+		return 0
+	fi
+
+	target_web_rows "$target" | awk -F'\t' '{ printf "%-28s %-10s %-14s %s\n", $1, $2, $3, $4 }'
+}
+
+cmd_target_lateral() {
+	need_args 1 "$#" "target lateral <target>"
+	local target="$1"
+
+	target_has_intel "$target" || fail "no shared intel for target: $target"
+
+	ui_heading "Target Lateral Surface"
+	ui_rule
+	ui_kv "Target" "$target"
+	ui_rule
+
+	if [ "$(target_lateral_count "$target")" -eq 0 ]; then
+		ui_note "no movement-oriented surface recorded yet"
+		return 0
+	fi
+
+	target_lateral_rows "$target" | awk -F'\t' '{ printf "%-18s %-10s %-14s %s\n", $1, $2, $3, $4 }'
+}
+
+cmd_candidates() {
+	need_args 1 "$#" "candidates <target>"
+	local target="$1"
+	local rows
+	local rank=1
+	local score
+	local confidence
+	local lane_name
+	local rationale
+
+	target_has_intel "$target" || fail "no shared intel for target: $target"
+	rows="$(candidate_rows "$target" | sort -t'|' -k1,1nr)"
+
+	ui_heading "Ranked Candidates"
+	ui_rule
+	ui_kv "Target" "$target"
+	ui_rule
+
+	if [ -z "$rows" ]; then
+		ui_note "no candidate lanes produced from current intel"
+		return 0
+	fi
+
+	while IFS='|' read -r score confidence lane_name rationale; do
+		[ -n "$lane_name" ] || continue
+		load_lane "$lane_name"
+		printf '%s %s %s\n' \
+			"$(ui_dim "[$rank]")" \
+			"$(lane_badge "$LANE_CATEGORY")" \
+			"$(ui_accent "$lane_name")"
+		printf '    %s %s  %s %s\n' "$(ui_dim "score:")" "$score" "$(ui_dim "confidence:")" "$confidence"
+		printf '    %s\n' "$rationale"
+		rank=$((rank + 1))
+	done <<<"$rows"
+}
+
+cmd_plan() {
+	need_args 2 "$#" "plan <lane> <target>"
+	local lane_name="$1"
+	local target="$2"
+	local rows
+	local candidate_line
+	local score
+	local confidence
+	local _name
+	local rationale
+
+	target_has_intel "$target" || fail "no shared intel for target: $target"
+	load_lane "$lane_name"
+
+	rows="$(candidate_rows "$target")"
+	candidate_line="$(printf '%s\n' "$rows" | awk -F'|' -v lane="$lane_name" '$3 == lane { print; exit }')"
+	if [ -n "$candidate_line" ]; then
+		IFS='|' read -r score confidence _name rationale <<<"$candidate_line"
+	else
+		score="0"
+		confidence="low"
+		rationale="lane not currently supported by observed intel"
+	fi
+
+	ui_heading "Lane Plan"
+	ui_rule
+	ui_kv "Lane" "$(ui_accent "$LANE_NAME") $(lane_badge "$LANE_CATEGORY")"
+	ui_kv "Target" "$target"
+	ui_kv "Score" "$score"
+	ui_kv "Confidence" "$confidence"
+	ui_kv "Why" "$rationale"
+	ui_kv "Backend" "$LANE_BACKEND"
+	ui_rule
+
+	ui_subheading "Lane Intent"
+	printf '%s\n' "$LANE_SUMMARY"
+	printf '%s\n' "$LANE_GUIDANCE"
+	ui_rule
+
+	ui_subheading "Backend Focus"
+	printf '%s\n' "$LANE_BACKEND_SUMMARY"
+	ui_rule
+
+	ui_subheading "Suggested Focus"
+	print_lane_focus "$lane_name"
+	ui_rule
+
+	ui_subheading "Evidence"
+	if ! print_evidence_preview "$target" "$lane_name" | sed -n '1,8p'; then
+		ui_note "no evidence preview available for this lane"
+	fi
+}
+
+cmd_run() {
+	need_args 2 "$#" "run <lane> <target> [session-name]"
+	local lane_name="$1"
+	local target="$2"
+	local session_name="${3:-}"
+	local session_dir
+	local session_slug
+	local session_file
+
+	target_has_intel "$target" || fail "no shared intel for target: $target"
+	load_lane "$lane_name"
+
+	session_dir="$(create_vector_session "$lane_name" "$target" "$session_name")"
+	session_file="$session_dir/session.env"
+	session_slug="$(basename "$session_dir")"
+
+	run_lane_backend "$lane_name" "$target" "$session_slug" "$session_dir"
+	update_vector_session "$session_file" "$RUN_STATUS" "$RUN_SUMMARY" "$RUN_LOG" "$RUN_LOOT_COUNT" "$RUN_OBSERVATION_COUNT"
+	record_vector_outcome "$lane_name" "$target" "$session_slug" "$LANE_BACKEND" "$RUN_STATUS" "$RUN_SUMMARY" "$RUN_LOG" "$RUN_LOOT_COUNT" "$RUN_OBSERVATION_COUNT"
+
+	ui_heading "Vector Run"
+	ui_rule
+	ui_kv "Lane" "$(ui_accent "$lane_name") $(lane_badge "$LANE_CATEGORY")"
+	ui_kv "Target" "$target"
+	ui_kv "Backend" "$LANE_BACKEND"
+	ui_kv "Session" "$session_slug"
+	ui_kv "Session Dir" "$session_dir"
+	ui_kv "Status" "$RUN_STATUS"
+	ui_kv "Summary" "$RUN_SUMMARY"
+	ui_kv "Log" "$RUN_LOG"
+	ui_kv "Loot Records" "$RUN_LOOT_COUNT"
+	ui_kv "Observations" "$RUN_OBSERVATION_COUNT"
+	ui_rule
+	if [ "$RUN_STATUS" = "success" ]; then
+		ui_ok "lane run complete"
+	else
+		ui_alert "lane run recorded as failed"
+	fi
+}
+
+cmd_outcomes() {
+	local target="${1:-}"
+
+	ui_heading "Vector Outcomes"
+	ui_rule
+	if [ -n "$target" ]; then
+		ui_kv "Target" "$target"
+		ui_rule
+	fi
+
+	[ -s "$LAB_INTEL_OUTCOMES_FILE" ] || {
+		ui_note "no outcomes recorded yet"
+		return 0
+	}
+
+	jq -sr --arg target "$target" '
+    map(select(.source_tool == "vector" and ($target == "" or .target == $target)))
+    | sort_by(.recorded_at)
+    | reverse
+    | .[]
+    | [
+        (.recorded_at // "?"),
+        (.source_name // "?"),
+        (.target // "?"),
+        (.status // "?"),
+        (.backend // "?"),
+        (.summary // "")
+      ]
+    | @tsv
+  ' "$LAB_INTEL_OUTCOMES_FILE" |
+		awk -F'\t' '{ printf "%-20s %-12s %-15s %-8s %-16s %s\n", $1, $2, $3, $4, $5, $6 }'
+}
+
+cmd_session_list() {
+	local file
+	local NAME=""
+	local SLUG=""
+	local TARGET=""
+	local STATUS=""
+	local LANE=""
+	local BACKEND=""
+
+	ui_heading "Vector Sessions"
+	ui_rule
+	printf '%-26s %-10s %-16s %-12s %s\n' "SESSION" "STATUS" "TARGET" "LANE" "BACKEND"
+
+	for file in $(vector_session_files); do
+		NAME=""
+		SLUG=""
+		TARGET=""
+		STATUS=""
+		LANE=""
+		BACKEND=""
+		# shellcheck disable=SC1090
+		. "$file"
+		printf '%-26s %-10s %-16s %-12s %s\n' "${SLUG:-$(basename "$(dirname "$file")")}" "${STATUS:-}" "${TARGET:-}" "${LANE:-}" "${BACKEND:-}"
+	done
+}
+
+cmd_session_show() {
+	need_args 1 "$#" "session show <session>"
+	load_session_record "$1"
+
+	ui_heading "Vector Session"
+	ui_rule
+	ui_kv "Session" "${SLUG:-}"
+	ui_kv "Name" "${NAME:-}"
+	ui_kv "Target" "${TARGET:-}"
+	ui_kv "Status" "${STATUS:-}"
+	ui_kv "Lane" "${LANE:-}"
+	ui_kv "Backend" "${BACKEND:-}"
+	ui_kv "Created" "${CREATED_AT:-}"
+	ui_kv "Completed" "${COMPLETED_AT:-}"
+	ui_kv "Summary" "${RESULT_SUMMARY:-}"
+	ui_kv "Log" "${RUN_LOG:-}"
+	ui_kv "Loot Records" "${LOOT_COUNT:-0}"
+	ui_kv "Observations" "${OBSERVATION_COUNT:-0}"
+	ui_rule
+
+	ui_subheading "Artifacts"
+	find "$VECTOR_SESSION_DIR" -maxdepth 2 -type f | sed "s#^$VECTOR_SESSION_DIR/##" | sort
+}
+
+cmd_loot_list() {
+	local session_name="${1:-}"
+	local session_dir
+
+	ui_heading "Vector Loot"
+	ui_rule
+
+	if [ -n "$session_name" ]; then
+		load_session_record "$session_name"
+		session_dir="$VECTOR_SESSION_DIR"
+		ui_kv "Session" "$SLUG"
+		ui_rule
+		find "$session_dir/loot" -maxdepth 1 -type f | sed "s#^$session_dir/##" | sort
+		return 0
+	fi
+
+	find "$LAB_SESSIONS_DIR" -mindepth 2 -maxdepth 2 -path '*/loot/*' -type f | sort | sed "s#^$LAB_SESSIONS_DIR/##"
+}
+
+case "${1:-help}" in
+help | -h | --help)
+	usage
+	;;
+menu)
+	shift
+	cmd_menu "$@"
+	;;
+lanes)
+	shift
+	list_lanes "$@"
+	;;
+lane)
+	shift
+	case "${1:-}" in
+	show)
+		shift
+		show_lane "$@"
+		;;
+	*)
+		usage
+		exit 1
+		;;
+	esac
+	;;
+target)
+	shift
+	case "${1:-}" in
+	summary)
+		shift
+		cmd_target_summary "$@"
+		;;
+	services)
+		shift
+		cmd_target_services "$@"
+		;;
+	web)
+		shift
+		cmd_target_web "$@"
+		;;
+	lateral)
+		shift
+		cmd_target_lateral "$@"
+		;;
+	*)
+		usage
+		exit 1
+		;;
+	esac
+	;;
+candidates)
+	shift
+	cmd_candidates "$@"
+	;;
+plan)
+	shift
+	cmd_plan "$@"
+	;;
+run)
+	shift
+	cmd_run "$@"
+	;;
+outcomes)
+	shift
+	cmd_outcomes "$@"
+	;;
+session)
+	shift
+	case "${1:-}" in
+	list)
+		shift
+		cmd_session_list "$@"
+		;;
+	show)
+		shift
+		cmd_session_show "$@"
+		;;
+	*)
+		usage
+		exit 1
+		;;
+	esac
+	;;
+loot)
+	shift
+	case "${1:-}" in
+	list)
+		shift
+		cmd_loot_list "$@"
+		;;
+	*)
+		usage
+		exit 1
+		;;
+	esac
+	;;
+*)
+	usage
+	exit 1
+	;;
+esac

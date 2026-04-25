@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+TOOL_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+TOOL_NAME="egress-check"
+
+usage() {
+	cat <<'USAGE'
+usage:
+  egress-check help
+USAGE
+}
+
+case "${1:-help}" in
+help | -h | --help)
+	usage
+	;;
+*)
+	printf '%s\n' "$TOOL_NAME: implement subcommand '$1' in $TOOL_DIR/bin/egress-check" >&2
+	exit 1
+	;;
+esac
