@@ -1,12 +1,17 @@
+# Local dev noise
 .direnv/
-releases/
 result
 tmp/
+
+# Runtime data and generated outputs
 sessions/
 state/
 shared/
 logs/
 reports/
+releases/
 targets/*.env
-docs/retired-targets/*.env
 .tmp/
+
+# Retired/local target records
+docs/retired-targets/*.env
