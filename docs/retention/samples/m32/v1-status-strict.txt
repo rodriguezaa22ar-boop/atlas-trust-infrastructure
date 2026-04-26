@@ -1,7 +1,7 @@
 Atlas V1 Status
 ------------------------------------------------------------
 Root: /home/ao/Desktop/hp-native-toolkit
-Commit: 5e9a2b0-dirty
+Commit: 870ae51
 Runtime Target: local-usb
 Operation: none loaded
 Target Records: 6

@@ -190,7 +190,7 @@ checks. It should fail when a required pillar is `warning`, `blocked`,
 ```json
 {
   "overall": "ready",
-  "commit": "67c09be",
+  "commit": "<current-short-sha>",
   "strict": false,
   "pillars": {
     "core_cli": {
