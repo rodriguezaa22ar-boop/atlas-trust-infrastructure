@@ -111,6 +111,20 @@ atlas_readiness_latest_handoff() {
   ' "$ledger_file" | tail -n 1
 }
 
+atlas_readiness_latest_closeout() {
+  local ledger_file
+
+  [ -n "${ATLAS_OP_DIR:-}" ] || return 0
+  ledger_file="$(atlas_ledger_file "$ATLAS_OP_DIR")"
+  [ -s "$ledger_file" ] || return 0
+
+  jq -r '
+    select(.event == "closeout.manifest.generated")
+    | [.ts, .detail]
+    | @tsv
+  ' "$ledger_file" | tail -n 1
+}
+
 atlas_readiness_latest_material_change() {
   local ledger_file
 
@@ -199,6 +213,28 @@ atlas_readiness_handoff_freshness() {
   fi
 }
 
+atlas_readiness_closeout_freshness() {
+  local latest_closeout_at="$1"
+  local latest_change_at="$2"
+  local latest_report_at="$3"
+  local latest_bundle_at="$4"
+  local latest_handoff_at="$5"
+
+  if [ -z "$latest_closeout_at" ]; then
+    printf 'missing\n'
+  elif [ -n "$latest_change_at" ] && [[ "$latest_change_at" > "$latest_closeout_at" ]]; then
+    printf 'stale\n'
+  elif [ -n "$latest_report_at" ] && [[ "$latest_report_at" > "$latest_closeout_at" ]]; then
+    printf 'stale\n'
+  elif [ -n "$latest_bundle_at" ] && [[ "$latest_bundle_at" > "$latest_closeout_at" ]]; then
+    printf 'stale\n'
+  elif [ -n "$latest_handoff_at" ] && [[ "$latest_handoff_at" > "$latest_closeout_at" ]]; then
+    printf 'stale\n'
+  else
+    printf 'current\n'
+  fi
+}
+
 atlas_readiness_next_step() {
   local evidence_count="$1"
   local open_count="$2"
@@ -209,6 +245,8 @@ atlas_readiness_next_step() {
   local bundle_freshness="$7"
   local latest_handoff="$8"
   local handoff_freshness="$9"
+  local latest_closeout="${10}"
+  local closeout_freshness="${11}"
 
   if [ "$pending_count" -gt 0 ]; then
     printf 'Run or retire pending validation before closure.\n'
@@ -228,6 +266,10 @@ atlas_readiness_next_step() {
     printf 'Operation is ready to close; generate a handoff packet if handoff is required.\n'
   elif [ "$handoff_freshness" = "stale" ]; then
     printf 'Operation is ready to close; regenerate the handoff packet if handoff is required.\n'
+  elif [ -z "$latest_closeout" ]; then
+    printf 'Operation is ready to close; generate a closeout manifest after closure if final audit is required.\n'
+  elif [ "$closeout_freshness" = "stale" ]; then
+    printf 'Operation is ready to close; regenerate the closeout manifest if final audit is required.\n'
   else
     printf 'Operation is ready to close.\n'
   fi
@@ -269,6 +311,9 @@ atlas_readiness_collect() {
   local latest_handoff
   local latest_handoff_at=""
   local latest_handoff_path=""
+  local latest_closeout
+  local latest_closeout_at=""
+  local latest_closeout_path=""
   local latest_change
   local latest_change_at=""
   local latest_change_event=""
@@ -278,6 +323,7 @@ atlas_readiness_collect() {
   local report_freshness
   local bundle_freshness
   local handoff_freshness
+  local closeout_freshness
   local readiness
   local next_step
 
@@ -289,6 +335,7 @@ atlas_readiness_collect() {
   latest_report="$(atlas_cycle_latest_report)"
   latest_bundle="$(atlas_readiness_latest_bundle)"
   latest_handoff="$(atlas_readiness_latest_handoff)"
+  latest_closeout="$(atlas_readiness_latest_closeout)"
   latest_change="$(atlas_readiness_latest_material_change)"
   latest_evidence_change="$(atlas_readiness_latest_evidence_change)"
 
@@ -301,6 +348,9 @@ atlas_readiness_collect() {
   if [ -n "$latest_handoff" ]; then
     IFS=$'\t' read -r latest_handoff_at latest_handoff_path <<<"$latest_handoff"
   fi
+  if [ -n "$latest_closeout" ]; then
+    IFS=$'\t' read -r latest_closeout_at latest_closeout_path <<<"$latest_closeout"
+  fi
   if [ -n "$latest_change" ]; then
     IFS=$'\t' read -r latest_change_at latest_change_event _ <<<"$latest_change"
   fi
@@ -311,8 +361,9 @@ atlas_readiness_collect() {
   report_freshness="$(atlas_readiness_report_freshness "$latest_report_at" "$latest_change_at")"
   bundle_freshness="$(atlas_readiness_bundle_freshness "$latest_bundle_at" "$latest_evidence_change_at")"
   handoff_freshness="$(atlas_readiness_handoff_freshness "$latest_handoff_at" "$latest_change_at" "$latest_report_at" "$latest_bundle_at")"
+  closeout_freshness="$(atlas_readiness_closeout_freshness "$latest_closeout_at" "$latest_change_at" "$latest_report_at" "$latest_bundle_at" "$latest_handoff_at")"
   readiness="$(atlas_readiness_status "$evidence_count" "$open_count" "$pending_count" "$latest_report" "$report_freshness")"
-  next_step="$(atlas_readiness_next_step "$evidence_count" "$open_count" "$pending_count" "$latest_report" "$latest_bundle" "$report_freshness" "$bundle_freshness" "$latest_handoff" "$handoff_freshness")"
+  next_step="$(atlas_readiness_next_step "$evidence_count" "$open_count" "$pending_count" "$latest_report" "$latest_bundle" "$report_freshness" "$bundle_freshness" "$latest_handoff" "$handoff_freshness" "$latest_closeout" "$closeout_freshness")"
 
   ATLAS_READINESS_EVIDENCE_COUNT="$evidence_count"
   ATLAS_READINESS_FINDING_COUNT="$finding_count"
@@ -328,6 +379,9 @@ atlas_readiness_collect() {
   ATLAS_READINESS_LATEST_HANDOFF="$latest_handoff"
   ATLAS_READINESS_LATEST_HANDOFF_AT="$latest_handoff_at"
   ATLAS_READINESS_LATEST_HANDOFF_PATH="$latest_handoff_path"
+  ATLAS_READINESS_LATEST_CLOSEOUT="$latest_closeout"
+  ATLAS_READINESS_LATEST_CLOSEOUT_AT="$latest_closeout_at"
+  ATLAS_READINESS_LATEST_CLOSEOUT_PATH="$latest_closeout_path"
   ATLAS_READINESS_LATEST_CHANGE="$latest_change"
   ATLAS_READINESS_LATEST_CHANGE_AT="$latest_change_at"
   ATLAS_READINESS_LATEST_CHANGE_EVENT="$latest_change_event"
@@ -337,6 +391,7 @@ atlas_readiness_collect() {
   ATLAS_READINESS_REPORT_FRESHNESS="$report_freshness"
   ATLAS_READINESS_BUNDLE_FRESHNESS="$bundle_freshness"
   ATLAS_READINESS_HANDOFF_FRESHNESS="$handoff_freshness"
+  ATLAS_READINESS_CLOSEOUT_FRESHNESS="$closeout_freshness"
   ATLAS_READINESS_STATUS="$readiness"
   ATLAS_READINESS_NEXT_STEP="$next_step"
 }
@@ -344,7 +399,7 @@ atlas_readiness_collect() {
 atlas_readiness_ledger_detail() {
   local force="${1:-0}"
 
-  printf 'readiness=%s evidence=%s open_findings=%s pending_validation=%s report_freshness=%s bundle_freshness=%s handoff_freshness=%s latest_report=%s latest_change=%s evidence_bundle=%s handoff=%s force=%s' \
+  printf 'readiness=%s evidence=%s open_findings=%s pending_validation=%s report_freshness=%s bundle_freshness=%s handoff_freshness=%s closeout_freshness=%s latest_report=%s latest_change=%s evidence_bundle=%s handoff=%s closeout=%s force=%s' \
     "${ATLAS_READINESS_STATUS:-unknown}" \
     "${ATLAS_READINESS_EVIDENCE_COUNT:-0}" \
     "${ATLAS_READINESS_OPEN_FINDINGS_COUNT:-0}" \
@@ -352,10 +407,12 @@ atlas_readiness_ledger_detail() {
     "${ATLAS_READINESS_REPORT_FRESHNESS:-unknown}" \
     "${ATLAS_READINESS_BUNDLE_FRESHNESS:-unknown}" \
     "${ATLAS_READINESS_HANDOFF_FRESHNESS:-unknown}" \
+    "${ATLAS_READINESS_CLOSEOUT_FRESHNESS:-unknown}" \
     "${ATLAS_READINESS_LATEST_REPORT_PATH:-none}" \
     "${ATLAS_READINESS_LATEST_CHANGE_EVENT:-none}" \
     "${ATLAS_READINESS_LATEST_BUNDLE_DETAIL:-none}" \
     "${ATLAS_READINESS_LATEST_HANDOFF_PATH:-none}" \
+    "${ATLAS_READINESS_LATEST_CLOSEOUT_PATH:-none}" \
     "$force"
 }
 
@@ -402,6 +459,12 @@ atlas_readiness_print() {
     ui_kv "Latest Handoff" "none generated yet"
   fi
   ui_kv "Handoff Freshness" "$ATLAS_READINESS_HANDOFF_FRESHNESS"
+  if [ -n "$ATLAS_READINESS_LATEST_CLOSEOUT" ]; then
+    ui_kv "Latest Closeout" "$ATLAS_READINESS_LATEST_CLOSEOUT_AT $ATLAS_READINESS_LATEST_CLOSEOUT_PATH"
+  else
+    ui_kv "Latest Closeout" "none generated yet"
+  fi
+  ui_kv "Closeout Freshness" "$ATLAS_READINESS_CLOSEOUT_FRESHNESS"
   ui_kv "Close Readiness" "$ATLAS_READINESS_STATUS"
   ui_kv "Next Step" "$ATLAS_READINESS_NEXT_STEP"
   ui_rule

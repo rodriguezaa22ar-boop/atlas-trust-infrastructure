@@ -152,6 +152,7 @@ atlas_closeout_write_manifest() {
     printf -- '- Report freshness: %s\n' "$ATLAS_READINESS_REPORT_FRESHNESS"
     printf -- '- Bundle freshness: %s\n' "$ATLAS_READINESS_BUNDLE_FRESHNESS"
     printf -- '- Handoff freshness: %s\n' "$ATLAS_READINESS_HANDOFF_FRESHNESS"
+    printf -- '- Closeout freshness: %s\n' "$ATLAS_READINESS_CLOSEOUT_FRESHNESS"
 
     printf '\n## Primary Artifacts\n\n'
     if [ -n "$report_path" ]; then

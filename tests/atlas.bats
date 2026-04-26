@@ -690,6 +690,8 @@ EOF
   [[ "$output" == *"Bundle Freshness: missing"* ]]
   [[ "$output" == *"Latest Handoff: none generated yet"* ]]
   [[ "$output" == *"Handoff Freshness: missing"* ]]
+  [[ "$output" == *"Latest Closeout: none generated yet"* ]]
+  [[ "$output" == *"Closeout Freshness: missing"* ]]
   [[ "$output" == *"Close Readiness: attention-required"* ]]
   [[ "$output" == *"Resolve, accept, or retest unresolved findings before closure."* ]]
   [[ "$output" == *"$finding_id"* ]]
@@ -847,6 +849,7 @@ EOF
   grep -q 'Close readiness: ready' "$closeout_path"
   grep -q 'Report freshness: current' "$closeout_path"
   grep -q 'Handoff freshness: stale' "$closeout_path"
+  grep -q 'Closeout freshness: current' "$closeout_path"
   grep -q "$report_path" "$closeout_path"
   grep -q "$handoff_path" "$closeout_path"
   grep -q 'Operation ledger: .*events=.*sha256=' "$closeout_path"
@@ -856,6 +859,12 @@ EOF
   grep -q 'Finding index: .*sha256=' "$closeout_path"
   jq -e --arg closeout_path "$closeout_path" 'select(.event == "closeout.manifest.generated" and .detail == $closeout_path)' \
     "$TEST_ROOT/toolkit/sessions/readiness-op/ledger.ndjson"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op readiness readiness-op
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Latest Closeout:"* ]]
+  [[ "$output" == *"$closeout_path"* ]]
+  [[ "$output" == *"Closeout Freshness: current"* ]]
 
   ledger_events_before="$(wc -l < "$TEST_ROOT/toolkit/sessions/readiness-op/ledger.ndjson" | tr -d ' ')"
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op verify readiness-op
@@ -877,6 +886,15 @@ EOF
   [[ "$output" == *"changed"* ]]
   [[ "$output" == *"Verification Status: attention-required"* ]]
   [[ "$output" == *"Verification Problems: 1"* ]]
+
+  sleep 1
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op handoff readiness-op readiness-handoff-after-closeout
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op readiness readiness-op
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Handoff Freshness: current"* ]]
+  [[ "$output" == *"Closeout Freshness: stale"* ]]
 }
 
 @test "atlas operation close can force closure with readiness snapshot" {

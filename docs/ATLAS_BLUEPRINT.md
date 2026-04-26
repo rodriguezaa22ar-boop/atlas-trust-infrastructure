@@ -169,6 +169,9 @@ The near-term roadmap is:
 20. Add closeout manifest verification. `atlas op verify` reads a closeout
     manifest without mutating operation state and checks recorded SHA-256
     anchors plus ledger event counts for later audit confidence.
+21. Add closeout freshness checks. Readiness now reports the latest closeout
+    manifest and whether it is current or stale against later report, bundle,
+    handoff, or material operation changes.
 
 ## First Serious Version
 

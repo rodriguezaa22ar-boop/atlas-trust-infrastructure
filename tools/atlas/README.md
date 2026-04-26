@@ -328,10 +328,11 @@ Explicitly out of scope:
 `atlas op readiness [name]` is a read-only closure check. It summarizes evidence
 records, unresolved findings, planned or approved validation, report freshness,
 the latest material state change, evidence bundle freshness, latest handoff
-freshness, and the latest evidence bundle. The readout returns `ready` when the
-operation has evidence, no unresolved findings, no pending validation, and a
-current generated report; bundles and handoff packets remain optional and stale
-copies are called out as handoff steps when needed.
+freshness, latest closeout freshness, and the latest evidence bundle. The
+readout returns `ready` when the operation has evidence, no unresolved findings,
+no pending validation, and a current generated report; bundles, handoff packets,
+and closeout manifests remain optional and stale copies are called out as
+handoff or audit steps when needed.
 
 `atlas op close [name]` uses the same readiness state as a close guard. If the
 operation still needs attention, close fails and prints the readiness checklist.
