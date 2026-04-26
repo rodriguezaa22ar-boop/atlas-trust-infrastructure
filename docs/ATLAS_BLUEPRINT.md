@@ -204,6 +204,10 @@ The near-term roadmap is:
 30. Add archive packet freshness checks. Readiness and archive snapshots now
     report the latest archive packet and whether later ledger events have made
     that final retention packet stale.
+31. Add v1 pillar readiness. `atlas v1 status` now renders a read-only
+    product-pillar check for the core CLI, target registry, operation ledger,
+    ScopeGuard, recon orchestration, action planning, intel graph, evidence,
+    findings, validation, reports, retention packets, and AI Advisor surface.
 
 ## First Serious Version
 

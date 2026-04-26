@@ -61,6 +61,9 @@ TOOL_NAME="atlas"
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=../lib/doctor.sh
 . "$TOOL_DIR/lib/doctor.sh"
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/v1.sh
+. "$TOOL_DIR/lib/v1.sh"
 
 load_config
 ensure_layout
@@ -79,6 +82,7 @@ usage() {
 usage:
   atlas help
   atlas doctor
+  atlas v1 status
   atlas menu
   atlas profile list
   atlas profile show <name>
@@ -109,6 +113,7 @@ usage:
 
 quick flow:
   atlas doctor
+  atlas v1 status
   atlas profile show htb-starting-point
   atlas scope status
   atlas target list
@@ -273,6 +278,9 @@ validation:
 advisor:
   atlas advisor brief [name]
   atlas advisor prompt [name] [packet-name]
+
+v1:
+  atlas v1 status
 EOF
 }
 
@@ -1893,6 +1901,19 @@ help | -h | --help)
 doctor)
 	shift
 	cmd_doctor "$@"
+	;;
+v1)
+	shift
+	case "${1:-status}" in
+	"" | status)
+		[ "$#" -gt 0 ] && shift
+		cmd_v1_status "$@"
+		;;
+	*)
+		usage
+		exit 1
+		;;
+	esac
 	;;
 profile)
 	shift

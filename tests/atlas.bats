@@ -25,6 +25,7 @@ teardown() {
   [ "$status" -eq 0 ]
   [[ "$output" == *"quick flow:"* ]]
   [[ "$output" == *"atlas doctor"* ]]
+  [[ "$output" == *"atlas v1 status"* ]]
   [[ "$output" == *"atlas scope status"* ]]
   [[ "$output" == *"atlas evidence add <path> [--kind kind]"* ]]
   [[ "$output" == *"atlas evidence redact <id> <redacted-path>"* ]]
@@ -44,6 +45,7 @@ teardown() {
   [[ "$output" == *"scope:"* ]]
   [[ "$output" == *"validation:"* ]]
   [[ "$output" == *"advisor:"* ]]
+  [[ "$output" == *"v1:"* ]]
   [[ "$output" == *"atlas target story <target>"* ]]
   [[ "$output" == *"atlas target cycle <target>"* ]]
   [[ "$output" == *"atlas op cycle [name]"* ]]
@@ -66,6 +68,37 @@ teardown() {
   [[ "$output" == *"atlas op archive-verify [name] [archive-packet]"* ]]
   [[ "$output" == *"atlas op close [name] [--force]"* ]]
   [[ "$output" == *"atlas target brief <target>"* ]]
+}
+
+@test "atlas v1 status reports product pillar readiness" {
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" v1 status
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Atlas V1 Status"* ]]
+  [[ "$output" == *"V1 Pillars"* ]]
+  [[ "$output" == *"Core CLI"* ]]
+  [[ "$output" == *"Target Registry"* ]]
+  [[ "$output" == *"Operation Ledger"* ]]
+  [[ "$output" == *"ScopeGuard"* ]]
+  [[ "$output" == *"Recon Orchestrator"* ]]
+  [[ "$output" == *"Action Planner"* ]]
+  [[ "$output" == *"Intel Graph"* ]]
+  [[ "$output" == *"Evidence Vault"* ]]
+  [[ "$output" == *"Findings"* ]]
+  [[ "$output" == *"Validation"* ]]
+  [[ "$output" == *"Reports"* ]]
+  [[ "$output" == *"Retention"* ]]
+  [[ "$output" == *"AI Advisor"* ]]
+  [[ "$output" == *"Overall: ready"* ]]
+
+  run env LAB_ATLAS_VECTOR_BIN="$TEST_ROOT/toolkit/missing-vector" \
+    "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" v1 status
+
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Action Planner"* ]]
+  [[ "$output" == *"missing executable"* ]]
+  [[ "$output" == *"Overall: attention required"* ]]
+  [[ "$output" == *"Missing Pillars: 1"* ]]
 }
 
 @test "atlas profiles list, show, and snapshot operation scope" {

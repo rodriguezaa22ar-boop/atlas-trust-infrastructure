@@ -16,6 +16,7 @@ keeping the underlying domains intact:
 
 ```bash
 atlas doctor
+atlas v1 status
 atlas menu
 atlas profile list
 atlas profile show htb-starting-point
@@ -110,6 +111,11 @@ atlas op archive-verify <name>
 active-operation evidence/findings/validation counts when available, latest
 outcome/finding/validation status, target registry metadata, and the next
 practical step.
+
+`atlas v1 status` is a read-only product readiness view. It checks the v1
+pillars from the blueprint: core CLI, target registry, operation ledger,
+ScopeGuard, recon orchestration, action planning, intel graph, evidence,
+findings, validation, reports, retention packets, and the AI advisor surface.
 
 `atlas target story <target>` is the full cross-tool view. It starts with the
 same operator brief, then expands into the target record, current service and
