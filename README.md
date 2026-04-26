@@ -211,6 +211,9 @@ Atlas now also exposes the operator-level story and reporting layer:
 - `atlas op brief`: operation summary with evidence, findings, and validation counts
 - `atlas op report [name] [report-name]`: Markdown assessment brief with
   executive summary, grouped findings, remediation priorities, and validation status
+- `atlas advisor brief`: state-only AI advisor readout with redaction guardrails
+- `atlas advisor prompt [name] [packet-name]`: metadata-only advisor packet for
+  AI-assisted summarization and report drafting
 - `atlas story demo-web-app`: canned anonymized demo story with no live target
 
 ## Why This Fits Better

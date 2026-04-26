@@ -29,11 +29,14 @@ teardown() {
   [[ "$output" == *"atlas evidence add <path> [--kind kind]"* ]]
   [[ "$output" == *"atlas finding add <title> [--level observed|inferred|validated]"* ]]
   [[ "$output" == *"atlas validation plan <lane> [--finding id] [--evidence id]"* ]]
+  [[ "$output" == *"atlas advisor brief [name]"* ]]
+  [[ "$output" == *"atlas advisor prompt [name] [packet-name]"* ]]
   [[ "$output" == *"targets:"* ]]
   [[ "$output" == *"operations:"* ]]
   [[ "$output" == *"story views:"* ]]
   [[ "$output" == *"scope:"* ]]
   [[ "$output" == *"validation:"* ]]
+  [[ "$output" == *"advisor:"* ]]
   [[ "$output" == *"atlas target story <target>"* ]]
   [[ "$output" == *"atlas story demo-web-app"* ]]
   [[ "$output" == *"atlas op show [name]"* ]]
@@ -416,6 +419,85 @@ EOF
     "$TEST_ROOT/toolkit/sessions/validation-op/ledger.ndjson"
   jq -e --arg plan_id "$plan_id" 'select(.event == "validation.executed" and (.detail | contains($plan_id)))' \
     "$TEST_ROOT/toolkit/sessions/validation-op/ledger.ndjson"
+}
+
+@test "atlas advisor summarizes operation state and writes AI review packet" {
+  mkdir -p "$TEST_ROOT/toolkit/targets" "$TEST_ROOT/toolkit/state/intel"
+  cat > "$TEST_ROOT/toolkit/targets/demo-node.env" <<'EOF'
+NAME=demo-node
+ADDRESS=10.10.10.10
+CREATED_AT=2026-04-23T20:53:16Z
+EOF
+  cat > "$TEST_ROOT/toolkit/state/intel/observations.jsonl" <<'EOF'
+{"observed_at":"2026-04-24T00:00:00Z","source_tool":"wiremap","source_name":"fast","source_run_id":"run-2","target":"demo-node","observation_type":"host_state","confidence":"high","value":{"state":"up"}}
+{"observed_at":"2026-04-24T00:00:01Z","source_tool":"wiremap","source_name":"fast","source_run_id":"run-2","target":"demo-node","observation_type":"service_open","confidence":"high","value":{"service_entity_id":"service:demo-node:22/tcp","portproto":"22/tcp","service":"ssh","detail":"OpenSSH 9.7"}}
+EOF
+  cat > "$TEST_ROOT/toolkit/state/intel/entities.jsonl" <<'EOF'
+{"observed_at":"2026-04-24T00:00:01Z","entity_type":"service","entity_id":"service:demo-node:22/tcp","target":"demo-node","attributes":{"portproto":"22/tcp","service":"ssh","detail":"OpenSSH 9.7"}}
+EOF
+  : > "$TEST_ROOT/toolkit/state/intel/outcomes.jsonl"
+  : > "$TEST_ROOT/toolkit/state/intel/relationships.jsonl"
+  artifact="$TEST_ROOT/advisor-artifact.txt"
+  printf 'ssh reachable from authorized test node\n' > "$artifact"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op start advisor-op demo-node authorized advisor
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence add "$artifact" --kind scan-output --classification internal
+  [ "$status" -eq 0 ]
+  evidence_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  [ -n "$evidence_id" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding add "SSH management reachable" \
+    --level observed \
+    --severity medium \
+    --confidence high \
+    --evidence "$evidence_id" \
+    --recommendation "Restrict SSH to the management subnet"
+  [ "$status" -eq 0 ]
+  finding_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  [ -n "$finding_id" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" validation plan validate \
+    --finding "$finding_id" \
+    --evidence "$evidence_id" \
+    --reason "confirm observed SSH service"
+  [ "$status" -eq 0 ]
+  plan_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  [ -n "$plan_id" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" advisor brief
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"AI Advisor Brief"* ]]
+  [[ "$output" == *"Current State"* ]]
+  [[ "$output" == *"AI Handoff Guardrails"* ]]
+  [[ "$output" == *"Evidence Redaction: total=1, redacted=0, unredacted=1, non_public=1, review_required=1"* ]]
+  [[ "$output" == *"redaction required before external AI handoff"* ]]
+  [[ "$output" == *"Priority Findings"* ]]
+  [[ "$output" == *"SSH management reachable"* ]]
+  [[ "$output" == *"Validation Queue"* ]]
+  [[ "$output" == *"$plan_id"* ]]
+  [[ "$output" == *"Suggested Operator Moves"* ]]
+  [[ "$output" == *"Approve, revise, or retire the planned validation before execution."* ]]
+  [[ "$output" == *"Keep execution manual"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" advisor prompt advisor-op advisor-packet
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"advisor packet written"* ]]
+  packet_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "packet" { print $2; exit }')"
+  [ -f "$packet_path" ]
+  grep -q '^# Atlas AI Advisor Packet$' "$packet_path"
+  grep -q 'No raw artifact contents are included' "$packet_path"
+  grep -q '^## Redaction Status$' "$packet_path"
+  grep -q 'External handoff status: review required' "$packet_path"
+  grep -q "$finding_id" "$packet_path"
+  grep -q "$plan_id" "$packet_path"
+  grep -q '^## Requested Output$' "$packet_path"
+
+  jq -e \
+    --arg packet_path "$packet_path" \
+    'select(.event == "advisor.packet.generated" and .detail == $packet_path)' \
+    "$TEST_ROOT/toolkit/sessions/advisor-op/ledger.ndjson"
 }
 
 @test "atlas evidence vault copies, hashes, indexes, and enforces scope" {

@@ -38,6 +38,9 @@ TOOL_NAME="atlas"
 # shellcheck source=../lib/report.sh
 . "$TOOL_DIR/lib/report.sh"
 # shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/advisor.sh
+. "$TOOL_DIR/lib/advisor.sh"
+# shellcheck source-path=SCRIPTDIR
 # shellcheck source=../lib/doctor.sh
 . "$TOOL_DIR/lib/doctor.sh"
 
@@ -77,6 +80,8 @@ usage:
   atlas validation show <id>
   atlas validation approve <id> <reason...>
   atlas validation run <id> [session-name]
+  atlas advisor brief [name]
+  atlas advisor prompt [name] [packet-name]
 
 quick flow:
   atlas doctor
@@ -91,6 +96,7 @@ quick flow:
   atlas validation plan <lane>
   atlas validation approve <id> <reason...>
   atlas validation run <id> [session-name]
+  atlas advisor brief
   atlas op story [name]
   atlas op report [name] [report-name]
   atlas op close [name]
@@ -129,6 +135,7 @@ operations:
   atlas op validation approve <id> <reason...>
   atlas op validation run <id> [session-name]
   atlas op brief
+  atlas op advisor
 
 story views:
   atlas story <target>
@@ -200,6 +207,10 @@ validation:
   atlas validation show <id>
   atlas validation approve <id> <reason...>
   atlas validation run <id> [session-name]
+
+advisor:
+  atlas advisor brief [name]
+  atlas advisor prompt [name] [packet-name]
 EOF
 }
 
@@ -1171,6 +1182,9 @@ print_operation_report_commands() {
 			session_name="$(basename "$detail")"
 			printf -- "- \`%s\`\n" "atlas op action run $lane $session_name"
 			;;
+		advisor-prompt)
+			printf -- "- \`%s\`\n" "atlas advisor prompt $ATLAS_OP_SLUG $(basename "$detail" .md)"
+			;;
 		close)
 			printf -- "- \`%s\`\n" "atlas op close $ATLAS_OP_SLUG"
 			;;
@@ -1782,6 +1796,23 @@ validation | validations)
 	shift
 	dispatch_validation_command "$@"
 	;;
+advisor)
+	shift
+	case "${1:-brief}" in
+	"" | brief)
+		[ "$#" -gt 0 ] && shift
+		cmd_advisor_brief "$@"
+		;;
+	prompt)
+		shift
+		cmd_advisor_prompt "$@"
+		;;
+	*)
+		usage
+		exit 1
+		;;
+	esac
+	;;
 menu)
 	shift
 	cmd_menu "$@"
@@ -1865,6 +1896,10 @@ op)
 	brief)
 		shift
 		cmd_op_brief "$@"
+		;;
+	advisor)
+		shift
+		cmd_advisor_brief "$@"
 		;;
 	*)
 		usage

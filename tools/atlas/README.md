@@ -30,6 +30,8 @@ atlas finding show finding_...
 atlas validation plan validate --finding finding_... --evidence ev_...
 atlas validation approve vp_... "approved bounded validation"
 atlas validation run vp_...
+atlas advisor brief
+atlas advisor prompt
 atlas target list
 atlas target brief 10.0.0.8
 atlas target story 10.0.0.8
@@ -68,6 +70,7 @@ atlas op action candidates
 atlas validation plan <lane>
 atlas validation approve <id> <reason...>
 atlas validation run <id> [session-name]
+atlas advisor brief
 atlas op story
 atlas op report
 atlas op close
@@ -90,6 +93,16 @@ keeps operator views tied to the audit state instead of forcing separate
 
 `atlas target next <target>` and `atlas op next` keep the operator focused on
 the ranked lanes produced from shared intel.
+
+`atlas advisor brief [name]` is a state-only AI Advisor readout. It summarizes
+the current operation, highlights redaction status before external handoff,
+ranks findings, shows the validation queue, and suggests operator moves without
+running target-touching commands.
+
+`atlas advisor prompt [name] [packet-name]` writes a metadata-only Markdown
+packet under the operation directory for AI-assisted summarization and report
+drafting. Raw artifact contents are not included, and the packet carries the
+same scope and safety constraints as the CLI workflow.
 
 ## Doctor
 
@@ -253,6 +266,23 @@ Explicitly out of scope:
 - recorded findings when present
 - validation plans and run status when present
 - placeholders for operator notes
+
+## AI Advisor
+
+The first advisor layer is deliberately read-only. It consumes operation
+metadata, evidence indexes, findings, validation plans, and the operator brief
+to produce planning text and prompt packets. It does not call an AI backend or
+execute any workflow by itself.
+
+Use:
+
+```bash
+atlas advisor brief
+atlas advisor prompt advisor-op advisor-packet
+```
+
+The advisor flags unredacted non-public evidence before external handoff and
+keeps suggested execution routed through explicit Atlas commands.
 
 ## Demos
 

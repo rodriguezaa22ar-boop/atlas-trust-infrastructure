@@ -133,7 +133,10 @@ The near-term roadmap is:
 9. Add validation planning and approval flow. The first validation plan ledger
    is implemented with plan/list/show/approve/run commands, finding/evidence
    links, profile lane restrictions, and report rendering.
-10. Add AI Advisor last, after scope, evidence, and reports exist.
+10. Add AI Advisor last, after scope, evidence, and reports exist. The first
+    advisor layer is implemented as read-only operation briefs and metadata-only
+    prompt packets with scope constraints, redaction guardrails, priority
+    findings, validation queues, and suggested operator moves.
 
 ## First Serious Version
 
