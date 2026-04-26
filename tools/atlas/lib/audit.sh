@@ -212,6 +212,10 @@ atlas_audit_print_flags() {
     printf 'stale closeout: %s\n' "${ATLAS_READINESS_LATEST_CLOSEOUT_PATH:-none}"
     flag_count=$((flag_count + 1))
   fi
+  if [ "$ATLAS_READINESS_AUDIT_PACKET_FRESHNESS" = "stale" ]; then
+    printf 'stale audit packet: %s\n' "${ATLAS_READINESS_LATEST_AUDIT_PACKET_PATH:-none}"
+    flag_count=$((flag_count + 1))
+  fi
 
   verification="$(atlas_audit_closeout_verification_status)"
   IFS=$'\t' read -r verification_status verification_path verification_problems <<<"$verification"
@@ -262,6 +266,7 @@ atlas_audit_write_packet() {
   local verification_path
   local verification_problems
 
+  atlas_readiness_collect "$ATLAS_OP_TARGET"
   ledger_file="$(atlas_audit_ledger_file)"
   if [ -f "$ledger_file" ]; then
     ledger_sha="$(atlas_evidence_hash_path "$ledger_file")"
@@ -285,6 +290,7 @@ atlas_audit_write_packet() {
     printf -- '- Closeout verification: %s\n' "$verification_status"
     printf -- '- Closeout manifest: %s\n' "$verification_path"
     printf -- '- Closeout verification problems: %s\n' "$verification_problems"
+    printf -- '- Audit packet freshness: %s\n' "$ATLAS_READINESS_AUDIT_PACKET_FRESHNESS"
 
     printf '\n## Event Counts\n\n'
     printf '```text\n'

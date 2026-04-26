@@ -181,6 +181,8 @@ The near-term roadmap is:
 24. Add audit packet verification. `atlas op audit-verify` reads an audit
     packet without mutating operation state and checks the recorded ledger event
     count and SHA-256 hash against the current ledger.
+25. Add audit packet freshness checks. Readiness now reports the latest audit
+    packet and whether later ledger events have made that packet stale.
 
 ## First Serious Version
 

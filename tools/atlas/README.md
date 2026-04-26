@@ -335,10 +335,11 @@ Explicitly out of scope:
 records, unresolved findings, planned or approved validation, report freshness,
 the latest material state change, evidence bundle freshness, latest handoff
 freshness, latest closeout freshness, and the latest evidence bundle. The
-readout returns `ready` when the operation has evidence, no unresolved findings,
-no pending validation, and a current generated report; bundles, handoff packets,
-and closeout manifests remain optional and stale copies are called out as
-handoff or audit steps when needed.
+readout also reports latest audit packet freshness. It returns `ready` when the
+operation has evidence, no unresolved findings, no pending validation, and a
+current generated report; bundles, handoff packets, closeout manifests, and
+audit packets remain optional and stale copies are called out as handoff or
+audit steps when needed.
 
 `atlas op close [name]` uses the same readiness state as a close guard. If the
 operation still needs attention, close fails and prints the readiness checklist.
@@ -369,7 +370,8 @@ timeline.
 `atlas op audit-packet [name] [packet-name]` writes a metadata-only Markdown
 audit packet under the operation directory. It includes event counts, audit
 flags, a timeline, closeout verification status, and the operation ledger hash
-without embedding raw artifacts.
+without embedding raw artifacts. Readiness reports whether the latest packet is
+current or stale against later ledger events.
 
 `atlas op audit-verify [name] [audit-packet]` reads an audit packet without
 mutating operation state. It verifies the recorded ledger event count and

@@ -702,6 +702,8 @@ EOF
   [[ "$output" == *"Handoff Freshness: missing"* ]]
   [[ "$output" == *"Latest Closeout: none generated yet"* ]]
   [[ "$output" == *"Closeout Freshness: missing"* ]]
+  [[ "$output" == *"Latest Audit Packet: none generated yet"* ]]
+  [[ "$output" == *"Audit Packet Freshness: missing"* ]]
   [[ "$output" == *"Close Readiness: attention-required"* ]]
   [[ "$output" == *"Resolve, accept, or retest unresolved findings before closure."* ]]
   [[ "$output" == *"$finding_id"* ]]
@@ -929,6 +931,7 @@ EOF
   grep -q 'No raw artifact contents are included' "$audit_packet_path"
   grep -q 'Ledger SHA256:' "$audit_packet_path"
   grep -q 'Closeout verification: attention-required' "$audit_packet_path"
+  grep -q 'Audit packet freshness: current' "$audit_packet_path"
   grep -q '## Event Counts' "$audit_packet_path"
   grep -q '## Audit Flags' "$audit_packet_path"
   grep -q '## Timeline' "$audit_packet_path"
@@ -936,6 +939,12 @@ EOF
   grep -q 'stale closeout:' "$audit_packet_path"
   jq -e --arg audit_packet_path "$audit_packet_path" 'select(.event == "audit.packet.generated" and .detail == $audit_packet_path)' \
     "$TEST_ROOT/toolkit/sessions/readiness-op/ledger.ndjson"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op readiness readiness-op
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Latest Audit Packet:"* ]]
+  [[ "$output" == *"$audit_packet_path"* ]]
+  [[ "$output" == *"Audit Packet Freshness: current"* ]]
 
   audit_verify_events_before="$(wc -l < "$TEST_ROOT/toolkit/sessions/readiness-op/ledger.ndjson" | tr -d ' ')"
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op audit-verify readiness-op
@@ -951,6 +960,14 @@ EOF
   sleep 1
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op handoff readiness-op readiness-handoff-after-audit-packet
   [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op readiness readiness-op
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Audit Packet Freshness: stale"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op audit readiness-op
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"stale audit packet:"* ]]
 
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op audit-verify readiness-op "$audit_packet_path"
   [ "$status" -ne 0 ]
