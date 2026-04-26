@@ -211,6 +211,8 @@ Atlas now also exposes the operator-level story and reporting layer:
 - `atlas evidence bundle [bundle-name]`: create a redacted/public evidence
   handoff bundle with manifest hashes
 - `atlas finding add <title>`: observed, inferred, or validated finding record
+- `atlas finding update <id>` / `atlas finding resolve <id>`: append lifecycle
+  updates with validation links and notes while preserving finding history
 - `atlas validation plan <lane>`: plan, approve, and run bounded validation
 - `atlas op brief`: operation summary with evidence, findings, and validation counts
 - `atlas op report [name] [report-name]`: Markdown assessment brief with

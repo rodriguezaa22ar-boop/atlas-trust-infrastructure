@@ -42,8 +42,10 @@ atlas_advisor_priority_finding_rows() {
         elif . == "low" then 2
         elif . == "info" then 1
         else 0 end;
-      map(select(.target == $target))
-      | sort_by([((.severity // "info") | severity_weight), (.created_at // "")])
+      reduce .[] as $record ({}; .[$record.id] = $record)
+      | [.[]]
+      | map(select(.target == $target))
+      | sort_by([((.severity // "info") | severity_weight), (.updated_at // .created_at // "")])
       | reverse
       | .[:$limit]
       | .[]

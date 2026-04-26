@@ -30,6 +30,8 @@ teardown() {
   [[ "$output" == *"atlas evidence redact <id> <redacted-path>"* ]]
   [[ "$output" == *"atlas evidence bundle [bundle-name]"* ]]
   [[ "$output" == *"atlas finding add <title> [--level observed|inferred|validated]"* ]]
+  [[ "$output" == *"atlas finding update <id> [--level level] [--status status]"* ]]
+  [[ "$output" == *"atlas finding resolve <id> [--evidence id] [--validation id]"* ]]
   [[ "$output" == *"atlas validation plan <lane> [--finding id] [--evidence id]"* ]]
   [[ "$output" == *"atlas advisor brief [name]"* ]]
   [[ "$output" == *"atlas advisor prompt [name] [packet-name]"* ]]
@@ -389,11 +391,34 @@ EOF
   [[ "$output" == *"Status: executed"* ]]
   [[ "$output" == *"Result: success"* ]]
 
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding update "$finding_id" \
+    --level validated \
+    --status validated \
+    --validation "$plan_id" \
+    --note "confirmed by validation run"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"finding updated"* ]]
+  [[ "$output" == *"level: validated"* ]]
+  [[ "$output" == *"status: validated"* ]]
+  [[ "$output" == *"validations: $plan_id"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding show "$finding_id"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Level: validated"* ]]
+  [[ "$output" == *"Status: validated"* ]]
+  [[ "$output" == *"Validation Plans: $plan_id"* ]]
+  [[ "$output" == *"Latest Note: confirmed by validation run"* ]]
+  [[ "$output" == *"History"* ]]
+  [[ "$output" == *"recorded"* ]]
+  [[ "$output" == *"updated"* ]]
+
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op brief
   [ "$status" -eq 0 ]
   [[ "$output" == *"Validation Plans"* ]]
   [[ "$output" == *"$plan_id"* ]]
   [[ "$output" == *"executed"* ]]
+  [[ "$output" == *"Latest Finding:"* ]]
+  [[ "$output" == *"validated/validated SSH management reachable"* ]]
 
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op report validation-op validation-report
   [ "$status" -eq 0 ]
@@ -402,8 +427,11 @@ EOF
   grep -q '## Executive Summary' "$report_path"
   grep -q '## Remediation Priorities' "$report_path"
   grep -q '## Validation Plans' "$report_path"
+  grep -q '### Validated' "$report_path"
   grep -q "$plan_id" "$report_path"
   grep -q 'Result: success' "$report_path"
+  grep -q 'Validation plans:' "$report_path"
+  grep -q 'confirmed by validation run' "$report_path"
 
   jq -e \
     --arg plan_id "$plan_id" \
@@ -420,6 +448,11 @@ EOF
   jq -e --arg plan_id "$plan_id" 'select(.event == "validation.approved" and (.detail | contains($plan_id)))' \
     "$TEST_ROOT/toolkit/sessions/validation-op/ledger.ndjson"
   jq -e --arg plan_id "$plan_id" 'select(.event == "validation.executed" and (.detail | contains($plan_id)))' \
+    "$TEST_ROOT/toolkit/sessions/validation-op/ledger.ndjson"
+  jq -e --arg finding_id "$finding_id" --arg plan_id "$plan_id" \
+    'select(.id == $finding_id and .level == "validated" and .status == "validated" and (.validations | index($plan_id)))' \
+    "$TEST_ROOT/toolkit/sessions/validation-op/findings.ndjson"
+  jq -e --arg finding_id "$finding_id" 'select(.event == "finding.updated" and (.detail | contains($finding_id)))' \
     "$TEST_ROOT/toolkit/sessions/validation-op/ledger.ndjson"
 }
 

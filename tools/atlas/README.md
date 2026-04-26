@@ -27,6 +27,8 @@ atlas evidence bundle review-bundle
 atlas evidence list
 atlas evidence show ev_...
 atlas finding add "SSH reachable" --level observed --severity low --evidence ev_...
+atlas finding update finding_... --level validated --validation vp_... --note "confirmed by validation run"
+atlas finding resolve finding_... --validation vp_... --note "remediation confirmed"
 atlas finding list
 atlas finding show finding_...
 atlas validation plan validate --finding finding_... --evidence ev_...
@@ -203,6 +205,11 @@ atlas finding add "SSH management reachable" \
   --confidence high \
   --evidence ev_20260425T200000Z
 atlas finding list
+atlas finding update finding_20260425T201000Z \
+  --level validated \
+  --status validated \
+  --validation vp_20260425T202000Z \
+  --note "confirmed by validation run"
 atlas finding show finding_20260425T201000Z
 ```
 
@@ -211,6 +218,11 @@ Finding levels are deliberately explicit:
 - `observed`: raw signal or evidence-backed observation
 - `inferred`: interpreted issue that still needs validation
 - `validated`: confirmed issue with supporting evidence
+
+`atlas finding update <id>` and `atlas finding resolve <id>` append lifecycle
+records instead of rewriting history. List, story, report, and advisor views
+show the latest state for each finding, while `atlas finding show <id>` includes
+the full history with evidence, validation plan links, status, and notes.
 
 Operation reports now render recorded findings instead of only leaving a
 placeholder.

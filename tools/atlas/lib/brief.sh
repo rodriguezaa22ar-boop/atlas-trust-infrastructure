@@ -115,8 +115,10 @@ atlas_brief_latest_finding() {
   [ -s "$index_file" ] || return 0
 
   jq -sr --arg target "$target" '
-    map(select(.target == $target))
-    | sort_by(.created_at)
+    reduce .[] as $record ({}; .[$record.id] = $record)
+    | [.[]]
+    | map(select(.target == $target))
+    | sort_by(.updated_at // .created_at // "", .id)
     | last // empty
     | [
         (.id // "?"),

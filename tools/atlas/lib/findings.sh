@@ -73,6 +73,23 @@ atlas_findings_validate_status() {
   esac
 }
 
+atlas_findings_join_unique() {
+  local output=""
+  local item
+
+  for item in "$@"; do
+    [ -n "$item" ] || continue
+    case " $output " in
+    *" $item "*) ;;
+    *)
+      output="${output:+$output }$item"
+      ;;
+    esac
+  done
+
+  printf '%s\n' "$output"
+}
+
 atlas_findings_evidence_exists() {
   local evidence_id="$1"
   local index_file
@@ -93,6 +110,42 @@ atlas_findings_validate_evidence_ids() {
     [ -n "$evidence_id" ] || continue
     atlas_findings_evidence_exists "$evidence_id" || fail "unknown evidence id for active operation: $evidence_id"
   done
+}
+
+atlas_findings_validation_exists() {
+  local validation_id="$1"
+  local index_file
+
+  index_file="$(atlas_validation_index_file "$ATLAS_OP_DIR")"
+  [ -s "$index_file" ] || return 1
+
+  jq -e \
+    --arg validation_id "$validation_id" \
+    'select(.id == $validation_id)' \
+    "$index_file" >/dev/null
+}
+
+atlas_findings_validate_validation_ids() {
+  local validation_id
+
+  for validation_id in "$@"; do
+    [ -n "$validation_id" ] || continue
+    atlas_findings_validation_exists "$validation_id" || fail "unknown validation plan id for active operation: $validation_id"
+  done
+}
+
+atlas_findings_latest_record() {
+  local finding_id="$1"
+  local index_file
+
+  index_file="$(atlas_findings_index_file "$ATLAS_OP_DIR")"
+  [ -s "$index_file" ] || return 1
+
+  jq -sr \
+    --arg finding_id "$finding_id" '
+      map(select(.id == $finding_id))
+      | last // empty
+    ' "$index_file"
 }
 
 atlas_findings_append_record() {
@@ -146,6 +199,67 @@ atlas_findings_append_record() {
       recommendation: $recommendation,
       evidence: ($evidence_text | split(" ") | map(select(length > 0))),
       created_at: $created_at
+    }' >>"$index_file"
+}
+
+atlas_findings_append_update_record() {
+  local id="$1"
+  local target="$2"
+  local title="$3"
+  local level="$4"
+  local severity="$5"
+  local confidence="$6"
+  local status="$7"
+  local source="$8"
+  local impact="$9"
+  local recommendation="${10}"
+  local created_at="${11}"
+  local note="${12}"
+  local evidence_text="${13}"
+  local validation_text="${14}"
+  local index_file
+
+  intel_require_jq
+
+  index_file="$(atlas_findings_index_file "$ATLAS_OP_DIR")"
+  : >>"$index_file"
+  chmod 600 "$index_file" 2>/dev/null || true
+
+  jq -cn \
+    --arg id "$id" \
+    --arg operation "$ATLAS_OP_SLUG" \
+    --arg target "$target" \
+    --arg title "$title" \
+    --arg level "$level" \
+    --arg severity "$severity" \
+    --arg confidence "$confidence" \
+    --arg status "$status" \
+    --arg source "$source" \
+    --arg impact "$impact" \
+    --arg recommendation "$recommendation" \
+    --arg created_at "$created_at" \
+    --arg updated_at "$(timestamp)" \
+    --arg note "$note" \
+    --arg evidence_text "$evidence_text" \
+    --arg validation_text "$validation_text" \
+    '{
+      id: $id,
+      operation: $operation,
+      target: $target,
+      title: $title,
+      level: $level,
+      severity: $severity,
+      confidence: $confidence,
+      status: $status,
+      source: $source,
+      impact: $impact,
+      recommendation: $recommendation,
+      evidence: ($evidence_text | split(" ") | map(select(length > 0))),
+      validations: ($validation_text | split(" ") | map(select(length > 0))),
+      created_at: $created_at,
+      updated_at: $updated_at,
+      event: "updated",
+      note: $note
     }' >>"$index_file"
 }
 
@@ -264,6 +378,188 @@ cmd_finding_add() {
   fi
 }
 
+cmd_finding_update() {
+  need_args 1 "$#" "finding update <id> [--level level] [--status status] [--evidence id] [--validation id] [--note text]"
+  local finding_id="$1"
+  local level=""
+  local severity=""
+  local confidence=""
+  local status=""
+  local title=""
+  local impact=""
+  local recommendation=""
+  local note=""
+  local evidence_ids=()
+  local validation_ids=()
+  local record
+  local fields=()
+  local field
+  local operation
+  local target
+  local current_title
+  local current_level
+  local current_severity
+  local current_confidence
+  local current_status
+  local source
+  local current_impact
+  local current_recommendation
+  local current_evidence
+  local current_validations
+  local created_at
+  local merged_evidence
+  local merged_validations
+
+  shift
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+    --title)
+      need_args 2 "$#" "finding update <id> --title <title>"
+      title="$2"
+      shift 2
+      ;;
+    --level)
+      need_args 2 "$#" "finding update <id> --level <observed|inferred|validated>"
+      level="$2"
+      shift 2
+      ;;
+    --severity)
+      need_args 2 "$#" "finding update <id> --severity <severity>"
+      severity="$2"
+      shift 2
+      ;;
+    --confidence)
+      need_args 2 "$#" "finding update <id> --confidence <confidence>"
+      confidence="$2"
+      shift 2
+      ;;
+    --status)
+      need_args 2 "$#" "finding update <id> --status <status>"
+      status="$2"
+      shift 2
+      ;;
+    --impact)
+      need_args 2 "$#" "finding update <id> --impact <impact>"
+      impact="$2"
+      shift 2
+      ;;
+    --recommendation)
+      need_args 2 "$#" "finding update <id> --recommendation <recommendation>"
+      recommendation="$2"
+      shift 2
+      ;;
+    --evidence)
+      need_args 2 "$#" "finding update <id> --evidence <evidence-id>"
+      evidence_ids+=("$2")
+      shift 2
+      ;;
+    --validation)
+      need_args 2 "$#" "finding update <id> --validation <validation-plan-id>"
+      validation_ids+=("$2")
+      shift 2
+      ;;
+    --note)
+      need_args 2 "$#" "finding update <id> --note <text>"
+      note="$2"
+      shift 2
+      ;;
+    *)
+      fail "unknown finding update option: $1"
+      ;;
+    esac
+  done
+
+  load_active_operation
+  record="$(atlas_findings_latest_record "$finding_id" || true)"
+  [ -n "$record" ] || fail "unknown finding: $finding_id"
+
+  while IFS= read -r field; do
+    fields+=("$field")
+  done < <(
+    printf '%s\n' "$record" |
+      jq -r '
+        [
+          (.operation // ""),
+          (.target // ""),
+          (.title // ""),
+          (.level // "inferred"),
+          (.severity // "info"),
+          (.confidence // "medium"),
+          (.status // "open"),
+          (.source // "atlas"),
+          (.impact // ""),
+          (.recommendation // ""),
+          ((.evidence // []) | join(" ")),
+          ((.validations // []) | join(" ")),
+          (.created_at // "")
+        ]
+        | .[]
+      '
+  )
+  operation="${fields[0]:-}"
+  target="${fields[1]:-}"
+  current_title="${fields[2]:-}"
+  current_level="${fields[3]:-}"
+  current_severity="${fields[4]:-}"
+  current_confidence="${fields[5]:-}"
+  current_status="${fields[6]:-}"
+  source="${fields[7]:-}"
+  current_impact="${fields[8]:-}"
+  current_recommendation="${fields[9]:-}"
+  current_evidence="${fields[10]:-}"
+  current_validations="${fields[11]:-}"
+  created_at="${fields[12]:-}"
+  [ "$operation" = "$ATLAS_OP_SLUG" ] || fail "finding '$finding_id' does not belong to active operation '$ATLAS_OP_SLUG'"
+
+  [ -n "$title" ] || title="$current_title"
+  [ -n "$level" ] || level="$current_level"
+  [ -n "$severity" ] || severity="$current_severity"
+  [ -n "$confidence" ] || confidence="$current_confidence"
+  [ -n "$status" ] || status="$current_status"
+  [ -n "$impact" ] || impact="$current_impact"
+  [ -n "$recommendation" ] || recommendation="$current_recommendation"
+  [ -n "$created_at" ] || created_at="$(timestamp)"
+
+  atlas_findings_validate_level "$level"
+  atlas_findings_validate_severity "$severity"
+  atlas_findings_validate_confidence "$confidence"
+  atlas_findings_validate_status "$status"
+  atlas_scope_preflight "read-only" "atlas" "$target" "update finding"
+  atlas_findings_validate_evidence_ids "${evidence_ids[@]}"
+  atlas_findings_validate_validation_ids "${validation_ids[@]}"
+
+  # shellcheck disable=SC2086
+  merged_evidence="$(atlas_findings_join_unique $current_evidence "${evidence_ids[@]}")"
+  # shellcheck disable=SC2086
+  merged_validations="$(atlas_findings_join_unique $current_validations "${validation_ids[@]}")"
+
+  atlas_findings_append_update_record "$finding_id" "$target" "$title" "$level" "$severity" "$confidence" "$status" "$source" "$impact" "$recommendation" "$created_at" "$note" "$merged_evidence" "$merged_validations"
+  atlas_ledger_append_current "finding.updated" "read-only" "atlas" "ok" "finding=$finding_id level=$level severity=$severity status=$status validations=$merged_validations"
+
+  ui_ok "finding updated"
+  printf 'id: %s\n' "$finding_id"
+  printf 'title: %s\n' "$title"
+  printf 'level: %s\n' "$level"
+  printf 'severity: %s\n' "$severity"
+  printf 'confidence: %s\n' "$confidence"
+  printf 'status: %s\n' "$status"
+  printf 'target: %s\n' "$target"
+  if [ -n "$merged_evidence" ]; then
+    printf 'evidence: %s\n' "$merged_evidence"
+  fi
+  if [ -n "$merged_validations" ]; then
+    printf 'validations: %s\n' "$merged_validations"
+  fi
+}
+
+cmd_finding_resolve() {
+  need_args 1 "$#" "finding resolve <id> [--evidence id] [--validation id] [--note text]"
+  local finding_id="$1"
+
+  shift
+  cmd_finding_update "$finding_id" --status resolved "$@"
+}
+
 cmd_finding_list() {
   local index_file
 
@@ -282,7 +578,13 @@ cmd_finding_list() {
     return 0
   fi
 
-  jq -r '
+  jq -sr '
+    reduce .[] as $record ({}; .[$record.id] = $record)
+    | [.[]]
+    | sort_by(.updated_at // .created_at // "", .id)
+    | reverse
+    | .[]
+    |
     [
       (.id // "?"),
       (.level // "?"),
@@ -300,7 +602,9 @@ cmd_finding_show() {
   need_args 1 "$#" "finding show <id>"
   local finding_id="$1"
   local index_file
-  local output
+  local record
+  local fields=()
+  local field
   local id
   local operation
   local target
@@ -313,17 +617,24 @@ cmd_finding_show() {
   local impact
   local recommendation
   local evidence
+  local validations
   local created_at
+  local updated_at
+  local note
 
   load_active_operation
   index_file="$(atlas_findings_index_file "$ATLAS_OP_DIR")"
   [ -s "$index_file" ] || fail "unknown finding: $finding_id"
 
-  output="$(
-    jq -r \
-      --arg finding_id "$finding_id" '
-        select(.id == $finding_id)
-        | [
+  record="$(atlas_findings_latest_record "$finding_id" || true)"
+  [ -n "$record" ] || fail "unknown finding: $finding_id"
+
+  while IFS= read -r field; do
+    fields+=("$field")
+  done < <(
+    printf '%s\n' "$record" |
+      jq -r '
+        [
           (.id // "?"),
           (.operation // "?"),
           (.target // "?"),
@@ -336,15 +647,30 @@ cmd_finding_show() {
           (.impact // ""),
           (.recommendation // ""),
           ((.evidence // []) | join(" ")),
-          (.created_at // "?")
+          ((.validations // []) | join(" ")),
+          (.created_at // "?"),
+          (.updated_at // ""),
+          (.note // "")
         ]
-        | @tsv
-      ' "$index_file" |
-      head -n 1
-  )"
-  [ -n "$output" ] || fail "unknown finding: $finding_id"
-
-  IFS=$'\t' read -r id operation target title level severity confidence status source impact recommendation evidence created_at <<<"$output"
+        | .[]
+      '
+  )
+  id="${fields[0]:-}"
+  operation="${fields[1]:-}"
+  target="${fields[2]:-}"
+  title="${fields[3]:-}"
+  level="${fields[4]:-}"
+  severity="${fields[5]:-}"
+  confidence="${fields[6]:-}"
+  status="${fields[7]:-}"
+  source="${fields[8]:-}"
+  impact="${fields[9]:-}"
+  recommendation="${fields[10]:-}"
+  evidence="${fields[11]:-}"
+  validations="${fields[12]:-}"
+  created_at="${fields[13]:-}"
+  updated_at="${fields[14]:-}"
+  note="${fields[15]:-}"
 
   ui_heading "Finding Record"
   ui_rule
@@ -366,7 +692,39 @@ cmd_finding_show() {
   if [ -n "$evidence" ]; then
     ui_kv "Evidence" "$evidence"
   fi
+  if [ -n "$validations" ]; then
+    ui_kv "Validation Plans" "$validations"
+  fi
   ui_kv "Created" "$created_at"
+  if [ -n "$updated_at" ]; then
+    ui_kv "Updated" "$updated_at"
+  fi
+  if [ -n "$note" ]; then
+    ui_kv "Latest Note" "$note"
+  fi
+  ui_rule
+  ui_subheading "History"
+  jq -r \
+    --arg finding_id "$finding_id" '
+      select(.id == $finding_id)
+      | [
+          (.updated_at // .created_at // "?"),
+          (.event // "recorded"),
+          (.level // "?"),
+          (.severity // "?"),
+          (.status // "?"),
+          ((.evidence // []) | join(",")),
+          ((.validations // []) | join(",")),
+          (.note // "")
+        ]
+      | @tsv
+    ' "$index_file" |
+    awk -F'\t' '{
+      evidence = $6 == "" ? "-" : $6
+      validations = $7 == "" ? "-" : $7
+      note = $8 == "" ? "-" : $8
+      printf "%-20s %-10s %-10s %-8s %-10s evidence=%s validations=%s note=%s\n", $1, $2, $3, $4, $5, evidence, validations, note
+    }'
 }
 
 atlas_findings_report_markdown() {
@@ -378,10 +736,21 @@ atlas_findings_report_markdown() {
     return 0
   fi
 
-  jq -r '
+  jq -sr '
+    reduce .[] as $record ({}; .[$record.id] = $record)
+    | [.[]]
+    | sort_by(.updated_at // .created_at // "", .id)
+    | .[]
+    |
     def evidence_text:
       if ((.evidence // []) | length) > 0 then
         " Evidence: " + ((.evidence // []) | join(", ")) + "."
+      else
+        ""
+      end;
+    def validation_text:
+      if ((.validations // []) | length) > 0 then
+        " Validation plans: " + ((.validations // []) | join(", ")) + "."
       else
         ""
       end;
@@ -389,7 +758,9 @@ atlas_findings_report_markdown() {
     (.title // "untitled finding") +
     (if (.impact // "") != "" then " Impact: " + .impact + "." else "" end) +
     (if (.recommendation // "") != "" then " Recommendation: " + .recommendation + "." else "" end) +
-    evidence_text
+    evidence_text +
+    validation_text +
+    (if (.note // "") != "" then " Latest note: " + .note + "." else "" end)
   ' "$index_file"
 }
 
@@ -405,7 +776,9 @@ atlas_findings_count_for_target() {
 
   jq -sr \
     --arg target "$target" '
-      map(select($target == "" or .target == $target))
+      reduce .[] as $record ({}; .[$record.id] = $record)
+      | [.[]]
+      | map(select($target == "" or .target == $target))
       | length
     ' "$index_file"
 }
@@ -423,8 +796,10 @@ atlas_findings_rows_for_target() {
   jq -sr \
     --arg target "$target" \
     --argjson limit "$limit" '
-      map(select($target == "" or .target == $target))
-      | sort_by(.created_at)
+      reduce .[] as $record ({}; .[$record.id] = $record)
+      | [.[]]
+      | map(select($target == "" or .target == $target))
+      | sort_by(.updated_at // .created_at // "", .id)
       | reverse
       | .[:$limit]
       | .[]

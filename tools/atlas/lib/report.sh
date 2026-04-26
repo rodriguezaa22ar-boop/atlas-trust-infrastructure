@@ -17,7 +17,9 @@ atlas_report_finding_count_by_level() {
   jq -sr \
     --arg target "$ATLAS_OP_TARGET" \
     --arg level "$level" '
-      map(select(.target == $target and .level == $level))
+      reduce .[] as $record ({}; .[$record.id] = $record)
+      | [.[]]
+      | map(select(.target == $target and .level == $level))
       | length
     ' "$file"
 }
@@ -35,7 +37,9 @@ atlas_report_finding_count_by_severity() {
   jq -sr \
     --arg target "$ATLAS_OP_TARGET" \
     --arg severity "$severity" '
-      map(select(.target == $target and .severity == $severity))
+      reduce .[] as $record ({}; .[$record.id] = $record)
+      | [.[]]
+      | map(select(.target == $target and .severity == $severity))
       | length
     ' "$file"
 }
@@ -57,7 +61,9 @@ atlas_report_highest_severity() {
       elif . == "low" then 2
       elif . == "info" then 1
       else 0 end;
-    map(select(.target == $target))
+    reduce .[] as $record ({}; .[$record.id] = $record)
+    | [.[]]
+    | map(select(.target == $target))
     | map(.severity // "info")
     | sort_by(weight)
     | last // "none"
@@ -81,8 +87,10 @@ atlas_report_finding_rows_by_level() {
         elif . == "low" then 2
         elif . == "info" then 1
         else 0 end;
-      map(select(.target == $target and .level == $level))
-      | sort_by([((.severity // "info") | severity_weight), (.created_at // "")])
+      reduce .[] as $record ({}; .[$record.id] = $record)
+      | [.[]]
+      | map(select(.target == $target and .level == $level))
+      | sort_by([((.severity // "info") | severity_weight), (.updated_at // .created_at // "")])
       | reverse
       | .[]
       | [
@@ -93,7 +101,9 @@ atlas_report_finding_rows_by_level() {
           (.title // "untitled finding"),
           (.impact // ""),
           (.recommendation // ""),
-          ((.evidence // []) | join(", "))
+          ((.evidence // []) | join(", ")),
+          ((.validations // []) | join(", ")),
+          (.note // "")
         ]
       | @tsv
     ' "$file"
@@ -118,6 +128,12 @@ atlas_report_print_finding_level() {
         }
         if ($8 != "") {
           printf " Evidence: %s.", $8
+        }
+        if ($9 != "") {
+          printf " Validation plans: %s.", $9
+        }
+        if ($10 != "") {
+          printf " Latest note: %s.", $10
         }
         printf "\n"
       }'
@@ -185,8 +201,10 @@ atlas_report_remediation_priorities() {
         elif . == "low" then 2
         elif . == "info" then 1
         else 0 end;
-      map(select(.target == $target and (.recommendation // "") != ""))
-      | sort_by([((.severity // "info") | severity_weight), (.created_at // "")])
+      reduce .[] as $record ({}; .[$record.id] = $record)
+      | [.[]]
+      | map(select(.target == $target and (.recommendation // "") != ""))
+      | sort_by([((.severity // "info") | severity_weight), (.updated_at // .created_at // "")])
       | reverse
       | .[]
       | [

@@ -75,6 +75,8 @@ usage:
   atlas evidence show <id>
   atlas evidence hash <path>
   atlas finding add <title> [--level observed|inferred|validated]
+  atlas finding update <id> [--level level] [--status status]
+  atlas finding resolve <id> [--evidence id] [--validation id]
   atlas finding list
   atlas finding show <id>
   atlas validation plan <lane> [--finding id] [--evidence id]
@@ -202,6 +204,8 @@ evidence:
 
 findings:
   atlas finding add <title> [--level observed|inferred|validated] [--severity severity] [--confidence confidence]
+  atlas finding update <id> [--level level] [--status status] [--evidence id] [--validation id] [--note text]
+  atlas finding resolve <id> [--evidence id] [--validation id] [--note text]
   atlas finding list
   atlas finding show <id>
 
@@ -1793,6 +1797,14 @@ finding | findings)
 	add)
 		shift
 		cmd_finding_add "$@"
+		;;
+	update)
+		shift
+		cmd_finding_update "$@"
+		;;
+	resolve)
+		shift
+		cmd_finding_resolve "$@"
 		;;
 	show)
 		shift

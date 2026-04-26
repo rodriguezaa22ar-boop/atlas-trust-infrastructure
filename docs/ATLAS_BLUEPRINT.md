@@ -124,8 +124,9 @@ The near-term roadmap is:
    now include an operator brief with surface counts, evidence/finding/
    validation state, latest outcome, and next-step guidance.
 7. Add finding records that distinguish observed, inferred, and validated. The
-   first operation-owned add/list/show flow is implemented with evidence links
-   and report rendering.
+   operation-owned add/list/show flow is implemented with evidence links,
+   append-only lifecycle updates, validation links, notes, history rendering,
+   and latest-state report/advisor views.
 8. Add report brief generation from operation state. `atlas op brief`,
    `atlas op story`, and matching `atlas target story` views now surface
    operation-owned evidence and findings. Operation reports now include an
