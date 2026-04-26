@@ -59,6 +59,9 @@ TOOL_NAME="atlas"
 # shellcheck source=../lib/advisor.sh
 . "$TOOL_DIR/lib/advisor.sh"
 # shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/release.sh
+. "$TOOL_DIR/lib/release.sh"
+# shellcheck source-path=SCRIPTDIR
 # shellcheck source=../lib/doctor.sh
 . "$TOOL_DIR/lib/doctor.sh"
 # shellcheck source-path=SCRIPTDIR
@@ -83,6 +86,7 @@ usage:
   atlas help
   atlas doctor
   atlas v1 status [name] [--strict] [--json]
+  atlas release packet [packet-name]
   atlas menu
   atlas profile list
   atlas profile show <name>
@@ -114,6 +118,7 @@ usage:
 quick flow:
   atlas doctor
   atlas v1 status --strict
+  atlas release packet
   atlas profile show htb-starting-point
   atlas scope status
   atlas target list
@@ -281,6 +286,9 @@ advisor:
 
 v1:
   atlas v1 status [name] [--strict] [--json]
+
+release:
+  atlas release packet [packet-name] [--qa-status status] [--qa-command command] [--qa-note text]
 EOF
 }
 
@@ -1908,6 +1916,19 @@ v1)
 	"" | status)
 		[ "$#" -gt 0 ] && shift
 		cmd_v1_status "$@"
+		;;
+	*)
+		usage
+		exit 1
+		;;
+	esac
+	;;
+release)
+	shift
+	case "${1:-packet}" in
+	"" | packet)
+		[ "$#" -gt 0 ] && shift
+		cmd_release_packet "$@"
 		;;
 	*)
 		usage

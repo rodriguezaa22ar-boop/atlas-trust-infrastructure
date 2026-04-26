@@ -26,6 +26,7 @@ teardown() {
   [[ "$output" == *"quick flow:"* ]]
   [[ "$output" == *"atlas doctor"* ]]
   [[ "$output" == *"atlas v1 status"* ]]
+  [[ "$output" == *"atlas release packet [packet-name]"* ]]
   [[ "$output" == *"atlas scope status"* ]]
   [[ "$output" == *"atlas evidence add <path> [--kind kind]"* ]]
   [[ "$output" == *"atlas evidence redact <id> <redacted-path>"* ]]
@@ -46,6 +47,7 @@ teardown() {
   [[ "$output" == *"validation:"* ]]
   [[ "$output" == *"advisor:"* ]]
   [[ "$output" == *"v1:"* ]]
+  [[ "$output" == *"release:"* ]]
   [[ "$output" == *"atlas target story <target>"* ]]
   [[ "$output" == *"atlas target cycle <target>"* ]]
   [[ "$output" == *"atlas op cycle [name]"* ]]
@@ -118,6 +120,29 @@ teardown() {
   [ "$status" -ne 0 ]
   printf '%s\n' "$output" |
     jq -e '.overall == "blocked" and .pillars.action_planner.status == "blocked"'
+}
+
+@test "atlas release packet writes metadata-only release trust packet" {
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release packet m33-release \
+    --qa-status pass \
+    --qa-note "dev-qa passed in release verification"
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"release trust packet written"* ]]
+  packet_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "release_packet" { print $2; exit }')"
+  [ -f "$packet_path" ]
+  [ "$packet_path" = "$TEST_ROOT/toolkit/docs/retention/releases/m33-release.md" ]
+
+  grep -q '^# Atlas Release Trust Packet$' "$packet_path"
+  grep -q 'No raw runtime artifacts, target secrets, session contents, packet captures, or evidence bodies are included' "$packet_path"
+  grep -q 'QA status: pass' "$packet_path"
+  grep -q "QA command: \`nix-shell --run './bin/dev-qa'\`" "$packet_path"
+  grep -q 'QA note: dev-qa passed in release verification' "$packet_path"
+  grep -q '^## V1 Readiness JSON$' "$packet_path"
+  grep -q '"overall": "ready"' "$packet_path"
+  grep -q '"required_not_ready": 0' "$packet_path"
+  grep -q 'docs/retention/milestones/MILESTONE_32.md' "$packet_path"
+  grep -q 'Core CLI: shell-native interface; no multi-user server yet' "$packet_path"
 }
 
 @test "atlas v1 status fails strict on operation evidence and governance gaps" {

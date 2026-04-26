@@ -18,6 +18,7 @@ keeping the underlying domains intact:
 atlas doctor
 atlas v1 status --strict
 atlas v1 status --json
+atlas release packet atlas-current --qa-status pass
 atlas menu
 atlas profile list
 atlas profile show htb-starting-point
@@ -119,6 +120,13 @@ operation ledger, ScopeGuard, recon orchestration, action planning, intel
 graph, evidence, findings, validation, reports, retention packets, and the AI
 advisor surface. `--strict` makes warning or blocked required pillars fail the
 command, and `--json` emits the same contract in machine-readable form.
+
+`atlas release packet [packet-name]` writes a metadata-only Markdown release
+trust packet under `docs/retention/releases/`. It records the current commit,
+branch, tags, repository cleanliness, upstream sync state, v1 readiness JSON,
+QA status, retained milestone notes, and known limitations without embedding
+raw runtime artifacts, target secrets, session contents, packet captures, or
+evidence bodies.
 
 `atlas target story <target>` is the full cross-tool view. It starts with the
 same operator brief, then expands into the target record, current service and

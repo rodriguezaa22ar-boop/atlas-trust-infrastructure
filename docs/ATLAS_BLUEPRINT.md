@@ -213,6 +213,11 @@ The near-term roadmap is:
     required evidence fields, and known limitations. `atlas v1 status` now has
     `--strict` and `--json` modes plus negative tests for missing/stale pillar
     evidence.
+33. Add release trust packets. `atlas release packet` now writes a
+    metadata-only Markdown packet with commit, branch, tags, repository
+    cleanliness, upstream sync state, v1 readiness JSON, QA status, retained
+    milestone notes, and known limitations without embedding raw runtime
+    artifacts.
 
 ## First Serious Version
 
