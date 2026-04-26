@@ -85,7 +85,7 @@ atlas advisor brief
 atlas op story
 atlas op report
 atlas op readiness
-atlas op close
+atlas op close [--force]
 ```
 
 `atlas target brief <target>` gives the fast operator readout: surface counts,
@@ -325,6 +325,11 @@ and the latest evidence bundle. The readout returns `ready` when the operation
 has evidence, no unresolved findings, no pending validation, and at least one
 generated report; evidence bundles remain optional and are called out as a
 handoff step when needed.
+
+`atlas op close [name]` uses the same readiness state as a close guard. If the
+operation still needs attention, close fails and prints the readiness checklist.
+Operators can use `--force` to close anyway; Atlas records the forced readiness
+snapshot in the operation ledger.
 
 ## AI Advisor
 

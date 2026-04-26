@@ -55,6 +55,7 @@ teardown() {
   [[ "$output" == *"atlas op story [name]"* ]]
   [[ "$output" == *"atlas op report [name] [report-name]"* ]]
   [[ "$output" == *"atlas op readiness [name]"* ]]
+  [[ "$output" == *"atlas op close [name] [--force]"* ]]
   [[ "$output" == *"atlas target brief <target>"* ]]
 }
 
@@ -684,6 +685,12 @@ EOF
   [[ "$output" == *"Resolve, accept, or retest unresolved findings before closure."* ]]
   [[ "$output" == *"$finding_id"* ]]
 
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op close readiness-op
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Close Readiness: attention-required"* ]]
+  [[ "$output" == *"operation is not ready to close; address readiness items or rerun with --force"* ]]
+  grep -q '^STATUS=active$' "$TEST_ROOT/toolkit/sessions/readiness-op/session.env"
+
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding resolve "$finding_id" \
     --evidence "$evidence_id" \
     --note "risk removed before closure"
@@ -703,6 +710,40 @@ EOF
   [[ "$output" == *"Close Readiness: ready"* ]]
   [[ "$output" == *"Operation is ready to close; generate an evidence bundle if handoff is required."* ]]
   [[ "$output" == *"no unresolved findings remain"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op close readiness-op
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"operation closed"* ]]
+  [[ "$output" == *"status: closed"* ]]
+  [[ "$output" == *"readiness: ready"* ]]
+  [[ "$output" == *"force: 0"* ]]
+  grep -q '^STATUS=closed$' "$TEST_ROOT/toolkit/sessions/readiness-op/session.env"
+  jq -e 'select(.event == "op.close.readiness" and .status == "ready" and (.detail | contains("readiness=ready")) and (.detail | contains("force=0")))' \
+    "$TEST_ROOT/toolkit/sessions/readiness-op/ledger.ndjson"
+}
+
+@test "atlas operation close can force closure with readiness snapshot" {
+  mkdir -p "$TEST_ROOT/toolkit/targets"
+  cat > "$TEST_ROOT/toolkit/targets/demo-node.env" <<'EOF'
+NAME=demo-node
+ADDRESS=10.10.10.10
+SCOPE_STATUS=in-scope
+CRITICALITY=high
+CREATED_AT=2026-04-23T20:53:16Z
+EOF
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op start force-close-op demo-node authorized forced close review
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op close --force
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"operation closed"* ]]
+  [[ "$output" == *"status: closed"* ]]
+  [[ "$output" == *"readiness: attention-required"* ]]
+  [[ "$output" == *"force: 1"* ]]
+  grep -q '^STATUS=closed$' "$TEST_ROOT/toolkit/sessions/force-close-op/session.env"
+  jq -e 'select(.event == "op.close.readiness" and .status == "attention-required" and (.detail | contains("readiness=attention-required")) and (.detail | contains("evidence=0")) and (.detail | contains("force=1")))' \
+    "$TEST_ROOT/toolkit/sessions/force-close-op/ledger.ndjson"
 }
 
 @test "atlas advisor summarizes operation state and writes AI review packet" {

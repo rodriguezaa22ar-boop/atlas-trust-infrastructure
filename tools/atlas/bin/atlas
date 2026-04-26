@@ -114,7 +114,7 @@ quick flow:
   atlas op story [name]
   atlas op report [name] [report-name]
   atlas op readiness [name]
-  atlas op close [name]
+  atlas op close [name] [--force]
 
 targets:
   atlas target add <name> <address> [notes...]
@@ -141,7 +141,7 @@ operations:
   atlas op report [name] [report-name]
   atlas op readiness [name]
   atlas op next
-  atlas op close [name]
+  atlas op close [name] [--force]
   atlas op recon <workflow> [interface]
   atlas op capture <inspect|streams|creds|anomalies> [run-dir-or-pcap|latest]
   atlas op action candidates
@@ -1409,15 +1409,44 @@ cmd_op_readiness() {
 }
 
 cmd_op_close() {
-	if [ "$#" -gt 0 ]; then
-		load_atlas_operation "$1"
+	local operation_name=""
+	local force=0
+	local readiness_detail
+
+	while [ "$#" -gt 0 ]; do
+		case "$1" in
+		--force)
+			force=1
+			shift
+			;;
+		-*)
+			fail "unknown op close option: $1"
+			;;
+		*)
+			[ -z "$operation_name" ] || fail "unexpected op close argument: $1"
+			operation_name="$1"
+			shift
+			;;
+		esac
+	done
+
+	if [ -n "$operation_name" ]; then
+		load_atlas_operation "$operation_name"
 	else
 		load_active_operation
 	fi
 
+	atlas_readiness_collect "$ATLAS_OP_TARGET"
+	readiness_detail="$(atlas_readiness_ledger_detail "$force")"
+	if [ "$ATLAS_READINESS_STATUS" != "ready" ] && [ "$force" -ne 1 ]; then
+		atlas_readiness_print
+		fail "operation is not ready to close; address readiness items or rerun with --force"
+	fi
+
 	upsert_env "$ATLAS_OP_FILE" STATUS "closed"
 	upsert_env "$ATLAS_OP_FILE" CLOSED_AT "$(timestamp)"
-	atlas_ledger_append_current "op.closed" "read-only" "atlas" "ok" "$ATLAS_OP_TARGET"
+	atlas_ledger_append_current "op.close.readiness" "read-only" "atlas" "$ATLAS_READINESS_STATUS" "$readiness_detail"
+	atlas_ledger_append_current "op.closed" "read-only" "atlas" "ok" "$ATLAS_OP_TARGET $readiness_detail"
 	record_operation_history "$ATLAS_OP_DIR" "close" "$ATLAS_OP_TARGET"
 
 	if operation_is_active "$ATLAS_OP_SLUG"; then
@@ -1427,6 +1456,8 @@ cmd_op_close() {
 	ui_ok "operation closed"
 	printf 'operation: %s\n' "$ATLAS_OP_NAME"
 	printf 'status: closed\n'
+	printf 'readiness: %s\n' "$ATLAS_READINESS_STATUS"
+	printf 'force: %s\n' "$force"
 }
 
 cmd_op_recon() {

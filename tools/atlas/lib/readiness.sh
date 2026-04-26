@@ -138,8 +138,8 @@ atlas_readiness_print_pending_validation() {
   atlas_cycle_print_validation_queue "$target"
 }
 
-atlas_readiness_print() {
-  local target="$ATLAS_OP_TARGET"
+atlas_readiness_collect() {
+  local target="${1:-$ATLAS_OP_TARGET}"
   local evidence_count
   local finding_count
   local validation_count
@@ -164,30 +164,68 @@ atlas_readiness_print() {
   readiness="$(atlas_readiness_status "$evidence_count" "$open_count" "$pending_count" "$latest_report")"
   next_step="$(atlas_readiness_next_step "$evidence_count" "$open_count" "$pending_count" "$latest_report" "$latest_bundle")"
 
+  if [ -n "$latest_report" ]; then
+    IFS=$'\t' read -r latest_report_at latest_report_path <<<"$latest_report"
+  fi
+  if [ -n "$latest_bundle" ]; then
+    IFS=$'\t' read -r latest_bundle_at latest_bundle_detail <<<"$latest_bundle"
+  fi
+
+  ATLAS_READINESS_EVIDENCE_COUNT="$evidence_count"
+  ATLAS_READINESS_FINDING_COUNT="$finding_count"
+  ATLAS_READINESS_VALIDATION_COUNT="$validation_count"
+  ATLAS_READINESS_OPEN_FINDINGS_COUNT="$open_count"
+  ATLAS_READINESS_PENDING_VALIDATION_COUNT="$pending_count"
+  ATLAS_READINESS_LATEST_REPORT="$latest_report"
+  ATLAS_READINESS_LATEST_REPORT_AT="$latest_report_at"
+  ATLAS_READINESS_LATEST_REPORT_PATH="$latest_report_path"
+  ATLAS_READINESS_LATEST_BUNDLE="$latest_bundle"
+  ATLAS_READINESS_LATEST_BUNDLE_AT="$latest_bundle_at"
+  ATLAS_READINESS_LATEST_BUNDLE_DETAIL="$latest_bundle_detail"
+  ATLAS_READINESS_STATUS="$readiness"
+  ATLAS_READINESS_NEXT_STEP="$next_step"
+}
+
+atlas_readiness_ledger_detail() {
+  local force="${1:-0}"
+
+  printf 'readiness=%s evidence=%s open_findings=%s pending_validation=%s latest_report=%s evidence_bundle=%s force=%s' \
+    "${ATLAS_READINESS_STATUS:-unknown}" \
+    "${ATLAS_READINESS_EVIDENCE_COUNT:-0}" \
+    "${ATLAS_READINESS_OPEN_FINDINGS_COUNT:-0}" \
+    "${ATLAS_READINESS_PENDING_VALIDATION_COUNT:-0}" \
+    "${ATLAS_READINESS_LATEST_REPORT_PATH:-none}" \
+    "${ATLAS_READINESS_LATEST_BUNDLE_DETAIL:-none}" \
+    "$force"
+}
+
+atlas_readiness_print() {
+  local target="$ATLAS_OP_TARGET"
+
+  atlas_readiness_collect "$target"
+
   ui_heading "Operation Readiness"
   ui_rule
   ui_kv "Operation" "$ATLAS_OP_NAME"
   ui_kv "Operation Status" "$ATLAS_OP_STATUS"
   ui_kv "Target" "$target"
-  ui_kv "Evidence Records" "$evidence_count"
-  ui_kv "Findings" "$finding_count"
-  ui_kv "Open Findings" "$open_count"
-  ui_kv "Validation Plans" "$validation_count"
-  ui_kv "Pending Validation" "$pending_count"
-  if [ -n "$latest_report" ]; then
-    IFS=$'\t' read -r latest_report_at latest_report_path <<<"$latest_report"
-    ui_kv "Latest Report" "$latest_report_at $latest_report_path"
+  ui_kv "Evidence Records" "$ATLAS_READINESS_EVIDENCE_COUNT"
+  ui_kv "Findings" "$ATLAS_READINESS_FINDING_COUNT"
+  ui_kv "Open Findings" "$ATLAS_READINESS_OPEN_FINDINGS_COUNT"
+  ui_kv "Validation Plans" "$ATLAS_READINESS_VALIDATION_COUNT"
+  ui_kv "Pending Validation" "$ATLAS_READINESS_PENDING_VALIDATION_COUNT"
+  if [ -n "$ATLAS_READINESS_LATEST_REPORT" ]; then
+    ui_kv "Latest Report" "$ATLAS_READINESS_LATEST_REPORT_AT $ATLAS_READINESS_LATEST_REPORT_PATH"
   else
     ui_kv "Latest Report" "none generated yet"
   fi
-  if [ -n "$latest_bundle" ]; then
-    IFS=$'\t' read -r latest_bundle_at latest_bundle_detail <<<"$latest_bundle"
-    ui_kv "Evidence Bundle" "$latest_bundle_at $latest_bundle_detail"
+  if [ -n "$ATLAS_READINESS_LATEST_BUNDLE" ]; then
+    ui_kv "Evidence Bundle" "$ATLAS_READINESS_LATEST_BUNDLE_AT $ATLAS_READINESS_LATEST_BUNDLE_DETAIL"
   else
     ui_kv "Evidence Bundle" "none generated yet"
   fi
-  ui_kv "Close Readiness" "$readiness"
-  ui_kv "Next Step" "$next_step"
+  ui_kv "Close Readiness" "$ATLAS_READINESS_STATUS"
+  ui_kv "Next Step" "$ATLAS_READINESS_NEXT_STEP"
   ui_rule
   ui_subheading "Open Findings"
   atlas_readiness_print_open_findings "$target"

@@ -149,6 +149,9 @@ The near-term roadmap is:
 13. Add operation closure readiness. `atlas op readiness` checks evidence,
     unresolved findings, pending validation, latest report, and evidence bundle
     state before an operator closes an assessment.
+14. Guard operation closeout with readiness. `atlas op close` now requires a
+    ready operation unless `--force` is explicit, and records the readiness
+    snapshot in the ledger.
 
 ## First Serious Version
 
