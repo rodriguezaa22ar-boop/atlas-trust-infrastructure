@@ -236,6 +236,8 @@ Atlas now also exposes the operator-level story and reporting layer:
   verification for recorded hashes and ledger event counts
 - `atlas op audit [name]`: read-only operation ledger timeline with event
   counts, freshness flags, forced-close flags, and closeout verification status
+- `atlas op audit-packet [name] [packet-name]`: metadata-only audit packet with
+  event counts, audit flags, timeline, and ledger hash
 - `atlas op close [name] [--force]`: close only when readiness passes unless an
   explicit forced closure is recorded
 - `atlas advisor brief`: state-only AI advisor readout with redaction guardrails

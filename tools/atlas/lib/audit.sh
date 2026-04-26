@@ -239,6 +239,90 @@ atlas_audit_print() {
   atlas_audit_print_timeline "$ledger_file"
 }
 
+atlas_audit_write_packet() {
+  local file="$1"
+  local ledger_file
+  local ledger_sha=""
+  local verification
+  local verification_status
+  local verification_path
+  local verification_problems
+
+  ledger_file="$(atlas_audit_ledger_file)"
+  if [ -f "$ledger_file" ]; then
+    ledger_sha="$(atlas_evidence_hash_path "$ledger_file")"
+  fi
+  verification="$(atlas_audit_closeout_verification_status)"
+  IFS=$'\t' read -r verification_status verification_path verification_problems <<<"$verification"
+
+  {
+    printf '# Atlas Operation Audit Packet\n\n'
+    printf 'Generated: %s\n' "$(timestamp)"
+    printf 'Operation: %s\n' "$ATLAS_OP_NAME"
+    printf 'Operation ID: %s\n' "$ATLAS_OP_SLUG"
+    printf 'Operation Status: %s\n' "$ATLAS_OP_STATUS"
+    printf 'Target: %s\n' "$ATLAS_OP_TARGET"
+    printf '\nNo raw artifact contents are included in this audit packet.\n'
+
+    printf '\n## Ledger\n\n'
+    printf -- "- Operation ledger: \`%s\`\n" "$ledger_file"
+    printf -- '- Events: %s\n' "$(atlas_audit_event_count "$ledger_file")"
+    printf -- '- Ledger SHA256: %s\n' "$ledger_sha"
+    printf -- '- Closeout verification: %s\n' "$verification_status"
+    printf -- '- Closeout manifest: %s\n' "$verification_path"
+    printf -- '- Closeout verification problems: %s\n' "$verification_problems"
+
+    printf '\n## Event Counts\n\n'
+    printf '```text\n'
+    atlas_audit_print_event_counts "$ledger_file"
+    printf '```\n'
+
+    printf '\n## Audit Flags\n\n'
+    printf '```text\n'
+    atlas_audit_print_flags "$ledger_file"
+    printf '```\n'
+
+    printf '\n## Timeline\n\n'
+    printf '```text\n'
+    atlas_audit_print_timeline "$ledger_file"
+    printf '```\n'
+  } >"$file"
+}
+
+cmd_op_audit_packet() {
+  local packet_name="${2:-}"
+  local packet_slug
+  local audit_dir
+  local packet_file
+
+  [ "$#" -le 2 ] || fail "op audit-packet [name] [packet-name]"
+
+  if [ "$#" -gt 0 ]; then
+    load_atlas_operation "$1"
+  else
+    load_active_operation
+  fi
+
+  if [ -z "$packet_name" ]; then
+    packet_name="$ATLAS_OP_SLUG-audit"
+  fi
+  packet_slug="$(slugify "$packet_name")"
+  [ -n "$packet_slug" ] || fail "audit packet name produced an empty slug"
+
+  audit_dir="$ATLAS_OP_DIR/audit"
+  mkdir -p "$audit_dir"
+  chmod 700 "$audit_dir" 2>/dev/null || true
+  packet_file="$audit_dir/$packet_slug.md"
+
+  atlas_ledger_append_current "audit.packet.generated" "read-only" "atlas" "ok" "$packet_file"
+  atlas_audit_write_packet "$packet_file"
+  chmod 600 "$packet_file" 2>/dev/null || true
+  record_operation_history "$ATLAS_OP_DIR" "audit-packet" "$packet_file"
+
+  ui_ok "audit packet written"
+  printf 'audit_packet: %s\n' "$packet_file"
+}
+
 cmd_op_audit() {
   [ "$#" -le 1 ] || fail "op audit [name]"
 

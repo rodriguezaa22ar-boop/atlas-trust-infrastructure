@@ -175,6 +175,9 @@ The near-term roadmap is:
 22. Add an operation audit trail view. `atlas op audit` renders the ledger as
     event counts, audit flags, closeout verification status, and a readable
     timeline without mutating operation state.
+23. Add audit packets. `atlas op audit-packet` writes a metadata-only Markdown
+    packet with event counts, audit flags, closeout verification status,
+    timeline, and ledger hash for review or retention.
 
 ## First Serious Version
 

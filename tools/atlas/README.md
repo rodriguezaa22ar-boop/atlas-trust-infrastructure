@@ -60,6 +60,7 @@ atlas op close april-review
 atlas op closeout april-review
 atlas op verify april-review
 atlas op audit april-review
+atlas op audit-packet april-review
 atlas session list
 atlas loot list
 atlas intel summary
@@ -94,6 +95,7 @@ atlas op close [--force]
 atlas op closeout <name>
 atlas op verify <name>
 atlas op audit <name>
+atlas op audit-packet <name>
 ```
 
 `atlas target brief <target>` gives the fast operator readout: surface counts,
@@ -361,6 +363,11 @@ or `unverifiable`.
 prints event counts, audit flags for denied preflights, forced closeout, stale
 freshness states, closeout verification status, and a chronological event
 timeline.
+
+`atlas op audit-packet [name] [packet-name]` writes a metadata-only Markdown
+audit packet under the operation directory. It includes event counts, audit
+flags, a timeline, closeout verification status, and the operation ledger hash
+without embedding raw artifacts.
 
 ## AI Advisor
 

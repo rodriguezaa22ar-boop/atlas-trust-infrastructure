@@ -127,6 +127,7 @@ quick flow:
   atlas op closeout [name] [manifest-name]
   atlas op verify [name] [closeout-manifest]
   atlas op audit [name]
+  atlas op audit-packet [name] [packet-name]
   atlas op close [name] [--force]
 
 targets:
@@ -157,6 +158,7 @@ operations:
   atlas op closeout [name] [manifest-name]
   atlas op verify [name] [closeout-manifest]
   atlas op audit [name]
+  atlas op audit-packet [name] [packet-name]
   atlas op next
   atlas op close [name] [--force]
   atlas op recon <workflow> [interface]
@@ -1300,6 +1302,9 @@ print_operation_report_commands() {
 		closeout)
 			printf -- "- \`%s\`\n" "atlas op closeout $ATLAS_OP_SLUG $(basename "$detail" .md)"
 			;;
+		audit-packet)
+			printf -- "- \`%s\`\n" "atlas op audit-packet $ATLAS_OP_SLUG $(basename "$detail" .md)"
+			;;
 		close)
 			printf -- "- \`%s\`\n" "atlas op close $ATLAS_OP_SLUG"
 			;;
@@ -2067,6 +2072,10 @@ op)
 	audit)
 		shift
 		cmd_op_audit "$@"
+		;;
+	audit-packet)
+		shift
+		cmd_op_audit_packet "$@"
 		;;
 	next)
 		shift

@@ -59,6 +59,7 @@ teardown() {
   [[ "$output" == *"atlas op closeout [name] [manifest-name]"* ]]
   [[ "$output" == *"atlas op verify [name] [closeout-manifest]"* ]]
   [[ "$output" == *"atlas op audit [name]"* ]]
+  [[ "$output" == *"atlas op audit-packet [name] [packet-name]"* ]]
   [[ "$output" == *"atlas op close [name] [--force]"* ]]
   [[ "$output" == *"atlas target brief <target>"* ]]
 }
@@ -917,6 +918,23 @@ EOF
   [[ "$output" == *"closeout verification: attention-required"* ]]
   audit_events_after="$(wc -l < "$TEST_ROOT/toolkit/sessions/readiness-op/ledger.ndjson" | tr -d ' ')"
   [ "$audit_events_after" = "$audit_events_before" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op audit-packet readiness-op readiness-audit
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"audit packet written"* ]]
+  audit_packet_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "audit_packet" { print $2; exit }')"
+  [ -f "$audit_packet_path" ]
+  grep -q '^# Atlas Operation Audit Packet$' "$audit_packet_path"
+  grep -q 'No raw artifact contents are included' "$audit_packet_path"
+  grep -q 'Ledger SHA256:' "$audit_packet_path"
+  grep -q 'Closeout verification: attention-required' "$audit_packet_path"
+  grep -q '## Event Counts' "$audit_packet_path"
+  grep -q '## Audit Flags' "$audit_packet_path"
+  grep -q '## Timeline' "$audit_packet_path"
+  grep -q 'audit.packet.generated' "$audit_packet_path"
+  grep -q 'stale closeout:' "$audit_packet_path"
+  jq -e --arg audit_packet_path "$audit_packet_path" 'select(.event == "audit.packet.generated" and .detail == $audit_packet_path)' \
+    "$TEST_ROOT/toolkit/sessions/readiness-op/ledger.ndjson"
 }
 
 @test "atlas operation close can force closure with readiness snapshot" {
