@@ -187,6 +187,11 @@ The near-term roadmap is:
     manifest SHA-256, and `atlas op audit-verify` checks it alongside the
     ledger anchor so file-level closeout tampering is visible even without a
     new ledger event.
+27. Add operation archive snapshots. `atlas op archive` now renders a read-only
+    final archive snapshot with readiness, freshness, closeout verification,
+    audit packet verification, ledger details, and primary artifact pointers.
+    Closeout ledger verification also tolerates later audit-packet ledger
+    events when the anchored ledger prefix is unchanged.
 
 ## First Serious Version
 

@@ -62,6 +62,7 @@ atlas op verify april-review
 atlas op audit april-review
 atlas op audit-packet april-review
 atlas op audit-verify april-review
+atlas op archive april-review
 atlas session list
 atlas loot list
 atlas intel summary
@@ -98,6 +99,7 @@ atlas op verify <name>
 atlas op audit <name>
 atlas op audit-packet <name>
 atlas op audit-verify <name>
+atlas op archive <name>
 ```
 
 `atlas target brief <target>` gives the fast operator readout: surface counts,
@@ -377,6 +379,11 @@ whether the latest packet is current or stale against later ledger events.
 mutating operation state. It verifies the recorded ledger event count and
 SHA-256 hash plus the recorded closeout manifest hash so operators can detect
 later ledger or closeout-manifest changes.
+
+`atlas op archive [name]` reads the operation without mutating state and prints
+a compact final archive snapshot. It combines close readiness, freshness states,
+closeout verification, audit packet verification, ledger details, and primary
+artifact paths so operators can see what is ready for retention in one place.
 
 ## AI Advisor
 

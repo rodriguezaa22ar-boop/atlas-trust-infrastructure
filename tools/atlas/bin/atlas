@@ -53,6 +53,9 @@ TOOL_NAME="atlas"
 # shellcheck source=../lib/audit.sh
 . "$TOOL_DIR/lib/audit.sh"
 # shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/archive.sh
+. "$TOOL_DIR/lib/archive.sh"
+# shellcheck source-path=SCRIPTDIR
 # shellcheck source=../lib/advisor.sh
 . "$TOOL_DIR/lib/advisor.sh"
 # shellcheck source-path=SCRIPTDIR
@@ -129,6 +132,7 @@ quick flow:
   atlas op audit [name]
   atlas op audit-packet [name] [packet-name]
   atlas op audit-verify [name] [audit-packet]
+  atlas op archive [name]
   atlas op close [name] [--force]
 
 targets:
@@ -161,6 +165,7 @@ operations:
   atlas op audit [name]
   atlas op audit-packet [name] [packet-name]
   atlas op audit-verify [name] [audit-packet]
+  atlas op archive [name]
   atlas op next
   atlas op close [name] [--force]
   atlas op recon <workflow> [interface]
@@ -2082,6 +2087,10 @@ op)
 	audit-verify)
 		shift
 		cmd_op_audit_verify "$@"
+		;;
+	archive)
+		shift
+		cmd_op_archive "$@"
 		;;
 	next)
 		shift

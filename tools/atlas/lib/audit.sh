@@ -75,8 +75,13 @@ atlas_audit_hash_anchor_problem_count() {
   fi
 
   path="$(atlas_closeout_anchor_path "$line")"
+  if [ -z "$path" ]; then
+    printf '0\n'
+    return 0
+  fi
+
   expected_sha="$(atlas_closeout_anchor_token "$line" "sha256")"
-  if [ -z "$path" ] || [ -z "$expected_sha" ] || [ ! -f "$path" ]; then
+  if [ -z "$expected_sha" ] || [ ! -f "$path" ]; then
     printf '1\n'
     return 0
   fi
@@ -94,9 +99,7 @@ atlas_audit_ledger_anchor_problem_count() {
   local line
   local path
   local expected_events
-  local actual_events
   local expected_sha
-  local actual_sha
 
   line="$(atlas_closeout_manifest_anchor_line "$manifest_file" "Operation ledger")"
   if [ -z "$line" ]; then
@@ -112,9 +115,7 @@ atlas_audit_ledger_anchor_problem_count() {
     return 0
   fi
 
-  actual_events="$(atlas_closeout_ledger_event_count "$path")"
-  actual_sha="$(atlas_closeout_sha_for_file "$path")"
-  if [ "$actual_events" = "$expected_events" ] && [ "$actual_sha" = "$expected_sha" ]; then
+  if atlas_closeout_ledger_anchor_matches "$path" "$expected_events" "$expected_sha"; then
     printf '0\n'
   else
     printf '1\n'

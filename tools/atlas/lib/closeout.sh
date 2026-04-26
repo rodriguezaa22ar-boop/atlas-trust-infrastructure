@@ -312,6 +312,66 @@ atlas_closeout_verify_hash_anchor() {
   fi
 }
 
+atlas_closeout_numeric_token() {
+  local value="$1"
+
+  case "$value" in
+  "" | *[!0-9]*)
+    return 1
+    ;;
+  *)
+    return 0
+    ;;
+  esac
+}
+
+atlas_closeout_ledger_prefix_sha() {
+  local ledger_file="$1"
+  local event_count="$2"
+
+  atlas_closeout_numeric_token "$event_count" || return 1
+  head -n "$event_count" "$ledger_file" | sha256sum | awk '{ print $1 }'
+}
+
+atlas_closeout_disallowed_later_ledger_events() {
+  local ledger_file="$1"
+  local expected_events="$2"
+
+  atlas_closeout_numeric_token "$expected_events" || return 1
+  tail -n +"$((expected_events + 1))" "$ledger_file" |
+    jq -r 'select((.event // "") != "audit.packet.generated") | (.event // "?")' |
+    sort -u |
+    paste -sd, -
+}
+
+atlas_closeout_ledger_anchor_matches() {
+  local path="$1"
+  local expected_events="$2"
+  local expected_sha="$3"
+  local actual_events
+  local actual_sha
+  local prefix_sha
+  local disallowed_events
+
+  [ -f "$path" ] || return 1
+  atlas_closeout_numeric_token "$expected_events" || return 1
+
+  actual_events="$(atlas_closeout_ledger_event_count "$path")"
+  actual_sha="$(atlas_closeout_sha_for_file "$path")"
+  if [ "$actual_events" = "$expected_events" ] && [ "$actual_sha" = "$expected_sha" ]; then
+    return 0
+  fi
+
+  atlas_closeout_numeric_token "$actual_events" || return 1
+  [ "$actual_events" -gt "$expected_events" ] || return 1
+
+  prefix_sha="$(atlas_closeout_ledger_prefix_sha "$path" "$expected_events")"
+  [ "$prefix_sha" = "$expected_sha" ] || return 1
+
+  disallowed_events="$(atlas_closeout_disallowed_later_ledger_events "$path" "$expected_events")"
+  [ -z "$disallowed_events" ]
+}
+
 atlas_closeout_verify_ledger_anchor() {
   local manifest_file="$1"
   local line
@@ -320,6 +380,8 @@ atlas_closeout_verify_ledger_anchor() {
   local actual_events
   local expected_sha
   local actual_sha
+  local prefix_sha
+  local disallowed_events
 
   line="$(atlas_closeout_manifest_anchor_line "$manifest_file" "Operation ledger")"
   if [ -z "$line" ]; then
@@ -348,6 +410,18 @@ atlas_closeout_verify_ledger_anchor() {
   if [ "$actual_events" = "$expected_events" ] && [ "$actual_sha" = "$expected_sha" ]; then
     atlas_closeout_verify_row "Operation Ledger" "verified" "$path" "events=$actual_events"
     ATLAS_CLOSEOUT_VERIFY_VERIFIED=$((ATLAS_CLOSEOUT_VERIFY_VERIFIED + 1))
+  elif atlas_closeout_numeric_token "$expected_events" &&
+    atlas_closeout_numeric_token "$actual_events" &&
+    [ "$actual_events" -gt "$expected_events" ]; then
+    prefix_sha="$(atlas_closeout_ledger_prefix_sha "$path" "$expected_events")"
+    disallowed_events="$(atlas_closeout_disallowed_later_ledger_events "$path" "$expected_events")"
+    if [ "$prefix_sha" = "$expected_sha" ] && [ -z "$disallowed_events" ]; then
+      atlas_closeout_verify_row "Operation Ledger" "verified" "$path" "events=$actual_events anchored_events=$expected_events later_audit_events=$((actual_events - expected_events))"
+      ATLAS_CLOSEOUT_VERIFY_VERIFIED=$((ATLAS_CLOSEOUT_VERIFY_VERIFIED + 1))
+    else
+      atlas_closeout_verify_row "Operation Ledger" "changed" "$path" "expected_events=$expected_events actual_events=$actual_events expected_sha=$expected_sha actual_sha=$actual_sha disallowed_later_events=${disallowed_events:-none}"
+      ATLAS_CLOSEOUT_VERIFY_PROBLEMS=$((ATLAS_CLOSEOUT_VERIFY_PROBLEMS + 1))
+    fi
   else
     atlas_closeout_verify_row "Operation Ledger" "changed" "$path" "expected_events=$expected_events actual_events=$actual_events expected_sha=$expected_sha actual_sha=$actual_sha"
     ATLAS_CLOSEOUT_VERIFY_PROBLEMS=$((ATLAS_CLOSEOUT_VERIFY_PROBLEMS + 1))

@@ -61,6 +61,7 @@ teardown() {
   [[ "$output" == *"atlas op audit [name]"* ]]
   [[ "$output" == *"atlas op audit-packet [name] [packet-name]"* ]]
   [[ "$output" == *"atlas op audit-verify [name] [audit-packet]"* ]]
+  [[ "$output" == *"atlas op archive [name]"* ]]
   [[ "$output" == *"atlas op close [name] [--force]"* ]]
   [[ "$output" == *"atlas target brief <target>"* ]]
 }
@@ -985,6 +986,80 @@ EOF
   [[ "$output" == *"changed"* ]]
   [[ "$output" == *"Verification Status: attention-required"* ]]
   [[ "$output" == *"Verification Problems: 2"* ]]
+}
+
+@test "atlas operation archive summarizes final verification state" {
+  mkdir -p "$TEST_ROOT/toolkit/targets"
+  cat > "$TEST_ROOT/toolkit/targets/demo-node.env" <<'EOF'
+NAME=demo-node
+ADDRESS=10.10.10.10
+SCOPE_STATUS=in-scope
+CRITICALITY=high
+CREATED_AT=2026-04-23T20:53:16Z
+EOF
+  artifact="$TEST_ROOT/archive-artifact.txt"
+  printf 'archive-ready evidence reference\n' > "$artifact"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op start archive-op demo-node authorized archive review
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence add "$artifact" --kind scan-output --classification public
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op report archive-op archive-report
+  [ "$status" -eq 0 ]
+  report_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "report" { print $2; exit }')"
+  [ -f "$report_path" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence bundle archive-bundle
+  [ "$status" -eq 0 ]
+  bundle_dir="$(printf '%s\n' "$output" | awk -F': ' '$1 == "bundle" { print $2; exit }')"
+  [ -d "$bundle_dir" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op handoff archive-op archive-handoff
+  [ "$status" -eq 0 ]
+  handoff_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "handoff" { print $2; exit }')"
+  [ -f "$handoff_path" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op close archive-op
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op closeout archive-op archive-closeout
+  [ "$status" -eq 0 ]
+  closeout_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "closeout" { print $2; exit }')"
+  [ -f "$closeout_path" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op audit-packet archive-op archive-audit
+  [ "$status" -eq 0 ]
+  audit_packet_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "audit_packet" { print $2; exit }')"
+  [ -f "$audit_packet_path" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op verify archive-op
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Operation Ledger"* ]]
+  [[ "$output" == *"later_audit_events=1"* ]]
+  [[ "$output" == *"Verification Status: verified"* ]]
+
+  archive_events_before="$(wc -l < "$TEST_ROOT/toolkit/sessions/archive-op/ledger.ndjson" | tr -d ' ')"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op archive archive-op
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Operation Archive Snapshot"* ]]
+  [[ "$output" == *"Archive Status: current"* ]]
+  [[ "$output" == *"Next Archive Step: Archive snapshot is current."* ]]
+  [[ "$output" == *"Report Freshness: current"* ]]
+  [[ "$output" == *"Bundle Freshness: current"* ]]
+  [[ "$output" == *"Handoff Freshness: current"* ]]
+  [[ "$output" == *"Closeout Freshness: current"* ]]
+  [[ "$output" == *"Audit Packet Freshness: current"* ]]
+  [[ "$output" == *"Closeout Verification: verified"* ]]
+  [[ "$output" == *"Audit Packet Verification: verified"* ]]
+  [[ "$output" == *"$report_path"* ]]
+  [[ "$output" == *"$bundle_dir"* ]]
+  [[ "$output" == *"$handoff_path"* ]]
+  [[ "$output" == *"$closeout_path"* ]]
+  [[ "$output" == *"$audit_packet_path"* ]]
+  archive_events_after="$(wc -l < "$TEST_ROOT/toolkit/sessions/archive-op/ledger.ndjson" | tr -d ' ')"
+  [ "$archive_events_after" = "$archive_events_before" ]
 }
 
 @test "atlas operation close can force closure with readiness snapshot" {
