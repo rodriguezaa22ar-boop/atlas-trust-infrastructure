@@ -22,6 +22,7 @@ atlas profile show htb-starting-point
 atlas scope status
 atlas approval grant safe-validation "approved bounded validation"
 atlas evidence add ./artifact.txt --kind scan-output
+atlas evidence redact ev_... ./artifact-redacted.txt
 atlas evidence list
 atlas evidence show ev_...
 atlas finding add "SSH reachable" --level observed --severity low --evidence ev_...
@@ -173,13 +174,16 @@ target before it mutates state.
 ```bash
 atlas evidence hash ./artifact.txt
 atlas evidence add ./artifact.txt --kind scan-output
+atlas evidence redact ev_20260425T200000Z ./artifact-redacted.txt
 atlas evidence list
 atlas evidence show ev_20260425T200000Z
 ```
 
-The first implementation is intentionally small: IDs, copied artifacts, hashes,
-classification labels, redaction flags, and an operation-owned index. Redaction,
-bundles, and finding links come later.
+The implementation keeps original artifacts immutable, then appends redaction
+metadata when `atlas evidence redact <id> <redacted-path>` is used. The
+redacted derivative is copied under the evidence record, hashed, linked to the
+original evidence ID, and logged with an `artifact.redacted` ledger event.
+Bundles come later.
 
 ## Findings
 
@@ -281,8 +285,10 @@ atlas advisor brief
 atlas advisor prompt advisor-op advisor-packet
 ```
 
-The advisor flags unredacted non-public evidence before external handoff and
-keeps suggested execution routed through explicit Atlas commands.
+The advisor flags unredacted non-public evidence before external handoff. Once
+a redacted derivative is attached with `atlas evidence redact`, the advisor
+keeps the original hash trail while marking the metadata packet ready for
+review. Suggested execution stays routed through explicit Atlas commands.
 
 ## Demos
 

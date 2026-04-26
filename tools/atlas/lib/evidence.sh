@@ -109,6 +109,79 @@ atlas_evidence_append_record() {
     }' >>"$index_file"
 }
 
+atlas_evidence_latest_record() {
+  local evidence_id="$1"
+  local index_file
+
+  index_file="$(atlas_evidence_index_file "$ATLAS_OP_DIR")"
+  [ -s "$index_file" ] || return 1
+
+  jq -sr \
+    --arg evidence_id "$evidence_id" '
+      map(select(.id == $evidence_id))
+      | last // empty
+    ' "$index_file"
+}
+
+atlas_evidence_append_redaction_record() {
+  local id="$1"
+  local target="$2"
+  local kind="$3"
+  local source_path="$4"
+  local stored_path="$5"
+  local sha256="$6"
+  local classification="$7"
+  local created_at="$8"
+  local redacted_source_path="$9"
+  local redacted_path="${10}"
+  local redacted_sha256="${11}"
+  local redaction_note="${12}"
+  local index_file
+
+  intel_require_jq
+
+  index_file="$(atlas_evidence_index_file "$ATLAS_OP_DIR")"
+  : >>"$index_file"
+  chmod 600 "$index_file" 2>/dev/null || true
+
+  jq -cn \
+    --arg id "$id" \
+    --arg operation "$ATLAS_OP_SLUG" \
+    --arg target "$target" \
+    --arg kind "$kind" \
+    --arg source_tool "atlas" \
+    --arg source_path "$source_path" \
+    --arg path "$stored_path" \
+    --arg sha256 "$sha256" \
+    --arg created_at "$created_at" \
+    --arg updated_at "$(timestamp)" \
+    --arg classification "$classification" \
+    --arg redacted_source_path "$redacted_source_path" \
+    --arg redacted_path "$redacted_path" \
+    --arg redacted_sha256 "$redacted_sha256" \
+    --arg redacted_at "$(timestamp)" \
+    --arg redaction_note "$redaction_note" \
+    '{
+      id: $id,
+      operation: $operation,
+      target: $target,
+      kind: $kind,
+      source_tool: $source_tool,
+      source_path: $source_path,
+      path: $path,
+      sha256: $sha256,
+      created_at: $created_at,
+      updated_at: $updated_at,
+      classification: $classification,
+      redacted: true,
+      redacted_source_path: $redacted_source_path,
+      redacted_path: $redacted_path,
+      redacted_sha256: $redacted_sha256,
+      redacted_at: $redacted_at,
+      redaction_note: $redaction_note
+    }' >>"$index_file"
+}
+
 cmd_evidence_hash() {
   need_args 1 "$#" "evidence hash <path>"
   local path="$1"
@@ -201,6 +274,106 @@ cmd_evidence_add() {
   printf 'path: %s\n' "$destination"
 }
 
+cmd_evidence_redact() {
+  need_args 2 "$#" "evidence redact <id> <redacted-path> [--classification label] [--note text]"
+  local evidence_id="$1"
+  local redacted_source_path="$2"
+  local classification=""
+  local note=""
+  local record
+  local output
+  local operation
+  local target
+  local kind
+  local source_path
+  local stored_path
+  local sha256
+  local classification_from_record
+  local created_at
+  local redacted_root
+  local file_name
+  local relative_path
+  local destination
+  local redacted_sha256
+  local copied_sha256
+
+  shift 2
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+    --classification)
+      need_args 2 "$#" "evidence redact <id> <redacted-path> --classification <label>"
+      classification="$2"
+      shift 2
+      ;;
+    --note)
+      need_args 2 "$#" "evidence redact <id> <redacted-path> --note <text>"
+      note="$2"
+      shift 2
+      ;;
+    *)
+      fail "unknown evidence redact option: $1"
+      ;;
+    esac
+  done
+
+  [ -f "$redacted_source_path" ] || fail "redacted evidence path is not a file: $redacted_source_path"
+
+  load_active_operation
+  record="$(atlas_evidence_latest_record "$evidence_id" || true)"
+  [ -n "$record" ] || fail "unknown evidence: $evidence_id"
+
+  output="$(
+    printf '%s\n' "$record" |
+      jq -r '
+        [
+          (.operation // ""),
+          (.target // ""),
+          (.kind // ""),
+          (.source_path // ""),
+          (.path // ""),
+          (.sha256 // ""),
+          (.classification // "internal"),
+          (.created_at // "")
+        ]
+        | @tsv
+      '
+  )"
+  IFS=$'\t' read -r operation target kind source_path stored_path sha256 classification_from_record created_at <<<"$output"
+
+  if [ "$operation" != "$ATLAS_OP_SLUG" ]; then
+    fail "evidence '$evidence_id' does not belong to active operation '$ATLAS_OP_SLUG'"
+  fi
+  [ -n "$classification" ] || classification="$classification_from_record"
+  atlas_scope_preflight "read-only" "atlas" "$target" "attach redacted evidence artifact"
+
+  redacted_root="$ATLAS_OP_DIR/evidence/$evidence_id/redacted"
+  mkdir -p "$redacted_root"
+  chmod 700 "$redacted_root" 2>/dev/null || true
+
+  file_name="$(atlas_evidence_safe_name "$redacted_source_path")"
+  if [ -e "$redacted_root/$file_name" ]; then
+    file_name="$(date -u +%Y%m%dT%H%M%SZ)-$file_name"
+  fi
+  relative_path="evidence/$evidence_id/redacted/$file_name"
+  destination="$ATLAS_OP_DIR/$relative_path"
+
+  redacted_sha256="$(atlas_evidence_hash_path "$redacted_source_path")"
+  cp -- "$redacted_source_path" "$destination"
+  chmod 600 "$destination" 2>/dev/null || true
+  copied_sha256="$(atlas_evidence_hash_path "$destination")"
+  [ "$redacted_sha256" = "$copied_sha256" ] || fail "redacted evidence copy integrity check failed"
+
+  atlas_evidence_append_redaction_record "$evidence_id" "$target" "$kind" "$source_path" "$stored_path" "$sha256" "$classification" "$created_at" "$redacted_source_path" "$relative_path" "$redacted_sha256" "$note"
+  atlas_ledger_append_current "artifact.redacted" "read-only" "atlas" "ok" "evidence=$evidence_id redacted_sha256=$redacted_sha256 path=$relative_path"
+
+  ui_ok "evidence redacted"
+  printf 'id: %s\n' "$evidence_id"
+  printf 'target: %s\n' "$target"
+  printf 'classification: %s\n' "$classification"
+  printf 'redacted_sha256: %s\n' "$redacted_sha256"
+  printf 'redacted_path: %s\n' "$destination"
+}
+
 cmd_evidence_list() {
   local index_file
 
@@ -219,35 +392,57 @@ cmd_evidence_list() {
     return 0
   fi
 
-  jq -r '
+  jq -sr '
+    reduce .[] as $record ({}; .[$record.id] = $record)
+    | [.[]]
+    | sort_by(.created_at, .id)
+    | reverse
+    | .[]
+    |
     [
       (.id // "?"),
       (.created_at // "?"),
       (.kind // "?"),
       (.target // "?"),
+      (.classification // "?"),
+      ((.redacted // false) | tostring),
       (.sha256 // "?"),
       (.path // "?")
     ]
     | @tsv
   ' "$index_file" |
-    awk -F'\t' '{ printf "%-22s %-20s %-16s %-16s %-64s %s\n", $1, $2, $3, $4, $5, $6 }'
+    awk -F'\t' '{ printf "%-22s %-20s %-16s %-16s %-14s %-8s %-64s %s\n", $1, $2, $3, $4, $5, $6, $7, $8 }'
 }
 
 cmd_evidence_show() {
   need_args 1 "$#" "evidence show <id>"
   local evidence_id="$1"
   local index_file
+  local record
   local output
+  local operation
+  local target
+  local kind
+  local classification
+  local redacted
+  local sha256
+  local path
+  local created_at
+  local redacted_path
+  local redacted_sha256
+  local redacted_at
+  local redaction_note
 
   load_active_operation
   index_file="$(atlas_evidence_index_file "$ATLAS_OP_DIR")"
   [ -s "$index_file" ] || fail "unknown evidence: $evidence_id"
+  record="$(atlas_evidence_latest_record "$evidence_id" || true)"
+  [ -n "$record" ] || fail "unknown evidence: $evidence_id"
 
   output="$(
-    jq -r \
-      --arg evidence_id "$evidence_id" '
-        select(.id == $evidence_id)
-        | [
+    printf '%s\n' "$record" |
+      jq -r '
+        [
           (.id // "?"),
           (.operation // "?"),
           (.target // "?"),
@@ -256,15 +451,18 @@ cmd_evidence_show() {
           ((.redacted // false) | tostring),
           (.sha256 // "?"),
           (.path // "?"),
-          (.created_at // "?")
+          (.created_at // "?"),
+          (.redacted_path // ""),
+          (.redacted_sha256 // ""),
+          (.redacted_at // ""),
+          (.redaction_note // "")
         ]
         | @tsv
-      ' "$index_file" |
-      head -n 1
+      '
   )"
   [ -n "$output" ] || fail "unknown evidence: $evidence_id"
 
-  IFS=$'\t' read -r evidence_id operation target kind classification redacted sha256 path created_at <<<"$output"
+  IFS=$'\t' read -r evidence_id operation target kind classification redacted sha256 path created_at redacted_path redacted_sha256 redacted_at redaction_note <<<"$output"
 
   ui_heading "Evidence Record"
   ui_rule
@@ -277,6 +475,18 @@ cmd_evidence_show() {
   ui_kv "SHA256" "$sha256"
   ui_kv "Path" "$ATLAS_OP_DIR/$path"
   ui_kv "Created" "$created_at"
+  if [ -n "$redacted_path" ]; then
+    ui_kv "Redacted Path" "$ATLAS_OP_DIR/$redacted_path"
+  fi
+  if [ -n "$redacted_sha256" ]; then
+    ui_kv "Redacted SHA256" "$redacted_sha256"
+  fi
+  if [ -n "$redacted_at" ]; then
+    ui_kv "Redacted At" "$redacted_at"
+  fi
+  if [ -n "$redaction_note" ]; then
+    ui_kv "Redaction Note" "$redaction_note"
+  fi
 }
 
 atlas_evidence_count_for_target() {
@@ -291,7 +501,9 @@ atlas_evidence_count_for_target() {
 
   jq -sr \
     --arg target "$target" '
-      map(select($target == "" or .target == $target))
+      reduce .[] as $record ({}; .[$record.id] = $record)
+      | [.[]]
+      | map(select($target == "" or .target == $target))
       | length
     ' "$index_file"
 }
@@ -309,8 +521,10 @@ atlas_evidence_rows_for_target() {
   jq -sr \
     --arg target "$target" \
     --argjson limit "$limit" '
-      map(select($target == "" or .target == $target))
-      | sort_by(.created_at)
+      reduce .[] as $record ({}; .[$record.id] = $record)
+      | [.[]]
+      | map(select($target == "" or .target == $target))
+      | sort_by(.created_at, .id)
       | reverse
       | .[:$limit]
       | .[]
@@ -318,6 +532,7 @@ atlas_evidence_rows_for_target() {
           (.id // "?"),
           (.kind // "?"),
           (.classification // "?"),
+          ((.redacted // false) | tostring),
           (.sha256 // "?"),
           (.path // "?")
         ]
@@ -333,7 +548,7 @@ atlas_evidence_print_table_for_target() {
 
   output="$(
     atlas_evidence_rows_for_target "$target" "$limit" |
-      awk -F'\t' '{ printf "%-22s %-16s %-14s %-20s %s\n", $1, $2, $3, substr($4, 1, 20), $5 }'
+      awk -F'\t' '{ printf "%-22s %-16s %-14s %-8s %-20s %s\n", $1, $2, $3, $4, substr($5, 1, 20), $6 }'
   )"
 
   if [ -n "$output" ]; then

@@ -11,7 +11,9 @@ atlas_advisor_evidence_counts() {
 
   jq -sr \
     --arg target "$ATLAS_OP_TARGET" '
-      map(select(.target == $target)) as $records
+      reduce .[] as $record ({}; .[$record.id] = $record)
+      | [.[]]
+      | map(select(.target == $target)) as $records
       | [
           ($records | length),
           ($records | map(select((.redacted // false) == true)) | length),

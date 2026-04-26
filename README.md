@@ -206,6 +206,8 @@ Atlas now also exposes the operator-level story and reporting layer:
 - `atlas op show [name]`: operation scope, allowed actions, out-of-scope
   actions, and tracked artifacts
 - `atlas evidence add <path>`: operation-owned artifact copy with SHA-256 index
+- `atlas evidence redact <id> <redacted-path>`: attach a redacted derivative
+  while preserving original evidence hashes
 - `atlas finding add <title>`: observed, inferred, or validated finding record
 - `atlas validation plan <lane>`: plan, approve, and run bounded validation
 - `atlas op brief`: operation summary with evidence, findings, and validation counts

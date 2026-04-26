@@ -69,6 +69,7 @@ usage:
   atlas approval grant <capability> <reason...>
   atlas approval list
   atlas evidence add <path> [--kind kind]
+  atlas evidence redact <id> <redacted-path>
   atlas evidence list
   atlas evidence show <id>
   atlas evidence hash <path>
@@ -192,6 +193,7 @@ approvals:
 
 evidence:
   atlas evidence add <path> [--kind kind] [--target target] [--classification label] [--redacted true|false]
+  atlas evidence redact <id> <redacted-path> [--classification label] [--note text]
   atlas evidence list
   atlas evidence show <id>
   atlas evidence hash <path>
@@ -1756,6 +1758,10 @@ evidence)
 	add)
 		shift
 		cmd_evidence_add "$@"
+		;;
+	redact)
+		shift
+		cmd_evidence_redact "$@"
 		;;
 	show)
 		shift

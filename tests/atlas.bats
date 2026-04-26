@@ -27,6 +27,7 @@ teardown() {
   [[ "$output" == *"atlas doctor"* ]]
   [[ "$output" == *"atlas scope status"* ]]
   [[ "$output" == *"atlas evidence add <path> [--kind kind]"* ]]
+  [[ "$output" == *"atlas evidence redact <id> <redacted-path>"* ]]
   [[ "$output" == *"atlas finding add <title> [--level observed|inferred|validated]"* ]]
   [[ "$output" == *"atlas validation plan <lane> [--finding id] [--evidence id]"* ]]
   [[ "$output" == *"atlas advisor brief [name]"* ]]
@@ -498,6 +499,17 @@ EOF
     --arg packet_path "$packet_path" \
     'select(.event == "advisor.packet.generated" and .detail == $packet_path)' \
     "$TEST_ROOT/toolkit/sessions/advisor-op/ledger.ndjson"
+
+  redacted_artifact="$TEST_ROOT/advisor-artifact-redacted.txt"
+  printf 'ssh reachable from redacted test node\n' > "$redacted_artifact"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence redact "$evidence_id" "$redacted_artifact" --note "removed operator host detail"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"evidence redacted"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" advisor brief
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Evidence Redaction: total=1, redacted=1, unredacted=0, non_public=1, review_required=0"* ]]
+  [[ "$output" == *"recorded evidence metadata is ready for advisor review"* ]]
 }
 
 @test "atlas evidence vault copies, hashes, indexes, and enforces scope" {
@@ -549,14 +561,42 @@ EOF
   [[ "$output" == *"SHA256: $expected_sha"* ]]
   [[ "$output" == *"Redacted: false"* ]]
 
+  redacted_artifact="$TEST_ROOT/artifact-redacted.txt"
+  printf 'authorized evidence artifact with sensitive fields removed\n' > "$redacted_artifact"
+  redacted_sha="$(sha256sum "$redacted_artifact" | awk '{ print $1 }')"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence redact "$evidence_id" "$redacted_artifact" --classification internal --note "removed target-specific detail"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"evidence redacted"* ]]
+  [[ "$output" == *"id: $evidence_id"* ]]
+  [[ "$output" == *"redacted_sha256: $redacted_sha"* ]]
+  redacted_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "redacted_path" { print $2; exit }')"
+  [ -f "$redacted_path" ]
+  [ "$(sha256sum "$redacted_path" | awk '{ print $1 }')" = "$redacted_sha" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence show "$evidence_id"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Redacted: true"* ]]
+  [[ "$output" == *"Redacted SHA256: $redacted_sha"* ]]
+  [[ "$output" == *"Redaction Note: removed target-specific detail"* ]]
+
   jq -e \
     --arg evidence_id "$evidence_id" \
     --arg sha256 "$expected_sha" \
     'select(.id == $evidence_id and .sha256 == $sha256 and .kind == "scan-output" and .target == "demo-node")' \
     "$TEST_ROOT/toolkit/sessions/evidence-op/evidence.ndjson"
+  jq -sr \
+    --arg evidence_id "$evidence_id" \
+    --arg redacted_sha "$redacted_sha" \
+    'map(select(.id == $evidence_id)) | last | select(.redacted == true and .redacted_sha256 == $redacted_sha)' \
+    "$TEST_ROOT/toolkit/sessions/evidence-op/evidence.ndjson"
   jq -e \
     --arg evidence_id "$evidence_id" \
     'select(.event == "artifact.created" and (.detail | contains($evidence_id)))' \
+    "$TEST_ROOT/toolkit/sessions/evidence-op/ledger.ndjson"
+  jq -e \
+    --arg evidence_id "$evidence_id" \
+    'select(.event == "artifact.redacted" and (.detail | contains($evidence_id)))' \
     "$TEST_ROOT/toolkit/sessions/evidence-op/ledger.ndjson"
 
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence add "$artifact" --target other-node --kind scan-output

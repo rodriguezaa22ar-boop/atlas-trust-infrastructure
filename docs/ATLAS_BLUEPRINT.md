@@ -117,7 +117,8 @@ The near-term roadmap is:
 4. Add an append-only operation ledger. The first `ledger.ndjson` stream is
    implemented for operation lifecycle, preflight, report, and tool events.
 5. Add an Evidence Vault with IDs and SHA-256 hashes. The first
-   operation-owned add/list/show/hash flow is implemented.
+   operation-owned add/list/show/hash flow is implemented, with append-only
+   redaction metadata for redacted derivatives.
 6. Strengthen target story around evidence, unknowns, and next safe steps.
    `atlas target brief`, `atlas target story`, `atlas op brief`, and reports
    now include an operator brief with surface counts, evidence/finding/
