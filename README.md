@@ -25,7 +25,7 @@ The design goal is simple:
 - `tools/`: native tool modules you author
 - `targets/`: target records
 - `sessions/`: per-session workspaces
-- `reports/`: generated report stubs
+- `reports/`: generated operation reports
 - `logs/`: operator-side logs
 - `state/`: shared state, run history, and cross-tool intel
 
@@ -50,14 +50,21 @@ Useful commands:
 ./bin/labctl tool list
 ./bin/labctl release build usb-slim egress-check
 ./bin/intelctl summary
+./tools/atlas/bin/atlas doctor
+./tools/atlas/bin/atlas v1 status --strict
+./tools/atlas/bin/atlas v1 status --json
 ./tools/atlas/bin/atlas profile list
 ./tools/atlas/bin/atlas profile show htb-starting-point
+./tools/atlas/bin/atlas target update edge-router --scope-status in-scope --criticality high --tag lab
 ./tools/atlas/bin/atlas target story 10.0.0.8
 ./tools/atlas/bin/atlas target next 10.0.0.8
 ./tools/atlas/bin/atlas op start --profile htb-starting-point april-review 10.0.0.8 bounded review
 ./tools/atlas/bin/atlas op show april-review
 ./tools/atlas/bin/atlas op action candidates
 ./tools/atlas/bin/atlas op report april-review
+./tools/atlas/bin/atlas op readiness april-review
+./tools/atlas/bin/atlas op audit april-review
+./tools/atlas/bin/atlas op archive april-review
 ./tools/atlas/bin/atlas story demo-web-app
 ./tools/wiremap/bin/wiremap workflow run perimeter-sweep 10.0.0.8
 ./tools/wiremap/bin/wiremap capture creds ./state/wiremap-runs/<run>
@@ -133,8 +140,10 @@ Atlas is the operator control plane for authorized security assessment work.
 The near-term product direction is captured in
 [docs/ATLAS_BLUEPRINT.md](./docs/ATLAS_BLUEPRINT.md): keep Atlas as the
 single front door, split its internals into focused modules, and build the next
-foundation in this order: doctor, scope, ledger, evidence, findings, reports,
-validation, then AI advisor.
+foundation through doctor, scope, ledger, evidence, findings, validation,
+reports, advisor, exposure-cycle views, retention packets, and v1 readiness
+checks. The current v1 pillar contract is captured in
+[docs/atlas/V1_PILLAR_READINESS.md](./docs/atlas/V1_PILLAR_READINESS.md).
 
 ## Safety Boundary
 
