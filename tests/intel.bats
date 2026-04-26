@@ -28,6 +28,7 @@ teardown() {
 EOF
   cat > "$TEST_ROOT/toolkit/state/intel/entities.jsonl" <<'EOF'
 {"observed_at":"2026-04-24T00:00:01Z","entity_type":"host","entity_id":"host:10.0.0.8","target":"10.0.0.8","attributes":{"address":"10.0.0.8"}}
+{"observed_at":"2026-04-24T00:00:01Z","entity_type":"service","entity_id":"service:10.0.0.8:22/tcp","target":"10.0.0.8","attributes":{"portproto":"22/tcp","service":"ssh","detail":"OpenSSH 9.7"}}
 EOF
   cat > "$TEST_ROOT/toolkit/state/intel/outcomes.jsonl" <<'EOF'
 {"recorded_at":"2026-04-24T00:00:02Z","source_tool":"wiremap","source_name":"perimeter-sweep","target":"10.0.0.8","status":"success","service_count":1,"web_surface_count":0,"lateral_surface_count":1}
@@ -69,6 +70,25 @@ EOF
   [[ "$output" == *"format: dot"* ]]
   [ -f "$graph_path" ]
   grep -q 'host-exposes-service' "$graph_path"
+
+  run "$TEST_ROOT/toolkit/bin/intelctl" paths 10.0.0.8
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Intel Paths"* ]]
+  [[ "$output" == *"host 10.0.0.8"* ]]
+  [[ "$output" == *"host-exposes-service"* ]]
+  [[ "$output" == *"service 22/tcp ssh OpenSSH 9.7"* ]]
+
+  run "$TEST_ROOT/toolkit/bin/intelctl" paths 10.0.0.8 --format ndjson
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" |
+    jq -e 'select(.record_type == "path" and .path == ["host:10.0.0.8", "service:10.0.0.8:22/tcp"] and .relationships == ["host-exposes-service"])'
+
+  paths_path="$TEST_ROOT/paths.ndjson"
+  run "$TEST_ROOT/toolkit/bin/intelctl" paths 10.0.0.8 --format ndjson --output "$paths_path"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"paths export written"* ]]
+  [ -f "$paths_path" ]
+  jq -e 'select(.record_type == "path" and .relationship_type == "host-exposes-service")' "$paths_path"
 }
 
 @test "intelctl renders web posture observations and vector outcomes with useful detail" {

@@ -58,6 +58,7 @@ atlas session list
 atlas loot list
 atlas intel summary
 atlas intel graph 10.0.0.8 --format dot
+atlas intel paths 10.0.0.8
 ```
 
 ## Target-First Workflow
@@ -119,6 +120,10 @@ same scope and safety constraints as the CLI workflow.
 entity/relationship streams into a deterministic graph export. DOT is useful
 for quick visualization, while NDJSON keeps nodes and edges machine-readable
 for later graph tooling.
+
+`atlas intel paths [target] [--format text|ndjson]` renders relationship paths
+with entity labels so the operator can see host-to-service exposure without
+reading raw JSONL records.
 
 ## Doctor
 

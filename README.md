@@ -165,6 +165,7 @@ Inspect it with:
 ./bin/intelctl entities service
 ./bin/intelctl outcomes
 ./bin/intelctl graph 10.0.0.8 --format dot --output graph.dot
+./bin/intelctl paths 10.0.0.8 --format ndjson
 ```
 
 The first publisher is `wiremap`. That gives the next tool a stable shared

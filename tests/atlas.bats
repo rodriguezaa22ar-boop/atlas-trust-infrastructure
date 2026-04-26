@@ -44,6 +44,7 @@ teardown() {
   [[ "$output" == *"atlas target story <target>"* ]]
   [[ "$output" == *"atlas target update <name> [--scope-status status] [--criticality level]"* ]]
   [[ "$output" == *"atlas intel graph [target] [--format dot|ndjson]"* ]]
+  [[ "$output" == *"atlas intel paths [target] [--format text|ndjson]"* ]]
   [[ "$output" == *"atlas story demo-web-app"* ]]
   [[ "$output" == *"atlas op show [name]"* ]]
   [[ "$output" == *"atlas op story [name]"* ]]

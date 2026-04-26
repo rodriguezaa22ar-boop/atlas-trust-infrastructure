@@ -161,6 +161,8 @@ targets explicitly marked `out-of-scope`.
 The first Intel Graph slice is implemented as a read-only shared-intel graph
 export. `intelctl graph` and `atlas intel graph` project current entities and
 relationships into DOT or node/edge NDJSON without changing operation state.
+`intelctl paths` and `atlas intel paths` add a first operator path view over
+those same relationship records.
 
 That foundation can later grow into CTEM cycles, attack graph views,
 validation loops, and AI-assisted summaries without losing operator control.

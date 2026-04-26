@@ -24,6 +24,7 @@ usage:
   intelctl outcomes [target]
   intelctl relationships [target]
   intelctl graph [target] [--format dot|ndjson] [--output path]
+  intelctl paths [target] [--format text|ndjson] [--output path]
 EOF
 }
 
@@ -444,6 +445,165 @@ cmd_graph() {
 	fi
 }
 
+intel_paths_jq_program() {
+	cat <<'JQ'
+def clean: tostring | gsub("[\r\n\t]+"; " ") | gsub("^ +| +$"; "");
+def entity_label:
+  if (.entity_type // "") == "service" then
+    "service " + (.attributes.portproto // .entity_id // "?") + " " + (.attributes.service // "service") +
+    (if (.attributes.detail // "") != "" then " " + (.attributes.detail | clean) else "" end)
+  elif (.entity_type // "") == "host" then
+    "host " + (.attributes.address // .target // .entity_id // "?")
+  else
+    ((.entity_type // "entity") + " " + (.attributes.name // .target // .entity_id // "?"))
+  end;
+def filtered_entities:
+  $entities
+  | map(select($target == "" or .target == $target));
+def filtered_relationships:
+  $relationships
+  | map(select($target == "" or .target == $target));
+def entity_labels:
+  reduce filtered_entities[] as $entity ({}; .[$entity.entity_id // "?"] = ($entity | entity_label));
+def path_rows:
+  entity_labels as $labels
+  | filtered_relationships
+  | map({
+      target: (.target // ""),
+      from: (.from_entity // "?"),
+      to: (.to_entity // "?"),
+      relationship_type: (.relationship_type // "related"),
+      from_label: ($labels[.from_entity // ""] // (.from_entity // "?")),
+      to_label: ($labels[.to_entity // ""] // (.to_entity // "?")),
+      observed_at: (.observed_at // ""),
+      source_tool: (.source_tool // ""),
+      source_name: (.source_name // ""),
+      source_run_id: (.source_run_id // "")
+    })
+  | unique_by([.target, .from, .to, .relationship_type])
+  | sort_by(.target, .from, .to, .relationship_type);
+if $format == "ndjson" then
+  path_rows[]
+  | {
+      record_type: "path",
+      target: .target,
+      path: [.from, .to],
+      relationships: [.relationship_type],
+      from: .from,
+      to: .to,
+      relationship_type: .relationship_type,
+      from_label: .from_label,
+      to_label: .to_label,
+      observed_at: .observed_at,
+      source_tool: .source_tool,
+      source_name: .source_name,
+      source_run_id: .source_run_id
+    }
+else
+  path_rows[]
+  | [
+      (.target // "?"),
+      (.from // "?"),
+      (.relationship_type // "related"),
+      (.to // "?"),
+      (.from_label // (.from // "?")),
+      (.to_label // (.to // "?"))
+    ]
+  | @tsv
+end
+JQ
+}
+
+intel_paths_render() {
+	local target="$1"
+	local format="$2"
+
+	jq -nr \
+		--arg target "$target" \
+		--arg format "$format" \
+		--slurpfile entities "$LAB_INTEL_ENTITIES_FILE" \
+		--slurpfile relationships "$LAB_INTEL_RELATIONSHIPS_FILE" \
+		"$(intel_paths_jq_program)"
+}
+
+cmd_paths() {
+	local target=""
+	local format="text"
+	local output_path=""
+	local rendered
+	local output
+	local output_dir
+	local tmp
+
+	while [ "$#" -gt 0 ]; do
+		case "$1" in
+		--format)
+			need_args 2 "$#" "paths [target] --format <text|ndjson>"
+			format="$2"
+			shift 2
+			;;
+		--output)
+			need_args 2 "$#" "paths [target] --output <path>"
+			output_path="$2"
+			shift 2
+			;;
+		--target)
+			need_args 2 "$#" "paths --target <target>"
+			target="$2"
+			shift 2
+			;;
+		--*)
+			fail "unknown paths option: $1"
+			;;
+		*)
+			if [ -n "$target" ]; then
+				fail "unexpected paths argument: $1"
+			fi
+			target="$1"
+			shift
+			;;
+		esac
+	done
+
+	case "$format" in
+	text | ndjson) ;;
+	*) fail "expected paths format text or ndjson; got: $format" ;;
+	esac
+
+	rendered="$(intel_paths_render "$target" "$format")"
+	if [ "$format" = "text" ]; then
+		output="$(
+			printf '%s\n' "$rendered" |
+				awk -F'\t' 'NF > 0 { printf "%-28s --%-22s--> %s\n", $5, $3, $6 }'
+		)"
+	else
+		output="$rendered"
+	fi
+
+	if [ -n "$output_path" ]; then
+		output_dir="$(dirname "$output_path")"
+		mkdir -p "$output_dir"
+		tmp="$(mktemp)"
+		printf '%s\n' "$output" >"$tmp"
+		mv "$tmp" "$output_path"
+		ui_ok "paths export written"
+		printf 'paths: %s\n' "$output_path"
+		printf 'format: %s\n' "$format"
+		printf 'target: %s\n' "${target:-all}"
+		return 0
+	fi
+
+	if [ "$format" = "text" ]; then
+		ui_heading "Intel Paths"
+		ui_rule
+		ui_kv "Target Filter" "${target:-all}"
+		ui_rule
+		print_or_note "$output" "no matching paths found"
+	else
+		printf '%s\n' "$output"
+	fi
+}
+
 case "${1:-}" in
 summary)
 	shift
@@ -468,6 +628,10 @@ relationships)
 graph)
 	shift
 	cmd_graph "$@"
+	;;
+paths)
+	shift
+	cmd_paths "$@"
 	;;
 help | -h | --help | "")
 	usage
