@@ -23,6 +23,7 @@ usage:
   intelctl entities [entity-type] [target]
   intelctl outcomes [target]
   intelctl relationships [target]
+  intelctl graph [target] [--format dot|ndjson] [--output path]
 EOF
 }
 
@@ -278,6 +279,171 @@ cmd_relationships() {
 	print_or_note "$output" "no matching relationships found"
 }
 
+intel_graph_jq_program() {
+	cat <<'JQ'
+def clean: tostring | gsub("[\r\n\t]+"; " ") | gsub("^ +| +$"; "");
+def entity_label:
+  if (.entity_type // "") == "service" then
+    (.attributes.portproto // .entity_id // "?") + " " + (.attributes.service // "service") +
+    (if (.attributes.detail // "") != "" then " " + (.attributes.detail | clean) else "" end)
+  elif (.entity_type // "") == "host" then
+    (.attributes.address // .target // .entity_id // "?")
+  else
+    (.attributes.name // .target // .entity_id // "?")
+  end;
+def filtered_entities:
+  $entities
+  | map(select($target == "" or .target == $target));
+def filtered_relationships:
+  $relationships
+  | map(select($target == "" or .target == $target));
+def graph_nodes:
+  (
+    filtered_relationships
+    | map(.from_entity // empty, .to_entity // empty)
+    | unique
+    | map({
+        id: .,
+        entity_type: "unknown",
+        target: $target,
+        label: .,
+        attributes: {}
+      })
+  ) as $relationship_nodes
+  | (
+      filtered_entities
+      | map({
+          id: (.entity_id // "?"),
+          entity_type: (.entity_type // "entity"),
+          target: (.target // ""),
+          label: ((.entity_type // "entity") + "\n" + entity_label),
+          attributes: (.attributes // {})
+        })
+    ) as $entity_nodes
+  | reduce ($relationship_nodes + $entity_nodes)[] as $node ({}; .[$node.id] = $node)
+  | [.[]]
+  | sort_by(.id);
+def graph_edges:
+  filtered_relationships
+  | map({
+      from: (.from_entity // "?"),
+      to: (.to_entity // "?"),
+      relationship_type: (.relationship_type // "related"),
+      target: (.target // ""),
+      observed_at: (.observed_at // ""),
+      source_tool: (.source_tool // ""),
+      source_name: (.source_name // ""),
+      source_run_id: (.source_run_id // "")
+    })
+  | unique_by([.from, .to, .relationship_type, .target])
+  | sort_by(.from, .to, .relationship_type);
+if $format == "ndjson" then
+  (
+    graph_nodes[]
+    | {
+        record_type: "node",
+        id: .id,
+        entity_type: .entity_type,
+        target: .target,
+        label: .label,
+        attributes: .attributes
+      }
+  ),
+  (
+    graph_edges[]
+    | {
+        record_type: "edge",
+        from: .from,
+        to: .to,
+        relationship_type: .relationship_type,
+        target: .target,
+        observed_at: .observed_at,
+        source_tool: .source_tool,
+        source_name: .source_name,
+        source_run_id: .source_run_id
+      }
+  )
+else
+  "digraph intel {",
+  "  rankdir=LR;",
+  (graph_nodes[] | "  " + (.id | @json) + " [label=" + (.label | @json) + "];"),
+  (graph_edges[] | "  " + (.from | @json) + " -> " + (.to | @json) + " [label=" + (.relationship_type | @json) + "];"),
+  "}"
+end
+JQ
+}
+
+intel_graph_render() {
+	local target="$1"
+	local format="$2"
+
+	jq -nr \
+		--arg target "$target" \
+		--arg format "$format" \
+		--slurpfile entities "$LAB_INTEL_ENTITIES_FILE" \
+		--slurpfile relationships "$LAB_INTEL_RELATIONSHIPS_FILE" \
+		"$(intel_graph_jq_program)"
+}
+
+cmd_graph() {
+	local target=""
+	local format="dot"
+	local output_path=""
+	local rendered
+	local output_dir
+	local tmp
+
+	while [ "$#" -gt 0 ]; do
+		case "$1" in
+		--format)
+			need_args 2 "$#" "graph [target] --format <dot|ndjson>"
+			format="$2"
+			shift 2
+			;;
+		--output)
+			need_args 2 "$#" "graph [target] --output <path>"
+			output_path="$2"
+			shift 2
+			;;
+		--target)
+			need_args 2 "$#" "graph --target <target>"
+			target="$2"
+			shift 2
+			;;
+		--*)
+			fail "unknown graph option: $1"
+			;;
+		*)
+			if [ -n "$target" ]; then
+				fail "unexpected graph argument: $1"
+			fi
+			target="$1"
+			shift
+			;;
+		esac
+	done
+
+	case "$format" in
+	dot | ndjson) ;;
+	*) fail "expected graph format dot or ndjson; got: $format" ;;
+	esac
+
+	rendered="$(intel_graph_render "$target" "$format")"
+	if [ -n "$output_path" ]; then
+		output_dir="$(dirname "$output_path")"
+		mkdir -p "$output_dir"
+		tmp="$(mktemp)"
+		printf '%s\n' "$rendered" >"$tmp"
+		mv "$tmp" "$output_path"
+		ui_ok "graph export written"
+		printf 'graph: %s\n' "$output_path"
+		printf 'format: %s\n' "$format"
+		printf 'target: %s\n' "${target:-all}"
+	else
+		printf '%s\n' "$rendered"
+	fi
+}
+
 case "${1:-}" in
 summary)
 	shift
@@ -298,6 +464,10 @@ outcomes)
 relationships)
 	shift
 	cmd_relationships "$@"
+	;;
+graph)
+	shift
+	cmd_graph "$@"
 	;;
 help | -h | --help | "")
 	usage

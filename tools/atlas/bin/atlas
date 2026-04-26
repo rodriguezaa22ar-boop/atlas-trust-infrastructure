@@ -184,6 +184,7 @@ shared intel:
   atlas intel entities [entity-type] [target]
   atlas intel outcomes [target]
   atlas intel relationships [target]
+  atlas intel graph [target] [--format dot|ndjson]
 
 scope:
   atlas profile list
@@ -2148,7 +2149,7 @@ intel)
 	"")
 		run_intelctl summary
 		;;
-	summary | observations | entities | outcomes | relationships)
+	summary | observations | entities | outcomes | relationships | graph)
 		if [ "$#" -eq 0 ]; then
 			run_intelctl summary
 		else

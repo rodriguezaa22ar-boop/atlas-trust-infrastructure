@@ -158,5 +158,9 @@ tags in target env records. Atlas carries that metadata into operation records,
 scope snapshots, briefs, stories, and reports, and refuses operation start for
 targets explicitly marked `out-of-scope`.
 
+The first Intel Graph slice is implemented as a read-only shared-intel graph
+export. `intelctl graph` and `atlas intel graph` project current entities and
+relationships into DOT or node/edge NDJSON without changing operation state.
+
 That foundation can later grow into CTEM cycles, attack graph views,
 validation loops, and AI-assisted summaries without losing operator control.

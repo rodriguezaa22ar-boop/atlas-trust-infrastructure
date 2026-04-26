@@ -46,6 +46,29 @@ EOF
   [[ "$output" == *"host_state"* ]]
   [[ "$output" == *"service_open"* ]]
   [[ "$output" == *"perimeter-sweep"* ]]
+
+  run "$TEST_ROOT/toolkit/bin/intelctl" graph 10.0.0.8
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"digraph intel"* ]]
+  [[ "$output" == *"rankdir=LR"* ]]
+  [[ "$output" == *"host:10.0.0.8"* ]]
+  [[ "$output" == *"service:10.0.0.8:22/tcp"* ]]
+  [[ "$output" == *"host-exposes-service"* ]]
+
+  run "$TEST_ROOT/toolkit/bin/intelctl" graph 10.0.0.8 --format ndjson
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" |
+    jq -e 'select(.record_type == "node" and .id == "host:10.0.0.8" and .entity_type == "host")'
+  printf '%s\n' "$output" |
+    jq -e 'select(.record_type == "edge" and .from == "host:10.0.0.8" and .to == "service:10.0.0.8:22/tcp" and .relationship_type == "host-exposes-service")'
+
+  graph_path="$TEST_ROOT/graph.dot"
+  run "$TEST_ROOT/toolkit/bin/intelctl" graph 10.0.0.8 --output "$graph_path"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"graph export written"* ]]
+  [[ "$output" == *"format: dot"* ]]
+  [ -f "$graph_path" ]
+  grep -q 'host-exposes-service' "$graph_path"
 }
 
 @test "intelctl renders web posture observations and vector outcomes with useful detail" {

@@ -57,6 +57,7 @@ atlas op close april-review
 atlas session list
 atlas loot list
 atlas intel summary
+atlas intel graph 10.0.0.8 --format dot
 ```
 
 ## Target-First Workflow
@@ -113,6 +114,11 @@ running target-touching commands.
 packet under the operation directory for AI-assisted summarization and report
 drafting. Raw artifact contents are not included, and the packet carries the
 same scope and safety constraints as the CLI workflow.
+
+`atlas intel graph [target] [--format dot|ndjson]` projects the shared
+entity/relationship streams into a deterministic graph export. DOT is useful
+for quick visualization, while NDJSON keeps nodes and edges machine-readable
+for later graph tooling.
 
 ## Doctor
 
