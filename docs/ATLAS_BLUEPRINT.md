@@ -161,6 +161,8 @@ The near-term roadmap is:
 17. Add evidence bundle freshness checks. Readiness and handoff state now
     compare the latest bundle against evidence changes and warn when handoff
     bundles need regeneration.
+18. Add handoff freshness checks. Readiness now compares the latest handoff
+    packet against later report, bundle, and material operation changes.
 
 ## First Serious Version
 

@@ -323,11 +323,11 @@ Explicitly out of scope:
 
 `atlas op readiness [name]` is a read-only closure check. It summarizes evidence
 records, unresolved findings, planned or approved validation, report freshness,
-the latest material state change, evidence bundle freshness, and the latest
-evidence bundle. The readout returns `ready` when the operation has evidence, no
-unresolved findings, no pending validation, and a current generated report;
-evidence bundles remain optional and stale bundles are called out as a handoff
-step when needed.
+the latest material state change, evidence bundle freshness, latest handoff
+freshness, and the latest evidence bundle. The readout returns `ready` when the
+operation has evidence, no unresolved findings, no pending validation, and a
+current generated report; bundles and handoff packets remain optional and stale
+copies are called out as handoff steps when needed.
 
 `atlas op close [name]` uses the same readiness state as a close guard. If the
 operation still needs attention, close fails and prints the readiness checklist.
@@ -337,8 +337,8 @@ snapshot in the operation ledger.
 `atlas op handoff [name] [handoff-name]` writes a metadata-only Markdown packet
 under the operation directory. It links the latest report, evidence bundle,
 manifest hash, operation ledger, findings, validation plans, report freshness,
-bundle freshness, and close readiness state without embedding raw artifact
-contents.
+bundle freshness, handoff freshness, and close readiness state without embedding
+raw artifact contents.
 
 ## AI Advisor
 

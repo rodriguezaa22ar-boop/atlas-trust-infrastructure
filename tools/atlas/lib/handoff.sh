@@ -122,6 +122,7 @@ atlas_handoff_write_packet() {
     printf -- '- Pending validation: %s\n' "$ATLAS_READINESS_PENDING_VALIDATION_COUNT"
     printf -- '- Report freshness: %s\n' "$ATLAS_READINESS_REPORT_FRESHNESS"
     printf -- '- Bundle freshness: %s\n' "$ATLAS_READINESS_BUNDLE_FRESHNESS"
+    printf -- '- Handoff freshness before this packet: %s\n' "$ATLAS_READINESS_HANDOFF_FRESHNESS"
     if [ -n "$ATLAS_READINESS_LATEST_CHANGE" ]; then
       printf -- '- Latest state change: %s %s\n' "$ATLAS_READINESS_LATEST_CHANGE_AT" "$ATLAS_READINESS_LATEST_CHANGE_EVENT"
     else

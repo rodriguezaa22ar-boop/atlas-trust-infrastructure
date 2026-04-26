@@ -686,6 +686,8 @@ EOF
   [[ "$output" == *"Report Freshness: missing"* ]]
   [[ "$output" == *"Evidence Bundle: none generated yet"* ]]
   [[ "$output" == *"Bundle Freshness: missing"* ]]
+  [[ "$output" == *"Latest Handoff: none generated yet"* ]]
+  [[ "$output" == *"Handoff Freshness: missing"* ]]
   [[ "$output" == *"Close Readiness: attention-required"* ]]
   [[ "$output" == *"Resolve, accept, or retest unresolved findings before closure."* ]]
   [[ "$output" == *"$finding_id"* ]]
@@ -795,11 +797,30 @@ EOF
   grep -q 'Close readiness: ready' "$handoff_path"
   grep -q 'Report freshness: current' "$handoff_path"
   grep -q 'Bundle freshness: stale' "$handoff_path"
+  grep -q 'Handoff freshness before this packet: missing' "$handoff_path"
   grep -q "$report_path" "$handoff_path"
   grep -q "$bundle_dir" "$handoff_path"
   grep -q "$manifest_path" "$handoff_path"
   grep -q "$finding_id" "$handoff_path"
   grep -q 'Validate recipient and handling requirements' "$handoff_path"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op readiness readiness-op
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Latest Handoff:"* ]]
+  [[ "$output" == *"$handoff_path"* ]]
+  [[ "$output" == *"Handoff Freshness: current"* ]]
+
+  sleep 1
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op report readiness-op readiness-report-after-handoff
+  [ "$status" -eq 0 ]
+  report_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "report" { print $2; exit }')"
+  [ -f "$report_path" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op readiness readiness-op
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Report Freshness: current"* ]]
+  [[ "$output" == *"Handoff Freshness: stale"* ]]
+  [[ "$output" == *"Close Readiness: ready"* ]]
 
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op close readiness-op
   [ "$status" -eq 0 ]
