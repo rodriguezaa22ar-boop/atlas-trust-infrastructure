@@ -63,6 +63,7 @@ atlas op audit april-review
 atlas op audit-packet april-review
 atlas op audit-verify april-review
 atlas op archive april-review
+atlas op archive-packet april-review
 atlas session list
 atlas loot list
 atlas intel summary
@@ -100,6 +101,7 @@ atlas op audit <name>
 atlas op audit-packet <name>
 atlas op audit-verify <name>
 atlas op archive <name>
+atlas op archive-packet <name>
 ```
 
 `atlas target brief <target>` gives the fast operator readout: surface counts,
@@ -384,6 +386,12 @@ later ledger or closeout-manifest changes.
 a compact final archive snapshot. It combines close readiness, freshness states,
 closeout verification, audit packet verification, ledger details, and primary
 artifact paths so operators can see what is ready for retention in one place.
+
+`atlas op archive-packet [name] [packet-name]` writes that final archive state
+as a metadata-only Markdown packet under the operation directory. The packet
+records readiness, verification state, hashes, artifact paths, and retention
+notes without embedding raw artifacts. Archive packet ledger events do not make
+the audit packet stale when the original audit ledger prefix still verifies.
 
 ## AI Advisor
 

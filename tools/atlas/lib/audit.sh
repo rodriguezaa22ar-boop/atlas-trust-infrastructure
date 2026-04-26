@@ -407,6 +407,48 @@ atlas_audit_resolve_packet() {
   fail "unknown audit packet for operation '$ATLAS_OP_SLUG': $packet_arg"
 }
 
+atlas_audit_disallowed_later_ledger_events() {
+  local ledger_file="$1"
+  local expected_events="$2"
+
+  atlas_closeout_numeric_token "$expected_events" || return 1
+  tail -n +"$((expected_events + 1))" "$ledger_file" |
+    jq -r '
+      select((.event // "") != "archive.packet.generated")
+      | (.event // "?")
+    ' |
+    sort -u |
+    paste -sd, -
+}
+
+atlas_audit_ledger_anchor_matches() {
+  local ledger_file="$1"
+  local expected_events="$2"
+  local expected_sha="$3"
+  local actual_events
+  local actual_sha
+  local prefix_sha
+  local disallowed_events
+
+  [ -f "$ledger_file" ] || return 1
+  atlas_closeout_numeric_token "$expected_events" || return 1
+
+  actual_events="$(atlas_audit_event_count "$ledger_file")"
+  actual_sha="$(atlas_evidence_hash_path "$ledger_file")"
+  if [ "$actual_events" = "$expected_events" ] && [ "$actual_sha" = "$expected_sha" ]; then
+    return 0
+  fi
+
+  atlas_closeout_numeric_token "$actual_events" || return 1
+  [ "$actual_events" -gt "$expected_events" ] || return 1
+
+  prefix_sha="$(atlas_closeout_ledger_prefix_sha "$ledger_file" "$expected_events")"
+  [ "$prefix_sha" = "$expected_sha" ] || return 1
+
+  disallowed_events="$(atlas_audit_disallowed_later_ledger_events "$ledger_file" "$expected_events")"
+  [ -z "$disallowed_events" ]
+}
+
 atlas_audit_verify_packet() {
   local packet_file="$1"
   local packet_operation
@@ -422,6 +464,8 @@ atlas_audit_verify_packet() {
   local problems=0
   local status="verified"
   local ledger_status="verified"
+  local ledger_detail=""
+  local disallowed_events=""
   local closeout_status="not-recorded"
 
   [ -f "$packet_file" ] || fail "audit packet is not a file: $packet_file"
@@ -445,8 +489,14 @@ atlas_audit_verify_packet() {
   else
     actual_events="$(atlas_audit_event_count "$ledger_file")"
     actual_sha="$(atlas_evidence_hash_path "$ledger_file")"
-    if [ "$actual_events" != "$expected_events" ] || [ "$actual_sha" != "$expected_sha" ]; then
+    if [ "$actual_events" = "$expected_events" ] && [ "$actual_sha" = "$expected_sha" ]; then
+      ledger_detail="events=$actual_events"
+    elif atlas_audit_ledger_anchor_matches "$ledger_file" "$expected_events" "$expected_sha"; then
+      ledger_detail="events=$actual_events anchored_events=$expected_events later_archive_events=$((actual_events - expected_events))"
+    else
       ledger_status="changed"
+      disallowed_events="$(atlas_audit_disallowed_later_ledger_events "$ledger_file" "$expected_events" 2>/dev/null || true)"
+      ledger_detail="expected_events=$expected_events actual_events=$actual_events expected_sha=$expected_sha actual_sha=$actual_sha disallowed_later_events=${disallowed_events:-none}"
       problems=$((problems + 1))
     fi
   fi
@@ -479,14 +529,11 @@ atlas_audit_verify_packet() {
   ui_kv "Packet" "$packet_file"
   ui_rule
   printf '%-20s %-14s %s\n' "ARTIFACT" "STATUS" "DETAIL"
-  printf '%-20s %-14s expected_events=%s actual_events=%s expected_sha=%s actual_sha=%s ledger=%s\n' \
+  printf '%-20s %-14s ledger=%s %s\n' \
     "Operation Ledger" \
     "$ledger_status" \
-    "${expected_events:-unknown}" \
-    "${actual_events:-unknown}" \
-    "${expected_sha:-unknown}" \
-    "${actual_sha:-unknown}" \
-    "${ledger_file:-unknown}"
+    "${ledger_file:-unknown}" \
+    "${ledger_detail:-expected_events=${expected_events:-unknown} actual_events=${actual_events:-unknown} expected_sha=${expected_sha:-unknown} actual_sha=${actual_sha:-unknown}}"
   printf '%-20s %-14s expected_sha=%s actual_sha=%s manifest=%s\n' \
     "Closeout Manifest" \
     "$closeout_status" \

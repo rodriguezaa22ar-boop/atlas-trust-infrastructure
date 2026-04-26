@@ -192,6 +192,11 @@ The near-term roadmap is:
     audit packet verification, ledger details, and primary artifact pointers.
     Closeout ledger verification also tolerates later audit-packet ledger
     events when the anchored ledger prefix is unchanged.
+28. Add operation archive packets. `atlas op archive-packet` now writes the
+    final archive snapshot as a metadata-only Markdown packet with readiness,
+    verification state, hashes, artifact paths, and retention notes. Audit
+    packet verification and freshness tolerate later archive-packet ledger
+    events when the anchored audit ledger prefix is unchanged.
 
 ## First Serious Version
 

@@ -133,6 +133,7 @@ quick flow:
   atlas op audit-packet [name] [packet-name]
   atlas op audit-verify [name] [audit-packet]
   atlas op archive [name]
+  atlas op archive-packet [name] [packet-name]
   atlas op close [name] [--force]
 
 targets:
@@ -166,6 +167,7 @@ operations:
   atlas op audit-packet [name] [packet-name]
   atlas op audit-verify [name] [audit-packet]
   atlas op archive [name]
+  atlas op archive-packet [name] [packet-name]
   atlas op next
   atlas op close [name] [--force]
   atlas op recon <workflow> [interface]
@@ -1312,6 +1314,9 @@ print_operation_report_commands() {
 		audit-packet)
 			printf -- "- \`%s\`\n" "atlas op audit-packet $ATLAS_OP_SLUG $(basename "$detail" .md)"
 			;;
+		archive-packet)
+			printf -- "- \`%s\`\n" "atlas op archive-packet $ATLAS_OP_SLUG $(basename "$detail" .md)"
+			;;
 		close)
 			printf -- "- \`%s\`\n" "atlas op close $ATLAS_OP_SLUG"
 			;;
@@ -2091,6 +2096,10 @@ op)
 	archive)
 		shift
 		cmd_op_archive "$@"
+		;;
+	archive-packet)
+		shift
+		cmd_op_archive_packet "$@"
 		;;
 	next)
 		shift

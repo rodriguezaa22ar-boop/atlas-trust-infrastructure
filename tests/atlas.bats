@@ -62,6 +62,7 @@ teardown() {
   [[ "$output" == *"atlas op audit-packet [name] [packet-name]"* ]]
   [[ "$output" == *"atlas op audit-verify [name] [audit-packet]"* ]]
   [[ "$output" == *"atlas op archive [name]"* ]]
+  [[ "$output" == *"atlas op archive-packet [name] [packet-name]"* ]]
   [[ "$output" == *"atlas op close [name] [--force]"* ]]
   [[ "$output" == *"atlas target brief <target>"* ]]
 }
@@ -1037,7 +1038,7 @@ EOF
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op verify archive-op
   [ "$status" -eq 0 ]
   [[ "$output" == *"Operation Ledger"* ]]
-  [[ "$output" == *"later_audit_events=1"* ]]
+  [[ "$output" == *"later_allowed_events=1"* ]]
   [[ "$output" == *"Verification Status: verified"* ]]
 
   archive_events_before="$(wc -l < "$TEST_ROOT/toolkit/sessions/archive-op/ledger.ndjson" | tr -d ' ')"
@@ -1060,6 +1061,41 @@ EOF
   [[ "$output" == *"$audit_packet_path"* ]]
   archive_events_after="$(wc -l < "$TEST_ROOT/toolkit/sessions/archive-op/ledger.ndjson" | tr -d ' ')"
   [ "$archive_events_after" = "$archive_events_before" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op archive-packet archive-op archive-final
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"archive packet written"* ]]
+  archive_packet_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "archive_packet" { print $2; exit }')"
+  [ -f "$archive_packet_path" ]
+  grep -q '^# Atlas Operation Archive Packet$' "$archive_packet_path"
+  grep -q 'No raw artifact contents are included' "$archive_packet_path"
+  grep -q 'Archive status: current' "$archive_packet_path"
+  grep -q 'Closeout verification: verified' "$archive_packet_path"
+  grep -q 'Audit packet verification: verified' "$archive_packet_path"
+  grep -q "$report_path" "$archive_packet_path"
+  grep -q "$bundle_dir" "$archive_packet_path"
+  grep -q "$handoff_path" "$archive_packet_path"
+  grep -q "$closeout_path" "$archive_packet_path"
+  grep -q "$audit_packet_path" "$archive_packet_path"
+  jq -e --arg archive_packet_path "$archive_packet_path" 'select(.event == "archive.packet.generated" and .detail == $archive_packet_path)' \
+    "$TEST_ROOT/toolkit/sessions/archive-op/ledger.ndjson"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op archive archive-op
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Archive Status: current"* ]]
+  [[ "$output" == *"Audit Packet Freshness: current"* ]]
+  [[ "$output" == *"Audit Packet Verification: verified"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op audit-verify archive-op "$audit_packet_path"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Operation Ledger"* ]]
+  [[ "$output" == *"later_archive_events=1"* ]]
+  [[ "$output" == *"Verification Status: verified"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op verify archive-op
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"later_allowed_events=2"* ]]
+  [[ "$output" == *"Verification Status: verified"* ]]
 }
 
 @test "atlas operation close can force closure with readiness snapshot" {

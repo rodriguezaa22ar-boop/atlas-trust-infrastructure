@@ -149,6 +149,20 @@ atlas_readiness_latest_ledger_event() {
   jq -r '[.ts, .event, .detail] | @tsv' "$ledger_file" | tail -n 1
 }
 
+atlas_readiness_latest_audit_packet_change() {
+  local ledger_file
+
+  [ -n "${ATLAS_OP_DIR:-}" ] || return 0
+  ledger_file="$(atlas_ledger_file "$ATLAS_OP_DIR")"
+  [ -s "$ledger_file" ] || return 0
+
+  jq -r '
+    select((.event // "") != "archive.packet.generated")
+    | [.ts, .event, .detail]
+    | @tsv
+  ' "$ledger_file" | tail -n 1
+}
+
 atlas_readiness_latest_material_change() {
   local ledger_file
 
@@ -363,6 +377,8 @@ atlas_readiness_collect() {
   local latest_ledger_event
   local latest_ledger_at=""
   local latest_ledger_event_name=""
+  local latest_audit_packet_change
+  local latest_audit_packet_change_at=""
   local latest_change
   local latest_change_at=""
   local latest_change_event=""
@@ -388,6 +404,7 @@ atlas_readiness_collect() {
   latest_closeout="$(atlas_readiness_latest_closeout)"
   latest_audit_packet="$(atlas_readiness_latest_audit_packet)"
   latest_ledger_event="$(atlas_readiness_latest_ledger_event)"
+  latest_audit_packet_change="$(atlas_readiness_latest_audit_packet_change)"
   latest_change="$(atlas_readiness_latest_material_change)"
   latest_evidence_change="$(atlas_readiness_latest_evidence_change)"
 
@@ -409,6 +426,9 @@ atlas_readiness_collect() {
   if [ -n "$latest_ledger_event" ]; then
     IFS=$'\t' read -r latest_ledger_at latest_ledger_event_name _ <<<"$latest_ledger_event"
   fi
+  if [ -n "$latest_audit_packet_change" ]; then
+    IFS=$'\t' read -r latest_audit_packet_change_at _ _ <<<"$latest_audit_packet_change"
+  fi
   if [ -n "$latest_change" ]; then
     IFS=$'\t' read -r latest_change_at latest_change_event _ <<<"$latest_change"
   fi
@@ -420,7 +440,7 @@ atlas_readiness_collect() {
   bundle_freshness="$(atlas_readiness_bundle_freshness "$latest_bundle_at" "$latest_evidence_change_at")"
   handoff_freshness="$(atlas_readiness_handoff_freshness "$latest_handoff_at" "$latest_change_at" "$latest_report_at" "$latest_bundle_at")"
   closeout_freshness="$(atlas_readiness_closeout_freshness "$latest_closeout_at" "$latest_change_at" "$latest_report_at" "$latest_bundle_at" "$latest_handoff_at")"
-  audit_packet_freshness="$(atlas_readiness_audit_packet_freshness "$latest_audit_packet_at" "$latest_ledger_at")"
+  audit_packet_freshness="$(atlas_readiness_audit_packet_freshness "$latest_audit_packet_at" "$latest_audit_packet_change_at")"
   readiness="$(atlas_readiness_status "$evidence_count" "$open_count" "$pending_count" "$latest_report" "$report_freshness")"
   next_step="$(atlas_readiness_next_step "$evidence_count" "$open_count" "$pending_count" "$latest_report" "$latest_bundle" "$report_freshness" "$bundle_freshness" "$latest_handoff" "$handoff_freshness" "$latest_closeout" "$closeout_freshness" "$latest_audit_packet" "$audit_packet_freshness")"
 

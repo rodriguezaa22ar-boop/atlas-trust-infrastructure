@@ -72,7 +72,7 @@ atlas_archive_next_step() {
   fi
 }
 
-atlas_archive_print() {
+atlas_archive_collect() {
   local latest_report
   local report_at=""
   local report_path=""
@@ -126,13 +126,38 @@ atlas_archive_print() {
     ledger_sha="$(atlas_closeout_sha_for_file "$ledger_file")"
   fi
 
+  ATLAS_ARCHIVE_LATEST_REPORT_AT="$report_at"
+  ATLAS_ARCHIVE_LATEST_REPORT_PATH="$report_path"
+  ATLAS_ARCHIVE_LATEST_REPORT_SHA="$report_sha"
+  ATLAS_ARCHIVE_BUNDLE_AT="$bundle_at"
+  ATLAS_ARCHIVE_BUNDLE_SLUG="$bundle_slug"
+  ATLAS_ARCHIVE_BUNDLE_DIR="$bundle_dir"
+  ATLAS_ARCHIVE_BUNDLE_MANIFEST="$manifest_file"
+  ATLAS_ARCHIVE_BUNDLE_MANIFEST_SHA="$manifest_sha"
+  ATLAS_ARCHIVE_BUNDLE_FILES="$bundle_files"
+  ATLAS_ARCHIVE_BUNDLE_INCLUDE_UNREDACTED="$include_unredacted"
+  ATLAS_ARCHIVE_CLOSEOUT_VERIFICATION_STATUS="$closeout_verification_status"
+  ATLAS_ARCHIVE_CLOSEOUT_VERIFICATION_PATH="$closeout_verification_path"
+  ATLAS_ARCHIVE_CLOSEOUT_VERIFICATION_PROBLEMS="$closeout_verification_problems"
+  ATLAS_ARCHIVE_AUDIT_PACKET_VERIFICATION_STATUS="$audit_packet_verification_status"
+  ATLAS_ARCHIVE_AUDIT_PACKET_VERIFICATION_PATH="$audit_packet_verification_path"
+  ATLAS_ARCHIVE_STATUS="$archive_status"
+  ATLAS_ARCHIVE_NEXT_STEP="$archive_next_step"
+  ATLAS_ARCHIVE_LEDGER_FILE="$ledger_file"
+  ATLAS_ARCHIVE_LEDGER_EVENTS="$ledger_events"
+  ATLAS_ARCHIVE_LEDGER_SHA="$ledger_sha"
+}
+
+atlas_archive_print() {
+  atlas_archive_collect
+
   ui_heading "Operation Archive Snapshot"
   ui_rule
   ui_kv "Operation" "$ATLAS_OP_NAME"
   ui_kv "Operation Status" "$ATLAS_OP_STATUS"
   ui_kv "Target" "$ATLAS_OP_TARGET"
-  ui_kv "Archive Status" "$archive_status"
-  ui_kv "Next Archive Step" "$archive_next_step"
+  ui_kv "Archive Status" "$ATLAS_ARCHIVE_STATUS"
+  ui_kv "Next Archive Step" "$ATLAS_ARCHIVE_NEXT_STEP"
   ui_rule
   ui_subheading "Readiness"
   ui_kv "Close Readiness" "$ATLAS_READINESS_STATUS"
@@ -147,18 +172,18 @@ atlas_archive_print() {
   ui_kv "Audit Packet Freshness" "$ATLAS_READINESS_AUDIT_PACKET_FRESHNESS"
   ui_rule
   ui_subheading "Verification"
-  ui_kv "Closeout Verification" "$closeout_verification_status manifest=$closeout_verification_path problems=$closeout_verification_problems"
-  ui_kv "Audit Packet Verification" "$audit_packet_verification_status packet=$audit_packet_verification_path"
+  ui_kv "Closeout Verification" "$ATLAS_ARCHIVE_CLOSEOUT_VERIFICATION_STATUS manifest=$ATLAS_ARCHIVE_CLOSEOUT_VERIFICATION_PATH problems=$ATLAS_ARCHIVE_CLOSEOUT_VERIFICATION_PROBLEMS"
+  ui_kv "Audit Packet Verification" "$ATLAS_ARCHIVE_AUDIT_PACKET_VERIFICATION_STATUS packet=$ATLAS_ARCHIVE_AUDIT_PACKET_VERIFICATION_PATH"
   ui_rule
   ui_subheading "Archive Artifacts"
-  if [ -n "$report_path" ]; then
-    ui_kv "Latest Report" "$report_at $report_path sha256=$report_sha"
+  if [ -n "$ATLAS_ARCHIVE_LATEST_REPORT_PATH" ]; then
+    ui_kv "Latest Report" "$ATLAS_ARCHIVE_LATEST_REPORT_AT $ATLAS_ARCHIVE_LATEST_REPORT_PATH sha256=$ATLAS_ARCHIVE_LATEST_REPORT_SHA"
   else
     ui_kv "Latest Report" "none generated yet"
   fi
-  if [ -n "$bundle_dir" ]; then
-    ui_kv "Evidence Bundle" "$bundle_at $bundle_dir slug=${bundle_slug:-unknown} files=${bundle_files:-0} include_unredacted=${include_unredacted:-0}"
-    ui_kv "Evidence Manifest" "$manifest_file sha256=$manifest_sha"
+  if [ -n "$ATLAS_ARCHIVE_BUNDLE_DIR" ]; then
+    ui_kv "Evidence Bundle" "$ATLAS_ARCHIVE_BUNDLE_AT $ATLAS_ARCHIVE_BUNDLE_DIR slug=${ATLAS_ARCHIVE_BUNDLE_SLUG:-unknown} files=${ATLAS_ARCHIVE_BUNDLE_FILES:-0} include_unredacted=${ATLAS_ARCHIVE_BUNDLE_INCLUDE_UNREDACTED:-0}"
+    ui_kv "Evidence Manifest" "$ATLAS_ARCHIVE_BUNDLE_MANIFEST sha256=$ATLAS_ARCHIVE_BUNDLE_MANIFEST_SHA"
   else
     ui_kv "Evidence Bundle" "none generated yet"
     ui_kv "Evidence Manifest" "none"
@@ -166,8 +191,75 @@ atlas_archive_print() {
   ui_kv "Latest Handoff" "${ATLAS_READINESS_LATEST_HANDOFF_PATH:-none generated yet}"
   ui_kv "Latest Closeout" "${ATLAS_READINESS_LATEST_CLOSEOUT_PATH:-none generated yet}"
   ui_kv "Latest Audit Packet" "${ATLAS_READINESS_LATEST_AUDIT_PACKET_PATH:-none generated yet}"
-  ui_kv "Operation Ledger" "$ledger_file events=$ledger_events sha256=$ledger_sha"
+  ui_kv "Operation Ledger" "$ATLAS_ARCHIVE_LEDGER_FILE events=$ATLAS_ARCHIVE_LEDGER_EVENTS sha256=$ATLAS_ARCHIVE_LEDGER_SHA"
   ui_kv "Operation Directory" "$ATLAS_OP_DIR"
+}
+
+atlas_archive_markdown_artifacts() {
+  if [ -n "$ATLAS_ARCHIVE_LATEST_REPORT_PATH" ]; then
+    printf -- "- Latest report: \`%s\` generated=%s sha256=%s\n" "$ATLAS_ARCHIVE_LATEST_REPORT_PATH" "$ATLAS_ARCHIVE_LATEST_REPORT_AT" "$ATLAS_ARCHIVE_LATEST_REPORT_SHA"
+  else
+    printf -- '- Latest report: none generated yet\n'
+  fi
+
+  if [ -n "$ATLAS_ARCHIVE_BUNDLE_DIR" ]; then
+    printf -- "- Evidence bundle: \`%s\` generated=%s slug=%s files=%s include_unredacted=%s\n" "$ATLAS_ARCHIVE_BUNDLE_DIR" "$ATLAS_ARCHIVE_BUNDLE_AT" "${ATLAS_ARCHIVE_BUNDLE_SLUG:-unknown}" "${ATLAS_ARCHIVE_BUNDLE_FILES:-0}" "${ATLAS_ARCHIVE_BUNDLE_INCLUDE_UNREDACTED:-0}"
+    printf -- "- Evidence manifest: \`%s\` sha256=%s\n" "$ATLAS_ARCHIVE_BUNDLE_MANIFEST" "$ATLAS_ARCHIVE_BUNDLE_MANIFEST_SHA"
+  else
+    printf -- '- Evidence bundle: none generated yet\n'
+    printf -- '- Evidence manifest: none\n'
+  fi
+
+  printf -- "- Latest handoff: \`%s\`\n" "${ATLAS_READINESS_LATEST_HANDOFF_PATH:-none}"
+  printf -- "- Latest closeout: \`%s\`\n" "${ATLAS_READINESS_LATEST_CLOSEOUT_PATH:-none}"
+  printf -- "- Latest audit packet: \`%s\`\n" "${ATLAS_READINESS_LATEST_AUDIT_PACKET_PATH:-none}"
+  printf -- "- Operation ledger: \`%s\` events=%s sha256=%s\n" "$ATLAS_ARCHIVE_LEDGER_FILE" "$ATLAS_ARCHIVE_LEDGER_EVENTS" "$ATLAS_ARCHIVE_LEDGER_SHA"
+  printf -- "- Operation directory: \`%s\`\n" "$ATLAS_OP_DIR"
+}
+
+atlas_archive_write_packet() {
+  local file="$1"
+
+  atlas_archive_collect
+
+  {
+    printf '# Atlas Operation Archive Packet\n\n'
+    printf 'Generated: %s\n' "$(timestamp)"
+    printf 'Operation: %s\n' "$ATLAS_OP_NAME"
+    printf 'Operation ID: %s\n' "$ATLAS_OP_SLUG"
+    printf 'Operation Status: %s\n' "$ATLAS_OP_STATUS"
+    printf 'Target: %s\n' "$ATLAS_OP_TARGET"
+    if [ -n "${ATLAS_OP_TARGET_ADDRESS:-}" ] && [ "$ATLAS_OP_TARGET_ADDRESS" != "$ATLAS_OP_TARGET" ]; then
+      printf 'Address: %s\n' "$ATLAS_OP_TARGET_ADDRESS"
+    fi
+    printf '\nNo raw artifact contents are included in this archive packet.\n'
+
+    printf '\n## Archive Status\n\n'
+    printf -- '- Archive status: %s\n' "$ATLAS_ARCHIVE_STATUS"
+    printf -- '- Next archive step: %s\n' "$ATLAS_ARCHIVE_NEXT_STEP"
+
+    printf '\n## Readiness\n\n'
+    printf -- '- Close readiness: %s\n' "$ATLAS_READINESS_STATUS"
+    printf -- '- Evidence records: %s\n' "$ATLAS_READINESS_EVIDENCE_COUNT"
+    printf -- '- Open findings: %s\n' "$ATLAS_READINESS_OPEN_FINDINGS_COUNT"
+    printf -- '- Pending validation: %s\n' "$ATLAS_READINESS_PENDING_VALIDATION_COUNT"
+    printf -- '- Report freshness: %s\n' "$ATLAS_READINESS_REPORT_FRESHNESS"
+    printf -- '- Bundle freshness: %s\n' "$ATLAS_READINESS_BUNDLE_FRESHNESS"
+    printf -- '- Handoff freshness: %s\n' "$ATLAS_READINESS_HANDOFF_FRESHNESS"
+    printf -- '- Closeout freshness: %s\n' "$ATLAS_READINESS_CLOSEOUT_FRESHNESS"
+    printf -- '- Audit packet freshness: %s\n' "$ATLAS_READINESS_AUDIT_PACKET_FRESHNESS"
+
+    printf '\n## Verification\n\n'
+    printf -- '- Closeout verification: %s manifest=%s problems=%s\n' "$ATLAS_ARCHIVE_CLOSEOUT_VERIFICATION_STATUS" "$ATLAS_ARCHIVE_CLOSEOUT_VERIFICATION_PATH" "$ATLAS_ARCHIVE_CLOSEOUT_VERIFICATION_PROBLEMS"
+    printf -- '- Audit packet verification: %s packet=%s\n' "$ATLAS_ARCHIVE_AUDIT_PACKET_VERIFICATION_STATUS" "$ATLAS_ARCHIVE_AUDIT_PACKET_VERIFICATION_PATH"
+
+    printf '\n## Archive Artifacts\n\n'
+    atlas_archive_markdown_artifacts
+
+    printf '\n## Retention Notes\n\n'
+    printf -- '- Treat paths as local references; verify copied files against the recorded hashes before retention or transfer.\n'
+    printf -- '- Keep this packet with the closeout manifest and audit packet for final review.\n'
+  } >"$file"
 }
 
 cmd_op_archive() {
@@ -180,4 +272,38 @@ cmd_op_archive() {
   fi
 
   atlas_archive_print
+}
+
+cmd_op_archive_packet() {
+  local packet_name="${2:-}"
+  local packet_slug
+  local archive_dir
+  local packet_file
+
+  [ "$#" -le 2 ] || fail "op archive-packet [name] [packet-name]"
+
+  if [ "$#" -gt 0 ]; then
+    load_atlas_operation "$1"
+  else
+    load_active_operation
+  fi
+
+  if [ -z "$packet_name" ]; then
+    packet_name="$ATLAS_OP_SLUG-archive"
+  fi
+  packet_slug="$(slugify "$packet_name")"
+  [ -n "$packet_slug" ] || fail "archive packet name produced an empty slug"
+
+  archive_dir="$ATLAS_OP_DIR/archive"
+  mkdir -p "$archive_dir"
+  chmod 700 "$archive_dir" 2>/dev/null || true
+  packet_file="$archive_dir/$packet_slug.md"
+
+  atlas_ledger_append_current "archive.packet.generated" "read-only" "atlas" "ok" "$packet_file"
+  atlas_archive_write_packet "$packet_file"
+  chmod 600 "$packet_file" 2>/dev/null || true
+  record_operation_history "$ATLAS_OP_DIR" "archive-packet" "$packet_file"
+
+  ui_ok "archive packet written"
+  printf 'archive_packet: %s\n' "$packet_file"
 }
