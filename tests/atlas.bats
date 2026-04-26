@@ -19,6 +19,16 @@ teardown() {
   rm -rf "$TEST_ROOT"
 }
 
+make_repo_clean_and_synced() {
+  git -C "$TEST_ROOT/toolkit" config user.email "atlas-tests@example.invalid"
+  git -C "$TEST_ROOT/toolkit" config user.name "Atlas Tests"
+  if [ -n "$(git -C "$TEST_ROOT/toolkit" status --short)" ]; then
+    git -C "$TEST_ROOT/toolkit" add -A
+    git -C "$TEST_ROOT/toolkit" commit -m "test clean release state" >/dev/null
+  fi
+  git -C "$TEST_ROOT/toolkit" update-ref refs/remotes/origin/main HEAD
+}
+
 @test "atlas help groups target-first workflow and story commands" {
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" help
 
@@ -27,6 +37,7 @@ teardown() {
   [[ "$output" == *"atlas doctor"* ]]
   [[ "$output" == *"atlas v1 status"* ]]
   [[ "$output" == *"atlas release packet [packet-name]"* ]]
+  [[ "$output" == *"atlas release verify [packet]"* ]]
   [[ "$output" == *"atlas scope status"* ]]
   [[ "$output" == *"atlas evidence add <path> [--kind kind]"* ]]
   [[ "$output" == *"atlas evidence redact <id> <redacted-path>"* ]]
@@ -122,7 +133,9 @@ teardown() {
     jq -e '.overall == "blocked" and .pillars.action_planner.status == "blocked"'
 }
 
-@test "atlas release packet writes metadata-only release trust packet" {
+@test "atlas release packet writes and verifies metadata-only release trust packet" {
+  make_repo_clean_and_synced
+
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release packet m33-release \
     --qa-status pass \
     --qa-note "dev-qa passed in release verification"
@@ -143,6 +156,49 @@ teardown() {
   grep -q '"required_not_ready": 0' "$packet_path"
   grep -q 'docs/retention/milestones/MILESTONE_32.md' "$packet_path"
   grep -q 'Core CLI: shell-native interface; no multi-user server yet' "$packet_path"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release verify "$packet_path"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"release trust packet verified"* ]]
+  [[ "$output" == *"Repository State: ok clean"* ]]
+  [[ "$output" == *"Upstream Sync: ok synced"* ]]
+  [[ "$output" == *"QA Status: ok pass"* ]]
+  [[ "$output" == *"V1 Readiness: ok overall=ready required_not_ready=0"* ]]
+
+  cp "$packet_path" "$TEST_ROOT/bad-qa.md"
+  sed -i 's/QA status: pass/QA status: fail/' "$TEST_ROOT/bad-qa.md"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release verify "$TEST_ROOT/bad-qa.md"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"QA Status: fail expected=pass actual=fail"* ]]
+
+  cp "$packet_path" "$TEST_ROOT/bad-state.md"
+  sed -i 's/Repository state before packet: clean/Repository state before packet: dirty/' "$TEST_ROOT/bad-state.md"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release verify "$TEST_ROOT/bad-state.md"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Repository State: fail expected=clean actual=dirty"* ]]
+
+  cp "$packet_path" "$TEST_ROOT/bad-readiness.md"
+  sed -i 's/"overall": "ready"/"overall": "blocked"/' "$TEST_ROOT/bad-readiness.md"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release verify "$TEST_ROOT/bad-readiness.md"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"V1 Readiness: fail overall=blocked required_not_ready=0"* ]]
+
+  printf '\nrelease packet dirty gate\n' >> "$TEST_ROOT/toolkit/README.md"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release packet dirty-release --qa-status pass
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"release packet requires a clean repository"* ]]
+  git -C "$TEST_ROOT/toolkit" checkout -- README.md
+
+  git -C "$TEST_ROOT/toolkit" update-ref refs/remotes/origin/main HEAD^
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release packet unsynced-release --qa-status pass
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"release packet requires synced upstream state"* ]]
+  git -C "$TEST_ROOT/toolkit" update-ref refs/remotes/origin/main HEAD
+
+  run env LAB_ATLAS_VECTOR_BIN="$TEST_ROOT/toolkit/missing-vector" \
+    "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release packet not-ready-release --qa-status pass
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"release packet requires v1 readiness overall=ready"* ]]
 }
 
 @test "atlas v1 status fails strict on operation evidence and governance gaps" {

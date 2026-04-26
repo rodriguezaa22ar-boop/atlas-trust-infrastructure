@@ -54,6 +54,7 @@ Useful commands:
 ./tools/atlas/bin/atlas v1 status --strict
 ./tools/atlas/bin/atlas v1 status --json
 ./tools/atlas/bin/atlas release packet atlas-current --qa-status pass
+./tools/atlas/bin/atlas release verify atlas-current
 ./tools/atlas/bin/atlas profile list
 ./tools/atlas/bin/atlas profile show htb-starting-point
 ./tools/atlas/bin/atlas target update edge-router --scope-status in-scope --criticality high --tag lab
@@ -215,7 +216,11 @@ Atlas now also exposes the operator-level story and reporting layer:
   view for the core v1 surface and release-gate style checks
 - `atlas release packet [packet-name]`: metadata-only release trust packet with
   commit, tags, v1 readiness JSON, QA status, retention notes, repo sync state,
-  and known limitations
+  and known limitations; normal packet generation requires a clean, synced, v1-ready
+  repository unless an explicit override flag is used
+- `atlas release verify [packet-name]`: release trust packet verification for
+  clean/synced state, passing QA status, required retention notes, known
+  limitations, and embedded v1 readiness JSON
 - `atlas target update <name>`: target registry metadata for scope status,
   criticality, owner, and tags
 - `atlas target brief <target>`: concise surface, operation-state, validation,

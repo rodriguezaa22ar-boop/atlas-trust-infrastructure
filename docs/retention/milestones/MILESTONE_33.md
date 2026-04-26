@@ -34,3 +34,9 @@ Make Atlas release readiness exportable as a metadata-only trust packet.
 - implementation committed
 - current release packet command is documented in the root README and Atlas README
 - blueprint records Milestone 33
+
+## Follow-On Verification
+
+Milestone 34 hardens this packet into a release gate by making packet
+generation fail closed for dirty, unsynced, or not-ready repository states and
+adding `atlas release verify`.

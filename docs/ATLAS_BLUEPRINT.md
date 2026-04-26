@@ -218,6 +218,11 @@ The near-term roadmap is:
     cleanliness, upstream sync state, v1 readiness JSON, QA status, retained
     milestone notes, and known limitations without embedding raw runtime
     artifacts.
+34. Add release trust verification. `atlas release packet` now fails closed for
+    dirty, unsynced, or not-ready repository states unless an explicit override
+    is used, and `atlas release verify` validates release packets for commit,
+    clean/synced state, passing QA, retained milestone notes, known
+    limitations, and embedded v1 readiness JSON.
 
 ## First Serious Version
 

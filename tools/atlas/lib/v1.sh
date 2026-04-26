@@ -350,10 +350,10 @@ atlas_v1_collect_operation_readiness() {
       "Retention" \
       1 \
       "ready" \
-      "handoff, closeout, audit, archive, and freshness commands are available" \
-      "tests/atlas.bats retention and archive tests" \
-      "atlas op closeout; atlas op audit-packet; atlas op archive-verify" \
-      "closeout manifest, audit packet, archive packet" \
+      "handoff, closeout, audit, archive, release trust, and freshness commands are available" \
+      "tests/atlas.bats retention, archive, and release packet tests" \
+      "atlas op closeout; atlas op audit-packet; atlas op archive-verify; atlas release packet; atlas release verify" \
+      "closeout manifest, audit packet, archive packet, release trust packet" \
       "no cryptographic signing yet"
     return 0
   fi
@@ -472,8 +472,8 @@ atlas_v1_collect_operation_readiness() {
       1 \
       "ready" \
       "archive packet freshness is current" \
-      "tests/atlas.bats retention and archive tests" \
-      "atlas op archive; atlas op archive-verify; atlas op readiness" \
+      "tests/atlas.bats retention, archive, and release packet tests" \
+      "atlas op archive; atlas op archive-verify; atlas op readiness; atlas release verify" \
       "${ATLAS_READINESS_LATEST_ARCHIVE_PACKET_PATH:-none}" \
       "no cryptographic signing yet"
     ;;
@@ -485,7 +485,7 @@ atlas_v1_collect_operation_readiness() {
       "warning" \
       "archive packet freshness is stale" \
       "tests/atlas.bats v1 archive-stale test" \
-      "atlas op archive; atlas op archive-verify; atlas op readiness" \
+      "atlas op archive; atlas op archive-verify; atlas op readiness; atlas release verify" \
       "${ATLAS_READINESS_LATEST_ARCHIVE_PACKET_PATH:-none}" \
       "no cryptographic signing yet"
     ;;
@@ -495,9 +495,9 @@ atlas_v1_collect_operation_readiness() {
       "Retention" \
       1 \
       "ready" \
-      "retention commands are implemented; no current archive packet is required for this operation state" \
-      "tests/atlas.bats retention and archive tests" \
-      "atlas op closeout; atlas op audit-packet; atlas op archive-packet" \
+      "retention and release trust commands are implemented; no current archive packet is required for this operation state" \
+      "tests/atlas.bats retention, archive, and release packet tests" \
+      "atlas op closeout; atlas op audit-packet; atlas op archive-packet; atlas release packet; atlas release verify" \
       "${ATLAS_READINESS_LATEST_ARCHIVE_PACKET_PATH:-none}" \
       "no cryptographic signing yet"
     ;;

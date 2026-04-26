@@ -159,12 +159,14 @@ Each pillar status must include:
 ### Retention
 
 - Status: `ready`
-- Reason: handoff, closeout, audit, archive, verification, and freshness checks
-  are implemented.
-- Tests: `tests/atlas.bats` retention/archive tests and v1 archive-stale test.
+- Reason: handoff, closeout, audit, archive, release trust, verification, and
+  freshness checks are implemented.
+- Tests: `tests/atlas.bats` retention/archive tests, release packet tests, and
+  v1 archive-stale test.
 - Commands: `atlas op closeout`, `atlas op audit-packet`,
-  `atlas op archive-verify`
-- Artifacts: closeout manifest, audit packet, archive packet.
+  `atlas op archive-verify`, `atlas release packet`, `atlas release verify`
+- Artifacts: closeout manifest, audit packet, archive packet, release trust
+  packet.
 - Limitations: no cryptographic signing yet.
 
 ### AI Advisor
