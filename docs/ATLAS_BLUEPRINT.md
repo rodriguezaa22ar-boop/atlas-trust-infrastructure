@@ -197,6 +197,10 @@ The near-term roadmap is:
     verification state, hashes, artifact paths, and retention notes. Audit
     packet verification and freshness tolerate later archive-packet ledger
     events when the anchored audit ledger prefix is unchanged.
+29. Add archive packet verification. `atlas op archive-verify` now reads an
+    archive packet without mutating operation state and checks recorded hashes
+    for the report, evidence manifest, handoff, closeout manifest, audit
+    packet, and operation ledger.
 
 ## First Serious Version
 

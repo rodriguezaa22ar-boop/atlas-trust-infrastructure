@@ -97,6 +97,9 @@ atlas_archive_collect() {
   local ledger_file
   local ledger_events="0"
   local ledger_sha=""
+  local handoff_sha=""
+  local closeout_sha=""
+  local audit_packet_sha=""
 
   atlas_scope_load_snapshot
   atlas_readiness_collect "$ATLAS_OP_TARGET"
@@ -125,6 +128,9 @@ atlas_archive_collect() {
     ledger_events="$(atlas_closeout_ledger_event_count "$ledger_file")"
     ledger_sha="$(atlas_closeout_sha_for_file "$ledger_file")"
   fi
+  handoff_sha="$(atlas_closeout_sha_for_file "${ATLAS_READINESS_LATEST_HANDOFF_PATH:-}")"
+  closeout_sha="$(atlas_closeout_sha_for_file "${ATLAS_READINESS_LATEST_CLOSEOUT_PATH:-}")"
+  audit_packet_sha="$(atlas_closeout_sha_for_file "${ATLAS_READINESS_LATEST_AUDIT_PACKET_PATH:-}")"
 
   ATLAS_ARCHIVE_LATEST_REPORT_AT="$report_at"
   ATLAS_ARCHIVE_LATEST_REPORT_PATH="$report_path"
@@ -146,6 +152,9 @@ atlas_archive_collect() {
   ATLAS_ARCHIVE_LEDGER_FILE="$ledger_file"
   ATLAS_ARCHIVE_LEDGER_EVENTS="$ledger_events"
   ATLAS_ARCHIVE_LEDGER_SHA="$ledger_sha"
+  ATLAS_ARCHIVE_HANDOFF_SHA="$handoff_sha"
+  ATLAS_ARCHIVE_CLOSEOUT_SHA="$closeout_sha"
+  ATLAS_ARCHIVE_AUDIT_PACKET_SHA="$audit_packet_sha"
 }
 
 atlas_archive_print() {
@@ -210,9 +219,21 @@ atlas_archive_markdown_artifacts() {
     printf -- '- Evidence manifest: none\n'
   fi
 
-  printf -- "- Latest handoff: \`%s\`\n" "${ATLAS_READINESS_LATEST_HANDOFF_PATH:-none}"
-  printf -- "- Latest closeout: \`%s\`\n" "${ATLAS_READINESS_LATEST_CLOSEOUT_PATH:-none}"
-  printf -- "- Latest audit packet: \`%s\`\n" "${ATLAS_READINESS_LATEST_AUDIT_PACKET_PATH:-none}"
+  printf -- "- Latest handoff: \`%s\`" "${ATLAS_READINESS_LATEST_HANDOFF_PATH:-none}"
+  if [ -n "${ATLAS_ARCHIVE_HANDOFF_SHA:-}" ]; then
+    printf ' sha256=%s' "$ATLAS_ARCHIVE_HANDOFF_SHA"
+  fi
+  printf '\n'
+  printf -- "- Latest closeout: \`%s\`" "${ATLAS_READINESS_LATEST_CLOSEOUT_PATH:-none}"
+  if [ -n "${ATLAS_ARCHIVE_CLOSEOUT_SHA:-}" ]; then
+    printf ' sha256=%s' "$ATLAS_ARCHIVE_CLOSEOUT_SHA"
+  fi
+  printf '\n'
+  printf -- "- Latest audit packet: \`%s\`" "${ATLAS_READINESS_LATEST_AUDIT_PACKET_PATH:-none}"
+  if [ -n "${ATLAS_ARCHIVE_AUDIT_PACKET_SHA:-}" ]; then
+    printf ' sha256=%s' "$ATLAS_ARCHIVE_AUDIT_PACKET_SHA"
+  fi
+  printf '\n'
   printf -- "- Operation ledger: \`%s\` events=%s sha256=%s\n" "$ATLAS_ARCHIVE_LEDGER_FILE" "$ATLAS_ARCHIVE_LEDGER_EVENTS" "$ATLAS_ARCHIVE_LEDGER_SHA"
   printf -- "- Operation directory: \`%s\`\n" "$ATLAS_OP_DIR"
 }
@@ -262,6 +283,197 @@ atlas_archive_write_packet() {
   } >"$file"
 }
 
+atlas_archive_latest_packet() {
+  local ledger_file
+
+  [ -n "${ATLAS_OP_DIR:-}" ] || return 0
+  ledger_file="$(atlas_ledger_file "$ATLAS_OP_DIR")"
+  [ -s "$ledger_file" ] || return 0
+
+  jq -r '
+    select(.event == "archive.packet.generated")
+    | [.ts, .detail]
+    | @tsv
+  ' "$ledger_file" | tail -n 1
+}
+
+atlas_archive_resolve_packet() {
+  local packet_arg="$1"
+  local latest_packet
+  local latest_packet_path=""
+  local candidate
+  local packet_slug
+
+  if [ -z "$packet_arg" ]; then
+    latest_packet="$(atlas_archive_latest_packet)"
+    [ -n "$latest_packet" ] || fail "no archive packet recorded for operation '$ATLAS_OP_SLUG'"
+    IFS=$'\t' read -r _ latest_packet_path <<<"$latest_packet"
+    [ -f "$latest_packet_path" ] || fail "recorded archive packet is missing: $latest_packet_path"
+    printf '%s\n' "$latest_packet_path"
+    return 0
+  fi
+
+  if [ -f "$packet_arg" ]; then
+    readlink -f "$packet_arg"
+    return 0
+  fi
+
+  candidate="$ATLAS_OP_DIR/archive/$packet_arg"
+  if [ -f "$candidate" ]; then
+    readlink -f "$candidate"
+    return 0
+  fi
+
+  packet_slug="$(slugify "${packet_arg%.md}")"
+  candidate="$ATLAS_OP_DIR/archive/$packet_slug.md"
+  if [ -f "$candidate" ]; then
+    readlink -f "$candidate"
+    return 0
+  fi
+
+  fail "unknown archive packet for operation '$ATLAS_OP_SLUG': $packet_arg"
+}
+
+atlas_archive_verify_row() {
+  local label="$1"
+  local status="$2"
+  local path="$3"
+  local detail="${4:-}"
+
+  if [ -n "$detail" ]; then
+    printf '%-22s %-14s %s (%s)\n' "$label" "$status" "$path" "$detail"
+  else
+    printf '%-22s %-14s %s\n' "$label" "$status" "$path"
+  fi
+}
+
+atlas_archive_verify_hash_anchor() {
+  local packet_file="$1"
+  local packet_label="$2"
+  local display_label="$3"
+  local line
+  local path
+  local expected_sha
+  local actual_sha
+
+  line="$(atlas_closeout_manifest_anchor_line "$packet_file" "$packet_label")"
+  if [ -z "$line" ]; then
+    atlas_archive_verify_row "$display_label" "unverifiable" "-" "anchor missing from packet"
+    ATLAS_ARCHIVE_VERIFY_PROBLEMS=$((ATLAS_ARCHIVE_VERIFY_PROBLEMS + 1))
+    return 0
+  fi
+
+  path="$(atlas_closeout_anchor_path "$line")"
+  if [ -z "$path" ] || [ "$path" = "none" ]; then
+    atlas_archive_verify_row "$display_label" "not-recorded" "${path:--}"
+    ATLAS_ARCHIVE_VERIFY_GAPS=$((ATLAS_ARCHIVE_VERIFY_GAPS + 1))
+    return 0
+  fi
+
+  expected_sha="$(atlas_closeout_anchor_token "$line" "sha256")"
+  if [ -z "$expected_sha" ]; then
+    atlas_archive_verify_row "$display_label" "unverifiable" "$path" "missing expected sha256"
+    ATLAS_ARCHIVE_VERIFY_PROBLEMS=$((ATLAS_ARCHIVE_VERIFY_PROBLEMS + 1))
+    return 0
+  fi
+
+  if [ ! -f "$path" ]; then
+    atlas_archive_verify_row "$display_label" "missing" "$path" "expected sha256=$expected_sha"
+    ATLAS_ARCHIVE_VERIFY_PROBLEMS=$((ATLAS_ARCHIVE_VERIFY_PROBLEMS + 1))
+    return 0
+  fi
+
+  actual_sha="$(atlas_closeout_sha_for_file "$path")"
+  if [ "$actual_sha" = "$expected_sha" ]; then
+    atlas_archive_verify_row "$display_label" "verified" "$path"
+    ATLAS_ARCHIVE_VERIFY_VERIFIED=$((ATLAS_ARCHIVE_VERIFY_VERIFIED + 1))
+  else
+    atlas_archive_verify_row "$display_label" "changed" "$path" "expected=$expected_sha actual=$actual_sha"
+    ATLAS_ARCHIVE_VERIFY_PROBLEMS=$((ATLAS_ARCHIVE_VERIFY_PROBLEMS + 1))
+  fi
+}
+
+atlas_archive_verify_ledger_anchor() {
+  local packet_file="$1"
+  local line
+  local path
+  local expected_events
+  local actual_events
+  local expected_sha
+  local actual_sha
+
+  line="$(atlas_closeout_manifest_anchor_line "$packet_file" "Operation ledger")"
+  if [ -z "$line" ]; then
+    atlas_archive_verify_row "Operation Ledger" "unverifiable" "-" "anchor missing from packet"
+    ATLAS_ARCHIVE_VERIFY_PROBLEMS=$((ATLAS_ARCHIVE_VERIFY_PROBLEMS + 1))
+    return 0
+  fi
+
+  path="$(atlas_closeout_anchor_path "$line")"
+  expected_events="$(atlas_closeout_anchor_token "$line" "events")"
+  expected_sha="$(atlas_closeout_anchor_token "$line" "sha256")"
+  if [ -z "$path" ] || [ -z "$expected_events" ] || [ -z "$expected_sha" ]; then
+    atlas_archive_verify_row "Operation Ledger" "unverifiable" "${path:--}" "missing events or sha256"
+    ATLAS_ARCHIVE_VERIFY_PROBLEMS=$((ATLAS_ARCHIVE_VERIFY_PROBLEMS + 1))
+    return 0
+  fi
+
+  if [ ! -f "$path" ]; then
+    atlas_archive_verify_row "Operation Ledger" "missing" "$path" "expected events=$expected_events sha256=$expected_sha"
+    ATLAS_ARCHIVE_VERIFY_PROBLEMS=$((ATLAS_ARCHIVE_VERIFY_PROBLEMS + 1))
+    return 0
+  fi
+
+  actual_events="$(atlas_closeout_ledger_event_count "$path")"
+  actual_sha="$(atlas_closeout_sha_for_file "$path")"
+  if [ "$actual_events" = "$expected_events" ] && [ "$actual_sha" = "$expected_sha" ]; then
+    atlas_archive_verify_row "Operation Ledger" "verified" "$path" "events=$actual_events"
+    ATLAS_ARCHIVE_VERIFY_VERIFIED=$((ATLAS_ARCHIVE_VERIFY_VERIFIED + 1))
+  else
+    atlas_archive_verify_row "Operation Ledger" "changed" "$path" "expected_events=$expected_events actual_events=$actual_events expected_sha=$expected_sha actual_sha=$actual_sha"
+    ATLAS_ARCHIVE_VERIFY_PROBLEMS=$((ATLAS_ARCHIVE_VERIFY_PROBLEMS + 1))
+  fi
+}
+
+atlas_archive_verify_packet() {
+  local packet_file="$1"
+  local packet_operation
+  local verification_status="verified"
+
+  [ -f "$packet_file" ] || fail "archive packet is not a file: $packet_file"
+  packet_operation="$(atlas_audit_packet_field "$packet_file" "Operation ID")"
+  [ -n "$packet_operation" ] || fail "archive packet is missing Operation ID: $packet_file"
+  [ "$packet_operation" = "$ATLAS_OP_SLUG" ] || fail "archive packet belongs to '$packet_operation', not '$ATLAS_OP_SLUG'"
+
+  ATLAS_ARCHIVE_VERIFY_PROBLEMS=0
+  ATLAS_ARCHIVE_VERIFY_GAPS=0
+  ATLAS_ARCHIVE_VERIFY_VERIFIED=0
+
+  ui_heading "Archive Packet Verification"
+  ui_rule
+  ui_kv "Operation" "$ATLAS_OP_NAME"
+  ui_kv "Packet" "$packet_file"
+  ui_rule
+  printf '%-22s %-14s %s\n' "ARTIFACT" "STATUS" "PATH"
+  atlas_archive_verify_hash_anchor "$packet_file" "Latest report" "Latest Report"
+  atlas_archive_verify_hash_anchor "$packet_file" "Evidence manifest" "Evidence Manifest"
+  atlas_archive_verify_hash_anchor "$packet_file" "Latest handoff" "Latest Handoff"
+  atlas_archive_verify_hash_anchor "$packet_file" "Latest closeout" "Latest Closeout"
+  atlas_archive_verify_hash_anchor "$packet_file" "Latest audit packet" "Latest Audit Packet"
+  atlas_archive_verify_ledger_anchor "$packet_file"
+  ui_rule
+
+  if [ "$ATLAS_ARCHIVE_VERIFY_PROBLEMS" -gt 0 ]; then
+    verification_status="attention-required"
+  fi
+  ui_kv "Verification Status" "$verification_status"
+  ui_kv "Verified Anchors" "$ATLAS_ARCHIVE_VERIFY_VERIFIED"
+  ui_kv "Verification Gaps" "$ATLAS_ARCHIVE_VERIFY_GAPS"
+  ui_kv "Verification Problems" "$ATLAS_ARCHIVE_VERIFY_PROBLEMS"
+
+  [ "$ATLAS_ARCHIVE_VERIFY_PROBLEMS" -eq 0 ] || return 1
+}
+
 cmd_op_archive() {
   [ "$#" -le 1 ] || fail "op archive [name]"
 
@@ -306,4 +518,32 @@ cmd_op_archive_packet() {
 
   ui_ok "archive packet written"
   printf 'archive_packet: %s\n' "$packet_file"
+}
+
+cmd_op_archive_verify() {
+  local operation_name=""
+  local packet_arg=""
+  local packet_file
+  local slug
+
+  [ "$#" -le 2 ] || fail "op archive-verify [name] [archive-packet]"
+
+  if [ "$#" -eq 0 ]; then
+    load_active_operation
+  elif [ "$#" -eq 1 ]; then
+    slug="$(session_slug_for "$1")"
+    if [ -f "$(atlas_op_file_for_slug "$slug")" ]; then
+      load_atlas_operation "$1"
+    else
+      load_active_operation
+      packet_arg="$1"
+    fi
+  else
+    operation_name="$1"
+    packet_arg="$2"
+    load_atlas_operation "$operation_name"
+  fi
+
+  packet_file="$(atlas_archive_resolve_packet "$packet_arg")"
+  atlas_archive_verify_packet "$packet_file"
 }

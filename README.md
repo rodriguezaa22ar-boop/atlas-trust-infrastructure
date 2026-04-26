@@ -245,6 +245,8 @@ Atlas now also exposes the operator-level story and reporting layer:
   freshness, verification status, and artifact pointers
 - `atlas op archive-packet [name] [packet-name]`: metadata-only archive packet
   with final archive status, verification state, hashes, and artifact pointers
+- `atlas op archive-verify [name] [archive-packet]`: read-only archive packet
+  verification for recorded artifact hashes and ledger event count
 - `atlas op close [name] [--force]`: close only when readiness passes unless an
   explicit forced closure is recorded
 - `atlas advisor brief`: state-only AI advisor readout with redaction guardrails

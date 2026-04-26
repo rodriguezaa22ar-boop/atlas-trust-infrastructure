@@ -134,6 +134,7 @@ quick flow:
   atlas op audit-verify [name] [audit-packet]
   atlas op archive [name]
   atlas op archive-packet [name] [packet-name]
+  atlas op archive-verify [name] [archive-packet]
   atlas op close [name] [--force]
 
 targets:
@@ -168,6 +169,7 @@ operations:
   atlas op audit-verify [name] [audit-packet]
   atlas op archive [name]
   atlas op archive-packet [name] [packet-name]
+  atlas op archive-verify [name] [archive-packet]
   atlas op next
   atlas op close [name] [--force]
   atlas op recon <workflow> [interface]
@@ -2100,6 +2102,10 @@ op)
 	archive-packet)
 		shift
 		cmd_op_archive_packet "$@"
+		;;
+	archive-verify)
+		shift
+		cmd_op_archive_verify "$@"
 		;;
 	next)
 		shift

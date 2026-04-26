@@ -63,6 +63,7 @@ teardown() {
   [[ "$output" == *"atlas op audit-verify [name] [audit-packet]"* ]]
   [[ "$output" == *"atlas op archive [name]"* ]]
   [[ "$output" == *"atlas op archive-packet [name] [packet-name]"* ]]
+  [[ "$output" == *"atlas op archive-verify [name] [archive-packet]"* ]]
   [[ "$output" == *"atlas op close [name] [--force]"* ]]
   [[ "$output" == *"atlas target brief <target>"* ]]
 }
@@ -1096,6 +1097,30 @@ EOF
   [ "$status" -eq 0 ]
   [[ "$output" == *"later_allowed_events=2"* ]]
   [[ "$output" == *"Verification Status: verified"* ]]
+
+  archive_verify_events_before="$(wc -l < "$TEST_ROOT/toolkit/sessions/archive-op/ledger.ndjson" | tr -d ' ')"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op archive-verify archive-op
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Archive Packet Verification"* ]]
+  [[ "$output" == *"Latest Report"* ]]
+  [[ "$output" == *"Evidence Manifest"* ]]
+  [[ "$output" == *"Latest Handoff"* ]]
+  [[ "$output" == *"Latest Closeout"* ]]
+  [[ "$output" == *"Latest Audit Packet"* ]]
+  [[ "$output" == *"Operation Ledger"* ]]
+  [[ "$output" == *"verified"* ]]
+  [[ "$output" == *"Verification Status: verified"* ]]
+  [[ "$output" == *"Verification Problems: 0"* ]]
+  archive_verify_events_after="$(wc -l < "$TEST_ROOT/toolkit/sessions/archive-op/ledger.ndjson" | tr -d ' ')"
+  [ "$archive_verify_events_after" = "$archive_verify_events_before" ]
+
+  printf '\narchive report changed after packet\n' >> "$report_path"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op archive-verify archive-op "$archive_packet_path"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Latest Report"* ]]
+  [[ "$output" == *"changed"* ]]
+  [[ "$output" == *"Verification Status: attention-required"* ]]
+  [[ "$output" == *"Verification Problems: 1"* ]]
 }
 
 @test "atlas operation close can force closure with readiness snapshot" {
