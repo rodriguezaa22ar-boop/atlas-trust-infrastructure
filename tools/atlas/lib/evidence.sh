@@ -182,6 +182,71 @@ atlas_evidence_append_redaction_record() {
     }' >>"$index_file"
 }
 
+atlas_evidence_bundle_rows() {
+  local include_unredacted="$1"
+  local index_file
+
+  index_file="$(atlas_evidence_index_file "$ATLAS_OP_DIR")"
+  [ -s "$index_file" ] || return 0
+
+  jq -sr \
+    --arg target "$ATLAS_OP_TARGET" \
+    --argjson include_unredacted "$include_unredacted" '
+      def bundle_source:
+        if ((.redacted // false) == true and (.redacted_path // "") != "") then
+          ["redacted", (.redacted_path // ""), (.redacted_sha256 // "")]
+        elif ((.redacted // false) == true) then
+          ["redacted", (.path // ""), (.sha256 // "")]
+        elif (.classification // "internal") == "public" then
+          ["public", (.path // ""), (.sha256 // "")]
+        elif $include_unredacted == 1 then
+          ["unredacted", (.path // ""), (.sha256 // "")]
+        else
+          empty
+        end;
+      reduce .[] as $record ({}; .[$record.id] = $record)
+      | [.[]]
+      | map(select(.target == $target))
+      | sort_by(.created_at, .id)
+      | .[]
+      | bundle_source as $source
+      | [
+          (.id // "?"),
+          (.kind // "?"),
+          (.classification // "internal"),
+          ((.redacted // false) | tostring),
+          (.path // ""),
+          (.sha256 // ""),
+          $source[0],
+          $source[1],
+          $source[2]
+        ]
+      | @tsv
+    ' "$index_file"
+}
+
+atlas_evidence_bundle_blocked_count() {
+  local index_file
+
+  index_file="$(atlas_evidence_index_file "$ATLAS_OP_DIR")"
+  if [ ! -s "$index_file" ]; then
+    printf '0\n'
+    return 0
+  fi
+
+  jq -sr \
+    --arg target "$ATLAS_OP_TARGET" '
+      reduce .[] as $record ({}; .[$record.id] = $record)
+      | [.[]]
+      | map(select(
+          .target == $target
+          and (.redacted // false) == false
+          and (.classification // "internal") != "public"
+        ))
+      | length
+    ' "$index_file"
+}
+
 cmd_evidence_hash() {
   need_args 1 "$#" "evidence hash <path>"
   local path="$1"
@@ -372,6 +437,173 @@ cmd_evidence_redact() {
   printf 'classification: %s\n' "$classification"
   printf 'redacted_sha256: %s\n' "$redacted_sha256"
   printf 'redacted_path: %s\n' "$destination"
+}
+
+cmd_evidence_bundle() {
+  local bundle_name=""
+  local include_unredacted=0
+  local index_file
+  local blocked_count
+  local bundle_slug
+  local bundle_root
+  local bundle_dir
+  local files_dir
+  local manifest_file
+  local readme_file
+  local evidence_id
+  local kind
+  local classification
+  local redacted
+  local original_path
+  local original_sha256
+  local included_as
+  local source_path
+  local source_sha256
+  local source_abs
+  local file_name
+  local bundle_rel_path
+  local bundle_abs_path
+  local bundled_sha256
+  local count=0
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+    --include-unredacted)
+      include_unredacted=1
+      shift
+      ;;
+    --)
+      shift
+      break
+      ;;
+    -*)
+      fail "unknown evidence bundle option: $1"
+      ;;
+    *)
+      if [ -n "$bundle_name" ]; then
+        fail "unexpected evidence bundle argument: $1"
+      fi
+      bundle_name="$1"
+      shift
+      ;;
+    esac
+  done
+
+  if [ "$#" -gt 0 ]; then
+    if [ -n "$bundle_name" ]; then
+      fail "unexpected evidence bundle argument: $1"
+    fi
+    bundle_name="$1"
+    shift
+  fi
+  [ "$#" -eq 0 ] || fail "unexpected evidence bundle argument: $1"
+
+  load_active_operation
+  index_file="$(atlas_evidence_index_file "$ATLAS_OP_DIR")"
+  [ -s "$index_file" ] || fail "no evidence recorded yet"
+
+  blocked_count="$(atlas_evidence_bundle_blocked_count)"
+  if [ "$include_unredacted" -ne 1 ] && [ "$blocked_count" -gt 0 ]; then
+    fail "redaction required before bundling: $blocked_count non-public evidence record(s) are unredacted"
+  fi
+
+  if [ -z "$bundle_name" ]; then
+    bundle_name="$ATLAS_OP_SLUG-evidence-bundle"
+  fi
+  bundle_slug="$(slugify "$bundle_name")"
+  [ -n "$bundle_slug" ] || fail "evidence bundle name produced an empty slug"
+
+  bundle_root="$ATLAS_OP_DIR/evidence-bundles"
+  bundle_dir="$bundle_root/$bundle_slug"
+  files_dir="$bundle_dir/files"
+  manifest_file="$bundle_dir/manifest.ndjson"
+  readme_file="$bundle_dir/README.md"
+
+  [ ! -e "$bundle_dir" ] || fail "evidence bundle already exists: $bundle_slug"
+  mkdir -p "$files_dir"
+  chmod 700 "$bundle_root" "$bundle_dir" "$files_dir" 2>/dev/null || true
+  : >"$manifest_file"
+  chmod 600 "$manifest_file" 2>/dev/null || true
+
+  while IFS=$'\t' read -r evidence_id kind classification redacted original_path original_sha256 included_as source_path source_sha256; do
+    [ -n "$evidence_id" ] || continue
+    [ -n "$source_path" ] || fail "evidence '$evidence_id' has no bundle source path"
+    source_abs="$ATLAS_OP_DIR/$source_path"
+    [ -f "$source_abs" ] || fail "missing bundle source for evidence '$evidence_id': $source_abs"
+
+    file_name="$(atlas_evidence_safe_name "$source_path")"
+    bundle_rel_path="files/$evidence_id-$included_as-$file_name"
+    bundle_abs_path="$bundle_dir/$bundle_rel_path"
+
+    cp -- "$source_abs" "$bundle_abs_path"
+    chmod 600 "$bundle_abs_path" 2>/dev/null || true
+    bundled_sha256="$(atlas_evidence_hash_path "$bundle_abs_path")"
+    if [ -n "$source_sha256" ]; then
+      [ "$bundled_sha256" = "$source_sha256" ] || fail "bundle copy integrity check failed for evidence '$evidence_id'"
+    fi
+
+    jq -cn \
+      --arg id "$evidence_id" \
+      --arg operation "$ATLAS_OP_SLUG" \
+      --arg target "$ATLAS_OP_TARGET" \
+      --arg kind "$kind" \
+      --arg classification "$classification" \
+      --arg redacted "$redacted" \
+      --arg original_path "$original_path" \
+      --arg original_sha256 "$original_sha256" \
+      --arg included_as "$included_as" \
+      --arg source_path "$source_path" \
+      --arg source_sha256 "$source_sha256" \
+      --arg bundle_path "$bundle_rel_path" \
+      --arg bundled_sha256 "$bundled_sha256" \
+      --arg bundled_at "$(timestamp)" \
+      '{
+        id: $id,
+        operation: $operation,
+        target: $target,
+        kind: $kind,
+        classification: $classification,
+        redacted: ($redacted == "true"),
+        original_path: $original_path,
+        original_sha256: $original_sha256,
+        included_as: $included_as,
+        source_path: $source_path,
+        source_sha256: $source_sha256,
+        bundle_path: $bundle_path,
+        bundled_sha256: $bundled_sha256,
+        bundled_at: $bundled_at
+      }' >>"$manifest_file"
+    count=$((count + 1))
+  done < <(atlas_evidence_bundle_rows "$include_unredacted")
+
+  [ "$count" -gt 0 ] || fail "no bundle-eligible evidence records found"
+
+  {
+    printf '# Atlas Evidence Bundle\n\n'
+    printf 'Generated: %s\n' "$(timestamp)"
+    printf 'Operation: %s\n' "$ATLAS_OP_NAME"
+    printf 'Operation ID: %s\n' "$ATLAS_OP_SLUG"
+    printf 'Target: %s\n' "$ATLAS_OP_TARGET"
+    printf 'Include unredacted: %s\n' "$include_unredacted"
+    printf 'Files: %s\n' "$count"
+    printf '\n## Files\n\n'
+    jq -r '
+      "- " + (.id // "?") +
+      " / " + (.included_as // "?") +
+      " / " + (.classification // "?") +
+      " / sha256=" + (.bundled_sha256 // "?") +
+      " / `" + (.bundle_path // "?") + "`"
+    ' "$manifest_file"
+  } >"$readme_file"
+  chmod 600 "$readme_file" 2>/dev/null || true
+
+  atlas_ledger_append_current "evidence.bundle.generated" "read-only" "atlas" "ok" "bundle=$bundle_slug files=$count include_unredacted=$include_unredacted"
+
+  ui_ok "evidence bundle written"
+  printf 'bundle: %s\n' "$bundle_dir"
+  printf 'manifest: %s\n' "$manifest_file"
+  printf 'files: %s\n' "$count"
+  printf 'include_unredacted: %s\n' "$include_unredacted"
 }
 
 cmd_evidence_list() {

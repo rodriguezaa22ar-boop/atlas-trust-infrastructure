@@ -28,6 +28,7 @@ teardown() {
   [[ "$output" == *"atlas scope status"* ]]
   [[ "$output" == *"atlas evidence add <path> [--kind kind]"* ]]
   [[ "$output" == *"atlas evidence redact <id> <redacted-path>"* ]]
+  [[ "$output" == *"atlas evidence bundle [bundle-name]"* ]]
   [[ "$output" == *"atlas finding add <title> [--level observed|inferred|validated]"* ]]
   [[ "$output" == *"atlas validation plan <lane> [--finding id] [--evidence id]"* ]]
   [[ "$output" == *"atlas advisor brief [name]"* ]]
@@ -561,6 +562,10 @@ EOF
   [[ "$output" == *"SHA256: $expected_sha"* ]]
   [[ "$output" == *"Redacted: false"* ]]
 
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence bundle pre-redaction
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"redaction required before bundling"* ]]
+
   redacted_artifact="$TEST_ROOT/artifact-redacted.txt"
   printf 'authorized evidence artifact with sensitive fields removed\n' > "$redacted_artifact"
   redacted_sha="$(sha256sum "$redacted_artifact" | awk '{ print $1 }')"
@@ -580,6 +585,19 @@ EOF
   [[ "$output" == *"Redacted SHA256: $redacted_sha"* ]]
   [[ "$output" == *"Redaction Note: removed target-specific detail"* ]]
 
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence bundle evidence-review
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"evidence bundle written"* ]]
+  [[ "$output" == *"files: 1"* ]]
+  [[ "$output" == *"include_unredacted: 0"* ]]
+  bundle_dir="$(printf '%s\n' "$output" | awk -F': ' '$1 == "bundle" { print $2; exit }')"
+  manifest_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "manifest" { print $2; exit }')"
+  [ -d "$bundle_dir/files" ]
+  [ -f "$manifest_path" ]
+  bundle_file_rel="$(jq -r --arg evidence_id "$evidence_id" 'select(.id == $evidence_id) | .bundle_path' "$manifest_path")"
+  [ -f "$bundle_dir/$bundle_file_rel" ]
+  [ "$(sha256sum "$bundle_dir/$bundle_file_rel" | awk '{ print $1 }')" = "$redacted_sha" ]
+
   jq -e \
     --arg evidence_id "$evidence_id" \
     --arg sha256 "$expected_sha" \
@@ -592,11 +610,18 @@ EOF
     "$TEST_ROOT/toolkit/sessions/evidence-op/evidence.ndjson"
   jq -e \
     --arg evidence_id "$evidence_id" \
+    --arg redacted_sha "$redacted_sha" \
+    'select(.id == $evidence_id and .included_as == "redacted" and .bundled_sha256 == $redacted_sha)' \
+    "$manifest_path"
+  jq -e \
+    --arg evidence_id "$evidence_id" \
     'select(.event == "artifact.created" and (.detail | contains($evidence_id)))' \
     "$TEST_ROOT/toolkit/sessions/evidence-op/ledger.ndjson"
   jq -e \
     --arg evidence_id "$evidence_id" \
     'select(.event == "artifact.redacted" and (.detail | contains($evidence_id)))' \
+    "$TEST_ROOT/toolkit/sessions/evidence-op/ledger.ndjson"
+  jq -e 'select(.event == "evidence.bundle.generated" and (.detail | contains("evidence-review")))' \
     "$TEST_ROOT/toolkit/sessions/evidence-op/ledger.ndjson"
 
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence add "$artifact" --target other-node --kind scan-output

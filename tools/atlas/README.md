@@ -23,6 +23,7 @@ atlas scope status
 atlas approval grant safe-validation "approved bounded validation"
 atlas evidence add ./artifact.txt --kind scan-output
 atlas evidence redact ev_... ./artifact-redacted.txt
+atlas evidence bundle review-bundle
 atlas evidence list
 atlas evidence show ev_...
 atlas finding add "SSH reachable" --level observed --severity low --evidence ev_...
@@ -175,6 +176,7 @@ target before it mutates state.
 atlas evidence hash ./artifact.txt
 atlas evidence add ./artifact.txt --kind scan-output
 atlas evidence redact ev_20260425T200000Z ./artifact-redacted.txt
+atlas evidence bundle review-bundle
 atlas evidence list
 atlas evidence show ev_20260425T200000Z
 ```
@@ -183,7 +185,10 @@ The implementation keeps original artifacts immutable, then appends redaction
 metadata when `atlas evidence redact <id> <redacted-path>` is used. The
 redacted derivative is copied under the evidence record, hashed, linked to the
 original evidence ID, and logged with an `artifact.redacted` ledger event.
-Bundles come later.
+`atlas evidence bundle [bundle-name]` then writes an operation-owned bundle
+directory with copied redacted/public files, `manifest.ndjson`, and a Markdown
+summary. Bundles fail closed when non-public unredacted evidence remains unless
+the operator explicitly passes `--include-unredacted`.
 
 ## Findings
 

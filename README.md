@@ -208,6 +208,8 @@ Atlas now also exposes the operator-level story and reporting layer:
 - `atlas evidence add <path>`: operation-owned artifact copy with SHA-256 index
 - `atlas evidence redact <id> <redacted-path>`: attach a redacted derivative
   while preserving original evidence hashes
+- `atlas evidence bundle [bundle-name]`: create a redacted/public evidence
+  handoff bundle with manifest hashes
 - `atlas finding add <title>`: observed, inferred, or validated finding record
 - `atlas validation plan <lane>`: plan, approve, and run bounded validation
 - `atlas op brief`: operation summary with evidence, findings, and validation counts
