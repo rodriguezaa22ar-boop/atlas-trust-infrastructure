@@ -1,0 +1,33 @@
+Operation Readiness
+------------------------------------------------------------
+Operation: m30-retention-drill
+Operation Status: closed
+Target: demo-node
+Evidence Records: 1
+Findings: 0
+Open Findings: 0
+Validation Plans: 0
+Pending Validation: 0
+Latest Report: 2026-04-26T19:09:20Z /home/ao/Desktop/hp-native-toolkit/reports/m30-report.md
+Report Freshness: current
+Latest State Change: 2026-04-26T19:09:19Z artifact.created
+Evidence Bundle: 2026-04-26T19:09:20Z bundle=m30-bundle files=1 include_unredacted=0
+Bundle Freshness: current
+Latest Evidence Change: 2026-04-26T19:09:19Z artifact.created
+Latest Handoff: 2026-04-26T19:09:20Z /home/ao/Desktop/hp-native-toolkit/sessions/m30-retention-drill/handoff/m30-handoff.md
+Handoff Freshness: current
+Latest Closeout: 2026-04-26T19:09:20Z /home/ao/Desktop/hp-native-toolkit/sessions/m30-retention-drill/closeout/m30-closeout.md
+Closeout Freshness: current
+Latest Audit Packet: 2026-04-26T19:10:00Z /home/ao/Desktop/hp-native-toolkit/sessions/m30-retention-drill/audit/m30-audit-after-archive.md
+Audit Packet Freshness: current
+Latest Archive Packet: 2026-04-26T19:09:21Z /home/ao/Desktop/hp-native-toolkit/sessions/m30-retention-drill/archive/m30-archive.md
+Archive Packet Freshness: stale
+Latest Ledger Event: 2026-04-26T19:10:00Z audit.packet.generated
+Close Readiness: ready
+Next Step: Operation is ready to close; regenerate the archive packet if final retention is required.
+------------------------------------------------------------
+Open Findings
+note: no unresolved findings remain
+------------------------------------------------------------
+Pending Validation
+note: no planned or approved validation is waiting

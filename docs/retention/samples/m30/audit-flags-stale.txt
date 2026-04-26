@@ -1,0 +1,4 @@
+Audit Flags
+stale archive packet: /home/ao/Desktop/hp-native-toolkit/sessions/m30-retention-drill/archive/m30-archive.md
+note: closeout verification: verified manifest=/home/ao/Desktop/hp-native-toolkit/sessions/m30-retention-drill/closeout/m30-closeout.md
+------------------------------------------------------------

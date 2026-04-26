@@ -1,0 +1,35 @@
+Operation Archive Snapshot
+------------------------------------------------------------
+Operation: m30-retention-drill
+Operation Status: closed
+Target: demo-node
+Archive Status: current
+Next Archive Step: Archive snapshot is current.
+------------------------------------------------------------
+Readiness
+Close Readiness: ready
+Readiness Next Step: Operation is ready to close.
+Evidence Records: 1
+Open Findings: 0
+Pending Validation: 0
+Report Freshness: current
+Bundle Freshness: current
+Handoff Freshness: current
+Closeout Freshness: current
+Audit Packet Freshness: current
+Archive Packet Freshness: current
+------------------------------------------------------------
+Verification
+Closeout Verification: verified manifest=/home/ao/Desktop/hp-native-toolkit/sessions/m30-retention-drill/closeout/m30-closeout.md problems=0
+Audit Packet Verification: verified packet=/home/ao/Desktop/hp-native-toolkit/sessions/m30-retention-drill/audit/m30-audit-after-archive.md
+------------------------------------------------------------
+Archive Artifacts
+Latest Report: 2026-04-26T19:09:20Z /home/ao/Desktop/hp-native-toolkit/reports/m30-report.md sha256=436b076eaf14aabf84419e0f1d3dba02bf1d61b190e2a40959745c8c53ed520a
+Evidence Bundle: 2026-04-26T19:09:20Z /home/ao/Desktop/hp-native-toolkit/sessions/m30-retention-drill/evidence-bundles/m30-bundle slug=m30-bundle files=1 include_unredacted=0
+Evidence Manifest: /home/ao/Desktop/hp-native-toolkit/sessions/m30-retention-drill/evidence-bundles/m30-bundle/manifest.ndjson sha256=036bd469764a6ced1ccea6289100d8c2254bb02a8b22c3cfa604165accfd931f
+Latest Handoff: /home/ao/Desktop/hp-native-toolkit/sessions/m30-retention-drill/handoff/m30-handoff.md
+Latest Closeout: /home/ao/Desktop/hp-native-toolkit/sessions/m30-retention-drill/closeout/m30-closeout.md
+Latest Audit Packet: /home/ao/Desktop/hp-native-toolkit/sessions/m30-retention-drill/audit/m30-audit-after-archive.md
+Latest Archive Packet: /home/ao/Desktop/hp-native-toolkit/sessions/m30-retention-drill/archive/m30-archive-regenerated.md
+Operation Ledger: /home/ao/Desktop/hp-native-toolkit/sessions/m30-retention-drill/ledger.ndjson events=13 sha256=01e04e4d3ce610071d55874c499ea1cec0a85e57bc58040288f9cbaa75d131be
+Operation Directory: /home/ao/Desktop/hp-native-toolkit/sessions/m30-retention-drill

@@ -1,0 +1,2 @@
+lab_root=/home/ao/Desktop/hp-native-toolkit
+operation=m30-retention-drill
