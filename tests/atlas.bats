@@ -55,6 +55,7 @@ teardown() {
   [[ "$output" == *"atlas op story [name]"* ]]
   [[ "$output" == *"atlas op report [name] [report-name]"* ]]
   [[ "$output" == *"atlas op readiness [name]"* ]]
+  [[ "$output" == *"atlas op handoff [name] [handoff-name]"* ]]
   [[ "$output" == *"atlas op close [name] [--force]"* ]]
   [[ "$output" == *"atlas target brief <target>"* ]]
 }
@@ -711,6 +712,27 @@ EOF
   [[ "$output" == *"Operation is ready to close; generate an evidence bundle if handoff is required."* ]]
   [[ "$output" == *"no unresolved findings remain"* ]]
 
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence bundle readiness-bundle
+  [ "$status" -eq 0 ]
+  bundle_dir="$(printf '%s\n' "$output" | awk -F': ' '$1 == "bundle" { print $2; exit }')"
+  manifest_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "manifest" { print $2; exit }')"
+  [ -d "$bundle_dir" ]
+  [ -f "$manifest_path" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op handoff readiness-op readiness-handoff
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"handoff packet written"* ]]
+  handoff_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "handoff" { print $2; exit }')"
+  [ -f "$handoff_path" ]
+  grep -q '^# Atlas Operation Handoff$' "$handoff_path"
+  grep -q 'No raw artifact contents are included' "$handoff_path"
+  grep -q 'Close readiness: ready' "$handoff_path"
+  grep -q "$report_path" "$handoff_path"
+  grep -q "$bundle_dir" "$handoff_path"
+  grep -q "$manifest_path" "$handoff_path"
+  grep -q "$finding_id" "$handoff_path"
+  grep -q 'Validate recipient and handling requirements' "$handoff_path"
+
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op close readiness-op
   [ "$status" -eq 0 ]
   [[ "$output" == *"operation closed"* ]]
@@ -719,6 +741,8 @@ EOF
   [[ "$output" == *"force: 0"* ]]
   grep -q '^STATUS=closed$' "$TEST_ROOT/toolkit/sessions/readiness-op/session.env"
   jq -e 'select(.event == "op.close.readiness" and .status == "ready" and (.detail | contains("readiness=ready")) and (.detail | contains("force=0")))' \
+    "$TEST_ROOT/toolkit/sessions/readiness-op/ledger.ndjson"
+  jq -e --arg handoff_path "$handoff_path" 'select(.event == "handoff.generated" and .detail == $handoff_path)' \
     "$TEST_ROOT/toolkit/sessions/readiness-op/ledger.ndjson"
 }
 

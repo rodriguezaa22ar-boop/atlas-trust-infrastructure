@@ -55,6 +55,7 @@ atlas op action run posture
 atlas op story
 atlas op report april-review
 atlas op readiness april-review
+atlas op handoff april-review
 atlas op close april-review
 atlas session list
 atlas loot list
@@ -85,6 +86,7 @@ atlas advisor brief
 atlas op story
 atlas op report
 atlas op readiness
+atlas op handoff
 atlas op close [--force]
 ```
 
@@ -330,6 +332,11 @@ handoff step when needed.
 operation still needs attention, close fails and prints the readiness checklist.
 Operators can use `--force` to close anyway; Atlas records the forced readiness
 snapshot in the operation ledger.
+
+`atlas op handoff [name] [handoff-name]` writes a metadata-only Markdown packet
+under the operation directory. It links the latest report, evidence bundle,
+manifest hash, operation ledger, findings, validation plans, and close readiness
+state without embedding raw artifact contents.
 
 ## AI Advisor
 

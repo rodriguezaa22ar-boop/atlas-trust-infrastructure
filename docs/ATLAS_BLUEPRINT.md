@@ -152,6 +152,9 @@ The near-term roadmap is:
 14. Guard operation closeout with readiness. `atlas op close` now requires a
     ready operation unless `--force` is explicit, and records the readiness
     snapshot in the ledger.
+15. Add operation handoff packets. `atlas op handoff` writes a metadata-only
+    closeout packet that links readiness, reports, evidence bundles, manifest
+    hashes, findings, validation plans, and ledger paths.
 
 ## First Serious Version
 
