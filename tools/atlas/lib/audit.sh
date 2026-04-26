@@ -8,6 +8,20 @@ atlas_audit_ledger_file() {
   printf '%s\n' "$ledger_file"
 }
 
+atlas_audit_latest_packet() {
+  local ledger_file
+
+  [ -n "${ATLAS_OP_DIR:-}" ] || return 0
+  ledger_file="$(atlas_ledger_file "$ATLAS_OP_DIR")"
+  [ -s "$ledger_file" ] || return 0
+
+  jq -r '
+    select(.event == "audit.packet.generated")
+    | [.ts, .detail]
+    | @tsv
+  ' "$ledger_file" | tail -n 1
+}
+
 atlas_audit_event_count() {
   local ledger_file="$1"
 
@@ -321,6 +335,155 @@ cmd_op_audit_packet() {
 
   ui_ok "audit packet written"
   printf 'audit_packet: %s\n' "$packet_file"
+}
+
+atlas_audit_packet_field() {
+  local packet_file="$1"
+  local field="$2"
+
+  awk -F': ' -v wanted="$field" '$1 == wanted { print $2; exit }' "$packet_file"
+}
+
+atlas_audit_packet_bullet_value() {
+  local packet_file="$1"
+  local label="$2"
+
+  awk -F': ' -v prefix="- $label" '$1 == prefix { print $2; exit }' "$packet_file"
+}
+
+atlas_audit_packet_anchor_line() {
+  local packet_file="$1"
+  local label="$2"
+
+  awk -v prefix="- $label: " 'index($0, prefix) == 1 { print; exit }' "$packet_file"
+}
+
+atlas_audit_resolve_packet() {
+  local packet_arg="$1"
+  local latest_packet
+  local latest_packet_path=""
+  local candidate
+  local packet_slug
+
+  if [ -z "$packet_arg" ]; then
+    latest_packet="$(atlas_audit_latest_packet)"
+    [ -n "$latest_packet" ] || fail "no audit packet recorded for operation '$ATLAS_OP_SLUG'"
+    IFS=$'\t' read -r _ latest_packet_path <<<"$latest_packet"
+    [ -f "$latest_packet_path" ] || fail "recorded audit packet is missing: $latest_packet_path"
+    printf '%s\n' "$latest_packet_path"
+    return 0
+  fi
+
+  if [ -f "$packet_arg" ]; then
+    readlink -f "$packet_arg"
+    return 0
+  fi
+
+  candidate="$ATLAS_OP_DIR/audit/$packet_arg"
+  if [ -f "$candidate" ]; then
+    readlink -f "$candidate"
+    return 0
+  fi
+
+  packet_slug="$(slugify "${packet_arg%.md}")"
+  candidate="$ATLAS_OP_DIR/audit/$packet_slug.md"
+  if [ -f "$candidate" ]; then
+    readlink -f "$candidate"
+    return 0
+  fi
+
+  fail "unknown audit packet for operation '$ATLAS_OP_SLUG': $packet_arg"
+}
+
+atlas_audit_verify_packet() {
+  local packet_file="$1"
+  local packet_operation
+  local ledger_line
+  local ledger_file
+  local expected_events
+  local actual_events=""
+  local expected_sha
+  local actual_sha=""
+  local problems=0
+  local status="verified"
+  local ledger_status="verified"
+
+  [ -f "$packet_file" ] || fail "audit packet is not a file: $packet_file"
+  packet_operation="$(atlas_audit_packet_field "$packet_file" "Operation ID")"
+  [ -n "$packet_operation" ] || fail "audit packet is missing Operation ID: $packet_file"
+  [ "$packet_operation" = "$ATLAS_OP_SLUG" ] || fail "audit packet belongs to '$packet_operation', not '$ATLAS_OP_SLUG'"
+
+  ledger_line="$(atlas_audit_packet_anchor_line "$packet_file" "Operation ledger")"
+  ledger_file="$(atlas_closeout_anchor_path "$ledger_line")"
+  expected_events="$(atlas_audit_packet_bullet_value "$packet_file" "Events")"
+  expected_sha="$(atlas_audit_packet_bullet_value "$packet_file" "Ledger SHA256")"
+
+  if [ -z "$ledger_file" ] || [ -z "$expected_events" ] || [ -z "$expected_sha" ]; then
+    ledger_status="unverifiable"
+    problems=$((problems + 1))
+  elif [ ! -f "$ledger_file" ]; then
+    ledger_status="missing"
+    problems=$((problems + 1))
+  else
+    actual_events="$(atlas_audit_event_count "$ledger_file")"
+    actual_sha="$(atlas_evidence_hash_path "$ledger_file")"
+    if [ "$actual_events" != "$expected_events" ] || [ "$actual_sha" != "$expected_sha" ]; then
+      ledger_status="changed"
+      problems=$((problems + 1))
+    fi
+  fi
+
+  if [ "$problems" -gt 0 ]; then
+    status="attention-required"
+  fi
+
+  ui_heading "Audit Packet Verification"
+  ui_rule
+  ui_kv "Operation" "$ATLAS_OP_NAME"
+  ui_kv "Packet" "$packet_file"
+  ui_rule
+  printf '%-20s %-14s %s\n' "ARTIFACT" "STATUS" "DETAIL"
+  printf '%-20s %-14s expected_events=%s actual_events=%s expected_sha=%s actual_sha=%s ledger=%s\n' \
+    "Operation Ledger" \
+    "$ledger_status" \
+    "${expected_events:-unknown}" \
+    "${actual_events:-unknown}" \
+    "${expected_sha:-unknown}" \
+    "${actual_sha:-unknown}" \
+    "${ledger_file:-unknown}"
+  ui_rule
+  ui_kv "Verification Status" "$status"
+  ui_kv "Verification Problems" "$problems"
+
+  [ "$problems" -eq 0 ] || return 1
+}
+
+cmd_op_audit_verify() {
+  local operation_name=""
+  local packet_arg=""
+  local packet_file
+  local slug
+
+  [ "$#" -le 2 ] || fail "op audit-verify [name] [audit-packet]"
+
+  if [ "$#" -eq 0 ]; then
+    load_active_operation
+  elif [ "$#" -eq 1 ]; then
+    slug="$(session_slug_for "$1")"
+    if [ -f "$(atlas_op_file_for_slug "$slug")" ]; then
+      load_atlas_operation "$1"
+    else
+      load_active_operation
+      packet_arg="$1"
+    fi
+  else
+    operation_name="$1"
+    packet_arg="$2"
+    load_atlas_operation "$operation_name"
+  fi
+
+  packet_file="$(atlas_audit_resolve_packet "$packet_arg")"
+  atlas_audit_verify_packet "$packet_file"
 }
 
 cmd_op_audit() {

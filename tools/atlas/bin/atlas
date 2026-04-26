@@ -128,6 +128,7 @@ quick flow:
   atlas op verify [name] [closeout-manifest]
   atlas op audit [name]
   atlas op audit-packet [name] [packet-name]
+  atlas op audit-verify [name] [audit-packet]
   atlas op close [name] [--force]
 
 targets:
@@ -159,6 +160,7 @@ operations:
   atlas op verify [name] [closeout-manifest]
   atlas op audit [name]
   atlas op audit-packet [name] [packet-name]
+  atlas op audit-verify [name] [audit-packet]
   atlas op next
   atlas op close [name] [--force]
   atlas op recon <workflow> [interface]
@@ -2076,6 +2078,10 @@ op)
 	audit-packet)
 		shift
 		cmd_op_audit_packet "$@"
+		;;
+	audit-verify)
+		shift
+		cmd_op_audit_verify "$@"
 		;;
 	next)
 		shift

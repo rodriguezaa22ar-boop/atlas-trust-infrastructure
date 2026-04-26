@@ -60,6 +60,7 @@ teardown() {
   [[ "$output" == *"atlas op verify [name] [closeout-manifest]"* ]]
   [[ "$output" == *"atlas op audit [name]"* ]]
   [[ "$output" == *"atlas op audit-packet [name] [packet-name]"* ]]
+  [[ "$output" == *"atlas op audit-verify [name] [audit-packet]"* ]]
   [[ "$output" == *"atlas op close [name] [--force]"* ]]
   [[ "$output" == *"atlas target brief <target>"* ]]
 }
@@ -935,6 +936,28 @@ EOF
   grep -q 'stale closeout:' "$audit_packet_path"
   jq -e --arg audit_packet_path "$audit_packet_path" 'select(.event == "audit.packet.generated" and .detail == $audit_packet_path)' \
     "$TEST_ROOT/toolkit/sessions/readiness-op/ledger.ndjson"
+
+  audit_verify_events_before="$(wc -l < "$TEST_ROOT/toolkit/sessions/readiness-op/ledger.ndjson" | tr -d ' ')"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op audit-verify readiness-op
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Audit Packet Verification"* ]]
+  [[ "$output" == *"Operation Ledger"* ]]
+  [[ "$output" == *"verified"* ]]
+  [[ "$output" == *"Verification Status: verified"* ]]
+  [[ "$output" == *"Verification Problems: 0"* ]]
+  audit_verify_events_after="$(wc -l < "$TEST_ROOT/toolkit/sessions/readiness-op/ledger.ndjson" | tr -d ' ')"
+  [ "$audit_verify_events_after" = "$audit_verify_events_before" ]
+
+  sleep 1
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op handoff readiness-op readiness-handoff-after-audit-packet
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op audit-verify readiness-op "$audit_packet_path"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Operation Ledger"* ]]
+  [[ "$output" == *"changed"* ]]
+  [[ "$output" == *"Verification Status: attention-required"* ]]
+  [[ "$output" == *"Verification Problems: 1"* ]]
 }
 
 @test "atlas operation close can force closure with readiness snapshot" {

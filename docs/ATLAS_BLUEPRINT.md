@@ -178,6 +178,9 @@ The near-term roadmap is:
 23. Add audit packets. `atlas op audit-packet` writes a metadata-only Markdown
     packet with event counts, audit flags, closeout verification status,
     timeline, and ledger hash for review or retention.
+24. Add audit packet verification. `atlas op audit-verify` reads an audit
+    packet without mutating operation state and checks the recorded ledger event
+    count and SHA-256 hash against the current ledger.
 
 ## First Serious Version
 

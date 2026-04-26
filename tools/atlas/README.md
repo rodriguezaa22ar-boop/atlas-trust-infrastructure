@@ -61,6 +61,7 @@ atlas op closeout april-review
 atlas op verify april-review
 atlas op audit april-review
 atlas op audit-packet april-review
+atlas op audit-verify april-review
 atlas session list
 atlas loot list
 atlas intel summary
@@ -96,6 +97,7 @@ atlas op closeout <name>
 atlas op verify <name>
 atlas op audit <name>
 atlas op audit-packet <name>
+atlas op audit-verify <name>
 ```
 
 `atlas target brief <target>` gives the fast operator readout: surface counts,
@@ -368,6 +370,10 @@ timeline.
 audit packet under the operation directory. It includes event counts, audit
 flags, a timeline, closeout verification status, and the operation ledger hash
 without embedding raw artifacts.
+
+`atlas op audit-verify [name] [audit-packet]` reads an audit packet without
+mutating operation state. It verifies the recorded ledger event count and
+SHA-256 hash so operators can detect later ledger changes.
 
 ## AI Advisor
 
