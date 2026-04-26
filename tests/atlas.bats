@@ -42,6 +42,7 @@ teardown() {
   [[ "$output" == *"validation:"* ]]
   [[ "$output" == *"advisor:"* ]]
   [[ "$output" == *"atlas target story <target>"* ]]
+  [[ "$output" == *"atlas target update <name> [--scope-status status] [--criticality level]"* ]]
   [[ "$output" == *"atlas story demo-web-app"* ]]
   [[ "$output" == *"atlas op show [name]"* ]]
   [[ "$output" == *"atlas op story [name]"* ]]
@@ -54,6 +55,10 @@ teardown() {
   cat > "$TEST_ROOT/toolkit/targets/demo-node.env" <<'EOF'
 NAME=demo-node
 ADDRESS=10.10.10.10
+SCOPE_STATUS=in-scope
+CRITICALITY=high
+TAGS='lab web'
+OWNER=platform
 CREATED_AT=2026-04-23T20:53:16Z
 EOF
 
@@ -126,6 +131,10 @@ EOF
   cat > "$TEST_ROOT/toolkit/targets/demo-node.env" <<'EOF'
 NAME=demo-node
 ADDRESS=10.10.10.10
+SCOPE_STATUS=in-scope
+CRITICALITY=high
+TAGS='lab web'
+OWNER=platform
 CREATED_AT=2026-04-23T20:53:16Z
 EOF
 
@@ -134,8 +143,16 @@ EOF
   [ "$status" -eq 0 ]
   [[ "$output" == *"target: demo-node"* ]]
   [[ "$output" == *"address: 10.10.10.10"* ]]
+  [[ "$output" == *"scope_status: in-scope"* ]]
+  [[ "$output" == *"criticality: high"* ]]
+  [[ "$output" == *"tags: lab web"* ]]
+  [[ "$output" == *"owner: platform"* ]]
   grep -q '^TARGET=demo-node$' "$TEST_ROOT/toolkit/sessions/cutover/session.env"
   grep -q '^TARGET_ADDRESS=10.10.10.10$' "$TEST_ROOT/toolkit/sessions/cutover/session.env"
+  grep -q '^TARGET_SCOPE_STATUS=in-scope$' "$TEST_ROOT/toolkit/sessions/cutover/session.env"
+  grep -q '^TARGET_CRITICALITY=high$' "$TEST_ROOT/toolkit/sessions/cutover/session.env"
+  grep -q '^TARGET_SCOPE_STATUS=in-scope$' "$TEST_ROOT/toolkit/sessions/cutover/scope.snapshot.env"
+  grep -q '^TARGET_CRITICALITY=high$' "$TEST_ROOT/toolkit/sessions/cutover/scope.snapshot.env"
   grep -q '^SCOPE_TARGET=demo-node$' "$TEST_ROOT/toolkit/sessions/cutover/scope.snapshot.env"
   grep -q 'active-recon' "$TEST_ROOT/toolkit/sessions/cutover/scope.snapshot.env"
   jq -e 'select(.event == "op.started" and .op == "cutover" and .target == "demo-node")' \
@@ -144,6 +161,10 @@ EOF
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op status cutover
   [ "$status" -eq 0 ]
   [[ "$output" == *"Target: demo-node -> 10.10.10.10"* ]]
+  [[ "$output" == *"Target Scope: in-scope"* ]]
+  [[ "$output" == *"Target Criticality: high"* ]]
+  [[ "$output" == *"Target Owner: platform"* ]]
+  [[ "$output" == *"Target Tags: lab web"* ]]
 
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op show cutover
   [ "$status" -eq 0 ]
@@ -160,6 +181,8 @@ EOF
   grep -q '^# Atlas Operation Report$' "$report_path"
   grep -q '^## Commands Run$' "$report_path"
   grep -q '^## Artifacts$' "$report_path"
+  grep -q 'Target Scope Status: in-scope' "$report_path"
+  grep -q 'Target Criticality: high' "$report_path"
   grep -q 'atlas op start cutover demo-node runtime smoke' "$report_path"
   jq -e 'select(.event == "report.generated" and .status == "ok")' \
     "$TEST_ROOT/toolkit/sessions/cutover/ledger.ndjson"
@@ -221,6 +244,18 @@ EOF
     "$TEST_ROOT/toolkit/sessions/scoped/ledger.ndjson"
   jq -e 'select(.capability == "safe-validation" and .status == "approved")' \
     "$TEST_ROOT/toolkit/sessions/scoped/approvals.ndjson"
+
+  cat > "$TEST_ROOT/toolkit/targets/retired-node.env" <<'EOF'
+NAME=retired-node
+ADDRESS=10.10.10.99
+SCOPE_STATUS=out-of-scope
+CRITICALITY=low
+CREATED_AT=2026-04-23T20:53:16Z
+EOF
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op start blocked retired-node should fail
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"marked out-of-scope"* ]]
+  [ ! -d "$TEST_ROOT/toolkit/sessions/blocked" ]
 }
 
 @test "atlas direct execution routes fail closed or use operation scope" {
@@ -228,6 +263,10 @@ EOF
   cat > "$TEST_ROOT/toolkit/targets/demo-node.env" <<'EOF'
 NAME=demo-node
 ADDRESS=10.10.10.10
+SCOPE_STATUS=in-scope
+CRITICALITY=high
+TAGS='lab web'
+OWNER=platform
 CREATED_AT=2026-04-23T20:53:16Z
 EOF
   mkdir -p "$TEST_ROOT/toolkit/state/intel"
@@ -816,6 +855,10 @@ EOF
   cat > "$TEST_ROOT/toolkit/targets/demo-node.env" <<'EOF'
 NAME=demo-node
 ADDRESS=10.10.10.10
+SCOPE_STATUS=in-scope
+CRITICALITY=high
+TAGS='lab web'
+OWNER=platform
 CREATED_AT=2026-04-23T20:53:16Z
 EOF
   cat > "$TEST_ROOT/toolkit/state/intel/entities.jsonl" <<'EOF'
@@ -837,6 +880,10 @@ EOF
   [ "$status" -eq 0 ]
   [[ "$output" == *"Target Story"* ]]
   [[ "$output" == *"Operator Brief"* ]]
+  [[ "$output" == *"Scope Status: in-scope"* ]]
+  [[ "$output" == *"Criticality: high"* ]]
+  [[ "$output" == *"Owner: platform"* ]]
+  [[ "$output" == *"Tags: lab web"* ]]
   [[ "$output" == *"Surface: host=up, services=1, web=1"* ]]
   [[ "$output" == *"Operation State: no active operation for this target"* ]]
   [[ "$output" == *"Target Record"* ]]
@@ -858,6 +905,8 @@ EOF
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" target brief demo-node
   [ "$status" -eq 0 ]
   [[ "$output" == *"Operator Brief"* ]]
+  [[ "$output" == *"Scope Status: in-scope"* ]]
+  [[ "$output" == *"Criticality: high"* ]]
   [[ "$output" == *"Surface: host=up, services=1, web=1"* ]]
   [[ "$output" == *"Latest Outcome: posture success 1 HTTP posture finding recorded"* ]]
   [[ "$output" == *"Next Step: Start or resume an Atlas operation before recording evidence or validation."* ]]

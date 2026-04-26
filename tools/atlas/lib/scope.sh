@@ -158,6 +158,10 @@ atlas_scope_write_snapshot() {
   local address="$3"
   local label="$4"
   local profile="${5:-default}"
+  local target_scope_status="${6:-unknown}"
+  local target_criticality="${7:-unknown}"
+  local target_tags="${8:-}"
+  local target_owner="${9:-}"
   local file
 
   atlas_scope_load_profile "$profile"
@@ -171,6 +175,10 @@ atlas_scope_write_snapshot() {
   upsert_env "$file" SCOPE_TARGET "$target"
   upsert_env "$file" SCOPE_TARGET_ADDRESS "$address"
   upsert_env "$file" SCOPE_TARGET_LABEL "$label"
+  upsert_env "$file" TARGET_SCOPE_STATUS "$target_scope_status"
+  upsert_env "$file" TARGET_CRITICALITY "$target_criticality"
+  upsert_env "$file" TARGET_TAGS "$target_tags"
+  upsert_env "$file" TARGET_OWNER "$target_owner"
   upsert_env "$file" SCOPE_TEXT "$ATLAS_PROFILE_SCOPE_TEXT"
   upsert_env "$file" ALLOWED_CAPABILITIES "$ATLAS_PROFILE_ALLOWED_CAPABILITIES"
   upsert_env "$file" BLOCKED_CAPABILITIES "$ATLAS_PROFILE_BLOCKED_CAPABILITIES"
@@ -211,6 +219,10 @@ atlas_scope_load_snapshot() {
   local SCOPE_TARGET=""
   local SCOPE_TARGET_ADDRESS=""
   local SCOPE_TARGET_LABEL=""
+  local TARGET_SCOPE_STATUS=""
+  local TARGET_CRITICALITY=""
+  local TARGET_TAGS=""
+  local TARGET_OWNER=""
   local SCOPE_TEXT=""
   local ALLOWED_CAPABILITIES=""
   local BLOCKED_CAPABILITIES=""
@@ -231,6 +243,10 @@ atlas_scope_load_snapshot() {
   ATLAS_SCOPE_TARGET="${SCOPE_TARGET:-$ATLAS_OP_TARGET}"
   ATLAS_SCOPE_TARGET_ADDRESS="${SCOPE_TARGET_ADDRESS:-$ATLAS_OP_TARGET_ADDRESS}"
   ATLAS_SCOPE_TARGET_LABEL="${SCOPE_TARGET_LABEL:-$ATLAS_OP_TARGET_LABEL}"
+  ATLAS_SCOPE_TARGET_SCOPE_STATUS="${TARGET_SCOPE_STATUS:-${ATLAS_OP_TARGET_SCOPE_STATUS:-unknown}}"
+  ATLAS_SCOPE_TARGET_CRITICALITY="${TARGET_CRITICALITY:-${ATLAS_OP_TARGET_CRITICALITY:-unknown}}"
+  ATLAS_SCOPE_TARGET_TAGS="${TARGET_TAGS:-${ATLAS_OP_TARGET_TAGS:-}}"
+  ATLAS_SCOPE_TARGET_OWNER="${TARGET_OWNER:-${ATLAS_OP_TARGET_OWNER:-}}"
   # shellcheck disable=SC2034
   ATLAS_SCOPE_TEXT="${SCOPE_TEXT:-$(atlas_scope_default_text)}"
   ATLAS_SCOPE_ALLOWED="${ALLOWED_CAPABILITIES:-$ATLAS_DEFAULT_ALLOWED_CAPABILITIES}"
@@ -297,6 +313,14 @@ cmd_scope_status() {
   ui_kv "Target" "$ATLAS_SCOPE_TARGET"
   if [ -n "$ATLAS_SCOPE_TARGET_ADDRESS" ] && [ "$ATLAS_SCOPE_TARGET_ADDRESS" != "$ATLAS_SCOPE_TARGET" ]; then
     ui_kv "Address" "$ATLAS_SCOPE_TARGET_ADDRESS"
+  fi
+  ui_kv "Target Scope" "${ATLAS_SCOPE_TARGET_SCOPE_STATUS:-unknown}"
+  ui_kv "Target Criticality" "${ATLAS_SCOPE_TARGET_CRITICALITY:-unknown}"
+  if [ -n "${ATLAS_SCOPE_TARGET_OWNER:-}" ]; then
+    ui_kv "Target Owner" "$ATLAS_SCOPE_TARGET_OWNER"
+  fi
+  if [ -n "${ATLAS_SCOPE_TARGET_TAGS:-}" ]; then
+    ui_kv "Target Tags" "$ATLAS_SCOPE_TARGET_TAGS"
   fi
   ui_kv "Allowed" "$ATLAS_SCOPE_ALLOWED"
   ui_kv "Blocked" "$ATLAS_SCOPE_BLOCKED"

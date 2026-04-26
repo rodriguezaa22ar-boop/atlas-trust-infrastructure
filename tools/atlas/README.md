@@ -37,6 +37,7 @@ atlas validation run vp_...
 atlas advisor brief
 atlas advisor prompt
 atlas target list
+atlas target update demo-node --scope-status in-scope --criticality high --tag lab
 atlas target brief 10.0.0.8
 atlas target story 10.0.0.8
 atlas target summary 10.0.0.8
@@ -64,6 +65,7 @@ Start with the target, then let shared intel choose the next action:
 
 ```bash
 atlas target list
+atlas target update <target> --scope-status in-scope --criticality high --tag lab
 atlas target brief <target>
 atlas target story <target>
 atlas profile show htb-starting-point
@@ -82,13 +84,17 @@ atlas op close
 
 `atlas target brief <target>` gives the fast operator readout: surface counts,
 active-operation evidence/findings/validation counts when available, latest
-outcome/finding/validation status, and the next practical step.
+outcome/finding/validation status, target registry metadata, and the next
+practical step.
 
 `atlas target story <target>` is the full cross-tool view. It starts with the
 same operator brief, then expands into the target record, current service and
 web surface, Vector outcomes, posture findings, recent shared evidence,
 active-operation evidence/findings/validation plans when the target matches,
-and ranked next actions.
+and ranked next actions. Target records can carry `scope_status`,
+`criticality`, `owner`, and space-separated `tags`; Atlas snapshots that
+metadata when an operation starts and refuses records explicitly marked
+`out-of-scope`.
 
 `atlas op brief` and `atlas op story` include operation-owned evidence and
 finding records alongside validation plans and recon/action tracking. This

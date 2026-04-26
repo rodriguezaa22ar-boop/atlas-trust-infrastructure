@@ -17,7 +17,8 @@ usage:
   labctl status
   labctl paths
   labctl tree
-  labctl target add <name> <address> [notes...]
+  labctl target add <name> <address> [--scope-status status] [--criticality level] [--tag tag] [--owner owner] [notes...]
+  labctl target update <name> [--address address] [--scope-status status] [--criticality level] [--tag tag] [--clear-tags] [--owner owner] [--notes text]
   labctl target list
   labctl target show <name>
   labctl session open <name> [target]
@@ -75,14 +76,118 @@ cmd_tree() {
 	find "$LAB_ROOT" -maxdepth 2 | sort | sed "s#^$LAB_ROOT#.#"
 }
 
+target_validate_scope_status() {
+	case "$1" in
+	unknown | review | in-scope | out-of-scope)
+		return 0
+		;;
+	*)
+		fail "expected target scope status unknown, review, in-scope, or out-of-scope; got: $1"
+		;;
+	esac
+}
+
+target_validate_criticality() {
+	case "$1" in
+	unknown | low | medium | high | critical)
+		return 0
+		;;
+	*)
+		fail "expected target criticality unknown, low, medium, high, or critical; got: $1"
+		;;
+	esac
+}
+
+target_validate_tag() {
+	[ -n "$1" ] || fail "target tag cannot be empty"
+	case "$1" in
+	*[[:space:]]*)
+		fail "target tags cannot contain whitespace: $1"
+		;;
+	esac
+}
+
+target_join_unique() {
+	local output=""
+	local item
+
+	for item in "$@"; do
+		[ -n "$item" ] || continue
+		case " $output " in
+		*" $item "*) ;;
+		*)
+			output="${output:+$output }$item"
+			;;
+		esac
+	done
+
+	printf '%s\n' "$output"
+}
+
 cmd_target_add() {
-	need_args 2 "$#" "target add <name> <address> [notes...]"
+	need_args 2 "$#" "target add <name> <address> [--scope-status status] [--criticality level] [--tag tag] [--owner owner] [notes...]"
 	local name="$1"
 	local address="$2"
-	shift 2
-	local notes="${*:-}"
+	local scope_status="unknown"
+	local criticality="unknown"
+	local owner=""
+	local tags=()
+	local notes_parts=()
+	local notes
+	local tag_text
 	local slug
 	local file
+
+	shift 2
+	while [ "$#" -gt 0 ]; do
+		case "$1" in
+		--scope-status)
+			need_args 2 "$#" "target add <name> <address> --scope-status <status>"
+			scope_status="$2"
+			shift 2
+			;;
+		--criticality)
+			need_args 2 "$#" "target add <name> <address> --criticality <level>"
+			criticality="$2"
+			shift 2
+			;;
+		--tag)
+			need_args 2 "$#" "target add <name> <address> --tag <tag>"
+			target_validate_tag "$2"
+			tags+=("$2")
+			shift 2
+			;;
+		--owner)
+			need_args 2 "$#" "target add <name> <address> --owner <owner>"
+			owner="$2"
+			shift 2
+			;;
+		--notes)
+			need_args 2 "$#" "target add <name> <address> --notes <text>"
+			notes_parts+=("$2")
+			shift 2
+			;;
+		--)
+			shift
+			while [ "$#" -gt 0 ]; do
+				notes_parts+=("$1")
+				shift
+			done
+			;;
+		--*)
+			fail "unknown target add option: $1"
+			;;
+		*)
+			notes_parts+=("$1")
+			shift
+			;;
+		esac
+	done
+
+	target_validate_scope_status "$scope_status"
+	target_validate_criticality "$criticality"
+	notes="${notes_parts[*]}"
+	tag_text="${tags[*]}"
 
 	slug="$(slugify "$name")"
 	[ -n "$slug" ] || fail "target name produced an empty slug"
@@ -93,23 +198,136 @@ cmd_target_add() {
 	: >"$file"
 	upsert_env "$file" NAME "$name"
 	upsert_env "$file" ADDRESS "$address"
+	upsert_env "$file" SCOPE_STATUS "$scope_status"
+	upsert_env "$file" CRITICALITY "$criticality"
+	upsert_env "$file" TAGS "$tag_text"
+	upsert_env "$file" OWNER "$owner"
 	upsert_env "$file" NOTES "$notes"
 	upsert_env "$file" CREATED_AT "$(timestamp)"
 
 	printf 'created target: %s\n' "$slug"
 }
 
+cmd_target_update() {
+	need_args 1 "$#" "target update <name> [--address address] [--scope-status status] [--criticality level] [--tag tag] [--clear-tags] [--owner owner] [--notes text]"
+	local slug
+	local file
+	local NAME=""
+	local ADDRESS=""
+	local SCOPE_STATUS=""
+	local CRITICALITY=""
+	local TAGS=""
+	local OWNER=""
+	local NOTES=""
+	local CREATED_AT=""
+	local address
+	local scope_status
+	local criticality
+	local owner
+	local tags_text
+	local notes
+
+	slug="$(slugify "$1")"
+	file="$LAB_TARGETS_DIR/$slug.env"
+	[ -f "$file" ] || fail "unknown target: $slug"
+
+	# shellcheck disable=SC1090
+	. "$file"
+	address="$ADDRESS"
+	scope_status="${SCOPE_STATUS:-unknown}"
+	criticality="${CRITICALITY:-unknown}"
+	owner="${OWNER:-}"
+	tags_text="${TAGS:-}"
+	notes="${NOTES:-}"
+
+	shift
+	while [ "$#" -gt 0 ]; do
+		case "$1" in
+		--address)
+			need_args 2 "$#" "target update <name> --address <address>"
+			address="$2"
+			shift 2
+			;;
+		--scope-status)
+			need_args 2 "$#" "target update <name> --scope-status <status>"
+			scope_status="$2"
+			shift 2
+			;;
+		--criticality)
+			need_args 2 "$#" "target update <name> --criticality <level>"
+			criticality="$2"
+			shift 2
+			;;
+		--tag)
+			need_args 2 "$#" "target update <name> --tag <tag>"
+			target_validate_tag "$2"
+			# shellcheck disable=SC2086
+			tags_text="$(target_join_unique $tags_text "$2")"
+			shift 2
+			;;
+		--clear-tags)
+			tags_text=""
+			shift
+			;;
+		--owner)
+			need_args 2 "$#" "target update <name> --owner <owner>"
+			owner="$2"
+			shift 2
+			;;
+		--notes)
+			need_args 2 "$#" "target update <name> --notes <text>"
+			notes="$2"
+			shift 2
+			;;
+		*)
+			fail "unknown target update option: $1"
+			;;
+		esac
+	done
+
+	target_validate_scope_status "$scope_status"
+	target_validate_criticality "$criticality"
+
+	upsert_env "$file" ADDRESS "$address"
+	upsert_env "$file" SCOPE_STATUS "$scope_status"
+	upsert_env "$file" CRITICALITY "$criticality"
+	upsert_env "$file" TAGS "$tags_text"
+	upsert_env "$file" OWNER "$owner"
+	upsert_env "$file" NOTES "$notes"
+	upsert_env "$file" UPDATED_AT "$(timestamp)"
+
+	printf 'updated target: %s\n' "$slug"
+	printf 'address: %s\n' "$address"
+	printf 'scope_status: %s\n' "$scope_status"
+	printf 'criticality: %s\n' "$criticality"
+	if [ -n "$tags_text" ]; then
+		printf 'tags: %s\n' "$tags_text"
+	fi
+	if [ -n "$owner" ]; then
+		printf 'owner: %s\n' "$owner"
+	fi
+}
+
 cmd_target_list() {
 	local file
 	local NAME=""
 	local ADDRESS=""
+	local SCOPE_STATUS=""
+	local CRITICALITY=""
+	local TAGS=""
 	local CREATED_AT=""
-	printf '%-24s %-24s %s\n' "TARGET" "ADDRESS" "CREATED_AT"
+	printf '%-24s %-24s %-12s %-10s %-18s %s\n' "TARGET" "ADDRESS" "SCOPE" "CRITICAL" "TAGS" "CREATED_AT"
 	for file in "$LAB_TARGETS_DIR"/*.env; do
 		[ -e "$file" ] || return 0
+		NAME=""
+		ADDRESS=""
+		SCOPE_STATUS=""
+		CRITICALITY=""
+		TAGS=""
+		CREATED_AT=""
 		# shellcheck disable=SC1090
 		. "$file"
-		printf '%-24s %-24s %s\n' "$NAME" "$ADDRESS" "$CREATED_AT"
+		printf '%-24s %-24s %-12s %-10s %-18s %s\n' "$NAME" "$ADDRESS" "${SCOPE_STATUS:-unknown}" "${CRITICALITY:-unknown}" "${TAGS:-}" "$CREATED_AT"
 	done
 }
 
@@ -802,6 +1020,10 @@ target)
 	add)
 		shift
 		cmd_target_add "$@"
+		;;
+	update)
+		shift
+		cmd_target_update "$@"
 		;;
 	list)
 		shift

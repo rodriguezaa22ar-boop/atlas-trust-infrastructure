@@ -30,8 +30,8 @@ Atlas should grow as a modular control plane:
 
 - Atlas Core: CLI, config, state, command routing, common checks
 - ScopeGuard: authorization boundaries, ROE, capability tiers, approvals
-- Operation Ledger: append-only audit events and tool invocations
 - Target Registry: richer target metadata, scope status, tags, criticality
+- Operation Ledger: append-only audit events and tool invocations
 - Evidence Vault: artifacts, hashes, redaction, bundles, evidence links
 - Recon Orchestrator: operation-aware `wiremap` workflows
 - Intel Graph: entities, relationships, paths, graph export
@@ -152,6 +152,11 @@ Atlas v1 should be a shell-native assessment orchestration console with:
 - findings
 - actions
 - reports
+
+The target registry now stores optional scope status, criticality, owner, and
+tags in target env records. Atlas carries that metadata into operation records,
+scope snapshots, briefs, stories, and reports, and refuses operation start for
+targets explicitly marked `out-of-scope`.
 
 That foundation can later grow into CTEM cycles, attack graph views,
 validation loops, and AI-assisted summaries without losing operator control.

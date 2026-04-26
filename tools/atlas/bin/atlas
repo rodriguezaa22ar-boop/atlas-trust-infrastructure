@@ -107,6 +107,7 @@ quick flow:
 
 targets:
   atlas target add <name> <address> [notes...]
+  atlas target update <name> [--scope-status status] [--criticality level]
   atlas target list
   atlas target show <name>
   atlas target brief <target>
@@ -317,6 +318,10 @@ resolve_target_input() {
 	local target_file
 	local NAME=""
 	local ADDRESS=""
+	local SCOPE_STATUS=""
+	local CRITICALITY=""
+	local TAGS=""
+	local OWNER=""
 
 	target_slug="$(slugify "$input")"
 	target_file="$LAB_TARGETS_DIR/$target_slug.env"
@@ -327,12 +332,37 @@ resolve_target_input() {
 		ATLAS_TARGET_RESOLVED="${NAME:-$input}"
 		ATLAS_TARGET_LABEL="${NAME:-$input}"
 		ATLAS_TARGET_ADDRESS="${ADDRESS:-$ATLAS_TARGET_RESOLVED}"
+		ATLAS_TARGET_SCOPE_STATUS="${SCOPE_STATUS:-unknown}"
+		ATLAS_TARGET_CRITICALITY="${CRITICALITY:-unknown}"
+		ATLAS_TARGET_TAGS="${TAGS:-}"
+		ATLAS_TARGET_OWNER="${OWNER:-}"
 		return 0
 	fi
 
 	ATLAS_TARGET_RESOLVED="$input"
 	ATLAS_TARGET_LABEL="$input"
 	ATLAS_TARGET_ADDRESS="$input"
+	ATLAS_TARGET_SCOPE_STATUS="unknown"
+	ATLAS_TARGET_CRITICALITY="unknown"
+	ATLAS_TARGET_TAGS=""
+	ATLAS_TARGET_OWNER=""
+}
+
+target_refuse_out_of_scope() {
+	if [ "${ATLAS_TARGET_SCOPE_STATUS:-unknown}" = "out-of-scope" ]; then
+		fail "target '$ATLAS_TARGET_RESOLVED' is marked out-of-scope in target registry"
+	fi
+}
+
+print_resolved_target_metadata() {
+	ui_kv "Scope Status" "${ATLAS_TARGET_SCOPE_STATUS:-unknown}"
+	ui_kv "Criticality" "${ATLAS_TARGET_CRITICALITY:-unknown}"
+	if [ -n "${ATLAS_TARGET_OWNER:-}" ]; then
+		ui_kv "Owner" "$ATLAS_TARGET_OWNER"
+	fi
+	if [ -n "${ATLAS_TARGET_TAGS:-}" ]; then
+		ui_kv "Tags" "$ATLAS_TARGET_TAGS"
+	fi
 }
 
 load_atlas_operation_by_slug() {
@@ -343,6 +373,10 @@ load_atlas_operation_by_slug() {
 	local TARGET=""
 	local TARGET_ADDRESS=""
 	local TARGET_LABEL=""
+	local TARGET_SCOPE_STATUS=""
+	local TARGET_CRITICALITY=""
+	local TARGET_TAGS=""
+	local TARGET_OWNER=""
 	local STATUS=""
 	local CREATED_AT=""
 	local CLOSED_AT=""
@@ -369,6 +403,10 @@ load_atlas_operation_by_slug() {
 	ATLAS_OP_TARGET="$TARGET"
 	ATLAS_OP_TARGET_ADDRESS="${TARGET_ADDRESS:-$TARGET}"
 	ATLAS_OP_TARGET_LABEL="${TARGET_LABEL:-$TARGET}"
+	ATLAS_OP_TARGET_SCOPE_STATUS="${TARGET_SCOPE_STATUS:-unknown}"
+	ATLAS_OP_TARGET_CRITICALITY="${TARGET_CRITICALITY:-unknown}"
+	ATLAS_OP_TARGET_TAGS="${TARGET_TAGS:-}"
+	ATLAS_OP_TARGET_OWNER="${TARGET_OWNER:-}"
 	ATLAS_OP_STATUS="$STATUS"
 	ATLAS_OP_CREATED_AT="$CREATED_AT"
 	ATLAS_OP_CLOSED_AT="${CLOSED_AT:-}"
@@ -581,6 +619,14 @@ print_operation_summary() {
 
 	ui_kv "Operation" "$ATLAS_OP_NAME"
 	ui_kv "Target" "$(format_operation_target)"
+	ui_kv "Target Scope" "${ATLAS_OP_TARGET_SCOPE_STATUS:-unknown}"
+	ui_kv "Target Criticality" "${ATLAS_OP_TARGET_CRITICALITY:-unknown}"
+	if [ -n "${ATLAS_OP_TARGET_OWNER:-}" ]; then
+		ui_kv "Target Owner" "$ATLAS_OP_TARGET_OWNER"
+	fi
+	if [ -n "${ATLAS_OP_TARGET_TAGS:-}" ]; then
+		ui_kv "Target Tags" "$ATLAS_OP_TARGET_TAGS"
+	fi
 	ui_kv "Status" "$ATLAS_OP_STATUS"
 	ui_kv "Profile" "$ATLAS_SCOPE_PROFILE"
 	ui_kv "Active" "$active_flag"
@@ -677,6 +723,7 @@ cmd_target_brief() {
 	if [ "$ATLAS_TARGET_ADDRESS" != "$target" ]; then
 		ui_kv "Address" "$ATLAS_TARGET_ADDRESS"
 	fi
+	print_resolved_target_metadata
 	ui_rule
 	atlas_brief_print_target "$target"
 }
@@ -852,6 +899,7 @@ cmd_target_story() {
 	if [ "$ATLAS_TARGET_ADDRESS" != "$target" ]; then
 		ui_kv "Address" "$ATLAS_TARGET_ADDRESS"
 	fi
+	print_resolved_target_metadata
 	ui_kv "Shared Intel" "$LAB_INTEL_DIR"
 	ui_rule
 
@@ -995,6 +1043,7 @@ cmd_op_start() {
 	shift 2
 	notes="${*:-}"
 	resolve_target_input "$target_input"
+	target_refuse_out_of_scope
 	atlas_scope_load_profile "$profile"
 
 	slug="$(session_slug_for "$name")"
@@ -1013,6 +1062,10 @@ cmd_op_start() {
 	upsert_env "$file" TARGET "$ATLAS_TARGET_RESOLVED"
 	upsert_env "$file" TARGET_ADDRESS "$ATLAS_TARGET_ADDRESS"
 	upsert_env "$file" TARGET_LABEL "$ATLAS_TARGET_LABEL"
+	upsert_env "$file" TARGET_SCOPE_STATUS "$ATLAS_TARGET_SCOPE_STATUS"
+	upsert_env "$file" TARGET_CRITICALITY "$ATLAS_TARGET_CRITICALITY"
+	upsert_env "$file" TARGET_TAGS "$ATLAS_TARGET_TAGS"
+	upsert_env "$file" TARGET_OWNER "$ATLAS_TARGET_OWNER"
 	upsert_env "$file" STATUS "active"
 	upsert_env "$file" CREATED_AT "$(timestamp)"
 	upsert_env "$file" LAST_RESUMED_AT "$(timestamp)"
@@ -1020,7 +1073,7 @@ cmd_op_start() {
 	upsert_env "$file" SOURCE_TOOL "$TOOL_NAME"
 	upsert_env "$file" MODE "operation"
 
-	atlas_scope_write_snapshot "$dir" "$ATLAS_TARGET_RESOLVED" "$ATLAS_TARGET_ADDRESS" "$ATLAS_TARGET_LABEL" "$profile"
+	atlas_scope_write_snapshot "$dir" "$ATLAS_TARGET_RESOLVED" "$ATLAS_TARGET_ADDRESS" "$ATLAS_TARGET_LABEL" "$profile" "$ATLAS_TARGET_SCOPE_STATUS" "$ATLAS_TARGET_CRITICALITY" "$ATLAS_TARGET_TAGS" "$ATLAS_TARGET_OWNER"
 	atlas_ledger_append "$dir" "op.started" "$slug" "$ATLAS_TARGET_RESOLVED" "read-only" "atlas" "ok" "profile=$ATLAS_PROFILE_NAME notes=$notes"
 	record_operation_history "$dir" "start" "$ATLAS_TARGET_RESOLVED"
 	set_active_operation "$slug"
@@ -1031,6 +1084,14 @@ cmd_op_start() {
 	printf 'target: %s\n' "$ATLAS_TARGET_RESOLVED"
 	if [ "$ATLAS_TARGET_ADDRESS" != "$ATLAS_TARGET_RESOLVED" ]; then
 		printf 'address: %s\n' "$ATLAS_TARGET_ADDRESS"
+	fi
+	printf 'scope_status: %s\n' "$ATLAS_TARGET_SCOPE_STATUS"
+	printf 'criticality: %s\n' "$ATLAS_TARGET_CRITICALITY"
+	if [ -n "$ATLAS_TARGET_TAGS" ]; then
+		printf 'tags: %s\n' "$ATLAS_TARGET_TAGS"
+	fi
+	if [ -n "$ATLAS_TARGET_OWNER" ]; then
+		printf 'owner: %s\n' "$ATLAS_TARGET_OWNER"
 	fi
 	printf 'op_dir: %s\n' "$dir"
 	printf 'active_operation: %s\n' "$slug"
@@ -1247,6 +1308,14 @@ write_operation_report() {
 		printf 'Target: %s\n' "$ATLAS_OP_TARGET"
 		if [ -n "${ATLAS_OP_TARGET_ADDRESS:-}" ] && [ "$ATLAS_OP_TARGET_ADDRESS" != "$ATLAS_OP_TARGET" ]; then
 			printf 'Address: %s\n' "$ATLAS_OP_TARGET_ADDRESS"
+		fi
+		printf 'Target Scope Status: %s\n' "${ATLAS_OP_TARGET_SCOPE_STATUS:-unknown}"
+		printf 'Target Criticality: %s\n' "${ATLAS_OP_TARGET_CRITICALITY:-unknown}"
+		if [ -n "${ATLAS_OP_TARGET_OWNER:-}" ]; then
+			printf 'Target Owner: %s\n' "$ATLAS_OP_TARGET_OWNER"
+		fi
+		if [ -n "${ATLAS_OP_TARGET_TAGS:-}" ]; then
+			printf 'Target Tags: %s\n' "$ATLAS_OP_TARGET_TAGS"
 		fi
 		printf 'Status: %s\n' "$ATLAS_OP_STATUS"
 		printf 'Created: %s\n' "$ATLAS_OP_CREATED_AT"
@@ -1937,6 +2006,10 @@ target)
 	add)
 		shift
 		run_labctl target add "$@"
+		;;
+	update)
+		shift
+		run_labctl target update "$@"
 		;;
 	list)
 		shift

@@ -199,6 +199,8 @@ That gives the toolkit a full operator loop:
 
 Atlas now also exposes the operator-level story and reporting layer:
 
+- `atlas target update <name>`: target registry metadata for scope status,
+  criticality, owner, and tags
 - `atlas target brief <target>`: concise surface, operation-state, validation,
   and next-step readout
 - `atlas target story <target>`: target record, surface, outcomes, findings,

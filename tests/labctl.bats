@@ -34,13 +34,39 @@ teardown() {
 }
 
 @test "labctl can create a target and list it" {
-  run "$TEST_ROOT/toolkit/bin/labctl" target add test-demo 10.0.0.5 edge
+  run "$TEST_ROOT/toolkit/bin/labctl" target add test-demo 10.0.0.5 \
+    --scope-status in-scope \
+    --criticality high \
+    --tag edge \
+    --tag linux \
+    --owner platform \
+    edge
   [ "$status" -eq 0 ]
 
   run "$TEST_ROOT/toolkit/bin/labctl" target list
   [ "$status" -eq 0 ]
   [[ "$output" == *"test-demo"* ]]
   [[ "$output" == *"10.0.0.5"* ]]
+  [[ "$output" == *"in-scope"* ]]
+  [[ "$output" == *"high"* ]]
+  [[ "$output" == *"edge linux"* ]]
+
+  run "$TEST_ROOT/toolkit/bin/labctl" target update test-demo \
+    --criticality critical \
+    --tag internet \
+    --notes "internet-facing edge"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"updated target: test-demo"* ]]
+  [[ "$output" == *"criticality: critical"* ]]
+  [[ "$output" == *"tags: edge linux internet"* ]]
+
+  run "$TEST_ROOT/toolkit/bin/labctl" target show test-demo
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"SCOPE_STATUS=in-scope"* ]]
+  [[ "$output" == *"CRITICALITY=critical"* ]]
+  [[ "$output" == *"OWNER=platform"* ]]
+  bash -c '. "$1"; [ "$TAGS" = "edge linux internet" ] && [ "$NOTES" = "internet-facing edge" ]' _ \
+    "$TEST_ROOT/toolkit/targets/test-demo.env"
 }
 
 @test "labctl can open a session and scaffold a tool" {
