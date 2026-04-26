@@ -57,6 +57,7 @@ teardown() {
   [[ "$output" == *"atlas op readiness [name]"* ]]
   [[ "$output" == *"atlas op handoff [name] [handoff-name]"* ]]
   [[ "$output" == *"atlas op closeout [name] [manifest-name]"* ]]
+  [[ "$output" == *"atlas op verify [name] [closeout-manifest]"* ]]
   [[ "$output" == *"atlas op close [name] [--force]"* ]]
   [[ "$output" == *"atlas target brief <target>"* ]]
 }
@@ -855,6 +856,27 @@ EOF
   grep -q 'Finding index: .*sha256=' "$closeout_path"
   jq -e --arg closeout_path "$closeout_path" 'select(.event == "closeout.manifest.generated" and .detail == $closeout_path)' \
     "$TEST_ROOT/toolkit/sessions/readiness-op/ledger.ndjson"
+
+  ledger_events_before="$(wc -l < "$TEST_ROOT/toolkit/sessions/readiness-op/ledger.ndjson" | tr -d ' ')"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op verify readiness-op
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Closeout Verification"* ]]
+  [[ "$output" == *"Verification Status: verified"* ]]
+  [[ "$output" == *"Latest Report"* ]]
+  [[ "$output" == *"Evidence Manifest"* ]]
+  [[ "$output" == *"Operation Ledger"* ]]
+  [[ "$output" == *"verified"* ]]
+  [[ "$output" == *"Verification Problems: 0"* ]]
+  ledger_events_after="$(wc -l < "$TEST_ROOT/toolkit/sessions/readiness-op/ledger.ndjson" | tr -d ' ')"
+  [ "$ledger_events_after" = "$ledger_events_before" ]
+
+  printf '\nreport changed after closeout\n' >> "$report_path"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op verify readiness-op "$closeout_path"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Latest Report"* ]]
+  [[ "$output" == *"changed"* ]]
+  [[ "$output" == *"Verification Status: attention-required"* ]]
+  [[ "$output" == *"Verification Problems: 1"* ]]
 }
 
 @test "atlas operation close can force closure with readiness snapshot" {

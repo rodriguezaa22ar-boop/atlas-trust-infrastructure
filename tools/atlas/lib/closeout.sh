@@ -34,6 +34,20 @@ atlas_closeout_latest_handoff_fields() {
   printf '%s\t%s\t%s\n' "$handoff_at" "$handoff_path" "$handoff_sha"
 }
 
+atlas_closeout_latest_manifest() {
+  local ledger_file
+
+  [ -n "${ATLAS_OP_DIR:-}" ] || return 0
+  ledger_file="$(atlas_ledger_file "$ATLAS_OP_DIR")"
+  [ -s "$ledger_file" ] || return 0
+
+  jq -r '
+    select(.event == "closeout.manifest.generated")
+    | [.ts, .detail]
+    | @tsv
+  ' "$ledger_file" | tail -n 1
+}
+
 atlas_closeout_print_hash_line() {
   local label="$1"
   local path="$2"
@@ -204,4 +218,244 @@ cmd_op_closeout() {
 
   ui_ok "closeout manifest written"
   printf 'closeout: %s\n' "$manifest_file"
+}
+
+atlas_closeout_manifest_field() {
+  local manifest_file="$1"
+  local field="$2"
+
+  awk -F': ' -v wanted="$field" '$1 == wanted { print $2; exit }' "$manifest_file"
+}
+
+atlas_closeout_manifest_anchor_line() {
+  local manifest_file="$1"
+  local label="$2"
+
+  awk -v prefix="- $label: " 'index($0, prefix) == 1 { print; exit }' "$manifest_file"
+}
+
+atlas_closeout_anchor_path() {
+  local line="$1"
+  local rest
+
+  rest="${line#*\`}"
+  [ "$rest" != "$line" ] || return 0
+  printf '%s\n' "${rest%%\`*}"
+}
+
+atlas_closeout_anchor_token() {
+  local line="$1"
+  local key="$2"
+
+  printf '%s\n' "$line" |
+    tr ' ' '\n' |
+    awk -F= -v wanted="$key" '$1 == wanted { print $2; exit }'
+}
+
+atlas_closeout_verify_row() {
+  local label="$1"
+  local status="$2"
+  local path="$3"
+  local detail="${4:-}"
+
+  if [ -n "$detail" ]; then
+    printf '%-20s %-14s %s (%s)\n' "$label" "$status" "$path" "$detail"
+  else
+    printf '%-20s %-14s %s\n' "$label" "$status" "$path"
+  fi
+}
+
+atlas_closeout_verify_hash_anchor() {
+  local manifest_file="$1"
+  local manifest_label="$2"
+  local display_label="$3"
+  local line
+  local path
+  local expected_sha
+  local actual_sha
+
+  line="$(atlas_closeout_manifest_anchor_line "$manifest_file" "$manifest_label")"
+  if [ -z "$line" ]; then
+    atlas_closeout_verify_row "$display_label" "unverifiable" "-" "anchor missing from manifest"
+    ATLAS_CLOSEOUT_VERIFY_PROBLEMS=$((ATLAS_CLOSEOUT_VERIFY_PROBLEMS + 1))
+    return 0
+  fi
+
+  path="$(atlas_closeout_anchor_path "$line")"
+  if [ -z "$path" ]; then
+    atlas_closeout_verify_row "$display_label" "unverifiable" "-" "not recorded"
+    ATLAS_CLOSEOUT_VERIFY_GAPS=$((ATLAS_CLOSEOUT_VERIFY_GAPS + 1))
+    return 0
+  fi
+
+  expected_sha="$(atlas_closeout_anchor_token "$line" "sha256")"
+  if [ -z "$expected_sha" ]; then
+    atlas_closeout_verify_row "$display_label" "unverifiable" "$path" "missing expected sha256"
+    ATLAS_CLOSEOUT_VERIFY_PROBLEMS=$((ATLAS_CLOSEOUT_VERIFY_PROBLEMS + 1))
+    return 0
+  fi
+
+  if [ ! -f "$path" ]; then
+    atlas_closeout_verify_row "$display_label" "missing" "$path" "expected sha256=$expected_sha"
+    ATLAS_CLOSEOUT_VERIFY_PROBLEMS=$((ATLAS_CLOSEOUT_VERIFY_PROBLEMS + 1))
+    return 0
+  fi
+
+  actual_sha="$(atlas_closeout_sha_for_file "$path")"
+  if [ "$actual_sha" = "$expected_sha" ]; then
+    atlas_closeout_verify_row "$display_label" "verified" "$path"
+    ATLAS_CLOSEOUT_VERIFY_VERIFIED=$((ATLAS_CLOSEOUT_VERIFY_VERIFIED + 1))
+  else
+    atlas_closeout_verify_row "$display_label" "changed" "$path" "expected=$expected_sha actual=$actual_sha"
+    ATLAS_CLOSEOUT_VERIFY_PROBLEMS=$((ATLAS_CLOSEOUT_VERIFY_PROBLEMS + 1))
+  fi
+}
+
+atlas_closeout_verify_ledger_anchor() {
+  local manifest_file="$1"
+  local line
+  local path
+  local expected_events
+  local actual_events
+  local expected_sha
+  local actual_sha
+
+  line="$(atlas_closeout_manifest_anchor_line "$manifest_file" "Operation ledger")"
+  if [ -z "$line" ]; then
+    atlas_closeout_verify_row "Operation Ledger" "unverifiable" "-" "anchor missing from manifest"
+    ATLAS_CLOSEOUT_VERIFY_PROBLEMS=$((ATLAS_CLOSEOUT_VERIFY_PROBLEMS + 1))
+    return 0
+  fi
+
+  path="$(atlas_closeout_anchor_path "$line")"
+  expected_events="$(atlas_closeout_anchor_token "$line" "events")"
+  expected_sha="$(atlas_closeout_anchor_token "$line" "sha256")"
+  if [ -z "$path" ] || [ -z "$expected_events" ] || [ -z "$expected_sha" ]; then
+    atlas_closeout_verify_row "Operation Ledger" "unverifiable" "${path:--}" "missing events or sha256"
+    ATLAS_CLOSEOUT_VERIFY_PROBLEMS=$((ATLAS_CLOSEOUT_VERIFY_PROBLEMS + 1))
+    return 0
+  fi
+
+  if [ ! -f "$path" ]; then
+    atlas_closeout_verify_row "Operation Ledger" "missing" "$path" "expected events=$expected_events sha256=$expected_sha"
+    ATLAS_CLOSEOUT_VERIFY_PROBLEMS=$((ATLAS_CLOSEOUT_VERIFY_PROBLEMS + 1))
+    return 0
+  fi
+
+  actual_events="$(atlas_closeout_ledger_event_count "$path")"
+  actual_sha="$(atlas_closeout_sha_for_file "$path")"
+  if [ "$actual_events" = "$expected_events" ] && [ "$actual_sha" = "$expected_sha" ]; then
+    atlas_closeout_verify_row "Operation Ledger" "verified" "$path" "events=$actual_events"
+    ATLAS_CLOSEOUT_VERIFY_VERIFIED=$((ATLAS_CLOSEOUT_VERIFY_VERIFIED + 1))
+  else
+    atlas_closeout_verify_row "Operation Ledger" "changed" "$path" "expected_events=$expected_events actual_events=$actual_events expected_sha=$expected_sha actual_sha=$actual_sha"
+    ATLAS_CLOSEOUT_VERIFY_PROBLEMS=$((ATLAS_CLOSEOUT_VERIFY_PROBLEMS + 1))
+  fi
+}
+
+atlas_closeout_resolve_manifest() {
+  local manifest_arg="$1"
+  local latest_manifest
+  local latest_manifest_path=""
+  local candidate
+  local manifest_slug
+
+  if [ -z "$manifest_arg" ]; then
+    latest_manifest="$(atlas_closeout_latest_manifest)"
+    [ -n "$latest_manifest" ] || fail "no closeout manifest recorded for operation '$ATLAS_OP_SLUG'"
+    IFS=$'\t' read -r _ latest_manifest_path <<<"$latest_manifest"
+    [ -f "$latest_manifest_path" ] || fail "recorded closeout manifest is missing: $latest_manifest_path"
+    printf '%s\n' "$latest_manifest_path"
+    return 0
+  fi
+
+  if [ -f "$manifest_arg" ]; then
+    readlink -f "$manifest_arg"
+    return 0
+  fi
+
+  candidate="$ATLAS_OP_DIR/closeout/$manifest_arg"
+  if [ -f "$candidate" ]; then
+    readlink -f "$candidate"
+    return 0
+  fi
+
+  manifest_slug="$(slugify "${manifest_arg%.md}")"
+  candidate="$ATLAS_OP_DIR/closeout/$manifest_slug.md"
+  if [ -f "$candidate" ]; then
+    readlink -f "$candidate"
+    return 0
+  fi
+
+  fail "unknown closeout manifest for operation '$ATLAS_OP_SLUG': $manifest_arg"
+}
+
+atlas_closeout_verify_manifest() {
+  local manifest_file="$1"
+  local manifest_operation
+  local verification_status="verified"
+
+  [ -f "$manifest_file" ] || fail "closeout manifest is not a file: $manifest_file"
+  manifest_operation="$(atlas_closeout_manifest_field "$manifest_file" "Operation ID")"
+  [ -n "$manifest_operation" ] || fail "closeout manifest is missing Operation ID: $manifest_file"
+  [ "$manifest_operation" = "$ATLAS_OP_SLUG" ] || fail "closeout manifest belongs to '$manifest_operation', not '$ATLAS_OP_SLUG'"
+
+  ATLAS_CLOSEOUT_VERIFY_PROBLEMS=0
+  ATLAS_CLOSEOUT_VERIFY_GAPS=0
+  ATLAS_CLOSEOUT_VERIFY_VERIFIED=0
+
+  ui_heading "Closeout Verification"
+  ui_rule
+  ui_kv "Operation" "$ATLAS_OP_NAME"
+  ui_kv "Manifest" "$manifest_file"
+  ui_rule
+  printf '%-20s %-14s %s\n' "ARTIFACT" "STATUS" "PATH"
+  atlas_closeout_verify_hash_anchor "$manifest_file" "Latest report" "Latest Report"
+  atlas_closeout_verify_hash_anchor "$manifest_file" "Evidence manifest" "Evidence Manifest"
+  atlas_closeout_verify_hash_anchor "$manifest_file" "Latest handoff" "Latest Handoff"
+  atlas_closeout_verify_ledger_anchor "$manifest_file"
+  atlas_closeout_verify_hash_anchor "$manifest_file" "Operation env" "Operation Env"
+  atlas_closeout_verify_hash_anchor "$manifest_file" "Scope snapshot" "Scope Snapshot"
+  atlas_closeout_verify_hash_anchor "$manifest_file" "Evidence index" "Evidence Index"
+  atlas_closeout_verify_hash_anchor "$manifest_file" "Finding index" "Finding Index"
+  atlas_closeout_verify_hash_anchor "$manifest_file" "Validation index" "Validation Index"
+  ui_rule
+
+  if [ "$ATLAS_CLOSEOUT_VERIFY_PROBLEMS" -gt 0 ]; then
+    verification_status="attention-required"
+  fi
+  ui_kv "Verification Status" "$verification_status"
+  ui_kv "Verified Anchors" "$ATLAS_CLOSEOUT_VERIFY_VERIFIED"
+  ui_kv "Verification Gaps" "$ATLAS_CLOSEOUT_VERIFY_GAPS"
+  ui_kv "Verification Problems" "$ATLAS_CLOSEOUT_VERIFY_PROBLEMS"
+
+  [ "$ATLAS_CLOSEOUT_VERIFY_PROBLEMS" -eq 0 ] || return 1
+}
+
+cmd_op_verify() {
+  local operation_name=""
+  local manifest_arg=""
+  local manifest_file
+  local slug
+
+  [ "$#" -le 2 ] || fail "op verify [name] [closeout-manifest]"
+
+  if [ "$#" -eq 0 ]; then
+    load_active_operation
+  elif [ "$#" -eq 1 ]; then
+    slug="$(session_slug_for "$1")"
+    if [ -f "$(atlas_op_file_for_slug "$slug")" ]; then
+      load_atlas_operation "$1"
+    else
+      load_active_operation
+      manifest_arg="$1"
+    fi
+  else
+    operation_name="$1"
+    manifest_arg="$2"
+    load_atlas_operation "$operation_name"
+  fi
+
+  manifest_file="$(atlas_closeout_resolve_manifest "$manifest_arg")"
+  atlas_closeout_verify_manifest "$manifest_file"
 }

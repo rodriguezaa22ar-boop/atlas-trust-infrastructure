@@ -58,6 +58,7 @@ atlas op readiness april-review
 atlas op handoff april-review
 atlas op close april-review
 atlas op closeout april-review
+atlas op verify april-review
 atlas session list
 atlas loot list
 atlas intel summary
@@ -90,6 +91,7 @@ atlas op readiness
 atlas op handoff
 atlas op close [--force]
 atlas op closeout <name>
+atlas op verify <name>
 ```
 
 `atlas target brief <target>` gives the fast operator readout: surface counts,
@@ -346,6 +348,11 @@ raw artifact contents.
 under the operation directory. It captures the closeout readiness snapshot,
 freshness states, latest report, bundle, handoff, ledger event count, and
 SHA-256 anchors for the operation metadata without embedding raw artifacts.
+
+`atlas op verify [name] [closeout-manifest]` reads a closeout manifest without
+mutating operation state. It verifies recorded SHA-256 anchors and the operation
+ledger event count, reporting each artifact as `verified`, `missing`, `changed`,
+or `unverifiable`.
 
 ## AI Advisor
 

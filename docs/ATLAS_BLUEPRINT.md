@@ -166,6 +166,9 @@ The near-term roadmap is:
 19. Add closeout audit manifests. `atlas op closeout` writes a metadata-only
     manifest with readiness state, artifact pointers, ledger event counts, and
     SHA-256 anchors for final operation verification.
+20. Add closeout manifest verification. `atlas op verify` reads a closeout
+    manifest without mutating operation state and checks recorded SHA-256
+    anchors plus ledger event counts for later audit confidence.
 
 ## First Serious Version
 

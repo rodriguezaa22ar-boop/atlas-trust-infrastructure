@@ -122,6 +122,7 @@ quick flow:
   atlas op readiness [name]
   atlas op handoff [name] [handoff-name]
   atlas op closeout [name] [manifest-name]
+  atlas op verify [name] [closeout-manifest]
   atlas op close [name] [--force]
 
 targets:
@@ -150,6 +151,7 @@ operations:
   atlas op readiness [name]
   atlas op handoff [name] [handoff-name]
   atlas op closeout [name] [manifest-name]
+  atlas op verify [name] [closeout-manifest]
   atlas op next
   atlas op close [name] [--force]
   atlas op recon <workflow> [interface]
@@ -2052,6 +2054,10 @@ op)
 	closeout)
 		shift
 		cmd_op_closeout "$@"
+		;;
+	verify)
+		shift
+		cmd_op_verify "$@"
 		;;
 	next)
 		shift
