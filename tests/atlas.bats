@@ -681,6 +681,7 @@ EOF
   [[ "$output" == *"Open Findings: 1"* ]]
   [[ "$output" == *"Pending Validation: 0"* ]]
   [[ "$output" == *"Latest Report: none generated yet"* ]]
+  [[ "$output" == *"Report Freshness: missing"* ]]
   [[ "$output" == *"Evidence Bundle: none generated yet"* ]]
   [[ "$output" == *"Close Readiness: attention-required"* ]]
   [[ "$output" == *"Resolve, accept, or retest unresolved findings before closure."* ]]
@@ -708,9 +709,41 @@ EOF
   [[ "$output" == *"Pending Validation: 0"* ]]
   [[ "$output" == *"Latest Report:"* ]]
   [[ "$output" == *"$report_path"* ]]
+  [[ "$output" == *"Report Freshness: current"* ]]
   [[ "$output" == *"Close Readiness: ready"* ]]
   [[ "$output" == *"Operation is ready to close; generate an evidence bundle if handoff is required."* ]]
   [[ "$output" == *"no unresolved findings remain"* ]]
+
+  sleep 1
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding resolve "$finding_id" \
+    --evidence "$evidence_id" \
+    --note "owner confirmed closeout evidence"
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op readiness readiness-op
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Open Findings: 0"* ]]
+  [[ "$output" == *"Report Freshness: stale"* ]]
+  [[ "$output" == *"Latest State Change:"* ]]
+  [[ "$output" == *"finding.updated"* ]]
+  [[ "$output" == *"Close Readiness: attention-required"* ]]
+  [[ "$output" == *"Refresh the operation report before closure."* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op close readiness-op
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Report Freshness: stale"* ]]
+  [[ "$output" == *"operation is not ready to close; address readiness items or rerun with --force"* ]]
+
+  sleep 1
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op report readiness-op readiness-report-fresh
+  [ "$status" -eq 0 ]
+  report_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "report" { print $2; exit }')"
+  [ -f "$report_path" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op readiness readiness-op
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Report Freshness: current"* ]]
+  [[ "$output" == *"Close Readiness: ready"* ]]
 
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence bundle readiness-bundle
   [ "$status" -eq 0 ]
@@ -727,6 +760,7 @@ EOF
   grep -q '^# Atlas Operation Handoff$' "$handoff_path"
   grep -q 'No raw artifact contents are included' "$handoff_path"
   grep -q 'Close readiness: ready' "$handoff_path"
+  grep -q 'Report freshness: current' "$handoff_path"
   grep -q "$report_path" "$handoff_path"
   grep -q "$bundle_dir" "$handoff_path"
   grep -q "$manifest_path" "$handoff_path"

@@ -227,7 +227,7 @@ Atlas now also exposes the operator-level story and reporting layer:
 - `atlas op report [name] [report-name]`: Markdown assessment brief with
   executive summary, grouped findings, remediation priorities, and validation status
 - `atlas op readiness [name]`: closure readiness check for unresolved findings,
-  pending validation, evidence, latest report, and bundle state
+  pending validation, evidence, latest report freshness, and bundle state
 - `atlas op handoff [name] [handoff-name]`: metadata-only handoff packet with
   readiness, report, bundle, findings, validation, and ledger pointers
 - `atlas op close [name] [--force]`: close only when readiness passes unless an

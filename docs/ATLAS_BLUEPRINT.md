@@ -155,6 +155,9 @@ The near-term roadmap is:
 15. Add operation handoff packets. `atlas op handoff` writes a metadata-only
     closeout packet that links readiness, reports, evidence bundles, manifest
     hashes, findings, validation plans, and ledger paths.
+16. Add report freshness checks. Readiness and handoff state now compare the
+    latest report against material operation changes and block normal closeout
+    when the report is stale.
 
 ## First Serious Version
 

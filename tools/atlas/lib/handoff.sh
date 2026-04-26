@@ -120,6 +120,12 @@ atlas_handoff_write_packet() {
     printf -- '- Open findings: %s\n' "$ATLAS_READINESS_OPEN_FINDINGS_COUNT"
     printf -- '- Validation plans: %s\n' "$ATLAS_READINESS_VALIDATION_COUNT"
     printf -- '- Pending validation: %s\n' "$ATLAS_READINESS_PENDING_VALIDATION_COUNT"
+    printf -- '- Report freshness: %s\n' "$ATLAS_READINESS_REPORT_FRESHNESS"
+    if [ -n "$ATLAS_READINESS_LATEST_CHANGE" ]; then
+      printf -- '- Latest state change: %s %s\n' "$ATLAS_READINESS_LATEST_CHANGE_AT" "$ATLAS_READINESS_LATEST_CHANGE_EVENT"
+    else
+      printf -- '- Latest state change: none\n'
+    fi
     printf '\n## Primary Artifacts\n\n'
     if [ -n "$report_path" ]; then
       printf -- "- Latest report: \`%s\`" "$report_path"
