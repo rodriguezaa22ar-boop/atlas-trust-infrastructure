@@ -228,7 +228,7 @@ Atlas now also exposes the operator-level story and reporting layer:
   executive summary, grouped findings, remediation priorities, and validation status
 - `atlas op readiness [name]`: closure readiness check for unresolved findings,
   pending validation, evidence, report, bundle, handoff, closeout, and audit
-  packet freshness
+  packet and archive packet freshness
 - `atlas op handoff [name] [handoff-name]`: metadata-only handoff packet with
   readiness, freshness state, report, bundle, findings, validation, and ledger pointers
 - `atlas op closeout [name] [manifest-name]`: metadata-only audit manifest with
@@ -244,7 +244,8 @@ Atlas now also exposes the operator-level story and reporting layer:
 - `atlas op archive [name]`: read-only final archive snapshot with readiness,
   freshness, verification status, and artifact pointers
 - `atlas op archive-packet [name] [packet-name]`: metadata-only archive packet
-  with final archive status, verification state, hashes, and artifact pointers
+  with final archive status, freshness state, verification state, hashes, and
+  artifact pointers
 - `atlas op archive-verify [name] [archive-packet]`: read-only archive packet
   verification for recorded artifact hashes and ledger event count
 - `atlas op close [name] [--force]`: close only when readiness passes unless an

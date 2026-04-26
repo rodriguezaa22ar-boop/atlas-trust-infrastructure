@@ -707,6 +707,8 @@ EOF
   [[ "$output" == *"Closeout Freshness: missing"* ]]
   [[ "$output" == *"Latest Audit Packet: none generated yet"* ]]
   [[ "$output" == *"Audit Packet Freshness: missing"* ]]
+  [[ "$output" == *"Latest Archive Packet: none generated yet"* ]]
+  [[ "$output" == *"Archive Packet Freshness: missing"* ]]
   [[ "$output" == *"Close Readiness: attention-required"* ]]
   [[ "$output" == *"Resolve, accept, or retest unresolved findings before closure."* ]]
   [[ "$output" == *"$finding_id"* ]]
@@ -1046,13 +1048,14 @@ EOF
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op archive archive-op
   [ "$status" -eq 0 ]
   [[ "$output" == *"Operation Archive Snapshot"* ]]
-  [[ "$output" == *"Archive Status: current"* ]]
-  [[ "$output" == *"Next Archive Step: Archive snapshot is current."* ]]
+  [[ "$output" == *"Archive Status: incomplete"* ]]
+  [[ "$output" == *"Next Archive Step: Generate an archive packet before final archive review."* ]]
   [[ "$output" == *"Report Freshness: current"* ]]
   [[ "$output" == *"Bundle Freshness: current"* ]]
   [[ "$output" == *"Handoff Freshness: current"* ]]
   [[ "$output" == *"Closeout Freshness: current"* ]]
   [[ "$output" == *"Audit Packet Freshness: current"* ]]
+  [[ "$output" == *"Archive Packet Freshness: missing"* ]]
   [[ "$output" == *"Closeout Verification: verified"* ]]
   [[ "$output" == *"Audit Packet Verification: verified"* ]]
   [[ "$output" == *"$report_path"* ]]
@@ -1060,6 +1063,7 @@ EOF
   [[ "$output" == *"$handoff_path"* ]]
   [[ "$output" == *"$closeout_path"* ]]
   [[ "$output" == *"$audit_packet_path"* ]]
+  [[ "$output" == *"Latest Archive Packet: none generated yet"* ]]
   archive_events_after="$(wc -l < "$TEST_ROOT/toolkit/sessions/archive-op/ledger.ndjson" | tr -d ' ')"
   [ "$archive_events_after" = "$archive_events_before" ]
 
@@ -1071,6 +1075,7 @@ EOF
   grep -q '^# Atlas Operation Archive Packet$' "$archive_packet_path"
   grep -q 'No raw artifact contents are included' "$archive_packet_path"
   grep -q 'Archive status: current' "$archive_packet_path"
+  grep -q 'Archive packet freshness: current' "$archive_packet_path"
   grep -q 'Closeout verification: verified' "$archive_packet_path"
   grep -q 'Audit packet verification: verified' "$archive_packet_path"
   grep -q "$report_path" "$archive_packet_path"
@@ -1078,6 +1083,7 @@ EOF
   grep -q "$handoff_path" "$archive_packet_path"
   grep -q "$closeout_path" "$archive_packet_path"
   grep -q "$audit_packet_path" "$archive_packet_path"
+  grep -q "$archive_packet_path" "$archive_packet_path"
   jq -e --arg archive_packet_path "$archive_packet_path" 'select(.event == "archive.packet.generated" and .detail == $archive_packet_path)' \
     "$TEST_ROOT/toolkit/sessions/archive-op/ledger.ndjson"
 
@@ -1085,7 +1091,9 @@ EOF
   [ "$status" -eq 0 ]
   [[ "$output" == *"Archive Status: current"* ]]
   [[ "$output" == *"Audit Packet Freshness: current"* ]]
+  [[ "$output" == *"Archive Packet Freshness: current"* ]]
   [[ "$output" == *"Audit Packet Verification: verified"* ]]
+  [[ "$output" == *"$archive_packet_path"* ]]
 
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op audit-verify archive-op "$audit_packet_path"
   [ "$status" -eq 0 ]
@@ -1121,6 +1129,19 @@ EOF
   [[ "$output" == *"changed"* ]]
   [[ "$output" == *"Verification Status: attention-required"* ]]
   [[ "$output" == *"Verification Problems: 1"* ]]
+
+  sleep 1
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op audit-packet archive-op archive-audit-after-archive
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op archive archive-op
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Archive Status: attention-required"* ]]
+  [[ "$output" == *"Archive Packet Freshness: stale"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op audit archive-op
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"stale archive packet:"* ]]
 }
 
 @test "atlas operation close can force closure with readiness snapshot" {

@@ -217,6 +217,10 @@ atlas_audit_print_flags() {
     printf 'stale audit packet: %s\n' "${ATLAS_READINESS_LATEST_AUDIT_PACKET_PATH:-none}"
     flag_count=$((flag_count + 1))
   fi
+  if [ "$ATLAS_READINESS_ARCHIVE_PACKET_FRESHNESS" = "stale" ]; then
+    printf 'stale archive packet: %s\n' "${ATLAS_READINESS_LATEST_ARCHIVE_PACKET_PATH:-none}"
+    flag_count=$((flag_count + 1))
+  fi
 
   verification="$(atlas_audit_closeout_verification_status)"
   IFS=$'\t' read -r verification_status verification_path verification_problems <<<"$verification"

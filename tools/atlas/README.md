@@ -341,11 +341,11 @@ Explicitly out of scope:
 records, unresolved findings, planned or approved validation, report freshness,
 the latest material state change, evidence bundle freshness, latest handoff
 freshness, latest closeout freshness, and the latest evidence bundle. The
-readout also reports latest audit packet freshness. It returns `ready` when the
-operation has evidence, no unresolved findings, no pending validation, and a
-current generated report; bundles, handoff packets, closeout manifests, and
-audit packets remain optional and stale copies are called out as handoff or
-audit steps when needed.
+readout also reports latest audit packet and archive packet freshness. It
+returns `ready` when the operation has evidence, no unresolved findings, no
+pending validation, and a current generated report; bundles, handoff packets,
+closeout manifests, audit packets, and archive packets remain optional and
+stale copies are called out as handoff, audit, or retention steps when needed.
 
 `atlas op close [name]` uses the same readiness state as a close guard. If the
 operation still needs attention, close fails and prints the readiness checklist.
@@ -388,12 +388,16 @@ later ledger or closeout-manifest changes.
 a compact final archive snapshot. It combines close readiness, freshness states,
 closeout verification, audit packet verification, ledger details, and primary
 artifact paths so operators can see what is ready for retention in one place.
+The snapshot is incomplete until an archive packet has been generated and marks
+the latest archive packet stale after later ledger events.
 
 `atlas op archive-packet [name] [packet-name]` writes that final archive state
 as a metadata-only Markdown packet under the operation directory. The packet
 records readiness, verification state, hashes, artifact paths, and retention
-notes without embedding raw artifacts. Archive packet ledger events do not make
-the audit packet stale when the original audit ledger prefix still verifies.
+notes without embedding raw artifacts. Readiness and archive snapshots report
+whether the latest archive packet is current or stale. Archive packet ledger
+events do not make the audit packet stale when the original audit ledger prefix
+still verifies.
 
 `atlas op archive-verify [name] [archive-packet]` reads an archive packet
 without mutating operation state. It verifies the recorded hashes for the report,

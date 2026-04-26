@@ -201,6 +201,9 @@ The near-term roadmap is:
     archive packet without mutating operation state and checks recorded hashes
     for the report, evidence manifest, handoff, closeout manifest, audit
     packet, and operation ledger.
+30. Add archive packet freshness checks. Readiness and archive snapshots now
+    report the latest archive packet and whether later ledger events have made
+    that final retention packet stale.
 
 ## First Serious Version
 

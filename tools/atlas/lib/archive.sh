@@ -31,9 +31,12 @@ atlas_archive_status() {
   elif [ "$ATLAS_READINESS_BUNDLE_FRESHNESS" = "stale" ] ||
     [ "$ATLAS_READINESS_HANDOFF_FRESHNESS" = "stale" ] ||
     [ "$ATLAS_READINESS_CLOSEOUT_FRESHNESS" = "stale" ] ||
-    [ "$ATLAS_READINESS_AUDIT_PACKET_FRESHNESS" = "stale" ]; then
+    [ "$ATLAS_READINESS_AUDIT_PACKET_FRESHNESS" = "stale" ] ||
+    [ "$ATLAS_READINESS_ARCHIVE_PACKET_FRESHNESS" = "stale" ]; then
     printf 'attention-required\n'
-  elif [ -z "$ATLAS_READINESS_LATEST_CLOSEOUT" ] || [ -z "$ATLAS_READINESS_LATEST_AUDIT_PACKET" ]; then
+  elif [ -z "$ATLAS_READINESS_LATEST_CLOSEOUT" ] ||
+    [ -z "$ATLAS_READINESS_LATEST_AUDIT_PACKET" ] ||
+    [ -z "$ATLAS_READINESS_LATEST_ARCHIVE_PACKET" ]; then
     printf 'incomplete\n'
   elif [ "$closeout_verification_status" != "verified" ] ||
     [ "$audit_packet_verification_status" != "verified" ]; then
@@ -67,6 +70,10 @@ atlas_archive_next_step() {
     printf 'Regenerate the audit packet before final archive review.\n'
   elif [ "$audit_packet_verification_status" != "verified" ]; then
     printf 'Resolve audit packet verification issues before final archive review.\n'
+  elif [ -z "$ATLAS_READINESS_LATEST_ARCHIVE_PACKET" ]; then
+    printf 'Generate an archive packet before final archive review.\n'
+  elif [ "$ATLAS_READINESS_ARCHIVE_PACKET_FRESHNESS" = "stale" ]; then
+    printf 'Regenerate the archive packet before final archive review.\n'
   else
     printf 'Archive snapshot is current.\n'
   fi
@@ -179,6 +186,7 @@ atlas_archive_print() {
   ui_kv "Handoff Freshness" "$ATLAS_READINESS_HANDOFF_FRESHNESS"
   ui_kv "Closeout Freshness" "$ATLAS_READINESS_CLOSEOUT_FRESHNESS"
   ui_kv "Audit Packet Freshness" "$ATLAS_READINESS_AUDIT_PACKET_FRESHNESS"
+  ui_kv "Archive Packet Freshness" "$ATLAS_READINESS_ARCHIVE_PACKET_FRESHNESS"
   ui_rule
   ui_subheading "Verification"
   ui_kv "Closeout Verification" "$ATLAS_ARCHIVE_CLOSEOUT_VERIFICATION_STATUS manifest=$ATLAS_ARCHIVE_CLOSEOUT_VERIFICATION_PATH problems=$ATLAS_ARCHIVE_CLOSEOUT_VERIFICATION_PROBLEMS"
@@ -200,6 +208,7 @@ atlas_archive_print() {
   ui_kv "Latest Handoff" "${ATLAS_READINESS_LATEST_HANDOFF_PATH:-none generated yet}"
   ui_kv "Latest Closeout" "${ATLAS_READINESS_LATEST_CLOSEOUT_PATH:-none generated yet}"
   ui_kv "Latest Audit Packet" "${ATLAS_READINESS_LATEST_AUDIT_PACKET_PATH:-none generated yet}"
+  ui_kv "Latest Archive Packet" "${ATLAS_READINESS_LATEST_ARCHIVE_PACKET_PATH:-none generated yet}"
   ui_kv "Operation Ledger" "$ATLAS_ARCHIVE_LEDGER_FILE events=$ATLAS_ARCHIVE_LEDGER_EVENTS sha256=$ATLAS_ARCHIVE_LEDGER_SHA"
   ui_kv "Operation Directory" "$ATLAS_OP_DIR"
 }
@@ -234,6 +243,7 @@ atlas_archive_markdown_artifacts() {
     printf ' sha256=%s' "$ATLAS_ARCHIVE_AUDIT_PACKET_SHA"
   fi
   printf '\n'
+  printf -- "- Latest archive packet: \`%s\`\n" "${ATLAS_READINESS_LATEST_ARCHIVE_PACKET_PATH:-none}"
   printf -- "- Operation ledger: \`%s\` events=%s sha256=%s\n" "$ATLAS_ARCHIVE_LEDGER_FILE" "$ATLAS_ARCHIVE_LEDGER_EVENTS" "$ATLAS_ARCHIVE_LEDGER_SHA"
   printf -- "- Operation directory: \`%s\`\n" "$ATLAS_OP_DIR"
 }
@@ -269,6 +279,7 @@ atlas_archive_write_packet() {
     printf -- '- Handoff freshness: %s\n' "$ATLAS_READINESS_HANDOFF_FRESHNESS"
     printf -- '- Closeout freshness: %s\n' "$ATLAS_READINESS_CLOSEOUT_FRESHNESS"
     printf -- '- Audit packet freshness: %s\n' "$ATLAS_READINESS_AUDIT_PACKET_FRESHNESS"
+    printf -- '- Archive packet freshness: %s\n' "$ATLAS_READINESS_ARCHIVE_PACKET_FRESHNESS"
 
     printf '\n## Verification\n\n'
     printf -- '- Closeout verification: %s manifest=%s problems=%s\n' "$ATLAS_ARCHIVE_CLOSEOUT_VERIFICATION_STATUS" "$ATLAS_ARCHIVE_CLOSEOUT_VERIFICATION_PATH" "$ATLAS_ARCHIVE_CLOSEOUT_VERIFICATION_PROBLEMS"
