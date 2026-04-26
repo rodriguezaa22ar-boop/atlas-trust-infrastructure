@@ -58,6 +58,7 @@ teardown() {
   [[ "$output" == *"atlas op handoff [name] [handoff-name]"* ]]
   [[ "$output" == *"atlas op closeout [name] [manifest-name]"* ]]
   [[ "$output" == *"atlas op verify [name] [closeout-manifest]"* ]]
+  [[ "$output" == *"atlas op audit [name]"* ]]
   [[ "$output" == *"atlas op close [name] [--force]"* ]]
   [[ "$output" == *"atlas target brief <target>"* ]]
 }
@@ -256,6 +257,13 @@ EOF
     "$TEST_ROOT/toolkit/sessions/scoped/ledger.ndjson"
   jq -e 'select(.capability == "safe-validation" and .status == "approved")' \
     "$TEST_ROOT/toolkit/sessions/scoped/approvals.ndjson"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op audit scoped
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Operation Audit"* ]]
+  [[ "$output" == *"Audit Flags"* ]]
+  [[ "$output" == *"denied preflight:"* ]]
+  [[ "$output" == *"other-node"* ]]
 
   cat > "$TEST_ROOT/toolkit/targets/retired-node.env" <<'EOF'
 NAME=retired-node
@@ -895,6 +903,20 @@ EOF
   [ "$status" -eq 0 ]
   [[ "$output" == *"Handoff Freshness: current"* ]]
   [[ "$output" == *"Closeout Freshness: stale"* ]]
+
+  audit_events_before="$(wc -l < "$TEST_ROOT/toolkit/sessions/readiness-op/ledger.ndjson" | tr -d ' ')"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op audit readiness-op
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Operation Audit"* ]]
+  [[ "$output" == *"Event Counts"* ]]
+  [[ "$output" == *"Audit Flags"* ]]
+  [[ "$output" == *"Timeline"* ]]
+  [[ "$output" == *"handoff.generated"* ]]
+  [[ "$output" == *"op.close.readiness"* ]]
+  [[ "$output" == *"stale closeout:"* ]]
+  [[ "$output" == *"closeout verification: attention-required"* ]]
+  audit_events_after="$(wc -l < "$TEST_ROOT/toolkit/sessions/readiness-op/ledger.ndjson" | tr -d ' ')"
+  [ "$audit_events_after" = "$audit_events_before" ]
 }
 
 @test "atlas operation close can force closure with readiness snapshot" {
@@ -919,6 +941,12 @@ EOF
   grep -q '^STATUS=closed$' "$TEST_ROOT/toolkit/sessions/force-close-op/session.env"
   jq -e 'select(.event == "op.close.readiness" and .status == "attention-required" and (.detail | contains("readiness=attention-required")) and (.detail | contains("evidence=0")) and (.detail | contains("force=1")))' \
     "$TEST_ROOT/toolkit/sessions/force-close-op/ledger.ndjson"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op audit force-close-op
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Operation Audit"* ]]
+  [[ "$output" == *"forced close:"* ]]
+  [[ "$output" == *"closeout verification: missing"* ]]
 }
 
 @test "atlas advisor summarizes operation state and writes AI review packet" {

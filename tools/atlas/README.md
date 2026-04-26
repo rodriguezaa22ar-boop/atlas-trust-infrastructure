@@ -59,6 +59,7 @@ atlas op handoff april-review
 atlas op close april-review
 atlas op closeout april-review
 atlas op verify april-review
+atlas op audit april-review
 atlas session list
 atlas loot list
 atlas intel summary
@@ -92,6 +93,7 @@ atlas op handoff
 atlas op close [--force]
 atlas op closeout <name>
 atlas op verify <name>
+atlas op audit <name>
 ```
 
 `atlas target brief <target>` gives the fast operator readout: surface counts,
@@ -354,6 +356,11 @@ SHA-256 anchors for the operation metadata without embedding raw artifacts.
 mutating operation state. It verifies recorded SHA-256 anchors and the operation
 ledger event count, reporting each artifact as `verified`, `missing`, `changed`,
 or `unverifiable`.
+
+`atlas op audit [name]` reads the operation ledger without mutating state. It
+prints event counts, audit flags for denied preflights, forced closeout, stale
+freshness states, closeout verification status, and a chronological event
+timeline.
 
 ## AI Advisor
 

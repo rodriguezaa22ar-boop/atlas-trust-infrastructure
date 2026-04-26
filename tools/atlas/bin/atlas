@@ -50,6 +50,9 @@ TOOL_NAME="atlas"
 # shellcheck source=../lib/closeout.sh
 . "$TOOL_DIR/lib/closeout.sh"
 # shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/audit.sh
+. "$TOOL_DIR/lib/audit.sh"
+# shellcheck source-path=SCRIPTDIR
 # shellcheck source=../lib/advisor.sh
 . "$TOOL_DIR/lib/advisor.sh"
 # shellcheck source-path=SCRIPTDIR
@@ -123,6 +126,7 @@ quick flow:
   atlas op handoff [name] [handoff-name]
   atlas op closeout [name] [manifest-name]
   atlas op verify [name] [closeout-manifest]
+  atlas op audit [name]
   atlas op close [name] [--force]
 
 targets:
@@ -152,6 +156,7 @@ operations:
   atlas op handoff [name] [handoff-name]
   atlas op closeout [name] [manifest-name]
   atlas op verify [name] [closeout-manifest]
+  atlas op audit [name]
   atlas op next
   atlas op close [name] [--force]
   atlas op recon <workflow> [interface]
@@ -2058,6 +2063,10 @@ op)
 	verify)
 		shift
 		cmd_op_verify "$@"
+		;;
+	audit)
+		shift
+		cmd_op_audit "$@"
 		;;
 	next)
 		shift

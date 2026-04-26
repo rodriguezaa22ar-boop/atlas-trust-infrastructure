@@ -172,6 +172,9 @@ The near-term roadmap is:
 21. Add closeout freshness checks. Readiness now reports the latest closeout
     manifest and whether it is current or stale against later report, bundle,
     handoff, or material operation changes.
+22. Add an operation audit trail view. `atlas op audit` renders the ledger as
+    event counts, audit flags, closeout verification status, and a readable
+    timeline without mutating operation state.
 
 ## First Serious Version
 
