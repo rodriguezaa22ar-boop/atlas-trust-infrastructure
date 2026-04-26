@@ -369,13 +369,14 @@ timeline.
 
 `atlas op audit-packet [name] [packet-name]` writes a metadata-only Markdown
 audit packet under the operation directory. It includes event counts, audit
-flags, a timeline, closeout verification status, and the operation ledger hash
-without embedding raw artifacts. Readiness reports whether the latest packet is
-current or stale against later ledger events.
+flags, a timeline, closeout verification status, the operation ledger hash, and
+the closeout manifest hash without embedding raw artifacts. Readiness reports
+whether the latest packet is current or stale against later ledger events.
 
 `atlas op audit-verify [name] [audit-packet]` reads an audit packet without
 mutating operation state. It verifies the recorded ledger event count and
-SHA-256 hash so operators can detect later ledger changes.
+SHA-256 hash plus the recorded closeout manifest hash so operators can detect
+later ledger or closeout-manifest changes.
 
 ## AI Advisor
 

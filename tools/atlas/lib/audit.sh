@@ -265,6 +265,7 @@ atlas_audit_write_packet() {
   local verification_status
   local verification_path
   local verification_problems
+  local closeout_manifest_sha=""
 
   atlas_readiness_collect "$ATLAS_OP_TARGET"
   ledger_file="$(atlas_audit_ledger_file)"
@@ -273,6 +274,9 @@ atlas_audit_write_packet() {
   fi
   verification="$(atlas_audit_closeout_verification_status)"
   IFS=$'\t' read -r verification_status verification_path verification_problems <<<"$verification"
+  if [ -n "$verification_path" ] && [ "$verification_path" != "-" ] && [ -f "$verification_path" ]; then
+    closeout_manifest_sha="$(atlas_evidence_hash_path "$verification_path")"
+  fi
 
   {
     printf '# Atlas Operation Audit Packet\n\n'
@@ -289,6 +293,7 @@ atlas_audit_write_packet() {
     printf -- '- Ledger SHA256: %s\n' "$ledger_sha"
     printf -- '- Closeout verification: %s\n' "$verification_status"
     printf -- '- Closeout manifest: %s\n' "$verification_path"
+    printf -- '- Closeout manifest SHA256: %s\n' "${closeout_manifest_sha:-none}"
     printf -- '- Closeout verification problems: %s\n' "$verification_problems"
     printf -- '- Audit packet freshness: %s\n' "$ATLAS_READINESS_AUDIT_PACKET_FRESHNESS"
 
@@ -410,9 +415,13 @@ atlas_audit_verify_packet() {
   local actual_events=""
   local expected_sha
   local actual_sha=""
+  local closeout_manifest
+  local expected_closeout_sha
+  local actual_closeout_sha=""
   local problems=0
   local status="verified"
   local ledger_status="verified"
+  local closeout_status="not-recorded"
 
   [ -f "$packet_file" ] || fail "audit packet is not a file: $packet_file"
   packet_operation="$(atlas_audit_packet_field "$packet_file" "Operation ID")"
@@ -423,6 +432,8 @@ atlas_audit_verify_packet() {
   ledger_file="$(atlas_closeout_anchor_path "$ledger_line")"
   expected_events="$(atlas_audit_packet_bullet_value "$packet_file" "Events")"
   expected_sha="$(atlas_audit_packet_bullet_value "$packet_file" "Ledger SHA256")"
+  closeout_manifest="$(atlas_audit_packet_bullet_value "$packet_file" "Closeout manifest")"
+  expected_closeout_sha="$(atlas_audit_packet_bullet_value "$packet_file" "Closeout manifest SHA256")"
 
   if [ -z "$ledger_file" ] || [ -z "$expected_events" ] || [ -z "$expected_sha" ]; then
     ledger_status="unverifiable"
@@ -436,6 +447,24 @@ atlas_audit_verify_packet() {
     if [ "$actual_events" != "$expected_events" ] || [ "$actual_sha" != "$expected_sha" ]; then
       ledger_status="changed"
       problems=$((problems + 1))
+    fi
+  fi
+
+  if [ -n "$closeout_manifest" ] && [ "$closeout_manifest" != "-" ] && [ "$closeout_manifest" != "none" ]; then
+    if [ -z "$expected_closeout_sha" ] || [ "$expected_closeout_sha" = "none" ]; then
+      closeout_status="unverifiable"
+      problems=$((problems + 1))
+    elif [ ! -f "$closeout_manifest" ]; then
+      closeout_status="missing"
+      problems=$((problems + 1))
+    else
+      actual_closeout_sha="$(atlas_evidence_hash_path "$closeout_manifest")"
+      if [ "$actual_closeout_sha" = "$expected_closeout_sha" ]; then
+        closeout_status="verified"
+      else
+        closeout_status="changed"
+        problems=$((problems + 1))
+      fi
     fi
   fi
 
@@ -457,6 +486,12 @@ atlas_audit_verify_packet() {
     "${expected_sha:-unknown}" \
     "${actual_sha:-unknown}" \
     "${ledger_file:-unknown}"
+  printf '%-20s %-14s expected_sha=%s actual_sha=%s manifest=%s\n' \
+    "Closeout Manifest" \
+    "$closeout_status" \
+    "${expected_closeout_sha:-unknown}" \
+    "${actual_closeout_sha:-unknown}" \
+    "${closeout_manifest:-unknown}"
   ui_rule
   ui_kv "Verification Status" "$status"
   ui_kv "Verification Problems" "$problems"

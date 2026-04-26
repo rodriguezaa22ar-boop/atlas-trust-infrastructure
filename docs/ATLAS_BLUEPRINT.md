@@ -183,6 +183,10 @@ The near-term roadmap is:
     count and SHA-256 hash against the current ledger.
 25. Add audit packet freshness checks. Readiness now reports the latest audit
     packet and whether later ledger events have made that packet stale.
+26. Add audit packet closeout anchors. Audit packets now record the closeout
+    manifest SHA-256, and `atlas op audit-verify` checks it alongside the
+    ledger anchor so file-level closeout tampering is visible even without a
+    new ledger event.
 
 ## First Serious Version
 

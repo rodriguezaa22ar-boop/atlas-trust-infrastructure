@@ -930,6 +930,7 @@ EOF
   grep -q '^# Atlas Operation Audit Packet$' "$audit_packet_path"
   grep -q 'No raw artifact contents are included' "$audit_packet_path"
   grep -q 'Ledger SHA256:' "$audit_packet_path"
+  grep -q 'Closeout manifest SHA256:' "$audit_packet_path"
   grep -q 'Closeout verification: attention-required' "$audit_packet_path"
   grep -q 'Audit packet freshness: current' "$audit_packet_path"
   grep -q '## Event Counts' "$audit_packet_path"
@@ -951,6 +952,7 @@ EOF
   [ "$status" -eq 0 ]
   [[ "$output" == *"Audit Packet Verification"* ]]
   [[ "$output" == *"Operation Ledger"* ]]
+  [[ "$output" == *"Closeout Manifest"* ]]
   [[ "$output" == *"verified"* ]]
   [[ "$output" == *"Verification Status: verified"* ]]
   [[ "$output" == *"Verification Problems: 0"* ]]
@@ -975,6 +977,14 @@ EOF
   [[ "$output" == *"changed"* ]]
   [[ "$output" == *"Verification Status: attention-required"* ]]
   [[ "$output" == *"Verification Problems: 1"* ]]
+
+  printf '\ncloseout manifest changed after audit packet\n' >> "$closeout_path"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op audit-verify readiness-op "$audit_packet_path"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Closeout Manifest"* ]]
+  [[ "$output" == *"changed"* ]]
+  [[ "$output" == *"Verification Status: attention-required"* ]]
+  [[ "$output" == *"Verification Problems: 2"* ]]
 }
 
 @test "atlas operation close can force closure with readiness snapshot" {
