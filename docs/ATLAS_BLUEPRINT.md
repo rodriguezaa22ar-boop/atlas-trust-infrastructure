@@ -158,6 +158,9 @@ The near-term roadmap is:
 16. Add report freshness checks. Readiness and handoff state now compare the
     latest report against material operation changes and block normal closeout
     when the report is stale.
+17. Add evidence bundle freshness checks. Readiness and handoff state now
+    compare the latest bundle against evidence changes and warn when handoff
+    bundles need regeneration.
 
 ## First Serious Version
 

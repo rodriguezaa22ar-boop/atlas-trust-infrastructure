@@ -125,6 +125,21 @@ atlas_readiness_latest_material_change() {
   ' "$ledger_file" | tail -n 1
 }
 
+atlas_readiness_latest_evidence_change() {
+  local ledger_file
+
+  [ -n "${ATLAS_OP_DIR:-}" ] || return 0
+  ledger_file="$(atlas_ledger_file "$ATLAS_OP_DIR")"
+  [ -s "$ledger_file" ] || return 0
+
+  jq -r '
+    . as $record
+    | select(["artifact.created", "artifact.redacted"] | index($record.event))
+    | [.ts, .event, .detail]
+    | @tsv
+  ' "$ledger_file" | tail -n 1
+}
+
 atlas_readiness_report_freshness() {
   local latest_report_at="$1"
   local latest_change_at="$2"
@@ -138,6 +153,19 @@ atlas_readiness_report_freshness() {
   fi
 }
 
+atlas_readiness_bundle_freshness() {
+  local latest_bundle_at="$1"
+  local latest_evidence_change_at="$2"
+
+  if [ -z "$latest_bundle_at" ]; then
+    printf 'missing\n'
+  elif [ -n "$latest_evidence_change_at" ] && [[ "$latest_evidence_change_at" > "$latest_bundle_at" ]]; then
+    printf 'stale\n'
+  else
+    printf 'current\n'
+  fi
+}
+
 atlas_readiness_next_step() {
   local evidence_count="$1"
   local open_count="$2"
@@ -145,6 +173,7 @@ atlas_readiness_next_step() {
   local latest_report="$4"
   local latest_bundle="$5"
   local report_freshness="$6"
+  local bundle_freshness="$7"
 
   if [ "$pending_count" -gt 0 ]; then
     printf 'Run or retire pending validation before closure.\n'
@@ -158,6 +187,8 @@ atlas_readiness_next_step() {
     printf 'Refresh the operation report before closure.\n'
   elif [ -z "$latest_bundle" ]; then
     printf 'Operation is ready to close; generate an evidence bundle if handoff is required.\n'
+  elif [ "$bundle_freshness" = "stale" ]; then
+    printf 'Operation is ready to close; regenerate the evidence bundle if handoff is required.\n'
   else
     printf 'Operation is ready to close.\n'
   fi
@@ -199,7 +230,11 @@ atlas_readiness_collect() {
   local latest_change
   local latest_change_at=""
   local latest_change_event=""
+  local latest_evidence_change
+  local latest_evidence_change_at=""
+  local latest_evidence_change_event=""
   local report_freshness
+  local bundle_freshness
   local readiness
   local next_step
 
@@ -211,6 +246,7 @@ atlas_readiness_collect() {
   latest_report="$(atlas_cycle_latest_report)"
   latest_bundle="$(atlas_readiness_latest_bundle)"
   latest_change="$(atlas_readiness_latest_material_change)"
+  latest_evidence_change="$(atlas_readiness_latest_evidence_change)"
 
   if [ -n "$latest_report" ]; then
     IFS=$'\t' read -r latest_report_at latest_report_path <<<"$latest_report"
@@ -221,10 +257,14 @@ atlas_readiness_collect() {
   if [ -n "$latest_change" ]; then
     IFS=$'\t' read -r latest_change_at latest_change_event _ <<<"$latest_change"
   fi
+  if [ -n "$latest_evidence_change" ]; then
+    IFS=$'\t' read -r latest_evidence_change_at latest_evidence_change_event _ <<<"$latest_evidence_change"
+  fi
 
   report_freshness="$(atlas_readiness_report_freshness "$latest_report_at" "$latest_change_at")"
+  bundle_freshness="$(atlas_readiness_bundle_freshness "$latest_bundle_at" "$latest_evidence_change_at")"
   readiness="$(atlas_readiness_status "$evidence_count" "$open_count" "$pending_count" "$latest_report" "$report_freshness")"
-  next_step="$(atlas_readiness_next_step "$evidence_count" "$open_count" "$pending_count" "$latest_report" "$latest_bundle" "$report_freshness")"
+  next_step="$(atlas_readiness_next_step "$evidence_count" "$open_count" "$pending_count" "$latest_report" "$latest_bundle" "$report_freshness" "$bundle_freshness")"
 
   ATLAS_READINESS_EVIDENCE_COUNT="$evidence_count"
   ATLAS_READINESS_FINDING_COUNT="$finding_count"
@@ -240,7 +280,11 @@ atlas_readiness_collect() {
   ATLAS_READINESS_LATEST_CHANGE="$latest_change"
   ATLAS_READINESS_LATEST_CHANGE_AT="$latest_change_at"
   ATLAS_READINESS_LATEST_CHANGE_EVENT="$latest_change_event"
+  ATLAS_READINESS_LATEST_EVIDENCE_CHANGE="$latest_evidence_change"
+  ATLAS_READINESS_LATEST_EVIDENCE_CHANGE_AT="$latest_evidence_change_at"
+  ATLAS_READINESS_LATEST_EVIDENCE_CHANGE_EVENT="$latest_evidence_change_event"
   ATLAS_READINESS_REPORT_FRESHNESS="$report_freshness"
+  ATLAS_READINESS_BUNDLE_FRESHNESS="$bundle_freshness"
   ATLAS_READINESS_STATUS="$readiness"
   ATLAS_READINESS_NEXT_STEP="$next_step"
 }
@@ -248,12 +292,13 @@ atlas_readiness_collect() {
 atlas_readiness_ledger_detail() {
   local force="${1:-0}"
 
-  printf 'readiness=%s evidence=%s open_findings=%s pending_validation=%s report_freshness=%s latest_report=%s latest_change=%s evidence_bundle=%s force=%s' \
+  printf 'readiness=%s evidence=%s open_findings=%s pending_validation=%s report_freshness=%s bundle_freshness=%s latest_report=%s latest_change=%s evidence_bundle=%s force=%s' \
     "${ATLAS_READINESS_STATUS:-unknown}" \
     "${ATLAS_READINESS_EVIDENCE_COUNT:-0}" \
     "${ATLAS_READINESS_OPEN_FINDINGS_COUNT:-0}" \
     "${ATLAS_READINESS_PENDING_VALIDATION_COUNT:-0}" \
     "${ATLAS_READINESS_REPORT_FRESHNESS:-unknown}" \
+    "${ATLAS_READINESS_BUNDLE_FRESHNESS:-unknown}" \
     "${ATLAS_READINESS_LATEST_REPORT_PATH:-none}" \
     "${ATLAS_READINESS_LATEST_CHANGE_EVENT:-none}" \
     "${ATLAS_READINESS_LATEST_BUNDLE_DETAIL:-none}" \
@@ -290,6 +335,12 @@ atlas_readiness_print() {
     ui_kv "Evidence Bundle" "$ATLAS_READINESS_LATEST_BUNDLE_AT $ATLAS_READINESS_LATEST_BUNDLE_DETAIL"
   else
     ui_kv "Evidence Bundle" "none generated yet"
+  fi
+  ui_kv "Bundle Freshness" "$ATLAS_READINESS_BUNDLE_FRESHNESS"
+  if [ -n "$ATLAS_READINESS_LATEST_EVIDENCE_CHANGE" ]; then
+    ui_kv "Latest Evidence Change" "$ATLAS_READINESS_LATEST_EVIDENCE_CHANGE_AT $ATLAS_READINESS_LATEST_EVIDENCE_CHANGE_EVENT"
+  else
+    ui_kv "Latest Evidence Change" "none"
   fi
   ui_kv "Close Readiness" "$ATLAS_READINESS_STATUS"
   ui_kv "Next Step" "$ATLAS_READINESS_NEXT_STEP"

@@ -654,7 +654,9 @@ CRITICALITY=high
 CREATED_AT=2026-04-23T20:53:16Z
 EOF
   artifact="$TEST_ROOT/readiness-artifact.txt"
+  late_artifact="$TEST_ROOT/readiness-late-artifact.txt"
   printf 'ssh reachable from authorized test node\n' > "$artifact"
+  printf 'late closeout screenshot reference\n' > "$late_artifact"
 
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op start readiness-op demo-node authorized readiness review
   [ "$status" -eq 0 ]
@@ -683,6 +685,7 @@ EOF
   [[ "$output" == *"Latest Report: none generated yet"* ]]
   [[ "$output" == *"Report Freshness: missing"* ]]
   [[ "$output" == *"Evidence Bundle: none generated yet"* ]]
+  [[ "$output" == *"Bundle Freshness: missing"* ]]
   [[ "$output" == *"Close Readiness: attention-required"* ]]
   [[ "$output" == *"Resolve, accept, or retest unresolved findings before closure."* ]]
   [[ "$output" == *"$finding_id"* ]]
@@ -752,6 +755,36 @@ EOF
   [ -d "$bundle_dir" ]
   [ -f "$manifest_path" ]
 
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op readiness readiness-op
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Bundle Freshness: current"* ]]
+
+  sleep 1
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence add "$late_artifact" --kind closeout-note --classification public
+  [ "$status" -eq 0 ]
+  late_evidence_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  [ -n "$late_evidence_id" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op readiness readiness-op
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Report Freshness: stale"* ]]
+  [[ "$output" == *"Bundle Freshness: stale"* ]]
+  [[ "$output" == *"Latest Evidence Change:"* ]]
+  [[ "$output" == *"artifact.created"* ]]
+
+  sleep 1
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op report readiness-op readiness-report-post-bundle
+  [ "$status" -eq 0 ]
+  report_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "report" { print $2; exit }')"
+  [ -f "$report_path" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op readiness readiness-op
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Report Freshness: current"* ]]
+  [[ "$output" == *"Bundle Freshness: stale"* ]]
+  [[ "$output" == *"Close Readiness: ready"* ]]
+  [[ "$output" == *"Operation is ready to close; regenerate the evidence bundle if handoff is required."* ]]
+
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op handoff readiness-op readiness-handoff
   [ "$status" -eq 0 ]
   [[ "$output" == *"handoff packet written"* ]]
@@ -761,6 +794,7 @@ EOF
   grep -q 'No raw artifact contents are included' "$handoff_path"
   grep -q 'Close readiness: ready' "$handoff_path"
   grep -q 'Report freshness: current' "$handoff_path"
+  grep -q 'Bundle freshness: stale' "$handoff_path"
   grep -q "$report_path" "$handoff_path"
   grep -q "$bundle_dir" "$handoff_path"
   grep -q "$manifest_path" "$handoff_path"
