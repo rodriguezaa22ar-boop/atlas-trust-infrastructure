@@ -69,6 +69,17 @@ atlas_validation_check_lane_allowed() {
   fi
 }
 
+atlas_validation_validate_retest_result() {
+  case "$1" in
+  resolved | still-open)
+    return 0
+    ;;
+  *)
+    fail "expected retest result resolved or still-open; got: $1"
+    ;;
+  esac
+}
+
 atlas_validation_append_record() {
   local id="$1"
   local target="$2"
@@ -84,6 +95,48 @@ atlas_validation_append_record() {
   local session_dir="${12}"
   local result_status="${13}"
   shift 13
+  local evidence_ids=("$@")
+
+  atlas_validation_append_record_with_retest \
+    "$id" \
+    "$target" \
+    "$lane" \
+    "$capability" \
+    "$status" \
+    "$reason" \
+    "$finding_id" \
+    "$plan_path" \
+    "$created_at" \
+    "$approval_reason" \
+    "$approved_by" \
+    "$session_dir" \
+    "$result_status" \
+    "" \
+    "" \
+    "" \
+    "" \
+    "${evidence_ids[@]}"
+}
+
+atlas_validation_append_record_with_retest() {
+  local id="$1"
+  local target="$2"
+  local lane="$3"
+  local capability="$4"
+  local status="$5"
+  local reason="$6"
+  local finding_id="$7"
+  local plan_path="$8"
+  local created_at="$9"
+  local approval_reason="${10}"
+  local approved_by="${11}"
+  local session_dir="${12}"
+  local result_status="${13}"
+  local retest_result="${14}"
+  local retest_note="${15}"
+  local retested_at="${16}"
+  local retested_by="${17}"
+  shift 17
   local evidence_ids=("$@")
   local evidence_text
   local index_file
@@ -111,6 +164,10 @@ atlas_validation_append_record() {
     --arg approved_by "$approved_by" \
     --arg session_dir "$session_dir" \
     --arg result_status "$result_status" \
+    --arg retest_result "$retest_result" \
+    --arg retest_note "$retest_note" \
+    --arg retested_at "$retested_at" \
+    --arg retested_by "$retested_by" \
     --arg evidence_text "$evidence_text" \
     '{
       id: $id,
@@ -128,7 +185,11 @@ atlas_validation_append_record() {
       approval_reason: (if $approval_reason == "" then null else $approval_reason end),
       approved_by: (if $approved_by == "" then null else $approved_by end),
       session_dir: (if $session_dir == "" then null else $session_dir end),
-      result_status: (if $result_status == "" then null else $result_status end)
+      result_status: (if $result_status == "" then null else $result_status end),
+      retest_result: (if $retest_result == "" then null else $retest_result end),
+      retest_note: (if $retest_note == "" then null else $retest_note end),
+      retested_at: (if $retested_at == "" then null else $retested_at end),
+      retested_by: (if $retested_by == "" then null else $retested_by end)
     }' >>"$index_file"
 }
 
@@ -149,12 +210,15 @@ atlas_validation_latest_record() {
 atlas_validation_load_plan() {
   local plan_id="$1"
   local record
-  local output
+  local fields=()
+  local field
 
   record="$(atlas_validation_latest_record "$plan_id" || true)"
   [ -n "$record" ] || fail "unknown validation plan: $plan_id"
 
-  output="$(
+  while IFS= read -r field; do
+    fields+=("$field")
+  done < <(
     printf '%s\n' "$record" |
       jq -r '
         [
@@ -173,29 +237,36 @@ atlas_validation_load_plan() {
           (.approval_reason // ""),
           (.approved_by // ""),
           (.session_dir // ""),
-          (.result_status // "")
+          (.result_status // ""),
+          (.retest_result // ""),
+          (.retest_note // ""),
+          (.retested_at // ""),
+          (.retested_by // "")
         ]
-        | @tsv
+        | .[]
       '
-  )"
+  )
 
-  IFS=$'\t' read -r \
-    ATLAS_VALIDATION_ID \
-    ATLAS_VALIDATION_OPERATION \
-    ATLAS_VALIDATION_TARGET \
-    ATLAS_VALIDATION_LANE \
-    ATLAS_VALIDATION_CAPABILITY \
-    ATLAS_VALIDATION_STATUS \
-    ATLAS_VALIDATION_REASON \
-    ATLAS_VALIDATION_FINDING \
-    ATLAS_VALIDATION_EVIDENCE \
-    ATLAS_VALIDATION_PLAN_PATH \
-    ATLAS_VALIDATION_CREATED_AT \
-    ATLAS_VALIDATION_UPDATED_AT \
-    ATLAS_VALIDATION_APPROVAL_REASON \
-    ATLAS_VALIDATION_APPROVED_BY \
-    ATLAS_VALIDATION_SESSION_DIR \
-    ATLAS_VALIDATION_RESULT_STATUS <<<"$output"
+  ATLAS_VALIDATION_ID="${fields[0]:-}"
+  ATLAS_VALIDATION_OPERATION="${fields[1]:-}"
+  ATLAS_VALIDATION_TARGET="${fields[2]:-}"
+  ATLAS_VALIDATION_LANE="${fields[3]:-}"
+  ATLAS_VALIDATION_CAPABILITY="${fields[4]:-}"
+  ATLAS_VALIDATION_STATUS="${fields[5]:-}"
+  ATLAS_VALIDATION_REASON="${fields[6]:-}"
+  ATLAS_VALIDATION_FINDING="${fields[7]:-}"
+  ATLAS_VALIDATION_EVIDENCE="${fields[8]:-}"
+  ATLAS_VALIDATION_PLAN_PATH="${fields[9]:-}"
+  ATLAS_VALIDATION_CREATED_AT="${fields[10]:-}"
+  ATLAS_VALIDATION_UPDATED_AT="${fields[11]:-}"
+  ATLAS_VALIDATION_APPROVAL_REASON="${fields[12]:-}"
+  ATLAS_VALIDATION_APPROVED_BY="${fields[13]:-}"
+  ATLAS_VALIDATION_SESSION_DIR="${fields[14]:-}"
+  ATLAS_VALIDATION_RESULT_STATUS="${fields[15]:-}"
+  ATLAS_VALIDATION_RETEST_RESULT="${fields[16]:-}"
+  ATLAS_VALIDATION_RETEST_NOTE="${fields[17]:-}"
+  ATLAS_VALIDATION_RETESTED_AT="${fields[18]:-}"
+  ATLAS_VALIDATION_RETESTED_BY="${fields[19]:-}"
 }
 
 atlas_validation_evidence_args() {
@@ -389,6 +460,18 @@ cmd_validation_show() {
   if [ -n "$ATLAS_VALIDATION_RESULT_STATUS" ]; then
     ui_kv "Result" "$ATLAS_VALIDATION_RESULT_STATUS"
   fi
+  if [ -n "$ATLAS_VALIDATION_RETEST_RESULT" ]; then
+    ui_kv "Retest Result" "$ATLAS_VALIDATION_RETEST_RESULT"
+  fi
+  if [ -n "$ATLAS_VALIDATION_RETESTED_AT" ]; then
+    ui_kv "Retested At" "$ATLAS_VALIDATION_RETESTED_AT"
+  fi
+  if [ -n "$ATLAS_VALIDATION_RETESTED_BY" ]; then
+    ui_kv "Retested By" "$ATLAS_VALIDATION_RETESTED_BY"
+  fi
+  if [ -n "$ATLAS_VALIDATION_RETEST_NOTE" ]; then
+    ui_kv "Retest Note" "$ATLAS_VALIDATION_RETEST_NOTE"
+  fi
 }
 
 cmd_validation_approve() {
@@ -471,6 +554,117 @@ cmd_validation_run() {
   printf 'operation_action_link: %s\n' "$link"
 }
 
+cmd_validation_retest() {
+  need_args 1 "$#" "validation retest <id> --result resolved|still-open [--evidence id] [--note text]"
+  local plan_id="$1"
+  local result=""
+  local note=""
+  local evidence_ids=()
+  local prior_evidence_ids=()
+  local merged_evidence_ids=()
+  local evidence_id
+  local merged_evidence
+  local finding_status
+  local retested_at
+  local finding_args=()
+
+  shift
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+    --result)
+      need_args 2 "$#" "validation retest <id> --result <resolved|still-open>"
+      result="$2"
+      shift 2
+      ;;
+    --evidence)
+      need_args 2 "$#" "validation retest <id> --evidence <evidence-id>"
+      evidence_ids+=("$2")
+      shift 2
+      ;;
+    --note)
+      need_args 2 "$#" "validation retest <id> --note <text>"
+      note="$2"
+      shift 2
+      ;;
+    *)
+      fail "unknown validation retest option: $1"
+      ;;
+    esac
+  done
+
+  [ -n "$result" ] || fail "validation retest requires --result resolved|still-open"
+  atlas_validation_validate_retest_result "$result"
+
+  load_active_operation
+  atlas_validation_load_plan "$plan_id"
+  [ "$ATLAS_VALIDATION_STATUS" = "executed" ] || fail "validation plan '$plan_id' must be executed before retest; status: $ATLAS_VALIDATION_STATUS"
+  [ -n "$ATLAS_VALIDATION_FINDING" ] || fail "validation plan '$plan_id' is not linked to a finding"
+  [ "$ATLAS_VALIDATION_OPERATION" = "$ATLAS_OP_SLUG" ] || fail "validation plan '$plan_id' does not belong to active operation '$ATLAS_OP_SLUG'"
+
+  atlas_validation_check_capability_allowed "$ATLAS_VALIDATION_CAPABILITY" "$ATLAS_VALIDATION_TARGET"
+  atlas_validation_check_lane_allowed "$ATLAS_VALIDATION_LANE"
+  atlas_scope_preflight "read-only" "atlas" "$ATLAS_VALIDATION_TARGET" "record validation retest $plan_id"
+  atlas_findings_validate_evidence_ids "${evidence_ids[@]}"
+
+  while IFS= read -r evidence_id; do
+    prior_evidence_ids+=("$evidence_id")
+  done < <(atlas_validation_evidence_args "$ATLAS_VALIDATION_EVIDENCE")
+
+  merged_evidence="$(atlas_findings_join_unique "${prior_evidence_ids[@]}" "${evidence_ids[@]}")"
+  # shellcheck disable=SC2206
+  merged_evidence_ids=($merged_evidence)
+  finding_status="open"
+  if [ "$result" = "resolved" ]; then
+    finding_status="resolved"
+  fi
+
+  retested_at="$(timestamp)"
+  atlas_validation_append_record_with_retest \
+    "$plan_id" \
+    "$ATLAS_VALIDATION_TARGET" \
+    "$ATLAS_VALIDATION_LANE" \
+    "$ATLAS_VALIDATION_CAPABILITY" \
+    "executed" \
+    "$ATLAS_VALIDATION_REASON" \
+    "$ATLAS_VALIDATION_FINDING" \
+    "$ATLAS_VALIDATION_PLAN_PATH" \
+    "$ATLAS_VALIDATION_CREATED_AT" \
+    "$ATLAS_VALIDATION_APPROVAL_REASON" \
+    "$ATLAS_VALIDATION_APPROVED_BY" \
+    "$ATLAS_VALIDATION_SESSION_DIR" \
+    "$ATLAS_VALIDATION_RESULT_STATUS" \
+    "$result" \
+    "$note" \
+    "$retested_at" \
+    "$(atlas_approval_operator)" \
+    "${merged_evidence_ids[@]}"
+
+  finding_args=("$ATLAS_VALIDATION_FINDING" --status "$finding_status" --validation "$plan_id")
+  for evidence_id in "${evidence_ids[@]}"; do
+    finding_args+=(--evidence "$evidence_id")
+  done
+  if [ -n "$note" ]; then
+    finding_args+=(--note "$note")
+  fi
+  cmd_finding_update "${finding_args[@]}" >/dev/null
+
+  atlas_ledger_append_current "validation.retested" "$ATLAS_VALIDATION_CAPABILITY" "atlas" "$result" "validation_plan=$plan_id lane=$ATLAS_VALIDATION_LANE finding=$ATLAS_VALIDATION_FINDING result=$result"
+  record_operation_history "$ATLAS_OP_DIR" "validation-retest:$ATLAS_VALIDATION_LANE" "$plan_id"
+
+  ui_ok "validation retest recorded"
+  printf 'id: %s\n' "$plan_id"
+  printf 'status: executed\n'
+  printf 'result: %s\n' "$result"
+  printf 'finding: %s\n' "$ATLAS_VALIDATION_FINDING"
+  printf 'finding_status: %s\n' "$finding_status"
+  if [ -n "$merged_evidence" ]; then
+    printf 'evidence: %s\n' "$merged_evidence"
+  fi
+  if [ -n "$note" ]; then
+    printf 'note: %s\n' "$note"
+  fi
+}
+
 atlas_validation_count_for_target() {
   local target="${1:-}"
   local index_file
@@ -516,7 +710,7 @@ atlas_validation_rows_for_target() {
           (.capability // "?"),
           (.status // "?"),
           (.finding // "-"),
-          (.result_status // "-")
+          (.retest_result // .result_status // "-")
         ]
       | @tsv
     ' "$index_file"
@@ -560,6 +754,8 @@ atlas_validation_report_markdown() {
       " / " + (.status // "?") +
       (if (.finding // "") != "" then " Finding: " + .finding + "." else "" end) +
       (if ((.evidence // []) | length) > 0 then " Evidence: " + ((.evidence // []) | join(", ")) + "." else "" end) +
-      (if (.result_status // "") != "" then " Result: " + .result_status + "." else "" end)
+      (if (.result_status // "") != "" then " Result: " + .result_status + "." else "" end) +
+      (if (.retest_result // "") != "" then " Retest: " + .retest_result + "." else "" end) +
+      (if (.retest_note // "") != "" then " Retest note: " + .retest_note + "." else "" end)
   ' "$index_file"
 }

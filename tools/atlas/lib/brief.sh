@@ -149,7 +149,7 @@ atlas_brief_latest_validation() {
         (.id // "?"),
         (.lane // "?"),
         (.status // "?"),
-        (.result_status // "-")
+        (.retest_result // .result_status // "-")
       ]
     | @tsv
   ' "$index_file"

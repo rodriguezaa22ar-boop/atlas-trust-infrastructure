@@ -143,6 +143,9 @@ The near-term roadmap is:
     queue, report readiness, and ranked candidate lanes together without
     executing actions. The first read-only `atlas cycle`, `atlas target cycle`,
     and `atlas op cycle` commands are implemented.
+12. Add validation retest loops after remediation. `atlas validation retest`
+    records resolved/still-open outcomes, links new evidence, updates the
+    finding lifecycle, and renders the retest state in briefs and reports.
 
 ## First Serious Version
 

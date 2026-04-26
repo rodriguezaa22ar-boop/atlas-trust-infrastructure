@@ -34,6 +34,7 @@ atlas finding show finding_...
 atlas validation plan validate --finding finding_... --evidence ev_...
 atlas validation approve vp_... "approved bounded validation"
 atlas validation run vp_...
+atlas validation retest vp_... --result resolved --evidence ev_... --note "remediation confirmed"
 atlas advisor brief
 atlas advisor prompt
 atlas target list
@@ -78,6 +79,7 @@ atlas op action candidates
 atlas validation plan <lane>
 atlas validation approve <id> <reason...>
 atlas validation run <id> [session-name]
+atlas validation retest <id> --result resolved|still-open [--evidence id]
 atlas advisor brief
 atlas op story
 atlas op report
@@ -171,6 +173,7 @@ it:
 atlas validation plan validate --reason "confirm observed service evidence"
 atlas validation approve vp_20260425T200000Z "approved bounded validation within scope"
 atlas validation run vp_20260425T200000Z
+atlas validation retest vp_20260425T200000Z --result resolved --note "remediation confirmed"
 ```
 
 `atlas approval list` shows approval records for the active operation.
@@ -258,6 +261,7 @@ atlas validation plan validate \
   --reason "confirm observed SSH service"
 atlas validation approve vp_20260425T202000Z "approved safe validation"
 atlas validation run vp_20260425T202000Z
+atlas validation retest vp_20260425T202000Z --result resolved --evidence ev_20260425T210000Z
 ```
 
 The run path requires both an approved validation plan and the normal
@@ -265,6 +269,12 @@ ScopeGuard Tier 3 approval check. Execution still delegates to `vector`; Atlas
 records the validation status, linked action session, ledger events, and report
 entries. Profiles can restrict validation lanes with `VALIDATION_LANES`, as the
 `htb-starting-point` profile does.
+
+After remediation, `atlas validation retest <id>` records whether the linked
+finding is `resolved` or `still-open`, merges any new retest evidence into the
+validation record, and appends a finding lifecycle update. Reports, briefs, and
+`validation show` surface the latest retest result without rewriting the
+original validation run.
 
 ## Operation Scope
 

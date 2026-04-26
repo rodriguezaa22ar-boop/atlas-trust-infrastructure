@@ -87,6 +87,7 @@ usage:
   atlas validation show <id>
   atlas validation approve <id> <reason...>
   atlas validation run <id> [session-name]
+  atlas validation retest <id> --result resolved|still-open
   atlas advisor brief [name]
   atlas advisor prompt [name] [packet-name]
   atlas cycle [target]
@@ -104,6 +105,7 @@ quick flow:
   atlas validation plan <lane>
   atlas validation approve <id> <reason...>
   atlas validation run <id> [session-name]
+  atlas validation retest <id> --result resolved|still-open
   atlas cycle
   atlas advisor brief
   atlas op story [name]
@@ -146,6 +148,7 @@ operations:
   atlas op validation show <id>
   atlas op validation approve <id> <reason...>
   atlas op validation run <id> [session-name]
+  atlas op validation retest <id> --result resolved|still-open
   atlas op brief
   atlas op advisor
 
@@ -230,6 +233,7 @@ validation:
   atlas validation show <id>
   atlas validation approve <id> <reason...>
   atlas validation run <id> [session-name]
+  atlas validation retest <id> --result resolved|still-open [--evidence id] [--note text]
 
 advisor:
   atlas advisor brief [name]
@@ -1782,6 +1786,10 @@ dispatch_validation_command() {
 	run)
 		shift
 		cmd_validation_run "$@"
+		;;
+	retest)
+		shift
+		cmd_validation_retest "$@"
 		;;
 	*)
 		usage

@@ -220,7 +220,7 @@ Atlas now also exposes the operator-level story and reporting layer:
 - `atlas finding add <title>`: observed, inferred, or validated finding record
 - `atlas finding update <id>` / `atlas finding resolve <id>`: append lifecycle
   updates with validation links and notes while preserving finding history
-- `atlas validation plan <lane>`: plan, approve, and run bounded validation
+- `atlas validation plan <lane>`: plan, approve, run, and retest bounded validation
 - `atlas op brief`: operation summary with evidence, findings, and validation counts
 - `atlas op cycle [name]`: operation-owned exposure-cycle view for the active
   or named operation

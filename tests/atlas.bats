@@ -33,6 +33,7 @@ teardown() {
   [[ "$output" == *"atlas finding update <id> [--level level] [--status status]"* ]]
   [[ "$output" == *"atlas finding resolve <id> [--evidence id] [--validation id]"* ]]
   [[ "$output" == *"atlas validation plan <lane> [--finding id] [--evidence id]"* ]]
+  [[ "$output" == *"atlas validation retest <id> --result resolved|still-open"* ]]
   [[ "$output" == *"atlas advisor brief [name]"* ]]
   [[ "$output" == *"atlas advisor prompt [name] [packet-name]"* ]]
   [[ "$output" == *"atlas cycle [target]"* ]]
@@ -499,6 +500,145 @@ EOF
     "$TEST_ROOT/toolkit/sessions/validation-op/findings.ndjson"
   jq -e --arg finding_id "$finding_id" 'select(.event == "finding.updated" and (.detail | contains($finding_id)))' \
     "$TEST_ROOT/toolkit/sessions/validation-op/ledger.ndjson"
+}
+
+@test "atlas validation retest links evidence and resolves findings" {
+  mkdir -p "$TEST_ROOT/toolkit/targets" "$TEST_ROOT/toolkit/state/intel"
+  cat > "$TEST_ROOT/toolkit/targets/demo-node.env" <<'EOF'
+NAME=demo-node
+ADDRESS=10.10.10.10
+SCOPE_STATUS=in-scope
+CRITICALITY=high
+CREATED_AT=2026-04-23T20:53:16Z
+EOF
+  cat > "$TEST_ROOT/toolkit/state/intel/observations.jsonl" <<'EOF'
+{"observed_at":"2026-04-24T00:00:00Z","source_tool":"wiremap","source_name":"fast","source_run_id":"run-1","target":"demo-node","observation_type":"host_state","confidence":"high","value":{"state":"up"}}
+{"observed_at":"2026-04-24T00:00:01Z","source_tool":"wiremap","source_name":"fast","source_run_id":"run-1","target":"demo-node","observation_type":"service_open","confidence":"high","value":{"service_entity_id":"service:demo-node:22/tcp","portproto":"22/tcp","service":"ssh","detail":"OpenSSH 9.7"}}
+EOF
+  cat > "$TEST_ROOT/toolkit/state/intel/entities.jsonl" <<'EOF'
+{"observed_at":"2026-04-24T00:00:01Z","entity_type":"service","entity_id":"service:demo-node:22/tcp","target":"demo-node","attributes":{"portproto":"22/tcp","service":"ssh","detail":"OpenSSH 9.7"}}
+EOF
+  : > "$TEST_ROOT/toolkit/state/intel/outcomes.jsonl"
+  : > "$TEST_ROOT/toolkit/state/intel/relationships.jsonl"
+  mkdir -p "$TEST_ROOT/fake-bin"
+  cat > "$TEST_ROOT/fake-bin/nmap" <<'EOF'
+#!/usr/bin/env bash
+target="${*: -1}"
+printf 'Starting Nmap 7.98 ( https://nmap.org ) at 2026-04-24 00:00 UTC\n'
+printf 'Nmap scan report for %s\n' "$target"
+printf 'Host is up, received user-set (0.00025s latency).\n'
+printf 'PORT   STATE SERVICE REASON  VERSION\n'
+printf '22/tcp open  ssh     syn-ack OpenSSH 9.7\n'
+printf '\nNmap done: 1 IP address (1 host up) scanned in 0.04 seconds\n'
+EOF
+  chmod +x "$TEST_ROOT/fake-bin/nmap"
+  export LAB_VECTOR_NMAP_BIN="$TEST_ROOT/fake-bin/nmap"
+
+  artifact="$TEST_ROOT/validation-artifact.txt"
+  retest_artifact="$TEST_ROOT/retest-artifact.txt"
+  printf 'ssh reachable from authorized test node\n' > "$artifact"
+  printf 'ssh no longer reachable after firewall change\n' > "$retest_artifact"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op start --profile htb-starting-point retest-op demo-node authorized retest loop
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence add "$artifact" --kind scan-output
+  [ "$status" -eq 0 ]
+  evidence_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  [ -n "$evidence_id" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding add "SSH management reachable" \
+    --level observed \
+    --severity low \
+    --confidence high \
+    --evidence "$evidence_id"
+  [ "$status" -eq 0 ]
+  finding_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  [ -n "$finding_id" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" validation plan validate \
+    --finding "$finding_id" \
+    --evidence "$evidence_id" \
+    --reason "confirm observed SSH service"
+  [ "$status" -eq 0 ]
+  plan_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  [ -n "$plan_id" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" validation approve "$plan_id" bounded validation approved
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" validation run "$plan_id" "Validation Session"
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding update "$finding_id" \
+    --level validated \
+    --status validated \
+    --validation "$plan_id" \
+    --note "confirmed by validation run"
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence add "$retest_artifact" --kind retest-output
+  [ "$status" -eq 0 ]
+  retest_evidence_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  [ -n "$retest_evidence_id" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" validation retest "$plan_id" \
+    --result resolved \
+    --evidence "$retest_evidence_id" \
+    --note "remediation confirmed by retest"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"validation retest recorded"* ]]
+  [[ "$output" == *"result: resolved"* ]]
+  [[ "$output" == *"finding: $finding_id"* ]]
+  [[ "$output" == *"finding_status: resolved"* ]]
+  [[ "$output" == *"$retest_evidence_id"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" validation show "$plan_id"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Status: executed"* ]]
+  [[ "$output" == *"Result: success"* ]]
+  [[ "$output" == *"Retest Result: resolved"* ]]
+  [[ "$output" == *"Retest Note: remediation confirmed by retest"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding show "$finding_id"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Level: validated"* ]]
+  [[ "$output" == *"Status: resolved"* ]]
+  [[ "$output" == *"Validation Plans: $plan_id"* ]]
+  [[ "$output" == *"$retest_evidence_id"* ]]
+  [[ "$output" == *"Latest Note: remediation confirmed by retest"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op brief
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Latest Validation: $plan_id validate executed result=resolved"* ]]
+  [[ "$output" == *"Latest Finding:"* ]]
+  [[ "$output" == *"low/validated/resolved SSH management reachable"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op report retest-op retest-report
+  [ "$status" -eq 0 ]
+  report_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "report" { print $2; exit }')"
+  [ -f "$report_path" ]
+  grep -q 'Retest: resolved' "$report_path"
+  grep -q 'Retest note: remediation confirmed by retest' "$report_path"
+  grep -q 'resolved: SSH management reachable' "$report_path"
+
+  jq -s -e \
+    --arg plan_id "$plan_id" \
+    --arg finding_id "$finding_id" \
+    --arg evidence_id "$evidence_id" \
+    --arg retest_evidence_id "$retest_evidence_id" \
+    'map(select(.id == $plan_id)) | last | select(.status == "executed" and .finding == $finding_id and .retest_result == "resolved" and (.evidence | index($evidence_id)) and (.evidence | index($retest_evidence_id)))' \
+    "$TEST_ROOT/toolkit/sessions/retest-op/validation-plans.ndjson"
+  jq -s -e \
+    --arg finding_id "$finding_id" \
+    --arg plan_id "$plan_id" \
+    --arg retest_evidence_id "$retest_evidence_id" \
+    'map(select(.id == $finding_id)) | last | select(.level == "validated" and .status == "resolved" and (.validations | index($plan_id)) and (.evidence | index($retest_evidence_id)))' \
+    "$TEST_ROOT/toolkit/sessions/retest-op/findings.ndjson"
+  jq -e --arg plan_id "$plan_id" 'select(.event == "validation.retested" and (.detail | contains($plan_id)))' \
+    "$TEST_ROOT/toolkit/sessions/retest-op/ledger.ndjson"
+  jq -e --arg finding_id "$finding_id" 'select(.event == "finding.updated" and (.detail | contains($finding_id)) and (.detail | contains("status=resolved")))' \
+    "$TEST_ROOT/toolkit/sessions/retest-op/ledger.ndjson"
 }
 
 @test "atlas advisor summarizes operation state and writes AI review packet" {
