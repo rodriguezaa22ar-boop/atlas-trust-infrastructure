@@ -35,6 +35,9 @@ TOOL_NAME="atlas"
 # shellcheck source=../lib/brief.sh
 . "$TOOL_DIR/lib/brief.sh"
 # shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/cycle.sh
+. "$TOOL_DIR/lib/cycle.sh"
+# shellcheck source-path=SCRIPTDIR
 # shellcheck source=../lib/report.sh
 . "$TOOL_DIR/lib/report.sh"
 # shellcheck source-path=SCRIPTDIR
@@ -86,6 +89,7 @@ usage:
   atlas validation run <id> [session-name]
   atlas advisor brief [name]
   atlas advisor prompt [name] [packet-name]
+  atlas cycle [target]
 
 quick flow:
   atlas doctor
@@ -100,6 +104,7 @@ quick flow:
   atlas validation plan <lane>
   atlas validation approve <id> <reason...>
   atlas validation run <id> [session-name]
+  atlas cycle
   atlas advisor brief
   atlas op story [name]
   atlas op report [name] [report-name]
@@ -111,6 +116,7 @@ targets:
   atlas target list
   atlas target show <name>
   atlas target brief <target>
+  atlas target cycle <target>
   atlas target story <target>
   atlas target summary <target>
   atlas target next <target>
@@ -125,6 +131,7 @@ operations:
   atlas op show [name]
   atlas op status [name]
   atlas op story [name]
+  atlas op cycle [name]
   atlas op report [name] [report-name]
   atlas op next
   atlas op close [name]
@@ -147,6 +154,11 @@ story views:
   atlas story demo-web-app
   atlas target story <target>
   atlas op story [name]
+
+cycle views:
+  atlas cycle [target]
+  atlas target cycle <target>
+  atlas op cycle [name]
 
 recon:
   atlas recon menu
@@ -1659,11 +1671,12 @@ menu_prompt() {
 	ui_rule
 	printf '%s %s\n' "$(ui_dim "[1]")" "operation status"
 	printf '%s %s\n' "$(ui_dim "[2]")" "target story"
-	printf '%s %s\n' "$(ui_dim "[3]")" "recon console"
-	printf '%s %s\n' "$(ui_dim "[4]")" "action console"
-	printf '%s %s\n' "$(ui_dim "[5]")" "intel summary"
-	printf '%s %s\n' "$(ui_dim "[6]")" "target list"
-	printf '%s %s\n' "$(ui_dim "[7]")" "session list"
+	printf '%s %s\n' "$(ui_dim "[3]")" "exposure cycle"
+	printf '%s %s\n' "$(ui_dim "[4]")" "recon console"
+	printf '%s %s\n' "$(ui_dim "[5]")" "action console"
+	printf '%s %s\n' "$(ui_dim "[6]")" "intel summary"
+	printf '%s %s\n' "$(ui_dim "[7]")" "target list"
+	printf '%s %s\n' "$(ui_dim "[8]")" "session list"
 	printf '%s %s\n' "$(ui_dim "[0]")" "exit"
 	ui_rule
 }
@@ -1672,11 +1685,12 @@ menu_action() {
 	case "$1" in
 	1) printf 'op-status\n' ;;
 	2) printf 'target-story\n' ;;
-	3) printf 'recon-menu\n' ;;
-	4) printf 'action-menu\n' ;;
-	5) printf 'intel-summary\n' ;;
-	6) printf 'target-list\n' ;;
-	7) printf 'session-list\n' ;;
+	3) printf 'cycle\n' ;;
+	4) printf 'recon-menu\n' ;;
+	5) printf 'action-menu\n' ;;
+	6) printf 'intel-summary\n' ;;
+	7) printf 'target-list\n' ;;
+	8) printf 'session-list\n' ;;
 	0) printf 'exit\n' ;;
 	*) printf 'invalid\n' ;;
 	esac
@@ -1708,6 +1722,16 @@ cmd_menu() {
 			prompt_input target "target"
 			[ -n "$target" ] || fail "target is required"
 			cmd_target_story "$target"
+			return 0
+			;;
+		cycle)
+			if has_active_operation; then
+				cmd_cycle
+			else
+				prompt_input target "target"
+				[ -n "$target" ] || fail "target is required"
+				cmd_cycle_target "$target"
+			fi
 			return 0
 			;;
 		recon-menu)
@@ -1939,6 +1963,10 @@ op)
 		shift
 		cmd_op_story "$@"
 		;;
+	cycle)
+		shift
+		cmd_cycle_operation "$@"
+		;;
 	report)
 		shift
 		cmd_op_report "$@"
@@ -2024,6 +2052,10 @@ target)
 	brief)
 		shift
 		cmd_target_brief "$@"
+		;;
+	cycle)
+		shift
+		cmd_cycle_target "$@"
 		;;
 	story)
 		shift
@@ -2143,6 +2175,10 @@ loot)
 story)
 	shift
 	cmd_target_story "$@"
+	;;
+cycle)
+	shift
+	cmd_cycle "$@"
 	;;
 intel)
 	shift

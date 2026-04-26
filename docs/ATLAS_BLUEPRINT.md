@@ -139,6 +139,10 @@ The near-term roadmap is:
     advisor layer is implemented as read-only operation briefs and metadata-only
     prompt packets with scope constraints, redaction guardrails, priority
     findings, validation queues, and suggested operator moves.
+11. Add an exposure-cycle view that ties shared intel, findings, validation
+    queue, report readiness, and ranked candidate lanes together without
+    executing actions. The first read-only `atlas cycle`, `atlas target cycle`,
+    and `atlas op cycle` commands are implemented.
 
 ## First Serious Version
 
@@ -164,5 +168,10 @@ relationships into DOT or node/edge NDJSON without changing operation state.
 `intelctl paths` and `atlas intel paths` add a first operator path view over
 those same relationship records.
 
-That foundation can later grow into CTEM cycles, attack graph views,
-validation loops, and AI-assisted summaries without losing operator control.
+The first exposure-cycle slice is implemented as a read-only operator view.
+`atlas cycle`, `atlas target cycle`, and `atlas op cycle` connect discovery,
+assessment, validation queue, report readiness, and candidate lanes without
+adding autonomous execution.
+
+That foundation can later grow into deeper attack graph views, validation
+loops, and AI-assisted summaries without losing operator control.

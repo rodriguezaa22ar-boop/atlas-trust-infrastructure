@@ -35,13 +35,17 @@ teardown() {
   [[ "$output" == *"atlas validation plan <lane> [--finding id] [--evidence id]"* ]]
   [[ "$output" == *"atlas advisor brief [name]"* ]]
   [[ "$output" == *"atlas advisor prompt [name] [packet-name]"* ]]
+  [[ "$output" == *"atlas cycle [target]"* ]]
   [[ "$output" == *"targets:"* ]]
   [[ "$output" == *"operations:"* ]]
   [[ "$output" == *"story views:"* ]]
+  [[ "$output" == *"cycle views:"* ]]
   [[ "$output" == *"scope:"* ]]
   [[ "$output" == *"validation:"* ]]
   [[ "$output" == *"advisor:"* ]]
   [[ "$output" == *"atlas target story <target>"* ]]
+  [[ "$output" == *"atlas target cycle <target>"* ]]
+  [[ "$output" == *"atlas op cycle [name]"* ]]
   [[ "$output" == *"atlas target update <name> [--scope-status status] [--criticality level]"* ]]
   [[ "$output" == *"atlas intel graph [target] [--format dot|ndjson]"* ]]
   [[ "$output" == *"atlas intel paths [target] [--format text|ndjson]"* ]]
@@ -912,4 +916,89 @@ EOF
   [[ "$output" == *"Surface: host=up, services=1, web=1"* ]]
   [[ "$output" == *"Latest Outcome: posture success 1 HTTP posture finding recorded"* ]]
   [[ "$output" == *"Next Step: Start or resume an Atlas operation before recording evidence or validation."* ]]
+}
+
+@test "atlas cycle summarizes exposure, findings, validation queue, and candidates" {
+  mkdir -p "$TEST_ROOT/toolkit/targets" "$TEST_ROOT/toolkit/state/intel"
+  cat > "$TEST_ROOT/toolkit/targets/demo-node.env" <<'EOF'
+NAME=demo-node
+ADDRESS=10.10.10.10
+SCOPE_STATUS=in-scope
+CRITICALITY=high
+TAGS='lab web'
+OWNER=platform
+CREATED_AT=2026-04-23T20:53:16Z
+EOF
+  cat > "$TEST_ROOT/toolkit/state/intel/entities.jsonl" <<'EOF'
+{"observed_at":"2026-04-25T07:00:00Z","entity_type":"host","entity_id":"host:demo-node","target":"demo-node","attributes":{"address":"10.10.10.10"}}
+{"observed_at":"2026-04-25T07:00:00Z","entity_type":"service","entity_id":"service:demo-node:443/tcp","target":"demo-node","attributes":{"portproto":"443/tcp","service":"https","detail":"DPS/2.0.0"}}
+EOF
+  cat > "$TEST_ROOT/toolkit/state/intel/observations.jsonl" <<'EOF'
+{"observed_at":"2026-04-25T07:00:00Z","source_tool":"wiremap","source_kind":"recon","source_name":"web-stack","source_run_id":"run-1","target":"demo-node","observation_type":"host_state","confidence":"high","value":{"state":"up"}}
+{"observed_at":"2026-04-25T07:01:00Z","source_tool":"wiremap","source_kind":"recon","source_name":"web-stack","source_run_id":"run-1","target":"demo-node","observation_type":"service_open","confidence":"high","value":{"portproto":"443/tcp","service":"https","detail":"DPS/2.0.0"}}
+{"observed_at":"2026-04-25T07:01:01Z","source_tool":"wiremap","source_kind":"recon","source_name":"web-stack","source_run_id":"run-1","target":"demo-node","observation_type":"web_surface","confidence":"high","value":{"endpoint":"https://demo-node","portproto":"443/tcp","service":"https","detail":"Ascend and Defend Academy"}}
+{"observed_at":"2026-04-25T07:02:00Z","source_tool":"vector","source_kind":"lane","source_name":"posture","source_run_id":"posture-1","target":"demo-node","observation_type":"http_posture_finding","confidence":"medium","value":{"severity":"low","label":"missing-security-headers","url":"https://demo-node/","detail":"X-Frame-Options, Referrer-Policy"}}
+EOF
+  cat > "$TEST_ROOT/toolkit/state/intel/outcomes.jsonl" <<'EOF'
+{"recorded_at":"2026-04-25T07:03:00Z","source_tool":"vector","source_kind":"lane","source_name":"posture","source_run_id":"posture-1","target":"demo-node","backend":"http-posture","status":"success","summary":"1 HTTP posture finding recorded","run_log":"/tmp/posture.log","loot_count":1,"observation_count":2}
+EOF
+  : > "$TEST_ROOT/toolkit/state/intel/relationships.jsonl"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op start cycle-op demo-node authorized cycle
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding add "Missing security headers" \
+    --level observed \
+    --severity low \
+    --source vector \
+    --impact "browser-side defense in depth is weaker" \
+    --recommendation "set the missing security headers"
+  [ "$status" -eq 0 ]
+  finding_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  [ -n "$finding_id" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" cycle demo-node
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Atlas Exposure Cycle"* ]]
+  [[ "$output" == *"Target: demo-node"* ]]
+  [[ "$output" == *"Address: 10.10.10.10"* ]]
+  [[ "$output" == *"Operation: cycle-op"* ]]
+  [[ "$output" == *"Discover"* ]]
+  [[ "$output" == *"Surface: host=up, services=1, web=1, lateral=0"* ]]
+  [[ "$output" == *"Latest Outcome: posture success 1 HTTP posture finding recorded"* ]]
+  [[ "$output" == *"Assess"* ]]
+  [[ "$output" == *"Shared Posture Findings: 1"* ]]
+  [[ "$output" == *"Operation Findings: 1"* ]]
+  [[ "$output" == *"Findings Needing Validation Plan: 1"* ]]
+  [[ "$output" == *"Missing security headers"* ]]
+  [[ "$output" == *"Validate"* ]]
+  [[ "$output" == *"Validation Plans: planned=0, approved=0, executed=0"* ]]
+  [[ "$output" == *"Report"* ]]
+  [[ "$output" == *"Evidence: 0"* ]]
+  [[ "$output" == *"Next Safe Step: Create a validation plan for the highest-value finding."* ]]
+  [[ "$output" == *"Candidate Lanes"* ]]
+  [[ "$output" == *"posture"* ]]
+  [[ "$output" == *"cycle is read-only"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" validation plan posture \
+    --finding "$finding_id" \
+    --reason "confirm missing headers"
+  [ "$status" -eq 0 ]
+  plan_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  [ -n "$plan_id" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op cycle cycle-op
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Atlas Exposure Cycle"* ]]
+  [[ "$output" == *"Findings Needing Validation Plan: 0"* ]]
+  [[ "$output" == *"Validation Plans: planned=1, approved=0, executed=0"* ]]
+  [[ "$output" == *"$plan_id"* ]]
+  [[ "$output" == *"planned"* ]]
+  [[ "$output" == *"confirm missing headers"* ]]
+  [[ "$output" == *"Next Safe Step: Approve, revise, or retire the planned validation before execution."* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" cycle
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Operation: cycle-op"* ]]
+  [[ "$output" == *"Validation Plans: planned=1, approved=0, executed=0"* ]]
 }

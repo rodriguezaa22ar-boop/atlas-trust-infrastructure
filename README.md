@@ -205,6 +205,9 @@ Atlas now also exposes the operator-level story and reporting layer:
   criticality, owner, and tags
 - `atlas target brief <target>`: concise surface, operation-state, validation,
   and next-step readout
+- `atlas cycle [target]`: read-only exposure-cycle view that ties discovery,
+  findings, validation queue, report readiness, and ranked candidate lanes
+  together
 - `atlas target story <target>`: target record, surface, outcomes, findings,
   recent evidence, and ranked next actions
 - `atlas op show [name]`: operation scope, allowed actions, out-of-scope
@@ -219,6 +222,8 @@ Atlas now also exposes the operator-level story and reporting layer:
   updates with validation links and notes while preserving finding history
 - `atlas validation plan <lane>`: plan, approve, and run bounded validation
 - `atlas op brief`: operation summary with evidence, findings, and validation counts
+- `atlas op cycle [name]`: operation-owned exposure-cycle view for the active
+  or named operation
 - `atlas op report [name] [report-name]`: Markdown assessment brief with
   executive summary, grouped findings, remediation priorities, and validation status
 - `atlas advisor brief`: state-only AI advisor readout with redaction guardrails
