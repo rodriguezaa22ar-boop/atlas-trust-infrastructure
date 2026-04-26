@@ -54,6 +54,7 @@ teardown() {
   [[ "$output" == *"atlas op show [name]"* ]]
   [[ "$output" == *"atlas op story [name]"* ]]
   [[ "$output" == *"atlas op report [name] [report-name]"* ]]
+  [[ "$output" == *"atlas op readiness [name]"* ]]
   [[ "$output" == *"atlas target brief <target>"* ]]
 }
 
@@ -639,6 +640,69 @@ EOF
     "$TEST_ROOT/toolkit/sessions/retest-op/ledger.ndjson"
   jq -e --arg finding_id "$finding_id" 'select(.event == "finding.updated" and (.detail | contains($finding_id)) and (.detail | contains("status=resolved")))' \
     "$TEST_ROOT/toolkit/sessions/retest-op/ledger.ndjson"
+}
+
+@test "atlas operation readiness reports closure blockers and ready state" {
+  mkdir -p "$TEST_ROOT/toolkit/targets"
+  cat > "$TEST_ROOT/toolkit/targets/demo-node.env" <<'EOF'
+NAME=demo-node
+ADDRESS=10.10.10.10
+SCOPE_STATUS=in-scope
+CRITICALITY=high
+CREATED_AT=2026-04-23T20:53:16Z
+EOF
+  artifact="$TEST_ROOT/readiness-artifact.txt"
+  printf 'ssh reachable from authorized test node\n' > "$artifact"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op start readiness-op demo-node authorized readiness review
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence add "$artifact" --kind scan-output --classification public
+  [ "$status" -eq 0 ]
+  evidence_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  [ -n "$evidence_id" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding add "SSH management reachable" \
+    --level observed \
+    --severity low \
+    --confidence high \
+    --evidence "$evidence_id" \
+    --recommendation "Restrict SSH to the management subnet"
+  [ "$status" -eq 0 ]
+  finding_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  [ -n "$finding_id" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op readiness
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Operation Readiness"* ]]
+  [[ "$output" == *"Evidence Records: 1"* ]]
+  [[ "$output" == *"Open Findings: 1"* ]]
+  [[ "$output" == *"Pending Validation: 0"* ]]
+  [[ "$output" == *"Latest Report: none generated yet"* ]]
+  [[ "$output" == *"Evidence Bundle: none generated yet"* ]]
+  [[ "$output" == *"Close Readiness: attention-required"* ]]
+  [[ "$output" == *"Resolve, accept, or retest unresolved findings before closure."* ]]
+  [[ "$output" == *"$finding_id"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding resolve "$finding_id" \
+    --evidence "$evidence_id" \
+    --note "risk removed before closure"
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op report readiness-op readiness-report
+  [ "$status" -eq 0 ]
+  report_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "report" { print $2; exit }')"
+  [ -f "$report_path" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op readiness readiness-op
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Open Findings: 0"* ]]
+  [[ "$output" == *"Pending Validation: 0"* ]]
+  [[ "$output" == *"Latest Report:"* ]]
+  [[ "$output" == *"$report_path"* ]]
+  [[ "$output" == *"Close Readiness: ready"* ]]
+  [[ "$output" == *"Operation is ready to close; generate an evidence bundle if handoff is required."* ]]
+  [[ "$output" == *"no unresolved findings remain"* ]]
 }
 
 @test "atlas advisor summarizes operation state and writes AI review packet" {

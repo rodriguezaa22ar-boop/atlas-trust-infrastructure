@@ -41,6 +41,9 @@ TOOL_NAME="atlas"
 # shellcheck source=../lib/report.sh
 . "$TOOL_DIR/lib/report.sh"
 # shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/readiness.sh
+. "$TOOL_DIR/lib/readiness.sh"
+# shellcheck source-path=SCRIPTDIR
 # shellcheck source=../lib/advisor.sh
 . "$TOOL_DIR/lib/advisor.sh"
 # shellcheck source-path=SCRIPTDIR
@@ -110,6 +113,7 @@ quick flow:
   atlas advisor brief
   atlas op story [name]
   atlas op report [name] [report-name]
+  atlas op readiness [name]
   atlas op close [name]
 
 targets:
@@ -135,6 +139,7 @@ operations:
   atlas op story [name]
   atlas op cycle [name]
   atlas op report [name] [report-name]
+  atlas op readiness [name]
   atlas op next
   atlas op close [name]
   atlas op recon <workflow> [interface]
@@ -1393,6 +1398,16 @@ cmd_op_report() {
 	printf 'report: %s\n' "$report_file"
 }
 
+cmd_op_readiness() {
+	if [ "$#" -gt 0 ]; then
+		load_atlas_operation "$1"
+	else
+		load_active_operation
+	fi
+
+	atlas_readiness_print
+}
+
 cmd_op_close() {
 	if [ "$#" -gt 0 ]; then
 		load_atlas_operation "$1"
@@ -1978,6 +1993,10 @@ op)
 	report)
 		shift
 		cmd_op_report "$@"
+		;;
+	readiness)
+		shift
+		cmd_op_readiness "$@"
 		;;
 	next)
 		shift

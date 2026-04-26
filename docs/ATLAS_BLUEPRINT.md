@@ -146,6 +146,9 @@ The near-term roadmap is:
 12. Add validation retest loops after remediation. `atlas validation retest`
     records resolved/still-open outcomes, links new evidence, updates the
     finding lifecycle, and renders the retest state in briefs and reports.
+13. Add operation closure readiness. `atlas op readiness` checks evidence,
+    unresolved findings, pending validation, latest report, and evidence bundle
+    state before an operator closes an assessment.
 
 ## First Serious Version
 

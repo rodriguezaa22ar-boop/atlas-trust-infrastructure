@@ -54,6 +54,7 @@ atlas op action plan credentials
 atlas op action run posture
 atlas op story
 atlas op report april-review
+atlas op readiness april-review
 atlas op close april-review
 atlas session list
 atlas loot list
@@ -83,6 +84,7 @@ atlas validation retest <id> --result resolved|still-open [--evidence id]
 atlas advisor brief
 atlas op story
 atlas op report
+atlas op readiness
 atlas op close
 ```
 
@@ -314,6 +316,15 @@ Explicitly out of scope:
 - recorded findings when present
 - validation plans and run status when present
 - placeholders for operator notes
+
+## Operation Readiness
+
+`atlas op readiness [name]` is a read-only closure check. It summarizes evidence
+records, unresolved findings, planned or approved validation, the latest report,
+and the latest evidence bundle. The readout returns `ready` when the operation
+has evidence, no unresolved findings, no pending validation, and at least one
+generated report; evidence bundles remain optional and are called out as a
+handoff step when needed.
 
 ## AI Advisor
 

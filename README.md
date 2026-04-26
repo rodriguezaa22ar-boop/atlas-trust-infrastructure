@@ -226,6 +226,8 @@ Atlas now also exposes the operator-level story and reporting layer:
   or named operation
 - `atlas op report [name] [report-name]`: Markdown assessment brief with
   executive summary, grouped findings, remediation priorities, and validation status
+- `atlas op readiness [name]`: closure readiness check for unresolved findings,
+  pending validation, evidence, latest report, and bundle state
 - `atlas advisor brief`: state-only AI advisor readout with redaction guardrails
 - `atlas advisor prompt [name] [packet-name]`: metadata-only advisor packet for
   AI-assisted summarization and report drafting
