@@ -230,6 +230,8 @@ Atlas now also exposes the operator-level story and reporting layer:
   pending validation, evidence, report freshness, and bundle freshness
 - `atlas op handoff [name] [handoff-name]`: metadata-only handoff packet with
   readiness, freshness state, report, bundle, findings, validation, and ledger pointers
+- `atlas op closeout [name] [manifest-name]`: metadata-only audit manifest with
+  closeout freshness states and SHA-256 anchors
 - `atlas op close [name] [--force]`: close only when readiness passes unless an
   explicit forced closure is recorded
 - `atlas advisor brief`: state-only AI advisor readout with redaction guardrails

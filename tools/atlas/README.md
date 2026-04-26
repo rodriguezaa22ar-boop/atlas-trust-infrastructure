@@ -57,6 +57,7 @@ atlas op report april-review
 atlas op readiness april-review
 atlas op handoff april-review
 atlas op close april-review
+atlas op closeout april-review
 atlas session list
 atlas loot list
 atlas intel summary
@@ -88,6 +89,7 @@ atlas op report
 atlas op readiness
 atlas op handoff
 atlas op close [--force]
+atlas op closeout <name>
 ```
 
 `atlas target brief <target>` gives the fast operator readout: surface counts,
@@ -339,6 +341,11 @@ under the operation directory. It links the latest report, evidence bundle,
 manifest hash, operation ledger, findings, validation plans, report freshness,
 bundle freshness, handoff freshness, and close readiness state without embedding
 raw artifact contents.
+
+`atlas op closeout [name] [manifest-name]` writes a metadata-only audit manifest
+under the operation directory. It captures the closeout readiness snapshot,
+freshness states, latest report, bundle, handoff, ledger event count, and
+SHA-256 anchors for the operation metadata without embedding raw artifacts.
 
 ## AI Advisor
 

@@ -47,6 +47,9 @@ TOOL_NAME="atlas"
 # shellcheck source=../lib/handoff.sh
 . "$TOOL_DIR/lib/handoff.sh"
 # shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/closeout.sh
+. "$TOOL_DIR/lib/closeout.sh"
+# shellcheck source-path=SCRIPTDIR
 # shellcheck source=../lib/advisor.sh
 . "$TOOL_DIR/lib/advisor.sh"
 # shellcheck source-path=SCRIPTDIR
@@ -118,6 +121,7 @@ quick flow:
   atlas op report [name] [report-name]
   atlas op readiness [name]
   atlas op handoff [name] [handoff-name]
+  atlas op closeout [name] [manifest-name]
   atlas op close [name] [--force]
 
 targets:
@@ -145,6 +149,7 @@ operations:
   atlas op report [name] [report-name]
   atlas op readiness [name]
   atlas op handoff [name] [handoff-name]
+  atlas op closeout [name] [manifest-name]
   atlas op next
   atlas op close [name] [--force]
   atlas op recon <workflow> [interface]
@@ -1285,6 +1290,9 @@ print_operation_report_commands() {
 		handoff)
 			printf -- "- \`%s\`\n" "atlas op handoff $ATLAS_OP_SLUG $(basename "$detail" .md)"
 			;;
+		closeout)
+			printf -- "- \`%s\`\n" "atlas op closeout $ATLAS_OP_SLUG $(basename "$detail" .md)"
+			;;
 		close)
 			printf -- "- \`%s\`\n" "atlas op close $ATLAS_OP_SLUG"
 			;;
@@ -2040,6 +2048,10 @@ op)
 	handoff)
 		shift
 		cmd_op_handoff "$@"
+		;;
+	closeout)
+		shift
+		cmd_op_closeout "$@"
 		;;
 	next)
 		shift

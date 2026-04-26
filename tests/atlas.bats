@@ -56,6 +56,7 @@ teardown() {
   [[ "$output" == *"atlas op report [name] [report-name]"* ]]
   [[ "$output" == *"atlas op readiness [name]"* ]]
   [[ "$output" == *"atlas op handoff [name] [handoff-name]"* ]]
+  [[ "$output" == *"atlas op closeout [name] [manifest-name]"* ]]
   [[ "$output" == *"atlas op close [name] [--force]"* ]]
   [[ "$output" == *"atlas target brief <target>"* ]]
 }
@@ -832,6 +833,27 @@ EOF
   jq -e 'select(.event == "op.close.readiness" and .status == "ready" and (.detail | contains("readiness=ready")) and (.detail | contains("force=0")))' \
     "$TEST_ROOT/toolkit/sessions/readiness-op/ledger.ndjson"
   jq -e --arg handoff_path "$handoff_path" 'select(.event == "handoff.generated" and .detail == $handoff_path)' \
+    "$TEST_ROOT/toolkit/sessions/readiness-op/ledger.ndjson"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op closeout readiness-op readiness-closeout
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"closeout manifest written"* ]]
+  closeout_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "closeout" { print $2; exit }')"
+  [ -f "$closeout_path" ]
+  grep -q '^# Atlas Closeout Manifest$' "$closeout_path"
+  grep -q 'No raw artifact contents are included' "$closeout_path"
+  grep -q 'Operation Status: closed' "$closeout_path"
+  grep -q 'Close readiness: ready' "$closeout_path"
+  grep -q 'Report freshness: current' "$closeout_path"
+  grep -q 'Handoff freshness: stale' "$closeout_path"
+  grep -q "$report_path" "$closeout_path"
+  grep -q "$handoff_path" "$closeout_path"
+  grep -q 'Operation ledger: .*events=.*sha256=' "$closeout_path"
+  grep -q 'Operation env: .*sha256=' "$closeout_path"
+  grep -q 'Scope snapshot: .*sha256=' "$closeout_path"
+  grep -q 'Evidence index: .*sha256=' "$closeout_path"
+  grep -q 'Finding index: .*sha256=' "$closeout_path"
+  jq -e --arg closeout_path "$closeout_path" 'select(.event == "closeout.manifest.generated" and .detail == $closeout_path)' \
     "$TEST_ROOT/toolkit/sessions/readiness-op/ledger.ndjson"
 }
 

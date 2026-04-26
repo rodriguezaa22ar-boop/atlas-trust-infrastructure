@@ -163,6 +163,9 @@ The near-term roadmap is:
     bundles need regeneration.
 18. Add handoff freshness checks. Readiness now compares the latest handoff
     packet against later report, bundle, and material operation changes.
+19. Add closeout audit manifests. `atlas op closeout` writes a metadata-only
+    manifest with readiness state, artifact pointers, ledger event counts, and
+    SHA-256 anchors for final operation verification.
 
 ## First Serious Version
 
