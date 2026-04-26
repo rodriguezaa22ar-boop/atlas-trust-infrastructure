@@ -208,6 +208,11 @@ The near-term roadmap is:
     product-pillar check for the core CLI, target registry, operation ledger,
     ScopeGuard, recon orchestration, action planning, intel graph, evidence,
     findings, validation, reports, retention packets, and AI Advisor surface.
+32. Define the v1 pillar readiness contract. `docs/atlas/V1_PILLAR_READINESS.md`
+    now records status values, pillar criteria, overall readiness rules,
+    required evidence fields, and known limitations. `atlas v1 status` now has
+    `--strict` and `--json` modes plus negative tests for missing/stale pillar
+    evidence.
 
 ## First Serious Version
 

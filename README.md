@@ -201,8 +201,8 @@ That gives the toolkit a full operator loop:
 
 Atlas now also exposes the operator-level story and reporting layer:
 
-- `atlas v1 status`: read-only product-pillar readiness view for the core v1
-  surface
+- `atlas v1 status [--strict] [--json]`: read-only product-pillar readiness
+  view for the core v1 surface and release-gate style checks
 - `atlas target update <name>`: target registry metadata for scope status,
   criticality, owner, and tags
 - `atlas target brief <target>`: concise surface, operation-state, validation,

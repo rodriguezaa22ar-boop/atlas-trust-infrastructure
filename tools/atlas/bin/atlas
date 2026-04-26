@@ -82,7 +82,7 @@ usage() {
 usage:
   atlas help
   atlas doctor
-  atlas v1 status
+  atlas v1 status [name] [--strict] [--json]
   atlas menu
   atlas profile list
   atlas profile show <name>
@@ -113,7 +113,7 @@ usage:
 
 quick flow:
   atlas doctor
-  atlas v1 status
+  atlas v1 status --strict
   atlas profile show htb-starting-point
   atlas scope status
   atlas target list
@@ -280,7 +280,7 @@ advisor:
   atlas advisor prompt [name] [packet-name]
 
 v1:
-  atlas v1 status
+  atlas v1 status [name] [--strict] [--json]
 EOF
 }
 

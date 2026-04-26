@@ -78,12 +78,12 @@ teardown() {
   [[ "$output" == *"V1 Pillars"* ]]
   [[ "$output" == *"Core CLI"* ]]
   [[ "$output" == *"Target Registry"* ]]
-  [[ "$output" == *"Operation Ledger"* ]]
+  [[ "$output" == *"Ledger"* ]]
   [[ "$output" == *"ScopeGuard"* ]]
-  [[ "$output" == *"Recon Orchestrator"* ]]
+  [[ "$output" == *"Recon"* ]]
   [[ "$output" == *"Action Planner"* ]]
   [[ "$output" == *"Intel Graph"* ]]
-  [[ "$output" == *"Evidence Vault"* ]]
+  [[ "$output" == *"Evidence"* ]]
   [[ "$output" == *"Findings"* ]]
   [[ "$output" == *"Validation"* ]]
   [[ "$output" == *"Reports"* ]]
@@ -91,14 +91,98 @@ teardown() {
   [[ "$output" == *"AI Advisor"* ]]
   [[ "$output" == *"Overall: ready"* ]]
 
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" v1 status --json
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" |
+    jq -e '.overall == "ready" and .strict == false and .pillars.core_cli.status == "ready" and .pillars.ai_advisor.required == false'
+
+  run env LAB_ATLAS_AI_ADVISOR=disabled \
+    "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" v1 status --strict
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"AI Advisor"* ]]
+  [[ "$output" == *"disabled"* ]]
+  [[ "$output" == *"Overall: ready"* ]]
+
   run env LAB_ATLAS_VECTOR_BIN="$TEST_ROOT/toolkit/missing-vector" \
-    "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" v1 status
+    "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" v1 status --strict
 
   [ "$status" -ne 0 ]
   [[ "$output" == *"Action Planner"* ]]
   [[ "$output" == *"missing executable"* ]]
-  [[ "$output" == *"Overall: attention required"* ]]
-  [[ "$output" == *"Missing Pillars: 1"* ]]
+  [[ "$output" == *"Overall: blocked"* ]]
+  [[ "$output" == *"Required Not Ready: 1"* ]]
+
+  run env LAB_ATLAS_VECTOR_BIN="$TEST_ROOT/toolkit/missing-vector" \
+    "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" v1 status --json --strict
+
+  [ "$status" -ne 0 ]
+  printf '%s\n' "$output" |
+    jq -e '.overall == "blocked" and .pillars.action_planner.status == "blocked"'
+}
+
+@test "atlas v1 status fails strict on operation evidence and governance gaps" {
+  mkdir -p "$TEST_ROOT/toolkit/targets"
+  cat > "$TEST_ROOT/toolkit/targets/demo-node.env" <<'EOF'
+NAME=demo-node
+ADDRESS=10.10.10.10
+SCOPE_STATUS=in-scope
+CRITICALITY=high
+CREATED_AT=2026-04-23T20:53:16Z
+EOF
+  artifact="$TEST_ROOT/v1-artifact.txt"
+  late_artifact="$TEST_ROOT/v1-late-artifact.txt"
+  printf 'v1 readiness evidence\n' > "$artifact"
+  printf 'v1 late evidence\n' > "$late_artifact"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op start v1-ledger-gap demo-node authorized v1 ledger check
+  [ "$status" -eq 0 ]
+  rm "$TEST_ROOT/toolkit/sessions/v1-ledger-gap/ledger.ndjson"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" v1 status v1-ledger-gap --strict
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Ledger"* ]]
+  [[ "$output" == *"operation ledger is missing or empty"* ]]
+  [[ "$output" == *"Overall: blocked"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op start v1-scope-gap demo-node authorized v1 scope check
+  [ "$status" -eq 0 ]
+  rm "$TEST_ROOT/toolkit/sessions/v1-scope-gap/scope.snapshot.env"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" v1 status v1-scope-gap --strict
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"ScopeGuard"* ]]
+  [[ "$output" == *"operation scope snapshot is missing"* ]]
+  [[ "$output" == *"Overall: blocked"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op start v1-evidence-gap demo-node authorized v1 evidence check
+  [ "$status" -eq 0 ]
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence add "$artifact" --kind scan-output --classification public
+  [ "$status" -eq 0 ]
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence bundle v1-bundle
+  [ "$status" -eq 0 ]
+  rm "$TEST_ROOT/toolkit/sessions/v1-evidence-gap/evidence-bundles/v1-bundle/manifest.ndjson"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" v1 status v1-evidence-gap --strict
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Evidence"* ]]
+  [[ "$output" == *"latest evidence bundle manifest is missing"* ]]
+  [[ "$output" == *"Overall: blocked"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op start v1-report-stale demo-node authorized v1 report check
+  [ "$status" -eq 0 ]
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence add "$artifact" --kind scan-output --classification public
+  [ "$status" -eq 0 ]
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op report v1-report-stale v1-report
+  [ "$status" -eq 0 ]
+  sleep 1
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence add "$late_artifact" --kind scan-output --classification public
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" v1 status v1-report-stale --strict
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Reports"* ]]
+  [[ "$output" == *"operation report freshness is stale"* ]]
+  [[ "$output" == *"Overall: blocked"* ]]
 }
 
 @test "atlas profiles list, show, and snapshot operation scope" {
@@ -1171,6 +1255,12 @@ EOF
   [ "$status" -eq 0 ]
   [[ "$output" == *"Archive Status: attention-required"* ]]
   [[ "$output" == *"Archive Packet Freshness: stale"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" v1 status archive-op --strict
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Retention"* ]]
+  [[ "$output" == *"archive packet freshness is stale"* ]]
+  [[ "$output" == *"Overall: not ready"* ]]
 
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op audit archive-op
   [ "$status" -eq 0 ]

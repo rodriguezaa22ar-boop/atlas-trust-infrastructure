@@ -1,0 +1,30 @@
+Atlas V1 Status
+------------------------------------------------------------
+Root: /home/ao/Desktop/hp-native-toolkit
+Commit: 5e9a2b0-dirty
+Runtime Target: local-usb
+Operation: none loaded
+Target Records: 6
+Operations: 26
+Strict: 1
+------------------------------------------------------------
+V1 Pillars
+PILLAR                 STATUS           REQUIRED   REASON
+Core CLI               ready            yes        shell-native atlas entrypoint is executable
+Target Registry        ready            yes        target env records and scope metadata directory are writable
+Recon                  ready            yes        wiremap adapter is available for operation-aware recon
+Action Planner         ready            yes        vector adapter is available for ranked lanes and bounded outcomes
+Intel Graph            ready            yes        intelctl adapter is available for graph and path views
+Evidence               ready            yes        hashing backend is available for artifact integrity
+Ledger                 ready            yes        operation directories can hold append-only ledgers
+ScopeGuard             ready            yes        scope profiles, approvals, and preflight state directory are available
+Findings               ready            yes        finding lifecycle commands are available
+Validation             ready            yes        approval-gated validation commands are available
+Reports                ready            yes        report generation commands are available
+Retention              ready            yes        handoff, closeout, audit, archive, and freshness commands are available
+AI Advisor             ready            no         metadata-only advisor brief and prompt packet commands are available
+------------------------------------------------------------
+Overall: ready
+Blocked Pillars: 0
+Warning Pillars: 0
+Required Not Ready: 0
