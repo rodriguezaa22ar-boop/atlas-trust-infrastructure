@@ -565,6 +565,50 @@ atlas_web_finding_has_validation_plan() {
     ' "$index_file" >/dev/null
 }
 
+atlas_web_validation_plan_rows() {
+  local plan_id="${1:-}"
+  local validation_index
+  local id
+  local status
+  local finding_id
+  local lane
+  local record
+  local title
+  local severity
+
+  intel_require_jq
+  validation_index="$(atlas_validation_index_file "$ATLAS_OP_DIR")"
+  [ -s "$validation_index" ] || return 0
+
+  while IFS=$'\t' read -r id status finding_id lane; do
+    [ -n "$id" ] || continue
+    [ -z "$plan_id" ] || [ "$id" = "$plan_id" ] || continue
+    [ -n "$finding_id" ] || continue
+
+    record="$(atlas_findings_latest_record "$finding_id" || true)"
+    [ -n "$record" ] || continue
+    title="$(printf '%s\n' "$record" | jq -r '.title // ""')"
+    atlas_web_is_assessment_finding_title "$title" || continue
+    severity="$(printf '%s\n' "$record" | jq -r '.severity // ""')"
+
+    printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$id" "$status" "$lane" "$finding_id" "$title" "$severity"
+  done < <(
+    jq -sr '
+      reduce .[] as $record ({}; .[$record.id] = $record)
+      | [.[]]
+      | sort_by(.created_at, .id)
+      | .[]
+      | [
+          (.id // ""),
+          (.status // ""),
+          (.finding // ""),
+          (.lane // "")
+        ]
+      | @tsv
+    ' "$validation_index"
+  )
+}
+
 atlas_web_publish_intel() {
   local target="$1"
   local routes_file="$2"
@@ -1076,5 +1120,96 @@ cmd_web_validation_plan() {
   fi
   if [ "${#skipped_ids[@]}" -gt 0 ]; then
     printf 'skipped_findings: %s\n' "${skipped_ids[*]}"
+  fi
+}
+
+cmd_web_validation_approve() {
+  local all="0"
+  local plan_id=""
+  local reason=""
+  local rows=()
+  local row
+  local id
+  local status
+  local lane
+  local finding_id
+  local title
+  local severity
+  local approved_ids=()
+  local skipped_ids=()
+  local considered_count=0
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+    --all)
+      all="1"
+      shift
+      ;;
+    --plan)
+      need_args 2 "$#" "web validation-approve --plan <id>"
+      plan_id="$2"
+      shift 2
+      ;;
+    --reason)
+      need_args 2 "$#" "web validation-approve --reason <text>"
+      reason="$2"
+      shift 2
+      ;;
+    *)
+      fail "unknown web validation-approve option: $1"
+      ;;
+    esac
+  done
+
+  [ -n "$reason" ] || fail "web validation-approve requires --reason <text>"
+  if [ "$all" = "1" ] && [ -n "$plan_id" ]; then
+    fail "web validation-approve accepts either --all or --plan, not both"
+  fi
+
+  load_active_operation
+
+  while IFS= read -r row; do
+    [ -n "$row" ] || continue
+    rows+=("$row")
+  done < <(atlas_web_validation_plan_rows "$plan_id")
+
+  if [ "${#rows[@]}" -eq 0 ]; then
+    if [ -n "$plan_id" ]; then
+      fail "no web validation plan found for: $plan_id"
+    fi
+    ui_note "no web validation plans are waiting for approval"
+    return 0
+  fi
+
+  if [ "$all" != "1" ] && [ -z "$plan_id" ]; then
+    rows=("${rows[0]}")
+  fi
+
+  for row in "${rows[@]}"; do
+    IFS=$'\t' read -r id status lane finding_id title severity <<<"$row"
+    [ -n "$id" ] || continue
+    considered_count=$((considered_count + 1))
+
+    if [ "$status" != "planned" ]; then
+      skipped_ids+=("$id")
+      continue
+    fi
+
+    cmd_validation_approve "$id" "$reason" >/dev/null
+    approved_ids+=("$id")
+  done
+
+  ui_ok "web validation plans approved"
+  printf 'operation: %s\n' "$ATLAS_OP_SLUG"
+  printf 'target: %s\n' "$ATLAS_OP_TARGET"
+  printf 'reason: %s\n' "$reason"
+  printf 'considered: %s\n' "$considered_count"
+  printf 'approved: %s\n' "${#approved_ids[@]}"
+  printf 'skipped: %s\n' "${#skipped_ids[@]}"
+  if [ "${#approved_ids[@]}" -gt 0 ]; then
+    printf 'approved_plan_ids: %s\n' "${approved_ids[*]}"
+  fi
+  if [ "${#skipped_ids[@]}" -gt 0 ]; then
+    printf 'skipped_plan_ids: %s\n' "${skipped_ids[*]}"
   fi
 }

@@ -18,7 +18,7 @@ the chain is still current.
 | Web Assessment | `atlas web assess` | retained route/header and API/CORS evidence, findings, report, and handoff packet |
 | Evidence | `atlas evidence add`, `atlas evidence bundle` | evidence index, hashes, bundle manifest |
 | Findings | `atlas finding add`, `atlas finding update` | finding lifecycle records |
-| Validation | `atlas web validation-plan`, `atlas validation plan`, `atlas validation approve`, `atlas validation run`, `atlas validation retest` | approval record, validation plan, retest state |
+| Validation | `atlas web validation-plan`, `atlas web validation-approve`, `atlas validation plan`, `atlas validation approve`, `atlas validation run`, `atlas validation retest` | approval record, validation plan, retest state |
 | Report | `atlas op report`, `atlas op readiness` | current operation report and readiness state |
 | Handoff | `atlas op handoff` | metadata-only handoff packet |
 | Closeout | `atlas op close`, `atlas op closeout`, `atlas op verify` | closeout manifest and hash verification |

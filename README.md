@@ -58,6 +58,7 @@ Useful commands:
 ./tools/atlas/bin/atlas release verify atlas-current
 ./tools/atlas/bin/atlas web assess https://example.com example-web-review --scope-status in-scope
 ./tools/atlas/bin/atlas web validation-plan --all
+./tools/atlas/bin/atlas web validation-approve --all --reason "approved bounded web validation"
 ./tools/atlas/bin/atlas profile list
 ./tools/atlas/bin/atlas profile show htb-starting-point
 ./tools/atlas/bin/atlas target update edge-router --scope-status in-scope --criticality high --tag lab
@@ -231,6 +232,8 @@ Atlas now also exposes the operator-level story and reporting layer:
   and writes report and handoff packets
 - `atlas web validation-plan [--all]`: queue approval-gated posture validation
   plans for open web assessment findings without re-probing the target
+- `atlas web validation-approve [--all] --reason <text>`: approve planned web
+  validation items as a separate governance step before execution
 - [Atlas Trust Lifecycle](docs/atlas/TRUST_LIFECYCLE.md): the end-to-end
   proof path from scoped operation through evidence, validation, retention,
   archive, v1 readiness, and release trust JSON

@@ -93,6 +93,7 @@ usage:
   atlas release verify [packet]
   atlas web assess <url> [assessment-name]
   atlas web validation-plan [--all]
+  atlas web validation-approve [--all] --reason text
   atlas menu
   atlas profile list
   atlas profile show <name>
@@ -142,6 +143,7 @@ quick flow:
   atlas advisor brief
   atlas web assess <url> [assessment-name]
   atlas web validation-plan [--all]
+  atlas web validation-approve [--all] --reason text
   atlas op story [name]
   atlas op report [name] [report-name]
   atlas op readiness [name]
@@ -303,6 +305,7 @@ release:
 web:
   atlas web assess <url> [assessment-name] [--target name] [--scope-status status] [--criticality level] [--owner owner] [--timeout seconds] [--api-path path] [--cors-origin origin] [--skip-api]
   atlas web validation-plan [--all] [--finding id] [--lane lane]
+  atlas web validation-approve [--all] [--plan id] --reason text
 EOF
 }
 
@@ -1964,6 +1967,10 @@ web)
 	validation-plan)
 		shift
 		cmd_web_validation_plan "$@"
+		;;
+	validation-approve)
+		shift
+		cmd_web_validation_approve "$@"
 		;;
 	*)
 		usage

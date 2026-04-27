@@ -50,6 +50,7 @@ make_repo_clean_and_synced() {
   [[ "$output" == *"atlas release verify [packet]"* ]]
   [[ "$output" == *"atlas web assess <url> [assessment-name]"* ]]
   [[ "$output" == *"atlas web validation-plan [--all]"* ]]
+  [[ "$output" == *"atlas web validation-approve [--all] --reason text"* ]]
   [[ "$output" == *"atlas scope status"* ]]
   [[ "$output" == *"atlas evidence add <path> [--kind kind]"* ]]
   [[ "$output" == *"atlas evidence redact <id> <redacted-path>"* ]]
@@ -357,6 +358,27 @@ EOF
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"planned: 0"* ]]
+  [[ "$output" == *"skipped: 5"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" web validation-approve --all --reason "approved bounded web validation"
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"web validation plans approved"* ]]
+  [[ "$output" == *"operation: m38-cors"* ]]
+  [[ "$output" == *"considered: 5"* ]]
+  [[ "$output" == *"approved: 5"* ]]
+  [[ "$output" == *"skipped: 0"* ]]
+  [[ "$output" == *"approved_plan_ids:"* ]]
+
+  jq -s -e 'reduce .[] as $record ({}; .[$record.id] = $record) | [.[]] | length == 5 and all(.[]; .status == "approved" and .approval_reason == "approved bounded web validation" and .approved_by != null)' \
+    "$TEST_ROOT/toolkit/sessions/m38-cors/validation-plans.ndjson"
+  jq -e 'select(.event == "validation.approved")' \
+    "$TEST_ROOT/toolkit/sessions/m38-cors/ledger.ndjson"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" web validation-approve --all --reason "approved bounded web validation"
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"approved: 0"* ]]
   [[ "$output" == *"skipped: 5"* ]]
 }
 

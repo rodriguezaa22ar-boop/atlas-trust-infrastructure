@@ -23,6 +23,7 @@ atlas release packet atlas-current --json --qa-status pass
 atlas release verify atlas-current
 atlas web assess https://example.com example-web-review --scope-status in-scope --api-path /api/auth/me --cors-origin https://example.net
 atlas web validation-plan --all
+atlas web validation-approve --all --reason "approved bounded web validation"
 atlas menu
 atlas profile list
 atlas profile show htb-starting-point
@@ -161,6 +162,13 @@ every open web assessment finding that does not already have a validation plan,
 and `--finding <id>` targets one finding explicitly. Planning is metadata-only:
 it records the validation queue and evidence links but does not rerun probes or
 touch the target.
+
+`atlas web validation-approve [--all] --reason <text>` approves planned web
+validation items as a separate governance step. Without arguments it approves
+the first planned web validation item, `--all` approves every planned web
+validation item, and `--plan <id>` approves one explicit plan. Approval is
+metadata-only: it records the reason and operator, then leaves validation
+execution and retest as separate commands.
 
 The full trust lifecycle is documented in
 [`docs/atlas/TRUST_LIFECYCLE.md`](../../docs/atlas/TRUST_LIFECYCLE.md). It

@@ -244,6 +244,9 @@ The near-term roadmap is:
     turns open web assessment findings into approval-gated posture validation
     plans, links the original route/API evidence, and skips findings that
     already have validation plans.
+40. Add web validation bulk approval. `atlas web validation-approve` now
+    records approval for planned web validation items with an explicit reason
+    and keeps validation execution as a separate gate.
 
 ## First Serious Version
 
