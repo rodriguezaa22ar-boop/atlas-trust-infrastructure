@@ -25,6 +25,8 @@ repository in filesystem order.
 - [TRUST_MODEL.md](TRUST_MODEL.md): trust anchors and verification pattern.
 - [atlas/TRUST_LIFECYCLE.md](atlas/TRUST_LIFECYCLE.md): Atlas-local lifecycle
   detail.
+- [atlas/BUSINESS_FLOW_EVIDENCE.md](atlas/BUSINESS_FLOW_EVIDENCE.md):
+  metadata-only business-flow evidence design.
 
 ## Release trust
 
@@ -54,6 +56,10 @@ repository in filesystem order.
 ## Schemas
 
 - [schemas/README.md](schemas/README.md): implemented JSON contracts.
+- [schemas/business-flow-evidence.v1.md](schemas/business-flow-evidence.v1.md):
+  planned business-flow evidence contract.
+- [schemas/business-flow-packet.v1.md](schemas/business-flow-packet.v1.md):
+  planned business-flow packet contract.
 - [atlas/PACKET_FORMAT_PARITY.md](atlas/PACKET_FORMAT_PARITY.md): Markdown and
   JSON parity matrix.
 

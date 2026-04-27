@@ -116,6 +116,7 @@ make_repo_clean_and_synced() {
   grep -q 'docs/OPERATOR_GUIDE.md' "$readme"
   grep -q 'docs/RELEASE_TRUST.md' "$readme"
   grep -q 'docs/WEB_ASSESSMENT.md' "$readme"
+  grep -q 'docs/atlas/BUSINESS_FLOW_EVIDENCE.md' "$readme"
   ! grep -q '^## Shared Intel$' "$readme"
 
   grep -q '^# Atlas Documentation Index$' "$docs_index"
@@ -123,6 +124,7 @@ make_repo_clean_and_synced() {
   grep -q 'Operator workflow' "$docs_index"
   grep -q 'Release trust' "$docs_index"
   grep -q 'Production readiness' "$docs_index"
+  grep -q 'atlas/BUSINESS_FLOW_EVIDENCE.md' "$docs_index"
   grep -q 'Milestones' "$docs_index"
   grep -q 'Agent guidance' "$docs_index"
 
@@ -143,6 +145,54 @@ make_repo_clean_and_synced() {
   grep -q 'atlas.release_provenance.v1' "$release_trust"
   grep -q '^# Web Assessment$' "$web_assessment"
   grep -q 'atlas web assess' "$web_assessment"
+}
+
+@test "business-flow evidence design stays optional and metadata-only" {
+  flow_doc="$TEST_ROOT/toolkit/docs/atlas/BUSINESS_FLOW_EVIDENCE.md"
+  evidence_schema="$TEST_ROOT/toolkit/docs/schemas/business-flow-evidence.v1.md"
+  packet_schema="$TEST_ROOT/toolkit/docs/schemas/business-flow-packet.v1.md"
+  schema_index="$TEST_ROOT/toolkit/docs/schemas/README.md"
+  agents_file="$TEST_ROOT/toolkit/AGENTS.md"
+
+  [ -f "$flow_doc" ]
+  [ -f "$evidence_schema" ]
+  [ -f "$packet_schema" ]
+
+  grep -q '^# Atlas Business Flow Evidence$' "$flow_doc"
+  grep -q 'metadata-only model' "$flow_doc"
+  grep -q 'referential evidence' "$flow_doc"
+  grep -q 'must not include raw business data' "$flow_doc"
+  grep -q 'Business Flow Evidence is optional' "$flow_doc"
+  grep -q 'atlas flow add <flow-name>' "$flow_doc"
+  grep -q 'atlas flow packet <flow>' "$flow_doc"
+  grep -q 'atlas flow verify <flow>' "$flow_doc"
+  grep -q 'state/atlas/flows/<flow-slug>.env' "$flow_doc"
+  grep -q 'sessions/<operation>/flow_evidence.ndjson' "$flow_doc"
+  grep -q 'password=' "$flow_doc"
+  grep -q 'authorization:' "$flow_doc"
+  grep -q 'set-cookie:' "$flow_doc"
+  grep -q 'BEGIN OPENSSH' "$flow_doc"
+
+  grep -q '^# Schema Contract: atlas.business_flow_evidence.v1$' "$evidence_schema"
+  grep -q 'This is a design contract' "$evidence_schema"
+  grep -q 'Required Fields' "$evidence_schema"
+  grep -q 'Forbidden Content' "$evidence_schema"
+  grep -q 'Verification Rules' "$evidence_schema"
+  grep -q 'credit card data' "$evidence_schema"
+  grep -q 'authorization headers' "$evidence_schema"
+
+  grep -q '^# Schema Contract: atlas.business_flow_packet.v1$' "$packet_schema"
+  grep -q 'metadata_only' "$packet_schema"
+  grep -q 'Markdown Parity' "$packet_schema"
+  grep -q 'forbidden raw-content markers are absent' "$packet_schema"
+
+  grep -q '## Design Contracts' "$schema_index"
+  grep -q 'atlas.business_flow_evidence.v1' "$schema_index"
+  grep -q 'atlas.business_flow_packet.v1' "$schema_index"
+  grep -q 'not stable command outputs yet' "$schema_index"
+
+  grep -q 'business-flow evidence packets' "$agents_file"
+  grep -q 'Business-flow evidence is referential evidence' "$agents_file"
 }
 
 @test "release replay verification runbook preserves clean-checkout procedure" {

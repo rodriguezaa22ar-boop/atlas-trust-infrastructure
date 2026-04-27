@@ -262,6 +262,7 @@ These packet types must remain metadata-only unless the project owner explicitly
 - archive packets
 - release trust packets
 - advisor prompt packets
+- business-flow evidence packets
 
 Metadata-only packets may include:
 
@@ -279,6 +280,11 @@ Metadata-only packets may include:
 - known limitations
 - retained milestone references
 - operation trust-chain replay summaries
+- business-flow IDs
+- business-flow owner labels
+- business-flow system aliases
+- business-flow data class labels
+- business-flow control objective labels
 
 Metadata-only packets must not include:
 
@@ -292,6 +298,10 @@ Metadata-only packets must not include:
 - unredacted evidence bodies
 - exploit payloads
 - sensitive operator notes
+
+Business-flow evidence is referential evidence. It may point to evidence,
+findings, validation, approvals, reports, and packets, but it must not embed
+sensitive business data or raw evidence content.
 
 ---
 

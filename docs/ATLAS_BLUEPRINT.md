@@ -400,6 +400,13 @@ The near-term roadmap is:
     docs, schema index, and packet parity now explicitly align release packet
     verification, clean-checkout replay, production status, and signed
     provenance.
+70. Add metadata-only business-flow evidence design. Atlas now has a spec-first
+    contract for optional Business Flow Evidence, defining how business-critical
+    processes can point to evidence, findings, validation, approvals, freshness,
+    and retention packets without storing raw business data, secrets, request
+    bodies, response bodies, customer records, or payment data. The schema docs
+    define planned `atlas.business_flow_evidence.v1` and
+    `atlas.business_flow_packet.v1` contracts before runtime commands are added.
 
 ## First Serious Version
 
