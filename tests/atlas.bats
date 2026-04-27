@@ -37,6 +37,7 @@ make_repo_clean_and_synced() {
   [[ "$output" == *"atlas doctor"* ]]
   [[ "$output" == *"atlas v1 status"* ]]
   [[ "$output" == *"atlas release packet [packet-name]"* ]]
+  [[ "$output" == *"atlas release packet [packet-name] [--json]"* ]]
   [[ "$output" == *"atlas release verify [packet]"* ]]
   [[ "$output" == *"atlas scope status"* ]]
   [[ "$output" == *"atlas evidence add <path> [--kind kind]"* ]]
@@ -164,6 +165,47 @@ make_repo_clean_and_synced() {
   [[ "$output" == *"Upstream Sync: ok synced"* ]]
   [[ "$output" == *"QA Status: ok pass"* ]]
   [[ "$output" == *"V1 Readiness: ok overall=ready required_not_ready=0"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release packet m35-release-json \
+    --json \
+    --qa-status pass \
+    --qa-note "dev-qa passed in json release verification"
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"release trust packet written"* ]]
+  json_packet_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "release_packet_json" { print $2; exit }')"
+  [ -f "$json_packet_path" ]
+  [ "$json_packet_path" = "$TEST_ROOT/toolkit/docs/retention/releases/m35-release-json.json" ]
+
+  jq -e '
+    .schema_version == "atlas.release_trust.v1" and
+    .metadata_only == true and
+    .qa.status == "pass" and
+    .readiness.overall == "ready" and
+    .readiness.counts.required_not_ready == 0 and
+    (.retention_notes | index("docs/retention/milestones/MILESTONE_32.md")) and
+    any(.known_limitations[]; .pillar == "Core CLI")
+  ' "$json_packet_path"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release verify "$json_packet_path"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Schema: ok atlas.release_trust.v1"* ]]
+  [[ "$output" == *"Metadata Only: ok true"* ]]
+  [[ "$output" == *"release trust packet verified"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release verify m35-release-json
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Schema: ok atlas.release_trust.v1"* ]]
+
+  jq '.qa.status = "fail"' "$json_packet_path" > "$TEST_ROOT/bad-json-qa.json"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release verify "$TEST_ROOT/bad-json-qa.json"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"QA Status: fail expected=pass actual=fail"* ]]
+
+  jq '.schema_version = "atlas.release_trust.v0"' "$json_packet_path" > "$TEST_ROOT/bad-json-schema.json"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release verify "$TEST_ROOT/bad-json-schema.json"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Schema: fail expected=atlas.release_trust.v1"* ]]
 
   cp "$packet_path" "$TEST_ROOT/bad-qa.md"
   sed -i 's/QA status: pass/QA status: fail/' "$TEST_ROOT/bad-qa.md"

@@ -166,7 +166,7 @@ Each pillar status must include:
 - Commands: `atlas op closeout`, `atlas op audit-packet`,
   `atlas op archive-verify`, `atlas release packet`, `atlas release verify`
 - Artifacts: closeout manifest, audit packet, archive packet, release trust
-  packet.
+  packet, release trust JSON schema `atlas.release_trust.v1`.
 - Limitations: no cryptographic signing yet.
 
 ### AI Advisor

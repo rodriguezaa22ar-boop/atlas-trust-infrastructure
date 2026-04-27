@@ -223,6 +223,10 @@ The near-term roadmap is:
     is used, and `atlas release verify` validates release packets for commit,
     clean/synced state, passing QA, retained milestone notes, known
     limitations, and embedded v1 readiness JSON.
+35. Add release trust JSON schema. `atlas release packet --json` now emits the
+    same metadata-only release trust record as machine-readable
+    `atlas.release_trust.v1` JSON, and `atlas release verify` validates both
+    Markdown and JSON release packets with the same release-gate rules.
 
 ## First Serious Version
 

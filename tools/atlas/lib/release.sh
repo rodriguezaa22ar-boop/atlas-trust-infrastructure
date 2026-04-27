@@ -135,11 +135,27 @@ atlas_release_print_retention_notes() {
   done <<<"$notes"
 }
 
+atlas_release_retention_note_paths() {
+  local notes="$1"
+
+  while IFS= read -r note_path; do
+    [ -n "$note_path" ] || continue
+    atlas_release_display_path "$note_path"
+  done <<<"$notes"
+}
+
 atlas_release_print_limitations() {
   local v1_json="$1"
 
   printf '%s\n' "$v1_json" |
     jq -r '.pillars | to_entries[] | "- " + .value.label + ": " + .value.limitations'
+}
+
+atlas_release_limitations_json() {
+  local v1_json="$1"
+
+  printf '%s\n' "$v1_json" |
+    jq '[.pillars | to_entries[] | {pillar: .value.label, limitation: (.value.limitations // "")}]'
 }
 
 atlas_release_guard_packet() {
@@ -247,6 +263,87 @@ atlas_release_write_packet() {
   } >"$file"
 }
 
+atlas_release_write_json_packet() {
+  local file="$1"
+  local packet_name="$2"
+  local qa_status="$3"
+  local qa_command="$4"
+  local qa_note="$5"
+  local allow_dirty="$6"
+  local allow_unsynced="$7"
+  local allow_not_ready="$8"
+  local generated
+  local commit
+  local branch
+  local clean_state
+  local upstream
+  local sync_state
+  local tags
+  local retention_notes
+  local retention_note_paths
+  local v1_json
+  local v1_overall
+  local limitations_json
+
+  generated="$(timestamp)"
+  commit="$(atlas_release_commit)"
+  branch="$(atlas_release_branch)"
+  clean_state="$(atlas_release_clean_state)"
+  upstream="$(atlas_release_upstream)"
+  sync_state="$(atlas_release_sync_state)"
+  tags="$(atlas_release_tags_at_head)"
+  retention_notes="$(atlas_release_retention_notes)"
+  retention_note_paths="$(atlas_release_retention_note_paths "$retention_notes")"
+  v1_json="$(atlas_release_v1_json)"
+  v1_overall="$(printf '%s\n' "$v1_json" | jq -r '.overall')"
+  limitations_json="$(atlas_release_limitations_json "$v1_json")"
+
+  atlas_release_guard_packet "$clean_state" "$sync_state" "$v1_overall" "$allow_dirty" "$allow_unsynced" "$allow_not_ready"
+
+  jq -n \
+    --arg schema_version "atlas.release_trust.v1" \
+    --arg generated "$generated" \
+    --arg packet "$packet_name" \
+    --arg root "$LAB_ROOT" \
+    --arg commit "$commit" \
+    --arg branch "${branch:-unknown}" \
+    --arg upstream "${upstream:-none}" \
+    --arg clean_state "$clean_state" \
+    --arg sync_state "$sync_state" \
+    --arg runtime_target "$LAB_RUNTIME_TARGET" \
+    --arg qa_status "$qa_status" \
+    --arg qa_command "$qa_command" \
+    --arg qa_note "$qa_note" \
+    --arg tags_text "$tags" \
+    --arg retention_notes_text "$retention_note_paths" \
+    --argjson limitations "$limitations_json" \
+    --argjson readiness "$v1_json" \
+    '{
+      schema_version: $schema_version,
+      generated: $generated,
+      packet: $packet,
+      root: $root,
+      commit: $commit,
+      branch: $branch,
+      upstream: $upstream,
+      repository: {
+        state_before_packet: $clean_state,
+        upstream_sync_before_packet: $sync_state
+      },
+      runtime_target: $runtime_target,
+      metadata_only: true,
+      qa: {
+        status: $qa_status,
+        command: $qa_command,
+        note: $qa_note
+      },
+      tags: ($tags_text | split("\n") | map(select(length > 0))),
+      retention_notes: ($retention_notes_text | split("\n") | map(select(length > 0))),
+      known_limitations: $limitations,
+      readiness: $readiness
+    }' >"$file"
+}
+
 atlas_release_packet_field() {
   local packet_file="$1"
   local field="$2"
@@ -282,7 +379,7 @@ atlas_release_latest_packet() {
   local packet_dir="$LAB_DOCS_DIR/retention/releases"
 
   [ -d "$packet_dir" ] || return 0
-  find "$packet_dir" -maxdepth 1 -type f -name '*.md' -printf '%T@\t%p\n' 2>/dev/null |
+  find "$packet_dir" -maxdepth 1 -type f \( -name '*.md' -o -name '*.json' \) -printf '%T@\t%p\n' 2>/dev/null |
     sort -nr |
     awk -F'\t' 'NR == 1 { print $2 }'
 }
@@ -291,6 +388,7 @@ atlas_release_resolve_packet() {
   local packet_arg="$1"
   local packet_dir="$LAB_DOCS_DIR/retention/releases"
   local candidate
+  local packet_base
   local packet_slug
 
   if [ -z "$packet_arg" ]; then
@@ -311,8 +409,16 @@ atlas_release_resolve_packet() {
     return 0
   fi
 
-  packet_slug="$(slugify "${packet_arg%.md}")"
+  packet_base="${packet_arg%.md}"
+  packet_base="${packet_base%.json}"
+  packet_slug="$(slugify "$packet_base")"
   candidate="$packet_dir/$packet_slug.md"
+  if [ -f "$candidate" ]; then
+    readlink -f "$candidate"
+    return 0
+  fi
+
+  candidate="$packet_dir/$packet_slug.json"
   if [ -f "$candidate" ]; then
     readlink -f "$candidate"
     return 0
@@ -330,6 +436,91 @@ atlas_release_verify_row() {
 
   ui_kv "$label" "$status $detail"
   [ "$status" = "ok" ] || atlas_release_verify_failures=$((atlas_release_verify_failures + 1))
+}
+
+atlas_release_verify_json_packet() {
+  local packet_file="$1"
+  local expected_commit="$2"
+  local packet_commit
+  local repo_state
+  local sync_state
+  local qa_status
+  local readiness_overall
+  local required_not_ready
+  local note_path
+
+  if jq -e '.schema_version == "atlas.release_trust.v1"' "$packet_file" >/dev/null 2>&1; then
+    atlas_release_verify_row "Schema" "ok" "atlas.release_trust.v1"
+  else
+    atlas_release_verify_row "Schema" "fail" "expected=atlas.release_trust.v1"
+  fi
+
+  if jq -e '.metadata_only == true' "$packet_file" >/dev/null 2>&1; then
+    atlas_release_verify_row "Metadata Only" "ok" "true"
+  else
+    atlas_release_verify_row "Metadata Only" "fail" "expected=true"
+  fi
+
+  packet_commit="$(jq -r '.commit // ""' "$packet_file")"
+  if [ "$packet_commit" = "$expected_commit" ]; then
+    atlas_release_verify_row "Commit" "ok" "$packet_commit"
+  else
+    atlas_release_verify_row "Commit" "fail" "expected=$expected_commit actual=${packet_commit:-missing}"
+  fi
+
+  repo_state="$(jq -r '.repository.state_before_packet // ""' "$packet_file")"
+  if [ "$repo_state" = "clean" ]; then
+    atlas_release_verify_row "Repository State" "ok" "$repo_state"
+  else
+    atlas_release_verify_row "Repository State" "fail" "expected=clean actual=${repo_state:-missing}"
+  fi
+
+  sync_state="$(jq -r '.repository.upstream_sync_before_packet // ""' "$packet_file")"
+  if [ "$sync_state" = "synced" ]; then
+    atlas_release_verify_row "Upstream Sync" "ok" "$sync_state"
+  else
+    atlas_release_verify_row "Upstream Sync" "fail" "expected=synced actual=${sync_state:-missing}"
+  fi
+
+  qa_status="$(jq -r '.qa.status // ""' "$packet_file")"
+  if [ "$qa_status" = "pass" ]; then
+    atlas_release_verify_row "QA Status" "ok" "$qa_status"
+  else
+    atlas_release_verify_row "QA Status" "fail" "expected=pass actual=${qa_status:-missing}"
+  fi
+
+  readiness_overall="$(jq -r '.readiness.overall // ""' "$packet_file")"
+  required_not_ready="$(jq -r '.readiness.counts.required_not_ready // ""' "$packet_file")"
+  if [ "$readiness_overall" = "ready" ] && [ "$required_not_ready" = "0" ]; then
+    atlas_release_verify_row "V1 Readiness" "ok" "overall=ready required_not_ready=0"
+  else
+    atlas_release_verify_row "V1 Readiness" "fail" "overall=${readiness_overall:-missing} required_not_ready=${required_not_ready:-missing}"
+  fi
+
+  while IFS= read -r note_path; do
+    [ -n "$note_path" ] || continue
+    note_path="$(atlas_release_display_path "$note_path")"
+    if jq -e --arg note_path "$note_path" '.retention_notes | index($note_path) != null' "$packet_file" >/dev/null 2>&1; then
+      atlas_release_verify_row "Retention Note" "ok" "$note_path"
+    else
+      atlas_release_verify_row "Retention Note" "fail" "missing $note_path"
+    fi
+  done <<<"$(atlas_release_retention_notes)"
+
+  if jq -e '(.known_limitations // []) | length > 0 and any(.[]; .pillar == "Core CLI" and (.limitation // "" | length > 0))' "$packet_file" >/dev/null 2>&1; then
+    atlas_release_verify_row "Known Limitations" "ok" "present"
+  else
+    atlas_release_verify_row "Known Limitations" "fail" "missing or incomplete"
+  fi
+
+  ui_rule
+  if [ "$atlas_release_verify_failures" -eq 0 ]; then
+    ui_ok "release trust packet verified"
+  else
+    ui_alert "release trust packet verification failed"
+  fi
+
+  return "$atlas_release_verify_failures"
 }
 
 atlas_release_verify_packet() {
@@ -351,6 +542,11 @@ atlas_release_verify_packet() {
   ui_heading "Atlas Release Packet Verification"
   ui_rule
   ui_kv "Packet" "$packet_file"
+
+  if jq -e type "$packet_file" >/dev/null 2>&1; then
+    atlas_release_verify_json_packet "$packet_file" "$expected_commit"
+    return "$?"
+  fi
 
   if grep -q '^# Atlas Release Trust Packet$' "$packet_file"; then
     atlas_release_verify_row "Header" "ok" "release trust packet"
@@ -442,21 +638,26 @@ cmd_release_packet() {
   local allow_dirty=0
   local allow_unsynced=0
   local allow_not_ready=0
+  local json=0
 
   while [ "$#" -gt 0 ]; do
     case "$1" in
+    --json)
+      json=1
+      shift
+      ;;
     --qa-status)
-      [ "$#" -ge 2 ] || fail "release packet [packet-name] [--qa-status status] [--qa-command command] [--qa-note text]"
+      [ "$#" -ge 2 ] || fail "release packet [packet-name] [--json] [--qa-status status] [--qa-command command] [--qa-note text]"
       qa_status="$2"
       shift 2
       ;;
     --qa-command)
-      [ "$#" -ge 2 ] || fail "release packet [packet-name] [--qa-status status] [--qa-command command] [--qa-note text]"
+      [ "$#" -ge 2 ] || fail "release packet [packet-name] [--json] [--qa-status status] [--qa-command command] [--qa-note text]"
       qa_command="$2"
       shift 2
       ;;
     --qa-note)
-      [ "$#" -ge 2 ] || fail "release packet [packet-name] [--qa-status status] [--qa-command command] [--qa-note text]"
+      [ "$#" -ge 2 ] || fail "release packet [packet-name] [--json] [--qa-status status] [--qa-command command] [--qa-note text]"
       qa_note="$2"
       shift 2
       ;;
@@ -483,7 +684,7 @@ cmd_release_packet() {
       ;;
     *)
       if [ -n "$packet_name" ]; then
-        fail "release packet [packet-name] [--qa-status status] [--qa-command command] [--qa-note text]"
+        fail "release packet [packet-name] [--json] [--qa-status status] [--qa-command command] [--qa-note text]"
       fi
       packet_name="$1"
       shift
@@ -499,12 +700,20 @@ cmd_release_packet() {
   [ -n "$packet_slug" ] || fail "release packet name produced an empty slug"
 
   mkdir -p "$packet_dir"
-  packet_file="$packet_dir/$packet_slug.md"
-  atlas_release_write_packet "$packet_file" "$packet_name" "$qa_status" "$qa_command" "$qa_note" "$allow_dirty" "$allow_unsynced" "$allow_not_ready"
+  if [ "$json" = "1" ]; then
+    packet_file="$packet_dir/$packet_slug.json"
+    atlas_release_write_json_packet "$packet_file" "$packet_name" "$qa_status" "$qa_command" "$qa_note" "$allow_dirty" "$allow_unsynced" "$allow_not_ready"
+  else
+    packet_file="$packet_dir/$packet_slug.md"
+    atlas_release_write_packet "$packet_file" "$packet_name" "$qa_status" "$qa_command" "$qa_note" "$allow_dirty" "$allow_unsynced" "$allow_not_ready"
+  fi
   chmod 600 "$packet_file" 2>/dev/null || true
 
   ui_ok "release trust packet written"
   printf 'release_packet: %s\n' "$packet_file"
+  if [ "$json" = "1" ]; then
+    printf 'release_packet_json: %s\n' "$packet_file"
+  fi
 }
 
 cmd_release_verify() {
