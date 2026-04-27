@@ -2,10 +2,11 @@
 
 ## What Is Atlas?
 
-Atlas is a shell-native control plane for authorized security assessment
-workflows. It coordinates scope, targets, recon, evidence, findings,
-validation, reports, retention, and release trust while keeping the underlying
-domain tools separate.
+Atlas is a shell-native, metadata-first trust control plane for authorized
+security assessment workflows and optional business-flow evidence. It
+coordinates scope, targets, recon, evidence, findings, validation, reports,
+retention, and release trust while keeping the underlying domain tools
+separate.
 
 Atlas is the operator-facing layer. `wiremap` owns reconnaissance and packet
 evidence, `vector` owns ranked action lanes and bounded validation, `intelctl`
@@ -35,6 +36,10 @@ Atlas gives one consistent workflow for:
 
 The goal is not to make assessment work flashy. The goal is to make it
 bounded, reviewable, and hard to misunderstand later.
+
+The longer-term direction is trust infrastructure: evidence-backed,
+metadata-only, verifiable operational proof for security operations, business
+flows, releases, audits, retention, and replay.
 
 ## What Does It Not Do?
 

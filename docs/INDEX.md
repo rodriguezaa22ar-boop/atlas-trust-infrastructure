@@ -25,6 +25,8 @@ repository in filesystem order.
 - [TRUST_MODEL.md](TRUST_MODEL.md): trust anchors and verification pattern.
 - [atlas/TRUST_LIFECYCLE.md](atlas/TRUST_LIFECYCLE.md): Atlas-local lifecycle
   detail.
+- [atlas/TRUST_INFRASTRUCTURE_DIRECTION.md](atlas/TRUST_INFRASTRUCTURE_DIRECTION.md):
+  trust-infrastructure direction for Atlas.
 - [atlas/BUSINESS_FLOW_EVIDENCE.md](atlas/BUSINESS_FLOW_EVIDENCE.md):
   metadata-only business-flow evidence design.
 

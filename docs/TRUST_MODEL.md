@@ -3,8 +3,9 @@
 ## Purpose
 
 Atlas is a shell-native control plane for authorized security assessment
-workflows. Its trust model is based on scope, operator control, file-backed
-records, metadata-only packets, and replayable verification.
+workflows and a metadata-first trust control plane for business-flow evidence.
+Its trust model is based on scope, operator control, file-backed records,
+metadata-only packets, and replayable verification.
 
 Atlas does not ask an operator to trust a claim because Atlas printed it. A
 claim is useful only when Atlas can point to commands, retained artifacts,
@@ -16,6 +17,7 @@ hashes, ledger events, tests, and known limitations.
 - operation scope snapshots
 - append-only `ledger.ndjson` events
 - evidence records and SHA-256 hashes
+- metadata-only business-flow records and evidence links
 - finding lifecycle records
 - approval-gated validation records
 - operation reports
@@ -47,3 +49,6 @@ Production readiness requires release signing/provenance, retained production
 dry-run evidence or external validation evidence, and a current verified
 release trust packet to exist together. Passing that local contract is not an
 external audit or deployment certification.
+
+The strategic direction is documented in
+[atlas/TRUST_INFRASTRUCTURE_DIRECTION.md](atlas/TRUST_INFRASTRUCTURE_DIRECTION.md).

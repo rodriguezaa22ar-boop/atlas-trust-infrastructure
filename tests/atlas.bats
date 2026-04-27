@@ -90,6 +90,7 @@ make_repo_clean_and_synced() {
   one_page="$TEST_ROOT/toolkit/docs/ATLAS_ONE_PAGE.md"
   command_ref="$TEST_ROOT/toolkit/docs/COMMAND_REFERENCE.md"
   trust_lifecycle="$TEST_ROOT/toolkit/docs/TRUST_LIFECYCLE.md"
+  trust_direction="$TEST_ROOT/toolkit/docs/atlas/TRUST_INFRASTRUCTURE_DIRECTION.md"
   operator_guide="$TEST_ROOT/toolkit/docs/OPERATOR_GUIDE.md"
   release_trust="$TEST_ROOT/toolkit/docs/RELEASE_TRUST.md"
   web_assessment="$TEST_ROOT/toolkit/docs/WEB_ASSESSMENT.md"
@@ -99,6 +100,7 @@ make_repo_clean_and_synced() {
   [ -f "$one_page" ]
   [ -f "$command_ref" ]
   [ -f "$trust_lifecycle" ]
+  [ -f "$trust_direction" ]
   [ -f "$operator_guide" ]
   [ -f "$release_trust" ]
   [ -f "$web_assessment" ]
@@ -113,6 +115,7 @@ make_repo_clean_and_synced() {
   grep -q 'docs/ATLAS_ONE_PAGE.md' "$readme"
   grep -q 'docs/COMMAND_REFERENCE.md' "$readme"
   grep -q 'docs/TRUST_LIFECYCLE.md' "$readme"
+  grep -q 'docs/atlas/TRUST_INFRASTRUCTURE_DIRECTION.md' "$readme"
   grep -q 'docs/OPERATOR_GUIDE.md' "$readme"
   grep -q 'docs/RELEASE_TRUST.md' "$readme"
   grep -q 'docs/WEB_ASSESSMENT.md' "$readme"
@@ -124,6 +127,7 @@ make_repo_clean_and_synced() {
   grep -q 'Operator workflow' "$docs_index"
   grep -q 'Release trust' "$docs_index"
   grep -q 'Production readiness' "$docs_index"
+  grep -q 'atlas/TRUST_INFRASTRUCTURE_DIRECTION.md' "$docs_index"
   grep -q 'atlas/BUSINESS_FLOW_EVIDENCE.md' "$docs_index"
   grep -q 'Milestones' "$docs_index"
   grep -q 'Agent guidance' "$docs_index"
@@ -133,6 +137,7 @@ make_repo_clean_and_synced() {
   grep -q 'What Does It Not Do?' "$one_page"
   grep -q 'What Is Ready-To-Refine?' "$one_page"
   grep -q 'What Is The Trust Chain?' "$one_page"
+  grep -q 'trust infrastructure' "$one_page"
 
   grep -q '^# Command Reference$' "$command_ref"
   grep -q './tools/atlas/bin/atlas release packet atlas-current --json' "$command_ref"
@@ -146,6 +151,56 @@ make_repo_clean_and_synced() {
   grep -q 'atlas.release_provenance.v1' "$release_trust"
   grep -q '^# Web Assessment$' "$web_assessment"
   grep -q 'atlas web assess' "$web_assessment"
+}
+
+@test "atlas trust infrastructure direction preserves metadata-first trust model" {
+  trust_direction="$TEST_ROOT/toolkit/docs/atlas/TRUST_INFRASTRUCTURE_DIRECTION.md"
+  roadmap="$TEST_ROOT/toolkit/docs/ROADMAP.md"
+  trust_model="$TEST_ROOT/toolkit/docs/TRUST_MODEL.md"
+  blueprint="$TEST_ROOT/toolkit/docs/ATLAS_BLUEPRINT.md"
+
+  [ -f "$trust_direction" ]
+
+  grep -q '^# Atlas Trust Infrastructure Direction$' "$trust_direction"
+  grep -q 'metadata-first trust control plane' "$trust_direction"
+  grep -q '^## Actors$' "$trust_direction"
+  grep -q 'Operator:' "$trust_direction"
+  grep -q 'Business owner:' "$trust_direction"
+  grep -q 'Reviewer:' "$trust_direction"
+  grep -q 'Auditor:' "$trust_direction"
+  grep -q '^## Objects$' "$trust_direction"
+  grep -q 'business flow' "$trust_direction"
+  grep -q 'release provenance packet' "$trust_direction"
+  grep -q '^## Guarantees$' "$trust_direction"
+  grep -q 'Scope:' "$trust_direction"
+  grep -q 'Metadata-only by default' "$trust_direction"
+  grep -q 'Freshness:' "$trust_direction"
+  grep -q 'Verification:' "$trust_direction"
+  grep -q 'Replay:' "$trust_direction"
+  grep -q 'Retention:' "$trust_direction"
+  grep -q '^## Non-Guarantees$' "$trust_direction"
+  grep -q 'no external production certification' "$trust_direction"
+  grep -q 'no autonomous exploitation' "$trust_direction"
+  grep -q 'no cryptographic immutability' "$trust_direction"
+  grep -q '^## Metadata Boundary$' "$trust_direction"
+  grep -q 'Do not store' "$trust_direction"
+  grep -q 'tokens' "$trust_direction"
+  grep -q 'raw customer records' "$trust_direction"
+  grep -q 'raw request or response bodies' "$trust_direction"
+  grep -q '^## Business-Flow Trust Chain$' "$trust_direction"
+  grep -q 'business flow -> operation -> evidence' "$trust_direction"
+  grep -q '^## Near-Term Milestones$' "$trust_direction"
+  grep -q 'atlas flow verify' "$trust_direction"
+  grep -q 'Do not jump to Atlas OS' "$trust_direction"
+
+  grep -q 'trust infrastructure lane' "$roadmap"
+  grep -q 'Metadata-only Business Flow Evidence packets' "$roadmap"
+  grep -q 'Business Flow Evidence verification' "$roadmap"
+  grep -q 'metadata-first trust control plane' "$trust_model"
+  grep -q 'metadata-only business-flow records and evidence links' "$trust_model"
+  grep -q 'metadata-first trust infrastructure' "$blueprint"
+  grep -q 'TRUST_INFRASTRUCTURE_DIRECTION.md' "$blueprint"
+  grep -q 'Define Atlas trust infrastructure direction' "$blueprint"
 }
 
 @test "business-flow evidence design stays optional and metadata-only" {
@@ -521,8 +576,8 @@ EOF
   grep -q 'Production readiness is limited to the local contract' "$limitations_doc"
   grep -q 'local Atlas production contract' "$limitations_doc"
 
-  grep -q 'trust consolidation lane' "$roadmap_doc"
-  grep -q 'CI / GitHub Actions QA gate' "$roadmap_doc"
+  grep -q 'trust infrastructure lane' "$roadmap_doc"
+  grep -q 'Business Flow Evidence verification' "$roadmap_doc"
   grep -q 'signed release provenance' "$roadmap_doc"
   grep -q 'Atlas OS' "$roadmap_doc"
   grep -q 'Do not jump to Atlas' "$roadmap_doc"

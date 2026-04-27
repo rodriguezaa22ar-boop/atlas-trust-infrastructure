@@ -2,10 +2,16 @@
 
 ## North Star
 
-Atlas is the operator control plane for authorized security assessment work.
+Atlas is the operator control plane for authorized security assessment work and
+metadata-first trust infrastructure.
 
 It should turn scattered tools, notes, and artifacts into a structured,
 auditable, repeatable operation while staying shell-native and modular.
+
+Atlas should progress as evidence-backed trust infrastructure before adding
+flashy features. Its core asset is the retained chain of packets, schemas,
+verification, replay, retention notes, signed release provenance, and known
+limitations that make operational proof inspectable later.
 
 ## Architecture
 
@@ -45,6 +51,9 @@ Every module should answer one question:
 ```text
 Does this help the operator stay authorized, organized, evidence-backed, and audit-ready?
 ```
+
+The trust-infrastructure direction is recorded in
+`docs/atlas/TRUST_INFRASTRUCTURE_DIRECTION.md`.
 
 ## Safety Boundaries
 
@@ -422,6 +431,13 @@ The near-term roadmap is:
     kind, retained path, SHA-256, classification, and redaction state without
     copying raw evidence or storing evidence bodies. Flow packets, verification,
     and readiness integration remain planned later steps.
+73. Define Atlas trust infrastructure direction. Atlas now has a dedicated
+    direction note for treating packets, schemas, verification, replay,
+    retention, signed release provenance, and metadata-only business-flow
+    evidence as the core asset. The roadmap, README, trust model, and one-page
+    overview now frame Atlas as evidence-backed operational proof instead of a
+    feature-first security tool. Business Flow Evidence remains optional and the
+    next implementation path stays packet, verify, and readiness integration.
 
 ## First Serious Version
 

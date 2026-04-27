@@ -5,6 +5,10 @@ security assessment workflows. It keeps operator state, target records, shared
 intel, evidence, findings, validation, reports, retention packets, and release
 trust artifacts in an inspectable file-backed tree.
 
+Atlas is evolving into metadata-first trust infrastructure: a control plane for
+security-operation proof, business-flow evidence, release trust, auditability,
+retention, verification, and later business/process assurance.
+
 `atlas` is the main operator control plane. It does not replace the domain
 tools; it coordinates them:
 
@@ -83,6 +87,7 @@ infrastructure. It means the local Atlas gates pass against retained evidence.
 | [docs/OPERATOR_GUIDE.md](docs/OPERATOR_GUIDE.md) | End-to-end operator workflow. |
 | [docs/COMMAND_REFERENCE.md](docs/COMMAND_REFERENCE.md) | Full command reference moved out of the README. |
 | [docs/TRUST_LIFECYCLE.md](docs/TRUST_LIFECYCLE.md) | Scope-to-release trust chain explanation. |
+| [docs/atlas/TRUST_INFRASTRUCTURE_DIRECTION.md](docs/atlas/TRUST_INFRASTRUCTURE_DIRECTION.md) | Atlas trust-infrastructure direction. |
 | [docs/RELEASE_TRUST.md](docs/RELEASE_TRUST.md) | Release packets, verification, replay, signing, and provenance. |
 | [docs/WEB_ASSESSMENT.md](docs/WEB_ASSESSMENT.md) | `atlas web assess` flow and boundaries. |
 | [docs/atlas/BUSINESS_FLOW_EVIDENCE.md](docs/atlas/BUSINESS_FLOW_EVIDENCE.md) | Planned metadata-only business-flow evidence model. |

@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Atlas is in the trust consolidation lane:
+Atlas is in the trust infrastructure lane:
 
 - agent governance
 - milestone retention
@@ -13,21 +13,24 @@ Atlas is in the trust consolidation lane:
 - operator walkthroughs
 - external legibility
 - signed release provenance
+- metadata-only business-flow records
+- metadata-only business-flow evidence links
 
 ## Near-Term Milestones
 
-1. External legibility pass.
-2. CI / GitHub Actions QA gate. Implemented as the current repository QA gate.
-3. Release packet verification hardening where gaps remain.
-4. JSON parity for archive and audit packets.
-5. Production dry-run retention notes. Implemented as a retained-evidence gate.
-6. Signing and provenance preparation. Implemented as a local signed-tag
-   provenance gate for production status.
+1. Trust infrastructure direction. Implemented as
+   `docs/atlas/TRUST_INFRASTRUCTURE_DIRECTION.md`.
+2. Metadata-only Business Flow Evidence packets.
+3. Business Flow Evidence verification.
+4. Optional Business Flow Evidence readiness integration.
+5. Flow record, flow link, and flow packet schema stabilization.
+6. JSON parity for archive, audit, and business-flow packets where needed.
 
 ## Later Control-Plane Work
 
 - broader JSON packet parity
 - stable schema documents for every trust packet
+- signed/provenance hardening beyond local signed tags
 - read-only dashboard planning
 - node runtime planning
 - reproducible runtime profile
@@ -45,5 +48,6 @@ Atlas is in the trust consolidation lane:
 ## Rule
 
 Atlas earns deeper layers by proving the current layer. Do not jump to Atlas
-OS, ISI, kernel, fleet, or web execution surfaces before the control-plane
-trust model is stable and verifiable.
+OS, ISI, kernel, fleet, SQL migration, autonomous features, or web execution
+surfaces before the metadata-first trust infrastructure is stable and
+verifiable.
