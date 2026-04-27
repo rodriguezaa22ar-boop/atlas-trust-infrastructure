@@ -18,6 +18,8 @@ keeping the underlying domains intact:
 atlas doctor
 atlas v1 status --strict
 atlas v1 status --json
+atlas production status
+atlas production status --json
 atlas release packet atlas-current --qa-status pass
 atlas release packet atlas-current --json --operation april-review --qa-status pass
 atlas release verify atlas-current
@@ -133,6 +135,15 @@ operation ledger, ScopeGuard, recon orchestration, action planning, intel
 graph, evidence, findings, validation, reports, retention packets, and the AI
 advisor surface. `--strict` makes warning or blocked required pillars fail the
 command, and `--json` emits the same contract in machine-readable form.
+
+`atlas production status [--strict] [--json]` is a read-only production
+readiness gate. It is stricter than `atlas v1 status`: it requires v1 internal
+readiness, a clean and synced repository, a current verified release trust
+packet, the production readiness contract, signing/provenance, and retained
+production dry-run or external validation evidence. The current project state
+is expected to report `not-ready` until those production hardening artifacts
+exist. The contract lives in
+[`docs/atlas/PRODUCTION_READINESS.md`](../../docs/atlas/PRODUCTION_READINESS.md).
 
 `atlas release packet [packet-name] [--json] [--operation name]` writes a
 metadata-only release trust packet under `docs/retention/releases/`. Markdown

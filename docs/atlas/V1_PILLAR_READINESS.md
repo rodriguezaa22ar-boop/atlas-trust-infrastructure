@@ -216,3 +216,15 @@ checks. It should fail when a required pillar is `warning`, `blocked`,
 
 The JSON contract is intentionally stable enough for future CI gates, release
 trust packets, dashboards, and provenance records.
+
+## Production Boundary
+
+V1 readiness is an internal engineering gate. It means the required Atlas
+pillars have enough implementation, tests, documentation, and verification
+coverage for refinement and release-trust work.
+
+It does not mean Atlas is production-ready. Production readiness is tracked by
+`atlas production status` and
+[`docs/atlas/PRODUCTION_READINESS.md`](./PRODUCTION_READINESS.md), which require
+additional release, provenance, and retained dry-run evidence before production
+claims are allowed.

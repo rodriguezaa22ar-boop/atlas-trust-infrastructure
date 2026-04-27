@@ -30,8 +30,7 @@ atlas_v1_add_pillar() {
   atlas_v1_status_valid "$status" || fail "invalid v1 pillar status: $status"
 
   case "$status" in
-  ready)
-    ;;
+  ready) ;;
   warning)
     atlas_v1_warnings=$((atlas_v1_warnings + 1))
     [ "$required" = "1" ] && atlas_v1_required_not_ready=$((atlas_v1_required_not_ready + 1))

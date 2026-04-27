@@ -45,6 +45,7 @@ make_repo_clean_and_synced() {
   [[ "$output" == *"quick flow:"* ]]
   [[ "$output" == *"atlas doctor"* ]]
   [[ "$output" == *"atlas v1 status"* ]]
+  [[ "$output" == *"atlas production status"* ]]
   [[ "$output" == *"atlas release packet [packet-name]"* ]]
   [[ "$output" == *"atlas release packet [packet-name] [--json]"* ]]
   [[ "$output" == *"atlas release verify [packet]"* ]]
@@ -77,6 +78,7 @@ make_repo_clean_and_synced() {
   [[ "$output" == *"validation:"* ]]
   [[ "$output" == *"advisor:"* ]]
   [[ "$output" == *"v1:"* ]]
+  [[ "$output" == *"production:"* ]]
   [[ "$output" == *"release:"* ]]
   [[ "$output" == *"atlas target story <target>"* ]]
   [[ "$output" == *"atlas target cycle <target>"* ]]
@@ -516,6 +518,73 @@ EOF
   [ "$status" -ne 0 ]
   printf '%s\n' "$output" |
     jq -e '.overall == "blocked" and .pillars.action_planner.status == "blocked"'
+}
+
+@test "atlas production status reports conservative production blockers" {
+  make_repo_clean_and_synced
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" production status
+
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Atlas Production Readiness"* ]]
+  [[ "$output" == *"Production Gates"* ]]
+  [[ "$output" == *"V1 Internal Readiness"* ]]
+  [[ "$output" == *"Repository Clean"* ]]
+  [[ "$output" == *"Upstream Sync"* ]]
+  [[ "$output" == *"Release Trust Packet"* ]]
+  [[ "$output" == *"Production Contract"* ]]
+  [[ "$output" == *"Signing And Provenance"* ]]
+  [[ "$output" == *"Production Dry Run"* ]]
+  [[ "$output" == *"Overall: not-ready"* ]]
+  [[ "$output" == *"Required Not Ready:"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" production status --json
+
+  [ "$status" -ne 0 ]
+  printf '%s\n' "$output" |
+    jq -e '
+      .schema_version == "atlas.production_readiness.v1" and
+      .overall == "not-ready" and
+      .strict == false and
+      .gates.v1_internal_readiness.status == "ready" and
+      .gates.repository_clean.status == "ready" and
+      .gates.upstream_sync.status == "ready" and
+      .gates.production_contract.status == "ready" and
+      .gates.release_trust_packet.status == "blocked" and
+      .gates.signing_provenance.status == "blocked" and
+      .gates.production_dry_run.status == "blocked" and
+      .counts.required_not_ready >= 3
+    '
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release packet production-current \
+    --json \
+    --qa-status pass \
+    --qa-note "production status release packet proof"
+  [ "$status" -eq 0 ]
+  production_packet_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "release_packet_json" { print $2; exit }')"
+  [ -f "$production_packet_path" ]
+  git -C "$TEST_ROOT/toolkit" add -f "$production_packet_path"
+  git -C "$TEST_ROOT/toolkit" commit -m "retain production release packet" >/dev/null
+  git -C "$TEST_ROOT/toolkit" update-ref refs/remotes/origin/main HEAD
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" production status --json
+
+  [ "$status" -ne 0 ]
+  printf '%s\n' "$output" |
+    jq -e '
+      .overall == "not-ready" and
+      .gates.repository_clean.status == "ready" and
+      .gates.upstream_sync.status == "ready" and
+      .gates.release_trust_packet.status == "ready" and
+      .gates.signing_provenance.status == "blocked" and
+      .gates.production_dry_run.status == "blocked" and
+      .counts.required_not_ready >= 2
+    '
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" production status --strict
+
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Overall: not-ready"* ]]
 }
 
 @test "atlas release packet writes and verifies metadata-only release trust packet" {

@@ -320,6 +320,32 @@ A pillar is not ready because Atlas says it is ready. A pillar is ready because 
 
 ---
 
+## Production Readiness
+
+`atlas production status` is the stricter production-readiness gate.
+
+It must remain read-only and must not be weakened to make Atlas look finished.
+
+The production contract lives at:
+
+```text
+docs/atlas/PRODUCTION_READINESS.md
+```
+
+Current production readiness requires, at minimum:
+
+- v1 internal readiness
+- clean repository state
+- synced upstream state
+- current verified release trust packet
+- documented production-readiness contract
+- signing/provenance evidence
+- retained production dry-run or independent validation evidence
+
+If any required production gate is missing, Atlas is `not-ready` for production even if `atlas v1 status` is ready.
+
+---
+
 ## Release Trust
 
 The current strategic priority is release trust consolidation.

@@ -304,6 +304,18 @@ The near-term roadmap is:
     trust-chain summary, and `atlas release verify` replays ledger and archive
     packet state for Markdown packets with the same retained-result standard as
     JSON release packets.
+54. Add repository agent guidance. Root `AGENTS.md` now records Atlas'
+    shell-native development rules, safety boundary, metadata-only packet
+    rules, read-only command expectations, release-trust priorities, and
+    current maturity language so automated coding agents do not overclaim or
+    collapse the domain boundaries.
+55. Add the production-readiness gate. `docs/atlas/PRODUCTION_READINESS.md`
+    now defines the stricter standard for production readiness, and
+    `atlas production status [--strict] [--json]` reports required gates across
+    v1 readiness, repository hygiene, release trust, the production contract,
+    signing/provenance, and retained production dry-run evidence. The current
+    expected result is `not-ready`, because Atlas is still an internal
+    release-trust candidate rather than a production-certified product.
 
 ## First Serious Version
 

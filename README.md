@@ -53,6 +53,8 @@ Useful commands:
 ./tools/atlas/bin/atlas doctor
 ./tools/atlas/bin/atlas v1 status --strict
 ./tools/atlas/bin/atlas v1 status --json
+./tools/atlas/bin/atlas production status
+./tools/atlas/bin/atlas production status --json
 ./tools/atlas/bin/atlas release packet atlas-current --qa-status pass
 ./tools/atlas/bin/atlas release packet atlas-current --json --operation april-review --qa-status pass
 ./tools/atlas/bin/atlas release verify atlas-current
@@ -151,6 +153,11 @@ foundation through doctor, scope, ledger, evidence, findings, validation,
 reports, advisor, exposure-cycle views, retention packets, and v1 readiness
 checks. The current v1 pillar contract is captured in
 [docs/atlas/V1_PILLAR_READINESS.md](./docs/atlas/V1_PILLAR_READINESS.md).
+The stricter production-readiness contract is captured in
+[docs/atlas/PRODUCTION_READINESS.md](./docs/atlas/PRODUCTION_READINESS.md);
+`atlas production status` currently reports Atlas as not production-ready until
+release signing/provenance, retained production dry runs, and a current
+verified release packet are in place.
 
 ## Safety Boundary
 
@@ -219,6 +226,10 @@ Atlas now also exposes the operator-level story and reporting layer:
 
 - `atlas v1 status [--strict] [--json]`: read-only product-pillar readiness
   view for the core v1 surface and release-gate style checks
+- `atlas production status [--strict] [--json]`: read-only production
+  readiness gate that is stricter than v1 status and currently blocks
+  production claims until signing/provenance, retained production dry-run
+  evidence, and a current verified release trust packet exist
 - `atlas release packet [packet-name] [--json] [--operation name]`:
   metadata-only release trust packet in Markdown or JSON schema form with
   commit, tags, v1 readiness JSON, optional operation trust-chain status, QA
