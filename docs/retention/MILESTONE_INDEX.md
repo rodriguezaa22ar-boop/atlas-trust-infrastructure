@@ -67,6 +67,7 @@ changes, verification output, repo state, and boundaries for that milestone.
 | [70](milestones/MILESTONE_70.md) | `345de45d799e54600f712196578b9e698461415f` | business-flow evidence spec | docs-only | no | Defines optional metadata-only business-process evidence without weakening Atlas' trust boundary. | business-flow focused tests: 3/3; `dev-qa`: 83/83; release verify: pass | `atlas-retention-m70` |
 | [71](milestones/MILESTONE_71.md) | `038c8df117729e8266fd41135159773289ce548d` | business-flow records | release-trust | yes | Adds optional metadata-only business-flow records without storing sensitive flow content. | flow focused tests: 4/4; `dev-qa`: 84/84; release verify: pass | `atlas-retention-m71` |
 | [72](milestones/MILESTONE_72.md) | `85c68f9e8cedce4eb6dcfb385095962631abe9b1` | business-flow evidence links | evidence | yes | Links business flows to operation evidence IDs without copying raw evidence. | flow focused tests: 5/5; `dev-qa`: 85/85; release verify: pass | `atlas-retention-m72` |
+| [73](milestones/MILESTONE_73.md) | `b640391a0624816df6bdd6b4d493a7b30d59cdcb` | trust infrastructure direction | docs-only | no | Defines Atlas as metadata-first trust infrastructure for evidence-backed operational proof. | trust-infrastructure focused tests: 3/3; `dev-qa`: 86/86; release verify: pass | `atlas-retention-m73` |
 
 ## Category Notes
 
