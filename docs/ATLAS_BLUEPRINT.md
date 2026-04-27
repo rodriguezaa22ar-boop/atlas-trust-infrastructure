@@ -289,6 +289,11 @@ The near-term roadmap is:
     accepted-risk review packets, closeout verification, audit packet
     verification, archive packet verification, and operation-scoped v1
     readiness, with `--strict` failing unless the chain is current.
+51. Add release candidate trust-chain binding. `atlas release packet` now
+    accepts `--operation <name>` to require a current operation trust chain
+    before writing the release trust packet, embeds the operation trust-chain
+    summary in Markdown and JSON release packets, and verifies any recorded
+    operation trust-chain status during `atlas release verify`.
 
 ## First Serious Version
 

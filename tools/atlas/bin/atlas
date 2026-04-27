@@ -92,7 +92,7 @@ usage:
   atlas help
   atlas doctor
   atlas v1 status [name] [--strict] [--json]
-  atlas release packet [packet-name] [--json]
+  atlas release packet [packet-name] [--json] [--operation name]
   atlas release verify [packet]
   atlas web assess <url> [assessment-name]
   atlas web validation-plan [--all]
@@ -318,7 +318,7 @@ v1:
   atlas v1 status [name] [--strict] [--json]
 
 release:
-  atlas release packet [packet-name] [--json] [--qa-status status] [--qa-command command] [--qa-note text] [--allow-dirty] [--allow-unsynced] [--allow-not-ready]
+  atlas release packet [packet-name] [--json] [--operation name] [--qa-status status] [--qa-command command] [--qa-note text] [--allow-dirty] [--allow-unsynced] [--allow-not-ready]
   atlas release verify [packet] [--commit sha]
 
 web:

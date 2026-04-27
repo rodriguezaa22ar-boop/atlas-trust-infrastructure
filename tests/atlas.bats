@@ -549,6 +549,7 @@ EOF
   [[ "$output" == *"Upstream Sync: ok synced"* ]]
   [[ "$output" == *"QA Status: ok pass"* ]]
   [[ "$output" == *"V1 Readiness: ok overall=ready required_not_ready=0"* ]]
+  [[ "$output" == *"Operation Trust Chain: ok not-recorded"* ]]
 
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release packet m35-release-json \
     --json \
@@ -575,6 +576,7 @@ EOF
   [ "$status" -eq 0 ]
   [[ "$output" == *"Schema: ok atlas.release_trust.v1"* ]]
   [[ "$output" == *"Metadata Only: ok true"* ]]
+  [[ "$output" == *"Operation Trust Chain: ok not-recorded"* ]]
   [[ "$output" == *"release trust packet verified"* ]]
 
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release verify m35-release-json
@@ -625,6 +627,30 @@ EOF
     "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release packet not-ready-release --qa-status pass
   [ "$status" -ne 0 ]
   [[ "$output" == *"release packet requires v1 readiness overall=ready"* ]]
+
+  mkdir -p "$TEST_ROOT/toolkit/targets"
+  cat > "$TEST_ROOT/toolkit/targets/demo-node.env" <<'EOF'
+NAME=demo-node
+ADDRESS=10.10.10.10
+SCOPE_STATUS=in-scope
+CRITICALITY=high
+CREATED_AT=2026-04-23T20:53:16Z
+EOF
+  artifact="$TEST_ROOT/release-candidate-gap.txt"
+  printf 'release candidate evidence\n' > "$artifact"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op start release-candidate-gap demo-node authorized release candidate gap
+  [ "$status" -eq 0 ]
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence add "$artifact" --kind scan-output --classification public
+  [ "$status" -eq 0 ]
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op report release-candidate-gap release-candidate-report
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release packet release-candidate-gap \
+    --operation release-candidate-gap \
+    --qa-status pass
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"release packet requires operation trust chain status=current"* ]]
 }
 
 @test "atlas v1 status fails strict on operation evidence and governance gaps" {
@@ -2650,6 +2676,7 @@ EOF
 
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release packet trust-lifecycle-m36 \
     --json \
+    --operation trust-lifecycle-op \
     --qa-status pass \
     --qa-note "trust lifecycle proof passed"
   [ "$status" -eq 0 ]
@@ -2663,12 +2690,16 @@ EOF
   [[ "$output" == *"Upstream Sync: ok synced"* ]]
   [[ "$output" == *"QA Status: ok pass"* ]]
   [[ "$output" == *"V1 Readiness: ok overall=ready required_not_ready=0"* ]]
+  [[ "$output" == *"Operation Trust Chain: ok status=current"* ]]
 
   jq -e '
     .schema_version == "atlas.release_trust.v1" and
     .metadata_only == true and
     .qa.status == "pass" and
-    .readiness.overall == "ready"
+    .readiness.overall == "ready" and
+    .operation_trust_chain.status == "current" and
+    .operation_trust_chain.operation.slug == "trust-lifecycle-op" and
+    .operation_trust_chain.verification.archive_packet == "verified"
   ' "$release_packet_path"
 }
 

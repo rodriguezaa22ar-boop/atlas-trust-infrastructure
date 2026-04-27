@@ -19,7 +19,7 @@ atlas doctor
 atlas v1 status --strict
 atlas v1 status --json
 atlas release packet atlas-current --qa-status pass
-atlas release packet atlas-current --json --qa-status pass
+atlas release packet atlas-current --json --operation april-review --qa-status pass
 atlas release verify atlas-current
 atlas web assess https://example.com example-web-review --scope-status in-scope --api-path /api/auth/me --cors-origin https://example.net
 atlas web validation-plan --all
@@ -134,23 +134,25 @@ graph, evidence, findings, validation, reports, retention packets, and the AI
 advisor surface. `--strict` makes warning or blocked required pillars fail the
 command, and `--json` emits the same contract in machine-readable form.
 
-`atlas release packet [packet-name] [--json]` writes a metadata-only release
-trust packet under `docs/retention/releases/`. Markdown remains the default;
-`--json` writes the same trust record with schema version
+`atlas release packet [packet-name] [--json] [--operation name]` writes a
+metadata-only release trust packet under `docs/retention/releases/`. Markdown
+remains the default; `--json` writes the same trust record with schema version
 `atlas.release_trust.v1`. The packet records the current commit, branch, tags,
 repository cleanliness, upstream sync state, v1 readiness JSON, QA status,
-retained milestone notes, and known limitations without embedding raw runtime
-artifacts, target secrets, session contents, packet captures, or evidence
-bodies. Packet generation fails when the repository is dirty, upstream is not
-synced, or v1 readiness is not `ready` unless the operator passes an explicit
-override such as `--allow-dirty`, `--allow-unsynced`, `--allow-not-ready`, or
-`--force`.
+retained milestone notes, optional operation trust-chain state, and known
+limitations without embedding raw runtime artifacts, target secrets, session
+contents, packet captures, or evidence bodies. Packet generation fails when the
+repository is dirty, upstream is not synced, or v1 readiness is not `ready`.
+When `--operation` is supplied, it also fails unless that operation's trust chain
+is `current`. Operators can override the gates with explicit flags such as
+`--allow-dirty`, `--allow-unsynced`, `--allow-not-ready`, or `--force`.
 
 `atlas release verify [packet]` reads a release trust packet and fails nonzero
 when the packet is stale, incomplete, or inconsistent. It verifies the packet
 header, metadata-only guardrail, commit, clean repository state, synced
 upstream state, passing QA status, embedded v1 readiness JSON, required
-retention notes, and known limitations for both Markdown and JSON packets.
+retention notes, any recorded operation trust-chain state, and known limitations
+for both Markdown and JSON packets.
 
 `atlas web assess <url> [assessment-name]` packetizes a bounded public web
 posture review as an Atlas operation. It creates or reuses a target record,

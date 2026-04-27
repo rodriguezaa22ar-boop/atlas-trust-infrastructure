@@ -54,7 +54,7 @@ Useful commands:
 ./tools/atlas/bin/atlas v1 status --strict
 ./tools/atlas/bin/atlas v1 status --json
 ./tools/atlas/bin/atlas release packet atlas-current --qa-status pass
-./tools/atlas/bin/atlas release packet atlas-current --json --qa-status pass
+./tools/atlas/bin/atlas release packet atlas-current --json --operation april-review --qa-status pass
 ./tools/atlas/bin/atlas release verify atlas-current
 ./tools/atlas/bin/atlas web assess https://example.com example-web-review --scope-status in-scope
 ./tools/atlas/bin/atlas web validation-plan --all
@@ -219,14 +219,17 @@ Atlas now also exposes the operator-level story and reporting layer:
 
 - `atlas v1 status [--strict] [--json]`: read-only product-pillar readiness
   view for the core v1 surface and release-gate style checks
-- `atlas release packet [packet-name] [--json]`: metadata-only release trust
-  packet in Markdown or JSON schema form with commit, tags, v1 readiness JSON,
-  QA status, retention notes, repo sync state, and known limitations; normal
-  packet generation requires a clean, synced, v1-ready repository unless an
-  explicit override flag is used
+- `atlas release packet [packet-name] [--json] [--operation name]`:
+  metadata-only release trust packet in Markdown or JSON schema form with
+  commit, tags, v1 readiness JSON, optional operation trust-chain status, QA
+  status, retention notes, repo sync state, and known limitations; normal packet
+  generation requires a clean, synced, v1-ready repository, and `--operation`
+  also requires a current operation trust chain unless an explicit override flag
+  is used
 - `atlas release verify [packet-name]`: release trust packet verification for
   clean/synced state, passing QA status, required retention notes, known
-  limitations, and embedded v1 readiness JSON in either packet format
+  limitations, embedded v1 readiness JSON, and any recorded operation trust
+  chain in either packet format
 - `atlas web assess <url> [assessment-name]`: bounded public web assessment
   packetization that creates an Atlas operation, stores route/header and
   API/CORS results as evidence, records posture findings, bundles evidence,

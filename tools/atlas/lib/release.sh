@@ -162,9 +162,10 @@ atlas_release_guard_packet() {
   local clean_state="$1"
   local sync_state="$2"
   local v1_overall="$3"
-  local allow_dirty="$4"
-  local allow_unsynced="$5"
-  local allow_not_ready="$6"
+  local operation_trust_status="$4"
+  local allow_dirty="$5"
+  local allow_unsynced="$6"
+  local allow_not_ready="$7"
 
   if [ "$clean_state" != "clean" ] && [ "$allow_dirty" != "1" ]; then
     fail "release packet requires a clean repository; commit or discard changes, or pass --allow-dirty"
@@ -177,6 +178,118 @@ atlas_release_guard_packet() {
   if [ "$v1_overall" != "ready" ] && [ "$allow_not_ready" != "1" ]; then
     fail "release packet requires v1 readiness overall=ready; resolve readiness first, or pass --allow-not-ready"
   fi
+
+  if [ -n "$operation_trust_status" ] && [ "$operation_trust_status" != "current" ] && [ "$allow_not_ready" != "1" ]; then
+    fail "release packet requires operation trust chain status=current; resolve trust chain first, or pass --allow-not-ready"
+  fi
+}
+
+atlas_release_operation_trust_json() {
+  if ! atlas_v1_operation_loaded; then
+    printf 'null\n'
+    return 0
+  fi
+
+  atlas_trust_chain_collect
+
+  jq -n \
+    --arg slug "$ATLAS_OP_SLUG" \
+    --arg name "$ATLAS_OP_NAME" \
+    --arg target "$ATLAS_OP_TARGET" \
+    --arg operation_status "$ATLAS_OP_STATUS" \
+    --arg status "$ATLAS_TRUST_CHAIN_STATUS" \
+    --arg next_step "$ATLAS_TRUST_CHAIN_NEXT_STEP" \
+    --arg close_readiness "$ATLAS_READINESS_STATUS" \
+    --arg v1_overall "$ATLAS_TRUST_V1_OVERALL" \
+    --argjson v1_required_not_ready "${ATLAS_TRUST_V1_REQUIRED_NOT_READY:-0}" \
+    --arg report_freshness "$ATLAS_READINESS_REPORT_FRESHNESS" \
+    --arg bundle_freshness "$ATLAS_READINESS_BUNDLE_FRESHNESS" \
+    --arg handoff_freshness "$ATLAS_READINESS_HANDOFF_FRESHNESS" \
+    --arg closeout_freshness "$ATLAS_READINESS_CLOSEOUT_FRESHNESS" \
+    --arg review_packet_freshness "$ATLAS_READINESS_REVIEW_PACKET_FRESHNESS" \
+    --arg audit_packet_freshness "$ATLAS_READINESS_AUDIT_PACKET_FRESHNESS" \
+    --arg archive_packet_freshness "$ATLAS_READINESS_ARCHIVE_PACKET_FRESHNESS" \
+    --arg closeout_verification "$ATLAS_ARCHIVE_CLOSEOUT_VERIFICATION_STATUS" \
+    --arg review_packet_verification "$ATLAS_ARCHIVE_REVIEW_PACKET_VERIFICATION_STATUS" \
+    --arg audit_packet_verification "$ATLAS_ARCHIVE_AUDIT_PACKET_VERIFICATION_STATUS" \
+    --arg archive_packet_verification "$ATLAS_TRUST_ARCHIVE_PACKET_VERIFICATION_STATUS" \
+    --arg report_path "${ATLAS_READINESS_LATEST_REPORT_PATH:-none}" \
+    --arg closeout_path "${ATLAS_READINESS_LATEST_CLOSEOUT_PATH:-none}" \
+    --arg review_packet_path "${ATLAS_READINESS_LATEST_REVIEW_PACKET_PATH:-none}" \
+    --arg audit_packet_path "${ATLAS_READINESS_LATEST_AUDIT_PACKET_PATH:-none}" \
+    --arg archive_packet_path "${ATLAS_READINESS_LATEST_ARCHIVE_PACKET_PATH:-none}" \
+    --arg ledger_file "$ATLAS_ARCHIVE_LEDGER_FILE" \
+    --argjson ledger_events "${ATLAS_ARCHIVE_LEDGER_EVENTS:-0}" \
+    --arg ledger_sha "$ATLAS_ARCHIVE_LEDGER_SHA" \
+    '{
+      operation: {
+        slug: $slug,
+        name: $name,
+        target: $target,
+        status: $operation_status
+      },
+      status: $status,
+      next_step: $next_step,
+      close_readiness: $close_readiness,
+      v1: {
+        overall: $v1_overall,
+        required_not_ready: $v1_required_not_ready
+      },
+      freshness: {
+        report: $report_freshness,
+        evidence_bundle: $bundle_freshness,
+        handoff: $handoff_freshness,
+        closeout: $closeout_freshness,
+        accepted_risk_review_packet: $review_packet_freshness,
+        audit_packet: $audit_packet_freshness,
+        archive_packet: $archive_packet_freshness
+      },
+      verification: {
+        closeout: $closeout_verification,
+        accepted_risk_review_packet: $review_packet_verification,
+        audit_packet: $audit_packet_verification,
+        archive_packet: $archive_packet_verification
+      },
+      artifacts: {
+        report: $report_path,
+        closeout: $closeout_path,
+        accepted_risk_review_packet: $review_packet_path,
+        audit_packet: $audit_packet_path,
+        archive_packet: $archive_packet_path
+      },
+      ledger: {
+        path: $ledger_file,
+        events: $ledger_events,
+        sha256: $ledger_sha
+      }
+    }'
+}
+
+atlas_release_print_operation_trust() {
+  local operation_trust_json="$1"
+  local value
+
+  if [ -z "$operation_trust_json" ] || [ "$operation_trust_json" = "null" ]; then
+    printf -- '- Operation trust chain: not recorded\n'
+    return 0
+  fi
+
+  value="$(printf '%s\n' "$operation_trust_json" | jq -r '.operation.slug')"
+  printf -- '- Operation ID: %s\n' "$value"
+  value="$(printf '%s\n' "$operation_trust_json" | jq -r '.operation.target')"
+  printf -- '- Operation target: %s\n' "$value"
+  value="$(printf '%s\n' "$operation_trust_json" | jq -r '.status')"
+  printf -- '- Trust chain status: %s\n' "$value"
+  value="$(printf '%s\n' "$operation_trust_json" | jq -r '.close_readiness')"
+  printf -- '- Close readiness: %s\n' "$value"
+  value="$(printf '%s\n' "$operation_trust_json" | jq -r '.v1.overall + " required_not_ready=" + (.v1.required_not_ready | tostring)')"
+  printf -- '- V1 readiness: %s\n' "$value"
+  value="$(printf '%s\n' "$operation_trust_json" | jq -r '.freshness.archive_packet')"
+  printf -- '- Archive packet freshness: %s\n' "$value"
+  value="$(printf '%s\n' "$operation_trust_json" | jq -r '.verification.archive_packet')"
+  printf -- '- Archive packet verification: %s\n' "$value"
+  value="$(printf '%s\n' "$operation_trust_json" | jq -r '.artifacts.archive_packet')"
+  printf -- '- Archive packet: %s\n' "$value"
 }
 
 atlas_release_write_packet() {
@@ -201,6 +314,8 @@ atlas_release_write_packet() {
   local required_not_ready
   local blocked
   local warnings
+  local operation_trust_json
+  local operation_trust_status=""
 
   generated="$(timestamp)"
   commit="$(atlas_release_commit)"
@@ -215,8 +330,12 @@ atlas_release_write_packet() {
   required_not_ready="$(printf '%s\n' "$v1_json" | jq -r '.counts.required_not_ready')"
   blocked="$(printf '%s\n' "$v1_json" | jq -r '.counts.blocked')"
   warnings="$(printf '%s\n' "$v1_json" | jq -r '.counts.warning')"
+  operation_trust_json="$(atlas_release_operation_trust_json)"
+  if [ "$operation_trust_json" != "null" ]; then
+    operation_trust_status="$(printf '%s\n' "$operation_trust_json" | jq -r '.status // ""')"
+  fi
 
-  atlas_release_guard_packet "$clean_state" "$sync_state" "$v1_overall" "$allow_dirty" "$allow_unsynced" "$allow_not_ready"
+  atlas_release_guard_packet "$clean_state" "$sync_state" "$v1_overall" "$operation_trust_status" "$allow_dirty" "$allow_unsynced" "$allow_not_ready"
 
   {
     printf '# Atlas Release Trust Packet\n\n'
@@ -236,6 +355,9 @@ atlas_release_write_packet() {
     printf -- '- Required not ready: %s\n' "$required_not_ready"
     printf -- '- Blocked pillars: %s\n' "$blocked"
     printf -- '- Warning pillars: %s\n' "$warnings"
+
+    printf '\n## Operation Trust Chain\n\n'
+    atlas_release_print_operation_trust "$operation_trust_json"
 
     printf '\n## QA Summary\n\n'
     printf -- '- QA status: %s\n' "$qa_status"
@@ -284,6 +406,8 @@ atlas_release_write_json_packet() {
   local v1_json
   local v1_overall
   local limitations_json
+  local operation_trust_json
+  local operation_trust_status=""
 
   generated="$(timestamp)"
   commit="$(atlas_release_commit)"
@@ -297,8 +421,12 @@ atlas_release_write_json_packet() {
   v1_json="$(atlas_release_v1_json)"
   v1_overall="$(printf '%s\n' "$v1_json" | jq -r '.overall')"
   limitations_json="$(atlas_release_limitations_json "$v1_json")"
+  operation_trust_json="$(atlas_release_operation_trust_json)"
+  if [ "$operation_trust_json" != "null" ]; then
+    operation_trust_status="$(printf '%s\n' "$operation_trust_json" | jq -r '.status // ""')"
+  fi
 
-  atlas_release_guard_packet "$clean_state" "$sync_state" "$v1_overall" "$allow_dirty" "$allow_unsynced" "$allow_not_ready"
+  atlas_release_guard_packet "$clean_state" "$sync_state" "$v1_overall" "$operation_trust_status" "$allow_dirty" "$allow_unsynced" "$allow_not_ready"
 
   jq -n \
     --arg schema_version "atlas.release_trust.v1" \
@@ -317,6 +445,7 @@ atlas_release_write_json_packet() {
     --arg tags_text "$tags" \
     --arg retention_notes_text "$retention_note_paths" \
     --argjson limitations "$limitations_json" \
+    --argjson operation_trust_chain "$operation_trust_json" \
     --argjson readiness "$v1_json" \
     '{
       schema_version: $schema_version,
@@ -340,6 +469,7 @@ atlas_release_write_json_packet() {
       tags: ($tags_text | split("\n") | map(select(length > 0))),
       retention_notes: ($retention_notes_text | split("\n") | map(select(length > 0))),
       known_limitations: $limitations,
+      operation_trust_chain: $operation_trust_chain,
       readiness: $readiness
     }' >"$file"
 }
@@ -447,6 +577,7 @@ atlas_release_verify_json_packet() {
   local qa_status
   local readiness_overall
   local required_not_ready
+  local operation_trust_status
   local note_path
 
   if jq -e '.schema_version == "atlas.release_trust.v1"' "$packet_file" >/dev/null 2>&1; then
@@ -497,6 +628,17 @@ atlas_release_verify_json_packet() {
     atlas_release_verify_row "V1 Readiness" "fail" "overall=${readiness_overall:-missing} required_not_ready=${required_not_ready:-missing}"
   fi
 
+  if jq -e 'has("operation_trust_chain") and .operation_trust_chain != null' "$packet_file" >/dev/null 2>&1; then
+    operation_trust_status="$(jq -r '.operation_trust_chain.status // ""' "$packet_file")"
+    if [ "$operation_trust_status" = "current" ]; then
+      atlas_release_verify_row "Operation Trust Chain" "ok" "status=current"
+    else
+      atlas_release_verify_row "Operation Trust Chain" "fail" "status=${operation_trust_status:-missing}"
+    fi
+  else
+    atlas_release_verify_row "Operation Trust Chain" "ok" "not-recorded"
+  fi
+
   while IFS= read -r note_path; do
     [ -n "$note_path" ] || continue
     note_path="$(atlas_release_display_path "$note_path")"
@@ -533,6 +675,7 @@ atlas_release_verify_packet() {
   local readiness_json
   local readiness_overall=""
   local required_not_ready=""
+  local operation_trust_status=""
   local note_path
 
   [ -f "$packet_file" ] || fail "release trust packet is not a file: $packet_file"
@@ -601,6 +744,17 @@ atlas_release_verify_packet() {
     atlas_release_verify_row "V1 Readiness" "fail" "missing or invalid JSON"
   fi
 
+  operation_trust_status="$(atlas_release_packet_bullet "$packet_file" "Trust chain status")"
+  if [ -n "$operation_trust_status" ]; then
+    if [ "$operation_trust_status" = "current" ]; then
+      atlas_release_verify_row "Operation Trust Chain" "ok" "status=current"
+    else
+      atlas_release_verify_row "Operation Trust Chain" "fail" "status=$operation_trust_status"
+    fi
+  else
+    atlas_release_verify_row "Operation Trust Chain" "ok" "not-recorded"
+  fi
+
   while IFS= read -r note_path; do
     [ -n "$note_path" ] || continue
     note_path="$(atlas_release_display_path "$note_path")"
@@ -639,6 +793,7 @@ cmd_release_packet() {
   local allow_unsynced=0
   local allow_not_ready=0
   local json=0
+  local operation_name=""
 
   while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -659,6 +814,11 @@ cmd_release_packet() {
     --qa-note)
       [ "$#" -ge 2 ] || fail "release packet [packet-name] [--json] [--qa-status status] [--qa-command command] [--qa-note text]"
       qa_note="$2"
+      shift 2
+      ;;
+    --operation)
+      [ "$#" -ge 2 ] || fail "release packet [packet-name] [--json] [--operation name] [--qa-status status] [--qa-command command] [--qa-note text]"
+      operation_name="$2"
       shift 2
       ;;
     --allow-dirty)
@@ -684,7 +844,7 @@ cmd_release_packet() {
       ;;
     *)
       if [ -n "$packet_name" ]; then
-        fail "release packet [packet-name] [--json] [--qa-status status] [--qa-command command] [--qa-note text]"
+        fail "release packet [packet-name] [--json] [--operation name] [--qa-status status] [--qa-command command] [--qa-note text]"
       fi
       packet_name="$1"
       shift
@@ -698,6 +858,10 @@ cmd_release_packet() {
 
   packet_slug="$(slugify "$packet_name")"
   [ -n "$packet_slug" ] || fail "release packet name produced an empty slug"
+
+  if [ -n "$operation_name" ]; then
+    load_atlas_operation "$operation_name"
+  fi
 
   mkdir -p "$packet_dir"
   if [ "$json" = "1" ]; then
