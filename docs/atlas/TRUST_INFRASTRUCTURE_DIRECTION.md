@@ -16,6 +16,9 @@ answer:
 - Can the claim be verified or replayed later?
 - What are the known limitations?
 
+The trust object model is documented at
+[`TRUST_OBJECT_MODEL.md`](TRUST_OBJECT_MODEL.md).
+
 ## Model
 
 Atlas is a metadata-first trust control plane.
@@ -33,12 +36,36 @@ Atlas should store references, hashes, state, timestamps, packet paths, schema
 versions, and verification output. It should not store sensitive business
 content by default.
 
+## Core Principles
+
+1. Metadata-only by default: store identifiers, labels, hashes, timestamps,
+   scopes, freshness, and verification states instead of sensitive contents.
+2. Local-first and shell-native: prefer file-backed, inspectable records and
+   CLI workflows over hidden databases, web dashboards, or cloud services as
+   source of truth.
+3. Evidence before claim: every meaningful statement should link back to hashed
+   evidence, retained artifacts, or an audit trail.
+4. Scope and capability enforcement: target-touching actions should check scope,
+   classify capability tier, log an event, and require approval for Tier 3 and
+   higher validation.
+5. Retention and verification: operations, flows, and releases should generate
+   packets with freshness, hash, and replay metadata.
+6. Explicit readiness levels: distinguish ready-to-refine, release-trust
+   candidate, local production contract, and externally certified states.
+7. Optional expansion: Business Flow Evidence remains optional until schemas,
+   packets, verification, and readiness logic are stable.
+8. Separate domains: Atlas orchestrates while `wiremap`, `vector`, `intelctl`,
+   and `labctl` retain their own responsibilities.
+
 ## Actors
 
 - Operator: runs authorized assessment and verification workflows.
 - Business owner: owns a business process, risk decision, or approval.
 - Reviewer: checks evidence, findings, validation, packets, and limitations.
 - Auditor: inspects retained proof, freshness, replay, and retention history.
+- System owner: owns the environment, service, or asset under review.
+- Release owner: owns release readiness, provenance, dry-run evidence, and
+  release limitations.
 
 ## Objects
 
@@ -58,6 +85,10 @@ content by default.
 - archive packet
 - release packet
 - release provenance packet
+- production dry-run note
+- advisor packet
+- business-flow packet
+- schema contract
 - retention milestone
 
 ## Guarantees
@@ -150,6 +181,19 @@ business flow -> operation -> evidence -> findings -> validation -> report
 Business-flow evidence remains optional until flow records, links, packets,
 verification, negative tests, and readiness integration are stable.
 
+## Invariants
+
+- No secrets in packets or business-flow records.
+- Read-only commands must not mutate state.
+- Append-only ledger events record material state changes.
+- Metadata-only packets store references, hashes, IDs, states, timestamps, and
+  limitations instead of raw content.
+- Tier 3 and higher validation requires explicit approval.
+- Scope and capability checks must precede target-touching workflows.
+- AI Advisor surfaces may summarize and suggest, but must not execute commands
+  or expand scope.
+- `wiremap`, `vector`, `intelctl`, and `labctl` remain separate domain tools.
+
 ## Readiness Language
 
 - `atlas v1 status` reports internal pillar readiness.
@@ -162,13 +206,15 @@ verification, negative tests, and readiness integration are stable.
 ## Near-Term Milestones
 
 1. Keep this trust-infrastructure direction current.
-2. Continue Business Flow Evidence with metadata-only flow packets.
-3. Add `atlas flow verify` for packet and link verification.
-4. Add negative flow verification tests for missing, stale, tampered, or
+2. Keep `docs/atlas/TRUST_OBJECT_MODEL.md` current as the object and packet
+   contract map.
+3. Continue Business Flow Evidence with metadata-only flow packets.
+4. Add `atlas flow verify` for packet and link verification.
+5. Add negative flow verification tests for missing, stale, tampered, or
    secret-bearing metadata.
-5. Add optional Business Flow Evidence readiness integration.
-6. Stabilize flow, packet, audit, archive, release, and trust-chain schemas.
-7. Add packet/replay parity where retained proof needs machine-readable gates.
+6. Add optional Business Flow Evidence readiness integration.
+7. Stabilize flow, packet, audit, archive, release, and trust-chain schemas.
+8. Add packet/replay parity where retained proof needs machine-readable gates.
 
 Do not jump to Atlas OS, web UI, kernel work, ISI runtime, fleet control, SQL
 migration, or autonomous features before the metadata-first trust

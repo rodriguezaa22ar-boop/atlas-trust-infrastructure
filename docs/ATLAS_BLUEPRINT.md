@@ -55,6 +55,9 @@ Does this help the operator stay authorized, organized, evidence-backed, and aud
 The trust-infrastructure direction is recorded in
 `docs/atlas/TRUST_INFRASTRUCTURE_DIRECTION.md`.
 
+The trust object model is recorded in
+`docs/atlas/TRUST_OBJECT_MODEL.md`.
+
 ## Safety Boundaries
 
 Atlas belongs in the control plane, not in the exploit engine.
@@ -438,6 +441,12 @@ The near-term roadmap is:
     overview now frame Atlas as evidence-backed operational proof instead of a
     feature-first security tool. Business Flow Evidence remains optional and the
     next implementation path stays packet, verify, and readiness integration.
+74. Add Atlas trust object model. Atlas now documents the common actor, object,
+    packet, schema, freshness, verification, replay, and retention model behind
+    trust infrastructure. The model keeps release replay wording accurate:
+    `atlas release verify` exists today, operation trust-chain replay happens
+    during release verification, and a future `atlas release replay` command is
+    not claimed until implemented.
 
 ## First Serious Version
 

@@ -91,6 +91,7 @@ make_repo_clean_and_synced() {
   command_ref="$TEST_ROOT/toolkit/docs/COMMAND_REFERENCE.md"
   trust_lifecycle="$TEST_ROOT/toolkit/docs/TRUST_LIFECYCLE.md"
   trust_direction="$TEST_ROOT/toolkit/docs/atlas/TRUST_INFRASTRUCTURE_DIRECTION.md"
+  trust_object_model="$TEST_ROOT/toolkit/docs/atlas/TRUST_OBJECT_MODEL.md"
   operator_guide="$TEST_ROOT/toolkit/docs/OPERATOR_GUIDE.md"
   release_trust="$TEST_ROOT/toolkit/docs/RELEASE_TRUST.md"
   web_assessment="$TEST_ROOT/toolkit/docs/WEB_ASSESSMENT.md"
@@ -101,6 +102,7 @@ make_repo_clean_and_synced() {
   [ -f "$command_ref" ]
   [ -f "$trust_lifecycle" ]
   [ -f "$trust_direction" ]
+  [ -f "$trust_object_model" ]
   [ -f "$operator_guide" ]
   [ -f "$release_trust" ]
   [ -f "$web_assessment" ]
@@ -116,6 +118,7 @@ make_repo_clean_and_synced() {
   grep -q 'docs/COMMAND_REFERENCE.md' "$readme"
   grep -q 'docs/TRUST_LIFECYCLE.md' "$readme"
   grep -q 'docs/atlas/TRUST_INFRASTRUCTURE_DIRECTION.md' "$readme"
+  grep -q 'docs/atlas/TRUST_OBJECT_MODEL.md' "$readme"
   grep -q 'docs/OPERATOR_GUIDE.md' "$readme"
   grep -q 'docs/RELEASE_TRUST.md' "$readme"
   grep -q 'docs/WEB_ASSESSMENT.md' "$readme"
@@ -128,6 +131,7 @@ make_repo_clean_and_synced() {
   grep -q 'Release trust' "$docs_index"
   grep -q 'Production readiness' "$docs_index"
   grep -q 'atlas/TRUST_INFRASTRUCTURE_DIRECTION.md' "$docs_index"
+  grep -q 'atlas/TRUST_OBJECT_MODEL.md' "$docs_index"
   grep -q 'atlas/BUSINESS_FLOW_EVIDENCE.md' "$docs_index"
   grep -q 'Milestones' "$docs_index"
   grep -q 'Agent guidance' "$docs_index"
@@ -155,6 +159,7 @@ make_repo_clean_and_synced() {
 
 @test "atlas trust infrastructure direction preserves metadata-first trust model" {
   trust_direction="$TEST_ROOT/toolkit/docs/atlas/TRUST_INFRASTRUCTURE_DIRECTION.md"
+  trust_object_model="$TEST_ROOT/toolkit/docs/atlas/TRUST_OBJECT_MODEL.md"
   roadmap="$TEST_ROOT/toolkit/docs/ROADMAP.md"
   trust_model="$TEST_ROOT/toolkit/docs/TRUST_MODEL.md"
   blueprint="$TEST_ROOT/toolkit/docs/ATLAS_BLUEPRINT.md"
@@ -163,14 +168,23 @@ make_repo_clean_and_synced() {
 
   grep -q '^# Atlas Trust Infrastructure Direction$' "$trust_direction"
   grep -q 'metadata-first trust control plane' "$trust_direction"
+  grep -q '^## Core Principles$' "$trust_direction"
+  grep -q 'Metadata-only by default' "$trust_direction"
+  grep -q 'Local-first and shell-native' "$trust_direction"
+  grep -q 'Evidence before claim' "$trust_direction"
+  grep -q 'Scope and capability enforcement' "$trust_direction"
+  grep -q 'Separate domains' "$trust_direction"
   grep -q '^## Actors$' "$trust_direction"
   grep -q 'Operator:' "$trust_direction"
   grep -q 'Business owner:' "$trust_direction"
   grep -q 'Reviewer:' "$trust_direction"
   grep -q 'Auditor:' "$trust_direction"
+  grep -q 'System owner:' "$trust_direction"
+  grep -q 'Release owner:' "$trust_direction"
   grep -q '^## Objects$' "$trust_direction"
   grep -q 'business flow' "$trust_direction"
   grep -q 'release provenance packet' "$trust_direction"
+  grep -q 'schema contract' "$trust_direction"
   grep -q '^## Guarantees$' "$trust_direction"
   grep -q 'Scope:' "$trust_direction"
   grep -q 'Metadata-only by default' "$trust_direction"
@@ -189,18 +203,73 @@ make_repo_clean_and_synced() {
   grep -q 'raw request or response bodies' "$trust_direction"
   grep -q '^## Business-Flow Trust Chain$' "$trust_direction"
   grep -q 'business flow -> operation -> evidence' "$trust_direction"
+  grep -q '^## Invariants$' "$trust_direction"
+  grep -q 'Read-only commands must not mutate state' "$trust_direction"
   grep -q '^## Near-Term Milestones$' "$trust_direction"
+  grep -q 'TRUST_OBJECT_MODEL.md' "$trust_direction"
   grep -q 'atlas flow verify' "$trust_direction"
   grep -q 'Do not jump to Atlas OS' "$trust_direction"
 
+  [ -f "$trust_object_model" ]
   grep -q 'trust infrastructure lane' "$roadmap"
+  grep -q 'Trust object model and schema consolidation' "$roadmap"
   grep -q 'Metadata-only Business Flow Evidence packets' "$roadmap"
   grep -q 'Business Flow Evidence verification' "$roadmap"
   grep -q 'metadata-first trust control plane' "$trust_model"
   grep -q 'metadata-only business-flow records and evidence links' "$trust_model"
   grep -q 'metadata-first trust infrastructure' "$blueprint"
   grep -q 'TRUST_INFRASTRUCTURE_DIRECTION.md' "$blueprint"
+  grep -q 'TRUST_OBJECT_MODEL.md' "$blueprint"
   grep -q 'Define Atlas trust infrastructure direction' "$blueprint"
+}
+
+@test "atlas trust object model defines objects packets freshness and replay without overclaiming" {
+  object_model="$TEST_ROOT/toolkit/docs/atlas/TRUST_OBJECT_MODEL.md"
+  schema_index="$TEST_ROOT/toolkit/docs/schemas/README.md"
+  blueprint="$TEST_ROOT/toolkit/docs/ATLAS_BLUEPRINT.md"
+
+  [ -f "$object_model" ]
+
+  grep -q '^# Atlas Trust Object Model$' "$object_model"
+  grep -q '^## Source Of Truth$' "$object_model"
+  grep -q 'global records under `state/atlas/`' "$object_model"
+  grep -q 'operation records under `sessions/<operation>/`' "$object_model"
+  grep -q '^## Actors$' "$object_model"
+  grep -q 'Operator' "$object_model"
+  grep -q 'Business owner' "$object_model"
+  grep -q 'System owner' "$object_model"
+  grep -q 'Release owner' "$object_model"
+  grep -q '^## Trust Objects$' "$object_model"
+  grep -q '| Target |' "$object_model"
+  grep -q '| Business flow |' "$object_model"
+  grep -q '| Ledger event |' "$object_model"
+  grep -q '| Schema contract |' "$object_model"
+  grep -q '^## Packet Classes$' "$object_model"
+  grep -q 'Release provenance packet' "$object_model"
+  grep -q 'Business-flow packet' "$object_model"
+  grep -q 'Packets must not embed raw runtime artifacts' "$object_model"
+  grep -q '^## Schema Contracts$' "$object_model"
+  grep -q 'required fields' "$object_model"
+  grep -q 'forbidden content' "$object_model"
+  grep -q '^## Freshness$' "$object_model"
+  grep -q '`missing`' "$object_model"
+  grep -q '`current`' "$object_model"
+  grep -q '`stale`' "$object_model"
+  grep -q '`blocked`' "$object_model"
+  grep -q '^## Verification$' "$object_model"
+  grep -q 'Verification must fail closed' "$object_model"
+  grep -q '^## Replay$' "$object_model"
+  grep -q 'release packet verification with `atlas release verify`' "$object_model"
+  grep -q 'the command does not exist yet' "$object_model"
+  grep -q '^## Invariants$' "$object_model"
+  grep -q 'No secrets in packets or business-flow records' "$object_model"
+  grep -q 'Read-only commands must not mutate state' "$object_model"
+  grep -q 'Business Flow Evidence remains optional' "$object_model"
+
+  grep -q 'TRUST_OBJECT_MODEL.md' "$schema_index"
+  grep -q 'Add Atlas trust object model' "$blueprint"
+  grep -q '`atlas release replay` command is' "$blueprint"
+  grep -q 'not claimed until implemented' "$blueprint"
 }
 
 @test "business-flow evidence design stays optional and metadata-only" {

@@ -27,6 +27,8 @@ repository in filesystem order.
   detail.
 - [atlas/TRUST_INFRASTRUCTURE_DIRECTION.md](atlas/TRUST_INFRASTRUCTURE_DIRECTION.md):
   trust-infrastructure direction for Atlas.
+- [atlas/TRUST_OBJECT_MODEL.md](atlas/TRUST_OBJECT_MODEL.md): actors, objects,
+  packets, schemas, freshness, verification, replay, and retention.
 - [atlas/BUSINESS_FLOW_EVIDENCE.md](atlas/BUSINESS_FLOW_EVIDENCE.md):
   metadata-only business-flow evidence design.
 

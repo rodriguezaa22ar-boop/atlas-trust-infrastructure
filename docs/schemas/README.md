@@ -9,6 +9,9 @@ These files are not generated JSON Schema documents yet. They are operational
 schema contracts: required fields, allowed meanings, verification rules,
 metadata-only boundaries, and non-goals.
 
+The broader actor, object, packet, freshness, verification, and replay model is
+documented at [../atlas/TRUST_OBJECT_MODEL.md](../atlas/TRUST_OBJECT_MODEL.md).
+
 ## Implemented Contracts
 
 | Schema | Surface | Contract |
