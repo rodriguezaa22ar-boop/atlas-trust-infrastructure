@@ -130,6 +130,7 @@ A future production release should include:
 - all required v1 pillars ready
 - full QA pass immediately before release
 - current Markdown or JSON release trust packet
+- replay verification from a clean checkout of the packet commit
 - verified operation trust-chain sample when the release claims operation-level
   retention coverage
 - retained known limitations

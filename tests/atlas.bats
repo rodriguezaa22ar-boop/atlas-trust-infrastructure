@@ -84,6 +84,20 @@ make_repo_clean_and_synced() {
   grep -q 'retention' "$index_file"
 }
 
+@test "release replay verification runbook preserves clean-checkout procedure" {
+  replay_doc="$TEST_ROOT/toolkit/docs/retention/releases/REPLAY_VERIFICATION.md"
+
+  [ -f "$replay_doc" ]
+  grep -q 'Release replay verification proves' "$replay_doc"
+  grep -q 'git worktree add --detach' "$replay_doc"
+  grep -q "nix-shell --run './bin/dev-qa'" "$replay_doc"
+  grep -q './tools/atlas/bin/atlas v1 status --strict' "$replay_doc"
+  grep -q './tools/atlas/bin/atlas release verify "$packet" --commit "$commit"' "$replay_doc"
+  grep -q 'metadata-only guardrails' "$replay_doc"
+  grep -q 'cryptographic signing' "$replay_doc"
+  grep -q 'Do not repair a failed historical packet in place' "$replay_doc"
+}
+
 @test "atlas help groups target-first workflow and story commands" {
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" help
 

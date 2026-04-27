@@ -167,6 +167,10 @@ packet rules, read-only command expectations, and maturity language.
 The retained milestone chain is indexed in
 [docs/retention/MILESTONE_INDEX.md](./docs/retention/MILESTONE_INDEX.md) so the
 trust history can be reviewed without opening every individual milestone note.
+Release replay procedure is documented in
+[docs/retention/releases/REPLAY_VERIFICATION.md](./docs/retention/releases/REPLAY_VERIFICATION.md)
+for checking retained release packets from a clean checkout of the packet's
+recorded commit.
 
 ## Safety Boundary
 

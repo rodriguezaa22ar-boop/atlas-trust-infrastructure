@@ -328,6 +328,12 @@ The near-term roadmap is:
     trust impact, verification, and tag so the trust history is externally
     legible. The Bats suite checks that every retained milestone note is present
     in the index with its `atlas-retention-mXX` tag.
+58. Add release replay verification guidance.
+    `docs/retention/releases/REPLAY_VERIFICATION.md` now defines how to verify
+    a retained release packet from a clean detached worktree at the packet's
+    recorded commit. The procedure runs v1 readiness, full QA, and release
+    packet verification against that checkout, and the test suite preserves the
+    required replay commands and boundaries.
 
 ## First Serious Version
 

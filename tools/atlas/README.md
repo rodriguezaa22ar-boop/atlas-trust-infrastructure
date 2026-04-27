@@ -168,6 +168,12 @@ chain, verification reloads the local operation and replays the trust-chain
 check, ledger anchor, and archive packet verification instead of treating the
 recorded packet fields as proof by themselves.
 
+Release replay from a clean checkout is documented in
+[`docs/retention/releases/REPLAY_VERIFICATION.md`](../../docs/retention/releases/REPLAY_VERIFICATION.md).
+That procedure checks a retained packet against the commit recorded inside the
+packet, which is necessary when later milestones have advanced the current
+checkout beyond the packet's retained note set.
+
 `atlas web assess <url> [assessment-name]` packetizes a bounded public web
 posture review as an Atlas operation. It creates or reuses a target record,
 checks the root, HTTP origin, metadata routes, common admin-style routes, and

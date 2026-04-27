@@ -41,6 +41,8 @@ A lifecycle proof is current only when:
   candidate is tied to a completed operation, and `atlas release verify` replays
   that operation's trust-chain, ledger, and archive packet state from current
   local operation state
+- retained release packets can be replayed from a clean checkout of the packet
+  commit using `docs/retention/releases/REPLAY_VERIFICATION.md`
 
 ## Verified Path
 
