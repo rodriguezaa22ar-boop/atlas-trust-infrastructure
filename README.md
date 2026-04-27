@@ -182,6 +182,11 @@ Implemented schema-versioned JSON contracts are documented in
 An end-to-end local operator walkthrough is available in
 [docs/demo/DEMO_OPERATION.md](./docs/demo/DEMO_OPERATION.md), with trust-chain
 reading guidance and sample output shapes in [docs/demo/](./docs/demo/).
+External positioning and safety docs are captured in [docs/TRUST_MODEL.md](./docs/TRUST_MODEL.md),
+[docs/SECURITY_MODEL.md](./docs/SECURITY_MODEL.md),
+[docs/RESPONSIBLE_USE.md](./docs/RESPONSIBLE_USE.md),
+[docs/KNOWN_LIMITATIONS.md](./docs/KNOWN_LIMITATIONS.md), and
+[docs/ROADMAP.md](./docs/ROADMAP.md).
 
 ## Safety Boundary
 

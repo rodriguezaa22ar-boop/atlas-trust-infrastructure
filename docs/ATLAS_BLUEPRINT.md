@@ -355,6 +355,10 @@ The near-term roadmap is:
     report, handoff, closeout, audit, archive, trust-chain JSON, and
     release-bound verification. The docs include expected retained artifacts,
     trust-chain reading guidance, sample output shapes, and stop conditions.
+63. Add external legibility docs. The repository now has explicit trust model,
+    security model, responsible use, known limitations, and roadmap documents
+    so Atlas can be explained without overclaiming production readiness or
+    offensive autonomy.
 
 ## First Serious Version
 

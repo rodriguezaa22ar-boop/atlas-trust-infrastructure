@@ -198,6 +198,50 @@ make_repo_clean_and_synced() {
   grep -q 'Trust Chain Status: attention-required' "$samples_doc"
 }
 
+@test "external legibility docs preserve Atlas trust boundaries" {
+  docs_dir="$TEST_ROOT/toolkit/docs"
+  trust_doc="$docs_dir/TRUST_MODEL.md"
+  security_doc="$docs_dir/SECURITY_MODEL.md"
+  responsible_doc="$docs_dir/RESPONSIBLE_USE.md"
+  limitations_doc="$docs_dir/KNOWN_LIMITATIONS.md"
+  roadmap_doc="$docs_dir/ROADMAP.md"
+
+  [ -f "$trust_doc" ]
+  [ -f "$security_doc" ]
+  [ -f "$responsible_doc" ]
+  [ -f "$limitations_doc" ]
+  [ -f "$roadmap_doc" ]
+
+  grep -q 'shell-native control plane for authorized security assessment' "$trust_doc"
+  grep -q 'workflows' "$trust_doc"
+  grep -q 'not production-certified' "$trust_doc"
+  grep -q 'release signing/provenance' "$trust_doc"
+  grep -q 'retained' "$trust_doc"
+  grep -q 'production dry-run' "$trust_doc"
+
+  grep -q 'Authorized Use' "$security_doc"
+  grep -q 'Tier 5: destructive, blocked by default' "$security_doc"
+  grep -q 'Metadata-only packets must not include raw runtime artifacts' "$security_doc"
+  grep -q 'production-certified security infrastructure' "$security_doc"
+
+  grep -q 'Use it only where' "$responsible_doc"
+  grep -q 'you have permission' "$responsible_doc"
+  grep -q 'Disallowed Workflows' "$responsible_doc"
+  grep -q 'autonomous exploitation' "$responsible_doc"
+  grep -q 'must not be' "$responsible_doc"
+  grep -q 'treated as an execution engine' "$responsible_doc"
+
+  grep -q 'ready-to-refine, not production-certified' "$limitations_doc"
+  grep -q 'Release trust packets are not cryptographically signed' "$limitations_doc"
+  grep -q 'Production readiness is blocked' "$limitations_doc"
+  grep -q 'Avoid describing Atlas as production-ready' "$limitations_doc"
+
+  grep -q 'trust consolidation lane' "$roadmap_doc"
+  grep -q 'CI / GitHub Actions QA gate' "$roadmap_doc"
+  grep -q 'Atlas OS' "$roadmap_doc"
+  grep -q 'Do not jump to Atlas' "$roadmap_doc"
+}
+
 @test "atlas help groups target-first workflow and story commands" {
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" help
 
