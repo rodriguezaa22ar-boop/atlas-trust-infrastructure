@@ -339,6 +339,12 @@ The near-term roadmap is:
     `atlas.operation_trust_chain.v1` JSON, including readiness, freshness,
     verification, artifacts, ledger anchors, and operation-scoped v1 readiness.
     Strict mode still fails nonzero unless the trust chain is current.
+60. Add packet format parity tracking. `docs/atlas/PACKET_FORMAT_PARITY.md`
+    now records which Atlas packet and status surfaces have machine-readable
+    JSON contracts, which packet surfaces remain Markdown-only gaps, and what
+    metadata-only guardrails each future JSON packet must preserve. The test
+    suite checks that implemented schemas and missing packet gaps remain
+    explicit.
 
 ## First Serious Version
 

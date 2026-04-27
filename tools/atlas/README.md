@@ -174,6 +174,13 @@ That procedure checks a retained packet against the commit recorded inside the
 packet, which is necessary when later milestones have advanced the current
 checkout beyond the packet's retained note set.
 
+Packet format parity is tracked in
+[`docs/atlas/PACKET_FORMAT_PARITY.md`](../../docs/atlas/PACKET_FORMAT_PARITY.md).
+That matrix records which human-readable packet/status surfaces already have
+machine-readable JSON contracts and which remain planned gaps. JSON parity does
+not mean embedding raw evidence or target data; packet JSON remains
+metadata-only and must carry the same trust-critical status as the human view.
+
 `atlas web assess <url> [assessment-name]` packetizes a bounded public web
 posture review as an Atlas operation. It creates or reuses a target record,
 checks the root, HTTP origin, metadata routes, common admin-style routes, and

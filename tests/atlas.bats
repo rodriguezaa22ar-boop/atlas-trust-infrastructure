@@ -98,6 +98,30 @@ make_repo_clean_and_synced() {
   grep -q 'Do not repair a failed historical packet in place' "$replay_doc"
 }
 
+@test "packet format parity matrix records implemented JSON and packet gaps" {
+  parity_doc="$TEST_ROOT/toolkit/docs/atlas/PACKET_FORMAT_PARITY.md"
+
+  [ -f "$parity_doc" ]
+  grep -q '^# Atlas Packet Format Parity$' "$parity_doc"
+  grep -q 'Markdown is for operators and retained review' "$parity_doc"
+  grep -q 'JSON is for gates, replay,' "$parity_doc"
+  grep -q 'future Atlas OS consumers' "$parity_doc"
+  grep -q '## Current Matrix' "$parity_doc"
+  grep -q 'atlas.release_trust.v1' "$parity_doc"
+  grep -q 'atlas.production_readiness.v1' "$parity_doc"
+  grep -q 'atlas.operation_trust_chain.v1' "$parity_doc"
+  grep -q '`atlas op archive-packet`' "$parity_doc"
+  grep -q '`atlas op audit-packet`' "$parity_doc"
+  grep -q '`atlas op closeout`' "$parity_doc"
+  grep -q '`atlas op handoff`' "$parity_doc"
+  grep -q '`atlas finding review-packet`' "$parity_doc"
+  grep -q '`atlas advisor prompt`' "$parity_doc"
+  grep -q '## Missing JSON Packet Surfaces' "$parity_doc"
+  grep -q '1. archive packet' "$parity_doc"
+  grep -q 'metadata-only assertion' "$parity_doc"
+  grep -q 'raw runtime artifacts' "$parity_doc"
+}
+
 @test "atlas help groups target-first workflow and story commands" {
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" help
 
