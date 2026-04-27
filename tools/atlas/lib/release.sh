@@ -568,6 +568,117 @@ atlas_release_verify_row() {
   [ "$status" = "ok" ] || atlas_release_verify_failures=$((atlas_release_verify_failures + 1))
 }
 
+atlas_release_replay_operation_trust_json() {
+  local operation_slug="$1"
+  local current_json
+  local operation_file
+
+  [ -n "$operation_slug" ] || return 1
+  operation_file="$(atlas_op_file_for_slug "$(session_slug_for "$operation_slug")")"
+  [ -f "$operation_file" ] || return 1
+
+  load_atlas_operation "$operation_slug"
+  current_json="$(atlas_release_operation_trust_json)"
+  [ -n "$current_json" ] && [ "$current_json" != "null" ] || return 1
+  printf '%s\n' "$current_json"
+}
+
+atlas_release_verify_operation_trust_json() {
+  local packet_file="$1"
+  local operation_slug
+  local packet_status
+  local current_json
+  local current_status
+  local packet_ledger_events
+  local current_ledger_events
+  local packet_ledger_sha
+  local current_ledger_sha
+  local packet_archive_path
+  local current_archive_path
+  local packet_archive_verification
+  local current_archive_verification
+
+  if ! jq -e 'has("operation_trust_chain") and .operation_trust_chain != null' "$packet_file" >/dev/null 2>&1; then
+    atlas_release_verify_row "Operation Trust Chain" "ok" "not-recorded"
+    return 0
+  fi
+
+  operation_slug="$(jq -r '.operation_trust_chain.operation.slug // ""' "$packet_file")"
+  packet_status="$(jq -r '.operation_trust_chain.status // ""' "$packet_file")"
+  if [ -z "$operation_slug" ]; then
+    atlas_release_verify_row "Operation Trust Chain" "fail" "operation=missing status=${packet_status:-missing}"
+    return 0
+  fi
+
+  current_json="$(atlas_release_replay_operation_trust_json "$operation_slug" 2>/dev/null || true)"
+  if [ -z "$current_json" ]; then
+    atlas_release_verify_row "Operation Trust Chain" "fail" "operation=$operation_slug replay=missing"
+    return 0
+  fi
+
+  current_status="$(printf '%s\n' "$current_json" | jq -r '.status // ""')"
+  if [ "$packet_status" = "current" ] && [ "$current_status" = "current" ]; then
+    atlas_release_verify_row "Operation Trust Chain" "ok" "status=current replay=current operation=$operation_slug"
+  else
+    atlas_release_verify_row "Operation Trust Chain" "fail" "packet_status=${packet_status:-missing} replay_status=${current_status:-missing} operation=$operation_slug"
+  fi
+
+  packet_ledger_events="$(jq -r '.operation_trust_chain.ledger.events // ""' "$packet_file")"
+  current_ledger_events="$(printf '%s\n' "$current_json" | jq -r '.ledger.events // ""')"
+  packet_ledger_sha="$(jq -r '.operation_trust_chain.ledger.sha256 // ""' "$packet_file")"
+  current_ledger_sha="$(printf '%s\n' "$current_json" | jq -r '.ledger.sha256 // ""')"
+  if [ "$packet_ledger_events" = "$current_ledger_events" ] && [ "$packet_ledger_sha" = "$current_ledger_sha" ]; then
+    atlas_release_verify_row "Operation Ledger Replay" "ok" "events=$current_ledger_events sha256=$current_ledger_sha"
+  else
+    atlas_release_verify_row "Operation Ledger Replay" "fail" "packet_events=${packet_ledger_events:-missing} replay_events=${current_ledger_events:-missing} packet_sha=${packet_ledger_sha:-missing} replay_sha=${current_ledger_sha:-missing}"
+  fi
+
+  packet_archive_path="$(jq -r '.operation_trust_chain.artifacts.archive_packet // ""' "$packet_file")"
+  current_archive_path="$(printf '%s\n' "$current_json" | jq -r '.artifacts.archive_packet // ""')"
+  packet_archive_verification="$(jq -r '.operation_trust_chain.verification.archive_packet // ""' "$packet_file")"
+  current_archive_verification="$(printf '%s\n' "$current_json" | jq -r '.verification.archive_packet // ""')"
+  if [ "$packet_archive_path" = "$current_archive_path" ] &&
+    [ "$packet_archive_verification" = "verified" ] &&
+    [ "$current_archive_verification" = "verified" ]; then
+    atlas_release_verify_row "Operation Archive Replay" "ok" "verification=verified packet=$current_archive_path"
+  else
+    atlas_release_verify_row "Operation Archive Replay" "fail" "packet_verification=${packet_archive_verification:-missing} replay_verification=${current_archive_verification:-missing} packet_path=${packet_archive_path:-missing} replay_path=${current_archive_path:-missing}"
+  fi
+}
+
+atlas_release_verify_operation_trust_markdown() {
+  local packet_file="$1"
+  local operation_slug
+  local packet_status
+  local current_json
+  local current_status
+
+  operation_slug="$(atlas_release_packet_bullet "$packet_file" "Operation ID")"
+  packet_status="$(atlas_release_packet_bullet "$packet_file" "Trust chain status")"
+  if [ -z "$operation_slug" ] && [ -z "$packet_status" ]; then
+    atlas_release_verify_row "Operation Trust Chain" "ok" "not-recorded"
+    return 0
+  fi
+
+  if [ -z "$operation_slug" ]; then
+    atlas_release_verify_row "Operation Trust Chain" "fail" "operation=missing status=${packet_status:-missing}"
+    return 0
+  fi
+
+  current_json="$(atlas_release_replay_operation_trust_json "$operation_slug" 2>/dev/null || true)"
+  if [ -z "$current_json" ]; then
+    atlas_release_verify_row "Operation Trust Chain" "fail" "operation=$operation_slug replay=missing"
+    return 0
+  fi
+
+  current_status="$(printf '%s\n' "$current_json" | jq -r '.status // ""')"
+  if [ "$packet_status" = "current" ] && [ "$current_status" = "current" ]; then
+    atlas_release_verify_row "Operation Trust Chain" "ok" "status=current replay=current operation=$operation_slug"
+  else
+    atlas_release_verify_row "Operation Trust Chain" "fail" "packet_status=${packet_status:-missing} replay_status=${current_status:-missing} operation=$operation_slug"
+  fi
+}
+
 atlas_release_verify_json_packet() {
   local packet_file="$1"
   local expected_commit="$2"
@@ -577,7 +688,6 @@ atlas_release_verify_json_packet() {
   local qa_status
   local readiness_overall
   local required_not_ready
-  local operation_trust_status
   local note_path
 
   if jq -e '.schema_version == "atlas.release_trust.v1"' "$packet_file" >/dev/null 2>&1; then
@@ -628,16 +738,7 @@ atlas_release_verify_json_packet() {
     atlas_release_verify_row "V1 Readiness" "fail" "overall=${readiness_overall:-missing} required_not_ready=${required_not_ready:-missing}"
   fi
 
-  if jq -e 'has("operation_trust_chain") and .operation_trust_chain != null' "$packet_file" >/dev/null 2>&1; then
-    operation_trust_status="$(jq -r '.operation_trust_chain.status // ""' "$packet_file")"
-    if [ "$operation_trust_status" = "current" ]; then
-      atlas_release_verify_row "Operation Trust Chain" "ok" "status=current"
-    else
-      atlas_release_verify_row "Operation Trust Chain" "fail" "status=${operation_trust_status:-missing}"
-    fi
-  else
-    atlas_release_verify_row "Operation Trust Chain" "ok" "not-recorded"
-  fi
+  atlas_release_verify_operation_trust_json "$packet_file"
 
   while IFS= read -r note_path; do
     [ -n "$note_path" ] || continue
@@ -675,7 +776,6 @@ atlas_release_verify_packet() {
   local readiness_json
   local readiness_overall=""
   local required_not_ready=""
-  local operation_trust_status=""
   local note_path
 
   [ -f "$packet_file" ] || fail "release trust packet is not a file: $packet_file"
@@ -744,16 +844,7 @@ atlas_release_verify_packet() {
     atlas_release_verify_row "V1 Readiness" "fail" "missing or invalid JSON"
   fi
 
-  operation_trust_status="$(atlas_release_packet_bullet "$packet_file" "Trust chain status")"
-  if [ -n "$operation_trust_status" ]; then
-    if [ "$operation_trust_status" = "current" ]; then
-      atlas_release_verify_row "Operation Trust Chain" "ok" "status=current"
-    else
-      atlas_release_verify_row "Operation Trust Chain" "fail" "status=$operation_trust_status"
-    fi
-  else
-    atlas_release_verify_row "Operation Trust Chain" "ok" "not-recorded"
-  fi
+  atlas_release_verify_operation_trust_markdown "$packet_file"
 
   while IFS= read -r note_path; do
     [ -n "$note_path" ] || continue

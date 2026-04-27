@@ -229,7 +229,8 @@ Atlas now also exposes the operator-level story and reporting layer:
 - `atlas release verify [packet-name]`: release trust packet verification for
   clean/synced state, passing QA status, required retention notes, known
   limitations, embedded v1 readiness JSON, and any recorded operation trust
-  chain in either packet format
+  chain; when an operation chain is recorded, verification replays the current
+  local operation trust-chain result instead of trusting the packet field alone
 - `atlas web assess <url> [assessment-name]`: bounded public web assessment
   packetization that creates an Atlas operation, stores route/header and
   API/CORS results as evidence, records posture findings, bundles evidence,

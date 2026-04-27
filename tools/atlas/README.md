@@ -152,7 +152,9 @@ when the packet is stale, incomplete, or inconsistent. It verifies the packet
 header, metadata-only guardrail, commit, clean repository state, synced
 upstream state, passing QA status, embedded v1 readiness JSON, required
 retention notes, any recorded operation trust-chain state, and known limitations
-for both Markdown and JSON packets.
+for both Markdown and JSON packets. When a packet records an operation trust
+chain, verification reloads the local operation and replays the trust-chain
+check instead of treating the recorded packet status as proof by itself.
 
 `atlas web assess <url> [assessment-name]` packetizes a bounded public web
 posture review as an Atlas operation. It creates or reuses a target record,

@@ -2691,6 +2691,8 @@ EOF
   [[ "$output" == *"QA Status: ok pass"* ]]
   [[ "$output" == *"V1 Readiness: ok overall=ready required_not_ready=0"* ]]
   [[ "$output" == *"Operation Trust Chain: ok status=current"* ]]
+  [[ "$output" == *"Operation Ledger Replay: ok"* ]]
+  [[ "$output" == *"Operation Archive Replay: ok verification=verified"* ]]
 
   jq -e '
     .schema_version == "atlas.release_trust.v1" and
@@ -2701,6 +2703,12 @@ EOF
     .operation_trust_chain.operation.slug == "trust-lifecycle-op" and
     .operation_trust_chain.verification.archive_packet == "verified"
   ' "$release_packet_path"
+
+  printf '\nrelease candidate report changed after release packet\n' >> "$report_path"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release verify "$release_packet_path"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Operation Trust Chain: fail packet_status=current replay_status=attention-required operation=trust-lifecycle-op"* ]]
+  [[ "$output" == *"Operation Archive Replay: fail"* ]]
 }
 
 @test "atlas operation close can force closure with readiness snapshot" {

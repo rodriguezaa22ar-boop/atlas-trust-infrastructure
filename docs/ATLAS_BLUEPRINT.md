@@ -294,6 +294,11 @@ The near-term roadmap is:
     before writing the release trust packet, embeds the operation trust-chain
     summary in Markdown and JSON release packets, and verifies any recorded
     operation trust-chain status during `atlas release verify`.
+52. Add release candidate trust-chain replay verification. `atlas release
+    verify` now reloads any operation recorded in a release packet, recomputes
+    the current operation trust-chain result, compares ledger and archive packet
+    replay state, and fails if the packet's recorded trust-chain claim no
+    longer matches live retained operation state.
 
 ## First Serious Version
 
