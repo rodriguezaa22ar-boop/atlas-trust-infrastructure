@@ -1,0 +1,34 @@
+{
+  "schema_version": "atlas.release_provenance.v1",
+  "generated": "2026-04-27T20:03:19Z",
+  "metadata_only": true,
+  "commit": "85c68f9e8cedce4eb6dcfb385095962631abe9b1",
+  "signed_tag": {
+    "name": "atlas-production-candidate-m72",
+    "target": "85c68f9e8cedce4eb6dcfb385095962631abe9b1",
+    "tag_object": "bbc03ba1369d1c0c4fe914fd8a4edbd8e1c19940",
+    "verification": "verified",
+    "signer_fingerprint": "24B1E00EEB286B966F9FCE0C9C6439E15BBFD290",
+    "public_key_path": "docs/retention/releases/atlas-m67-release-signing-public-key.asc",
+    "public_key_sha256": "c08e7454ee3ab72a39286f61efd4deca8fbe0ef3fe20844771ff5735da6a79d5"
+  },
+  "release_packet": {
+    "path": "docs/retention/releases/atlas-m72-business-flow-evidence-links.json",
+    "sha256": "4ee29050ebc541839aba482b7f705ea4cc2e846c504deda34954950c41e12b8b"
+  },
+  "qa": {
+    "status": "pass",
+    "command": "nix-shell --run './bin/dev-qa'",
+    "note": "dev-qa passed before M72 business-flow evidence links release packet"
+  },
+  "production_status": {
+    "observed": "not-ready",
+    "note": "signing provenance and dry-run evidence were pending before retaining this packet set"
+  },
+  "known_limitations": [
+    "local signed-tag provenance is not an external audit",
+    "release packet files are hash-bound by provenance but are not individually signed",
+    "Atlas production status is a local contract, not deployment certification"
+  ],
+  "no_production_overclaim": true
+}
