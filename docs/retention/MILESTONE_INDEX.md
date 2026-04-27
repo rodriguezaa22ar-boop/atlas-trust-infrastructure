@@ -62,6 +62,7 @@ changes, verification output, repo state, and boundaries for that milestone.
 | [65](milestones/MILESTONE_65.md) | `cd257b18692b20410a271469caedce16e845d764` | retained production dry-run gate | release-trust | yes | Makes production dry-run readiness depend on retained evidence instead of a hard-coded blocker. | production focused test: 1/1; `dev-qa`: 81/81 | `atlas-retention-m65` |
 | [66](milestones/MILESTONE_66.md) | `fb3017b200bc7ce9b636105308dfcaa21d26e3b1` | current release trust packet | release-trust | no | Retains a verified JSON release packet and matching production dry-run note for the same release commit. | `dev-qa`: 81/81; release verify: pass | `atlas-retention-m66` |
 | [67](milestones/MILESTONE_67.md) | `3e2a8b734fed694b350c4916c242c5e2ffd80e76` | signed release provenance | release-trust | yes | Makes signing/provenance depend on a retained release provenance packet, release packet hash, signed tag, and retained public key. | production focused test: 1/1; schema/parity focused tests: 2/2; `dev-qa`: 81/81; release verify: pass | `atlas-retention-m67` |
+| [68](milestones/MILESTONE_68.md) | `adc5cf3afcb734f1d106f26de04d9083057a9bbc` | README landing page split | docs-only | no | Turns the root README into a short reviewer landing page and moves heavy command/workflow material into dedicated docs. | README focused test: 1/1; docs focused tests: 3/3; `dev-qa`: 82/82 | `atlas-retention-m68` |
 
 ## Category Notes
 
