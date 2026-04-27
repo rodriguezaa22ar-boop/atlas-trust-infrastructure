@@ -271,6 +271,11 @@ The near-term roadmap is:
     explicit governance command for re-reviewing accepted findings, renewing
     owner/expiry metadata, preserving review history, and recording a dedicated
     `finding.reviewed` ledger event.
+47. Add accepted-risk review queue. `atlas finding review-queue` now lists
+    accepted risks for the active operation by `expired`, `due-soon`,
+    `no-expiry`, or `current` state using a configurable review window, giving
+    operators a read-only workload view before expired acceptances block
+    closeout.
 
 ## First Serious Version
 

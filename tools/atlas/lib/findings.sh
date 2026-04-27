@@ -891,6 +891,148 @@ cmd_finding_review() {
   fi
 }
 
+atlas_findings_validate_review_window() {
+  local window="$1"
+
+  case "$window" in
+  "" | *[!0-9]*)
+    fail "review window must be a non-negative integer number of days"
+    ;;
+  esac
+}
+
+atlas_findings_review_due_date() {
+  local today="$1"
+  local window="$2"
+
+  date -u -d "$today + $window days" +%F 2>/dev/null ||
+    fail "could not calculate accepted-risk review window from date '$today'"
+}
+
+atlas_findings_review_queue_rows() {
+  local target="$1"
+  local today="$2"
+  local due_by="$3"
+  local index_file
+
+  index_file="$(atlas_findings_index_file "$ATLAS_OP_DIR")"
+  [ -s "$index_file" ] || return 0
+
+  jq -sr \
+    --arg target "$target" \
+    --arg today "$today" \
+    --arg due_by "$due_by" '
+      def accepted_until_date:
+        ((.accepted_until // "") | tostring | if length >= 10 then .[0:10] else . end);
+      def review_state:
+        if accepted_until_date == "" then "no-expiry"
+        elif accepted_until_date < $today then "expired"
+        elif accepted_until_date <= $due_by then "due-soon"
+        else "current" end;
+      def state_weight($state):
+        if $state == "expired" then 0
+        elif $state == "due-soon" then 1
+        elif $state == "no-expiry" then 2
+        else 3 end;
+      reduce .[] as $record ({}; .[$record.id] = $record)
+      | [.[]]
+      | map(select(
+          ($target == "" or .target == $target)
+          and ((.status // "open") == "accepted")
+        ))
+      | sort_by([state_weight(review_state), accepted_until_date, .id])
+      | .[]
+      | [
+          (.id // "?"),
+          review_state,
+          accepted_until_date,
+          (.accepted_owner // ""),
+          (.severity // "info"),
+          (.level // "inferred"),
+          (.title // "untitled finding"),
+          (.review_reason // .accepted_reason // "")
+        ]
+      | @tsv
+    ' "$index_file"
+}
+
+atlas_findings_review_queue_state_count() {
+  local rows="$1"
+  local state="$2"
+
+  if [ -z "$rows" ]; then
+    printf '0\n'
+    return 0
+  fi
+
+  printf '%s\n' "$rows" |
+    awk -F'\t' -v wanted="$state" '$2 == wanted { count++ } END { print count + 0 }'
+}
+
+cmd_finding_review_queue() {
+  local window="30"
+  local today
+  local due_by
+  local rows
+  local expired_count
+  local due_soon_count
+  local current_count
+  local no_expiry_count
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+    --within | --window)
+      need_args 2 "$#" "finding review-queue --within <days>"
+      window="$2"
+      shift 2
+      ;;
+    *)
+      fail "unknown finding review-queue option: $1"
+      ;;
+    esac
+  done
+
+  atlas_findings_validate_review_window "$window"
+  load_active_operation
+  today="$(atlas_readiness_today)"
+  due_by="$(atlas_findings_review_due_date "$today" "$window")"
+  rows="$(atlas_findings_review_queue_rows "$ATLAS_OP_TARGET" "$today" "$due_by")"
+  expired_count="$(atlas_findings_review_queue_state_count "$rows" "expired")"
+  due_soon_count="$(atlas_findings_review_queue_state_count "$rows" "due-soon")"
+  current_count="$(atlas_findings_review_queue_state_count "$rows" "current")"
+  no_expiry_count="$(atlas_findings_review_queue_state_count "$rows" "no-expiry")"
+
+  ui_heading "Accepted Risk Review Queue"
+  ui_rule
+  ui_kv "Operation" "$ATLAS_OP_NAME"
+  ui_kv "Target" "$ATLAS_OP_TARGET"
+  ui_kv "Today" "$today"
+  ui_kv "Review Window" "$window days"
+  ui_kv "Due By" "$due_by"
+  ui_kv "Expired" "$expired_count"
+  ui_kv "Due Soon" "$due_soon_count"
+  ui_kv "No Expiry" "$no_expiry_count"
+  ui_kv "Current" "$current_count"
+  ui_rule
+
+  if [ -z "$rows" ]; then
+    ui_note "no accepted risks recorded"
+    return 0
+  fi
+
+  printf '%-24s %-10s %-10s %-12s %-8s %-10s %s\n' "ID" "STATE" "EXPIRES" "OWNER" "SEVERITY" "LEVEL" "TITLE"
+  printf '%s\n' "$rows" |
+    awk -F'\t' '{
+      expires = $3 == "" ? "-" : $3
+      owner = $4 == "" ? "-" : $4
+      printf "%-24s %-10s %-10s %-12s %-8s %-10s %s", $1, $2, expires, owner, $5, $6, $7
+      if ($8 != "") {
+        printf " reason=%s", $8
+      }
+      printf "\n"
+    }'
+}
+
 cmd_finding_list() {
   local index_file
 

@@ -36,6 +36,9 @@ atlas evidence list
 atlas evidence show ev_...
 atlas finding add "SSH reachable" --level observed --severity low --evidence ev_...
 atlas finding update finding_... --level validated --validation vp_... --note "confirmed by validation run"
+atlas finding accept finding_... --reason "owner accepts residual exposure" --owner Alta --expires 2026-12-31
+atlas finding review finding_... --reason "owner renewed acceptance" --owner Alta --expires 2027-03-31
+atlas finding review-queue --within 30
 atlas finding resolve finding_... --validation vp_... --note "remediation confirmed"
 atlas finding list
 atlas finding show finding_...
@@ -324,6 +327,7 @@ atlas finding review finding_20260425T201000Z \
   --reason "owner renewed acceptance after review" \
   --owner "Alta" \
   --expires 2027-03-31
+atlas finding review-queue --within 30
 atlas finding show finding_20260425T201000Z
 ```
 
@@ -346,6 +350,10 @@ audit, and v1 status flag the finding for review before clean closure.
 `atlas finding review <id> --reason <text>` is the explicit renewal path for an
 accepted risk. It only applies to accepted findings, records review metadata,
 can update owner/expiry, and appends a `finding.reviewed` ledger event.
+`atlas finding review-queue [--within days]` is a read-only review workload view
+for the active operation. It groups accepted risks as `expired`, `due-soon`,
+`no-expiry`, or `current` so owners can review risk acceptances before expiry
+blocks closeout.
 
 Operation reports now render recorded findings instead of only leaving a
 placeholder.

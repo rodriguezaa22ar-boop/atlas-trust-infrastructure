@@ -59,6 +59,7 @@ make_repo_clean_and_synced() {
   [[ "$output" == *"atlas finding update <id> [--level level] [--status status]"* ]]
   [[ "$output" == *"atlas finding accept <id> --reason text"* ]]
   [[ "$output" == *"atlas finding review <id> --reason text"* ]]
+  [[ "$output" == *"atlas finding review-queue [--within days]"* ]]
   [[ "$output" == *"atlas finding resolve <id> [--evidence id] [--validation id]"* ]]
   [[ "$output" == *"atlas validation plan <lane> [--finding id] [--evidence id]"* ]]
   [[ "$output" == *"atlas validation retest <id> --result resolved|still-open"* ]]
@@ -2083,6 +2084,109 @@ EOF
   jq -e --arg finding_id "$finding_id" \
     'select(.event == "finding.reviewed" and (.detail | contains($finding_id)) and (.detail | contains("owner renewed acceptance after review")))' \
     "$TEST_ROOT/toolkit/sessions/expired-risk-op/ledger.ndjson"
+}
+
+@test "atlas finding review-queue classifies accepted risks by review state" {
+  mkdir -p "$TEST_ROOT/toolkit/targets"
+  cat > "$TEST_ROOT/toolkit/targets/demo-node.env" <<'EOF'
+NAME=demo-node
+ADDRESS=10.10.10.10
+SCOPE_STATUS=in-scope
+CRITICALITY=medium
+CREATED_AT=2026-04-23T20:53:16Z
+EOF
+  artifact="$TEST_ROOT/review-queue-artifact.txt"
+  printf 'accepted-risk review queue evidence\n' > "$artifact"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op start review-queue-op demo-node authorized accepted risk review queue
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence add "$artifact" --kind scan-output --classification public
+  [ "$status" -eq 0 ]
+  evidence_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  [ -n "$evidence_id" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding add "Expired accepted risk" \
+    --level observed \
+    --severity high \
+    --confidence high \
+    --evidence "$evidence_id"
+  [ "$status" -eq 0 ]
+  expired_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  [ -n "$expired_id" ]
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding accept "$expired_id" \
+    --reason "owner accepts expired lab risk" \
+    --owner "Alta" \
+    --expires "2026-04-01" \
+    --evidence "$evidence_id"
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding add "Soon due accepted risk" \
+    --level observed \
+    --severity medium \
+    --confidence high \
+    --evidence "$evidence_id"
+  [ "$status" -eq 0 ]
+  due_soon_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  [ -n "$due_soon_id" ]
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding accept "$due_soon_id" \
+    --reason "owner accepts near-term lab risk" \
+    --owner "Alta" \
+    --expires "2026-05-10" \
+    --evidence "$evidence_id"
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding add "Current accepted risk" \
+    --level observed \
+    --severity low \
+    --confidence medium \
+    --evidence "$evidence_id"
+  [ "$status" -eq 0 ]
+  current_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  [ -n "$current_id" ]
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding accept "$current_id" \
+    --reason "owner accepts long-term lab risk" \
+    --owner "Alta" \
+    --expires "2999-12-31" \
+    --evidence "$evidence_id"
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding add "No expiry accepted risk" \
+    --level inferred \
+    --severity info \
+    --confidence medium \
+    --evidence "$evidence_id"
+  [ "$status" -eq 0 ]
+  no_expiry_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  [ -n "$no_expiry_id" ]
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding accept "$no_expiry_id" \
+    --reason "owner accepts lab risk without expiry" \
+    --owner "Alta" \
+    --evidence "$evidence_id"
+  [ "$status" -eq 0 ]
+
+  run env ATLAS_TODAY=2026-04-27 "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding review-queue --within 30
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Accepted Risk Review Queue"* ]]
+  [[ "$output" == *"Today: 2026-04-27"* ]]
+  [[ "$output" == *"Review Window: 30 days"* ]]
+  [[ "$output" == *"Due By: 2026-05-27"* ]]
+  [[ "$output" == *"Expired: 1"* ]]
+  [[ "$output" == *"Due Soon: 1"* ]]
+  [[ "$output" == *"No Expiry: 1"* ]]
+  [[ "$output" == *"Current: 1"* ]]
+  [[ "$output" == *"$expired_id"* ]]
+  [[ "$output" == *"expired"* ]]
+  [[ "$output" == *"$due_soon_id"* ]]
+  [[ "$output" == *"due-soon"* ]]
+  [[ "$output" == *"$current_id"* ]]
+  [[ "$output" == *"current"* ]]
+  [[ "$output" == *"$no_expiry_id"* ]]
+  [[ "$output" == *"no-expiry"* ]]
+
+  run env ATLAS_TODAY=2026-04-27 "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding review-queue --within nope
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"review window must be a non-negative integer number of days"* ]]
 }
 
 @test "atlas operation archive summarizes final verification state" {

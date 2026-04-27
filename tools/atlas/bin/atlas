@@ -111,6 +111,7 @@ usage:
   atlas finding update <id> [--level level] [--status status]
   atlas finding accept <id> --reason text [--owner owner] [--expires date]
   atlas finding review <id> --reason text [--owner owner] [--expires date]
+  atlas finding review-queue [--within days]
   atlas finding resolve <id> [--evidence id] [--validation id]
   atlas finding list
   atlas finding show <id>
@@ -284,6 +285,9 @@ evidence:
 findings:
   atlas finding add <title> [--level observed|inferred|validated] [--severity severity] [--confidence confidence]
   atlas finding update <id> [--level level] [--status status] [--evidence id] [--validation id] [--note text]
+  atlas finding accept <id> --reason text [--owner owner] [--expires date]
+  atlas finding review <id> --reason text [--owner owner] [--expires date]
+  atlas finding review-queue [--within days]
   atlas finding resolve <id> [--evidence id] [--validation id] [--note text]
   atlas finding list
   atlas finding show <id>
@@ -2094,6 +2098,10 @@ finding | findings)
 	review)
 		shift
 		cmd_finding_review "$@"
+		;;
+	review-queue)
+		shift
+		cmd_finding_review_queue "$@"
 		;;
 	resolve)
 		shift
