@@ -179,6 +179,9 @@ operation trust-chain status; audit, archive, closeout, handoff, accepted-risk
 review, and advisor prompt packets remain documented gaps until implemented.
 Implemented schema-versioned JSON contracts are documented in
 [docs/schemas/](./docs/schemas/).
+An end-to-end local operator walkthrough is available in
+[docs/demo/DEMO_OPERATION.md](./docs/demo/DEMO_OPERATION.md), with trust-chain
+reading guidance and sample output shapes in [docs/demo/](./docs/demo/).
 
 ## Safety Boundary
 

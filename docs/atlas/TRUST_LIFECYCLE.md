@@ -73,6 +73,13 @@ atlas release packet trust-lifecycle-m36 --json --operation trust-lifecycle-op -
 atlas release verify trust-lifecycle-m36
 ```
 
+## Operator Walkthrough
+
+A practical local demo operation is documented in
+[`docs/demo/DEMO_OPERATION.md`](../demo/DEMO_OPERATION.md). It shows the same
+trust lifecycle with operator-facing commands, retained artifact expectations,
+trust-chain reading guidance, and sample output shapes.
+
 ## Boundaries
 
 This lifecycle proves metadata integrity and freshness across the Atlas control

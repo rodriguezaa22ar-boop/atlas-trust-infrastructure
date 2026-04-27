@@ -350,6 +350,11 @@ The near-term roadmap is:
     readiness status, and operation trust-chain status. Each contract records
     required fields, verification rules, metadata boundaries, and non-goals so
     future JSON packet work has a stable pattern.
+62. Add operator demo walkthrough. `docs/demo/` now explains a local
+    end-to-end Atlas operation from scope and evidence through validation,
+    report, handoff, closeout, audit, archive, trust-chain JSON, and
+    release-bound verification. The docs include expected retained artifacts,
+    trust-chain reading guidance, sample output shapes, and stop conditions.
 
 ## First Serious Version
 

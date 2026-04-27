@@ -163,6 +163,41 @@ make_repo_clean_and_synced() {
   grep -q 'Expanding operation scope' "$trust_chain_schema"
 }
 
+@test "demo walkthrough preserves full Atlas trust path" {
+  demo_dir="$TEST_ROOT/toolkit/docs/demo"
+  demo_doc="$demo_dir/DEMO_OPERATION.md"
+  trust_doc="$demo_dir/TRUST_CHAIN_WALKTHROUGH.md"
+  samples_doc="$demo_dir/SAMPLE_OUTPUTS.md"
+
+  [ -f "$demo_doc" ]
+  [ -f "$trust_doc" ]
+  [ -f "$samples_doc" ]
+
+  grep -q 'authorized local demo operation' "$demo_doc"
+  grep -q './tools/atlas/bin/atlas op start' "$demo_doc"
+  grep -q './tools/atlas/bin/atlas evidence add' "$demo_doc"
+  grep -q './tools/atlas/bin/atlas validation approve' "$demo_doc"
+  grep -q './tools/atlas/bin/atlas op report' "$demo_doc"
+  grep -q './tools/atlas/bin/atlas op handoff' "$demo_doc"
+  grep -q './tools/atlas/bin/atlas op closeout' "$demo_doc"
+  grep -q './tools/atlas/bin/atlas op audit-packet' "$demo_doc"
+  grep -q './tools/atlas/bin/atlas op archive-packet' "$demo_doc"
+  grep -q './tools/atlas/bin/atlas op trust-chain demo-operation --json' "$demo_doc"
+  grep -q './tools/atlas/bin/atlas release packet demo-operation-release --json --operation demo-operation --qa-status pass' "$demo_doc"
+  grep -q 'raw secrets, packet captures, credentials, tokens' "$demo_doc"
+  grep -q 'Stop Conditions' "$demo_doc"
+
+  grep -q 'metadata-only' "$trust_doc"
+  grep -q 'docs/schemas/operation-trust-chain.v1.md' "$trust_doc"
+  grep -q 'must replay' "$trust_doc"
+  grep -q 'Production readiness remains blocked' "$trust_doc"
+
+  grep -q 'Trust Chain Status: current' "$samples_doc"
+  grep -q '"schema_version": "atlas.operation_trust_chain.v1"' "$samples_doc"
+  grep -q 'Schema: ok atlas.release_trust.v1' "$samples_doc"
+  grep -q 'Trust Chain Status: attention-required' "$samples_doc"
+}
+
 @test "atlas help groups target-first workflow and story commands" {
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" help
 
