@@ -324,7 +324,7 @@ atlas_v1_collect_operation_readiness() {
       "tests/atlas.bats finding lifecycle and accepted-risk tests" \
       "atlas finding add; atlas finding update; atlas finding accept; atlas finding resolve" \
       "operation finding index" \
-      "finding records are NDJSON files"
+      "finding records are NDJSON files; accepted-risk expiry is checked during operation readiness"
     atlas_v1_add_pillar \
       "validation" \
       "Validation" \
@@ -388,6 +388,17 @@ atlas_v1_collect_operation_readiness() {
       "atlas finding list; atlas finding accept; atlas finding resolve" \
       "${ATLAS_OP_DIR}/findings.ndjson" \
       "accepted-risk workflow is file-backed and metadata-only"
+  elif [ "$ATLAS_READINESS_EXPIRED_ACCEPTED_RISK_COUNT" -gt 0 ]; then
+    atlas_v1_add_pillar \
+      "findings" \
+      "Findings" \
+      1 \
+      "warning" \
+      "operation has expired accepted risks: $ATLAS_READINESS_EXPIRED_ACCEPTED_RISK_COUNT" \
+      "tests/atlas.bats accepted-risk expiry tests" \
+      "atlas finding list; atlas finding accept; atlas op readiness" \
+      "${ATLAS_OP_DIR}/findings.ndjson" \
+      "accepted-risk expiry is date-based; no reminder scheduler yet"
   else
     atlas_v1_add_pillar \
       "findings" \
@@ -398,7 +409,7 @@ atlas_v1_collect_operation_readiness() {
       "tests/atlas.bats finding lifecycle and accepted-risk tests" \
       "atlas finding list; atlas finding accept; atlas finding resolve" \
       "${ATLAS_OP_DIR}/findings.ndjson" \
-      "accepted-risk workflow is file-backed and metadata-only"
+      "accepted-risk workflow is file-backed and metadata-only; expiry is checked during operation readiness"
   fi
 
   if [ "$ATLAS_READINESS_PENDING_VALIDATION_COUNT" -gt 0 ]; then

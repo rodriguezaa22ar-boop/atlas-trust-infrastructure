@@ -10,6 +10,10 @@ atlas_readiness_count_rows() {
   fi
 }
 
+atlas_readiness_today() {
+  printf '%s\n' "${ATLAS_TODAY:-$(date -u +%F)}"
+}
+
 atlas_readiness_open_findings_rows() {
   local target="$1"
   local limit="${2:-8}"
@@ -59,6 +63,64 @@ atlas_readiness_open_findings_count() {
   atlas_readiness_count_rows "$rows"
 }
 
+atlas_readiness_expired_accepted_risk_rows() {
+  local target="$1"
+  local limit="${2:-8}"
+  local findings_file
+  local today
+
+  [ -n "${ATLAS_OP_DIR:-}" ] || return 0
+  findings_file="$(atlas_findings_index_file "$ATLAS_OP_DIR")"
+  [ -s "$findings_file" ] || return 0
+  today="$(atlas_readiness_today)"
+
+  jq -sr \
+    --arg target "$target" \
+    --arg today "$today" \
+    --argjson limit "$limit" '
+      def severity_weight:
+        if . == "critical" then 5
+        elif . == "high" then 4
+        elif . == "medium" then 3
+        elif . == "low" then 2
+        elif . == "info" then 1
+        else 0 end;
+      def accepted_until_date:
+        ((.accepted_until // "") | tostring | if length >= 10 then .[0:10] else . end);
+      reduce .[] as $record ({}; .[$record.id] = $record)
+      | [.[]]
+      | map(select(
+          ($target == "" or .target == $target)
+          and ((.status // "open") == "accepted")
+          and (accepted_until_date != "")
+          and (accepted_until_date < $today)
+        ))
+      | sort_by([accepted_until_date, ((.severity // "info") | severity_weight), (.updated_at // .created_at // ""), .id])
+      | reverse
+      | .[:$limit]
+      | .[]
+      | [
+          (.id // "?"),
+          (.severity // "info"),
+          (.level // "inferred"),
+          (.status // "accepted"),
+          (.title // "untitled finding"),
+          accepted_until_date,
+          (.accepted_owner // ""),
+          (.accepted_reason // "")
+        ]
+      | @tsv
+    ' "$findings_file"
+}
+
+atlas_readiness_expired_accepted_risk_count() {
+  local target="$1"
+  local rows
+
+  rows="$(atlas_readiness_expired_accepted_risk_rows "$target" 1000000)"
+  atlas_readiness_count_rows "$rows"
+}
+
 atlas_readiness_print_open_findings() {
   local target="$1"
   local output
@@ -72,6 +134,26 @@ atlas_readiness_print_open_findings() {
     printf '%s\n' "$output"
   else
     ui_note "no unresolved findings remain"
+  fi
+}
+
+atlas_readiness_print_expired_accepted_risks() {
+  local target="$1"
+  local output
+
+  output="$(
+    atlas_readiness_expired_accepted_risk_rows "$target" 8 |
+      awk -F'\t' '{
+        owner = $7 == "" ? "-" : $7
+        reason = $8 == "" ? "-" : $8
+        printf "%-24s %-8s %-10s expires=%-10s owner=%-12s %s reason=%s\n", $1, $2, $3, $6, owner, $5, reason
+      }'
+  )"
+
+  if [ -n "$output" ]; then
+    printf '%s\n' "$output"
+  else
+    ui_note "no expired accepted risks detected"
   fi
 }
 
@@ -193,6 +275,7 @@ atlas_readiness_latest_material_change() {
         "artifact.redacted",
         "finding.recorded",
         "finding.updated",
+        "finding.accepted",
         "approval.granted",
         "validation.planned",
         "validation.approved",
@@ -329,11 +412,14 @@ atlas_readiness_next_step() {
   local audit_packet_freshness="${13}"
   local latest_archive_packet="${14}"
   local archive_packet_freshness="${15}"
+  local expired_accepted_count="${16:-0}"
 
   if [ "$pending_count" -gt 0 ]; then
     printf 'Run or retire pending validation before closure.\n'
   elif [ "$open_count" -gt 0 ]; then
     printf 'Resolve, accept, or retest unresolved findings before closure.\n'
+  elif [ "$expired_accepted_count" -gt 0 ]; then
+    printf 'Review expired accepted risks before closure.\n'
   elif [ "$evidence_count" -eq 0 ]; then
     printf 'Add at least one evidence record before closure.\n'
   elif [ -z "$latest_report" ]; then
@@ -371,8 +457,9 @@ atlas_readiness_status() {
   local pending_count="$3"
   local latest_report="$4"
   local report_freshness="$5"
+  local expired_accepted_count="${6:-0}"
 
-  if [ "$pending_count" -gt 0 ] || [ "$open_count" -gt 0 ] || [ "$evidence_count" -eq 0 ] || [ -z "$latest_report" ] || [ "$report_freshness" = "stale" ]; then
+  if [ "$pending_count" -gt 0 ] || [ "$open_count" -gt 0 ] || [ "$expired_accepted_count" -gt 0 ] || [ "$evidence_count" -eq 0 ] || [ -z "$latest_report" ] || [ "$report_freshness" = "stale" ]; then
     printf 'attention-required\n'
   else
     printf 'ready\n'
@@ -391,6 +478,7 @@ atlas_readiness_collect() {
   local finding_count
   local validation_count
   local open_count
+  local expired_accepted_count
   local pending_count
   local latest_report
   local latest_report_at=""
@@ -434,6 +522,7 @@ atlas_readiness_collect() {
   finding_count="$(atlas_findings_count_for_target "$target")"
   validation_count="$(atlas_validation_count_for_target "$target")"
   open_count="$(atlas_readiness_open_findings_count "$target")"
+  expired_accepted_count="$(atlas_readiness_expired_accepted_risk_count "$target")"
   pending_count="$(atlas_readiness_pending_validation_count "$target")"
   latest_report="$(atlas_cycle_latest_report)"
   latest_bundle="$(atlas_readiness_latest_bundle)"
@@ -483,13 +572,14 @@ atlas_readiness_collect() {
   closeout_freshness="$(atlas_readiness_closeout_freshness "$latest_closeout_at" "$latest_change_at" "$latest_report_at" "$latest_bundle_at" "$latest_handoff_at")"
   audit_packet_freshness="$(atlas_readiness_audit_packet_freshness "$latest_audit_packet_at" "$latest_audit_packet_change_at")"
   archive_packet_freshness="$(atlas_readiness_archive_packet_freshness "$latest_archive_packet_at" "$latest_ledger_at")"
-  readiness="$(atlas_readiness_status "$evidence_count" "$open_count" "$pending_count" "$latest_report" "$report_freshness")"
-  next_step="$(atlas_readiness_next_step "$evidence_count" "$open_count" "$pending_count" "$latest_report" "$latest_bundle" "$report_freshness" "$bundle_freshness" "$latest_handoff" "$handoff_freshness" "$latest_closeout" "$closeout_freshness" "$latest_audit_packet" "$audit_packet_freshness" "$latest_archive_packet" "$archive_packet_freshness")"
+  readiness="$(atlas_readiness_status "$evidence_count" "$open_count" "$pending_count" "$latest_report" "$report_freshness" "$expired_accepted_count")"
+  next_step="$(atlas_readiness_next_step "$evidence_count" "$open_count" "$pending_count" "$latest_report" "$latest_bundle" "$report_freshness" "$bundle_freshness" "$latest_handoff" "$handoff_freshness" "$latest_closeout" "$closeout_freshness" "$latest_audit_packet" "$audit_packet_freshness" "$latest_archive_packet" "$archive_packet_freshness" "$expired_accepted_count")"
 
   ATLAS_READINESS_EVIDENCE_COUNT="$evidence_count"
   ATLAS_READINESS_FINDING_COUNT="$finding_count"
   ATLAS_READINESS_VALIDATION_COUNT="$validation_count"
   ATLAS_READINESS_OPEN_FINDINGS_COUNT="$open_count"
+  ATLAS_READINESS_EXPIRED_ACCEPTED_RISK_COUNT="$expired_accepted_count"
   ATLAS_READINESS_PENDING_VALIDATION_COUNT="$pending_count"
   ATLAS_READINESS_LATEST_REPORT="$latest_report"
   ATLAS_READINESS_LATEST_REPORT_AT="$latest_report_at"
@@ -531,10 +621,11 @@ atlas_readiness_collect() {
 atlas_readiness_ledger_detail() {
   local force="${1:-0}"
 
-  printf 'readiness=%s evidence=%s open_findings=%s pending_validation=%s report_freshness=%s bundle_freshness=%s handoff_freshness=%s closeout_freshness=%s audit_packet_freshness=%s archive_packet_freshness=%s latest_report=%s latest_change=%s evidence_bundle=%s handoff=%s closeout=%s audit_packet=%s archive_packet=%s force=%s' \
+  printf 'readiness=%s evidence=%s open_findings=%s expired_accepted_risks=%s pending_validation=%s report_freshness=%s bundle_freshness=%s handoff_freshness=%s closeout_freshness=%s audit_packet_freshness=%s archive_packet_freshness=%s latest_report=%s latest_change=%s evidence_bundle=%s handoff=%s closeout=%s audit_packet=%s archive_packet=%s force=%s' \
     "${ATLAS_READINESS_STATUS:-unknown}" \
     "${ATLAS_READINESS_EVIDENCE_COUNT:-0}" \
     "${ATLAS_READINESS_OPEN_FINDINGS_COUNT:-0}" \
+    "${ATLAS_READINESS_EXPIRED_ACCEPTED_RISK_COUNT:-0}" \
     "${ATLAS_READINESS_PENDING_VALIDATION_COUNT:-0}" \
     "${ATLAS_READINESS_REPORT_FRESHNESS:-unknown}" \
     "${ATLAS_READINESS_BUNDLE_FRESHNESS:-unknown}" \
@@ -565,6 +656,7 @@ atlas_readiness_print() {
   ui_kv "Evidence Records" "$ATLAS_READINESS_EVIDENCE_COUNT"
   ui_kv "Findings" "$ATLAS_READINESS_FINDING_COUNT"
   ui_kv "Open Findings" "$ATLAS_READINESS_OPEN_FINDINGS_COUNT"
+  ui_kv "Expired Accepted Risks" "$ATLAS_READINESS_EXPIRED_ACCEPTED_RISK_COUNT"
   ui_kv "Validation Plans" "$ATLAS_READINESS_VALIDATION_COUNT"
   ui_kv "Pending Validation" "$ATLAS_READINESS_PENDING_VALIDATION_COUNT"
   if [ -n "$ATLAS_READINESS_LATEST_REPORT" ]; then
@@ -623,6 +715,9 @@ atlas_readiness_print() {
   ui_rule
   ui_subheading "Open Findings"
   atlas_readiness_print_open_findings "$target"
+  ui_rule
+  ui_subheading "Expired Accepted Risks"
+  atlas_readiness_print_expired_accepted_risks "$target"
   ui_rule
   ui_subheading "Pending Validation"
   atlas_readiness_print_pending_validation "$target"

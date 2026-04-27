@@ -221,6 +221,15 @@ atlas_audit_print_flags() {
     printf 'stale archive packet: %s\n' "${ATLAS_READINESS_LATEST_ARCHIVE_PACKET_PATH:-none}"
     flag_count=$((flag_count + 1))
   fi
+  if [ "${ATLAS_READINESS_EXPIRED_ACCEPTED_RISK_COUNT:-0}" -gt 0 ]; then
+    atlas_readiness_expired_accepted_risk_rows "$ATLAS_OP_TARGET" 1000000 |
+      awk -F'\t' '{
+        owner = $7 == "" ? "-" : $7
+        reason = $8 == "" ? "-" : $8
+        printf "expired accepted risk: %s expires=%s owner=%s severity=%s level=%s title=%s reason=%s\n", $1, $6, owner, $2, $3, $5, reason
+      }'
+    flag_count=$((flag_count + ATLAS_READINESS_EXPIRED_ACCEPTED_RISK_COUNT))
+  fi
 
   verification="$(atlas_audit_closeout_verification_status)"
   IFS=$'\t' read -r verification_status verification_path verification_problems <<<"$verification"

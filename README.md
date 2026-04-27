@@ -259,7 +259,7 @@ Atlas now also exposes the operator-level story and reporting layer:
   updates with validation links and notes while preserving finding history
 - `atlas finding accept <id> --reason <text>`: record accepted-risk ownership,
   reason, optional expiry, and evidence links while making readiness treat the
-  finding as non-blocking
+  finding as non-blocking until any recorded expiry date has passed
 - `atlas validation plan <lane>`: plan, approve, run, retest, and supersede
   bounded validation when an executed run is replaced by a successful rerun
 - `atlas validation retest <id>`: promotes confirmed findings to validated
@@ -270,8 +270,8 @@ Atlas now also exposes the operator-level story and reporting layer:
 - `atlas op report [name] [report-name]`: Markdown assessment brief with
   executive summary, grouped findings, remediation priorities, and validation status
 - `atlas op readiness [name]`: closure readiness check for unresolved findings,
-  pending validation, evidence, report, bundle, handoff, closeout, and audit
-  packet and archive packet freshness
+  expired accepted risks, pending validation, evidence, report, bundle,
+  handoff, closeout, and audit packet and archive packet freshness
 - `atlas op handoff [name] [handoff-name]`: metadata-only handoff packet with
   readiness, freshness state, report, bundle, findings, validation, and ledger pointers
 - `atlas op closeout [name] [manifest-name]`: metadata-only audit manifest with

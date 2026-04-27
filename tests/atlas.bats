@@ -1881,14 +1881,14 @@ EOF
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding accept "$finding_id" \
     --reason "owner accepts residual lab exposure" \
     --owner "Alta" \
-    --expires "2026-12-31" \
+    --expires "2999-12-31" \
     --evidence "$evidence_id"
   [ "$status" -eq 0 ]
   [[ "$output" == *"finding accepted"* ]]
   [[ "$output" == *"status: accepted"* ]]
   [[ "$output" == *"reason: owner accepts residual lab exposure"* ]]
   [[ "$output" == *"owner: Alta"* ]]
-  [[ "$output" == *"expires: 2026-12-31"* ]]
+  [[ "$output" == *"expires: 2999-12-31"* ]]
 
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding update "$finding_id" \
     --note "acceptance reviewed during closeout"
@@ -1901,14 +1901,16 @@ EOF
   [[ "$output" == *"Status: accepted"* ]]
   [[ "$output" == *"Accepted Reason: owner accepts residual lab exposure"* ]]
   [[ "$output" == *"Accepted Owner: Alta"* ]]
-  [[ "$output" == *"Accepted Until: 2026-12-31"* ]]
+  [[ "$output" == *"Accepted Until: 2999-12-31"* ]]
   [[ "$output" == *"Accepted By:"* ]]
   [[ "$output" == *"Latest Note: acceptance reviewed during closeout"* ]]
 
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op readiness accepted-risk-op
   [ "$status" -eq 0 ]
   [[ "$output" == *"Open Findings: 0"* ]]
+  [[ "$output" == *"Expired Accepted Risks: 0"* ]]
   [[ "$output" == *"no unresolved findings remain"* ]]
+  [[ "$output" == *"no expired accepted risks detected"* ]]
   [[ "$output" == *"Report Freshness: missing"* ]]
 
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op report accepted-risk-op accepted-risk-report
@@ -1917,22 +1919,108 @@ EOF
   [ -f "$report_path" ]
   grep -q 'Accepted risk: owner accepts residual lab exposure' "$report_path"
   grep -q 'Owner: Alta' "$report_path"
-  grep -q 'Accepted until: 2026-12-31' "$report_path"
+  grep -q 'Accepted until: 2999-12-31' "$report_path"
 
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op readiness accepted-risk-op
   [ "$status" -eq 0 ]
   [[ "$output" == *"Open Findings: 0"* ]]
+  [[ "$output" == *"Expired Accepted Risks: 0"* ]]
   [[ "$output" == *"Report Freshness: current"* ]]
   [[ "$output" == *"Close Readiness: ready"* ]]
 
   jq -s -e \
     --arg finding_id "$finding_id" \
     --arg evidence_id "$evidence_id" \
-    'map(select(.id == $finding_id)) | last | select(.status == "accepted" and .accepted_reason == "owner accepts residual lab exposure" and .accepted_owner == "Alta" and .accepted_until == "2026-12-31" and (.evidence | index($evidence_id)))' \
+    'map(select(.id == $finding_id)) | last | select(.status == "accepted" and .accepted_reason == "owner accepts residual lab exposure" and .accepted_owner == "Alta" and .accepted_until == "2999-12-31" and (.evidence | index($evidence_id)))' \
     "$TEST_ROOT/toolkit/sessions/accepted-risk-op/findings.ndjson"
   jq -e --arg finding_id "$finding_id" \
     'select(.event == "finding.accepted" and (.detail | contains($finding_id)) and (.detail | contains("owner accepts residual lab exposure")))' \
     "$TEST_ROOT/toolkit/sessions/accepted-risk-op/ledger.ndjson"
+}
+
+@test "atlas expired accepted risks block closure and surface in audit and v1 status" {
+  mkdir -p "$TEST_ROOT/toolkit/targets"
+  cat > "$TEST_ROOT/toolkit/targets/demo-node.env" <<'EOF'
+NAME=demo-node
+ADDRESS=10.10.10.10
+SCOPE_STATUS=in-scope
+CRITICALITY=medium
+CREATED_AT=2026-04-23T20:53:16Z
+EOF
+  artifact="$TEST_ROOT/expired-risk-artifact.txt"
+  printf 'ssh reachable from authorized test node\n' > "$artifact"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op start expired-risk-op demo-node authorized expired risk review
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence add "$artifact" --kind scan-output --classification public
+  [ "$status" -eq 0 ]
+  evidence_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  [ -n "$evidence_id" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding add "SSH management reachable" \
+    --level observed \
+    --severity medium \
+    --confidence high \
+    --evidence "$evidence_id" \
+    --recommendation "Restrict SSH to the management subnet"
+  [ "$status" -eq 0 ]
+  finding_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  [ -n "$finding_id" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding accept "$finding_id" \
+    --reason "owner accepts residual lab exposure through review date" \
+    --owner "Alta" \
+    --expires "2026-04-01" \
+    --evidence "$evidence_id"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"status: accepted"* ]]
+  [[ "$output" == *"expires: 2026-04-01"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op report expired-risk-op expired-risk-report
+  [ "$status" -eq 0 ]
+  report_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "report" { print $2; exit }')"
+  [ -f "$report_path" ]
+
+  run env ATLAS_TODAY=2026-04-27 "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op readiness expired-risk-op
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Open Findings: 0"* ]]
+  [[ "$output" == *"Expired Accepted Risks: 1"* ]]
+  [[ "$output" == *"Report Freshness: current"* ]]
+  [[ "$output" == *"Close Readiness: attention-required"* ]]
+  [[ "$output" == *"Review expired accepted risks before closure."* ]]
+  [[ "$output" == *"$finding_id"* ]]
+  [[ "$output" == *"expires=2026-04-01"* ]]
+  [[ "$output" == *"owner=Alta"* ]]
+
+  run env ATLAS_TODAY=2026-04-27 "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op close expired-risk-op
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Expired Accepted Risks: 1"* ]]
+  [[ "$output" == *"operation is not ready to close; address readiness items or rerun with --force"* ]]
+  grep -q '^STATUS=active$' "$TEST_ROOT/toolkit/sessions/expired-risk-op/session.env"
+
+  run env ATLAS_TODAY=2026-04-27 "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op audit expired-risk-op
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"expired accepted risk: $finding_id expires=2026-04-01 owner=Alta"* ]]
+
+  run env ATLAS_TODAY=2026-04-27 "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" v1 status expired-risk-op --strict
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Findings"* ]]
+  [[ "$output" == *"warning"* ]]
+  [[ "$output" == *"operation has expired accepted risks: 1"* ]]
+  [[ "$output" == *"Overall: not ready"* ]]
+
+  run env ATLAS_TODAY=2026-04-27 "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op handoff expired-risk-op expired-risk-handoff
+  [ "$status" -eq 0 ]
+  handoff_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "handoff" { print $2; exit }')"
+  [ -f "$handoff_path" ]
+  grep -q 'Close readiness: attention-required' "$handoff_path"
+  grep -q 'Expired accepted risks: 1' "$handoff_path"
+
+  jq -s -e \
+    --arg finding_id "$finding_id" \
+    'map(select(.id == $finding_id)) | last | select(.status == "accepted" and .accepted_until == "2026-04-01")' \
+    "$TEST_ROOT/toolkit/sessions/expired-risk-op/findings.ndjson"
 }
 
 @test "atlas operation archive summarizes final verification state" {

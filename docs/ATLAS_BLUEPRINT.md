@@ -263,6 +263,10 @@ The near-term roadmap is:
     accepted-risk reason, operator, optional owner, optional expiry, and
     supporting evidence or validation links on the append-only finding history,
     making accepted findings auditable and non-blocking for readiness.
+45. Add accepted-risk expiry review. Readiness now counts accepted findings with
+    past expiry dates as expired accepted risks, blocks clean closure until they
+    are reviewed, and surfaces the same review gate in audit flags, handoff,
+    closeout, archive, and v1 status output.
 
 ## First Serious Version
 

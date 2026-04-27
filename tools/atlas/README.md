@@ -336,7 +336,9 @@ the full history with evidence, validation plan links, status, and notes.
 `atlas finding accept <id> --reason <text>` records explicit accepted-risk
 metadata on the same append-only history: reason, operator, optional owner,
 optional expiry, and supporting evidence or validation links. Accepted findings
-are visible in reports but no longer block operation readiness.
+are visible in reports but no longer block operation readiness while the
+acceptance is current. When an accepted-risk expiry date has passed, readiness,
+audit, and v1 status flag the finding for review before clean closure.
 
 Operation reports now render recorded findings instead of only leaving a
 placeholder.

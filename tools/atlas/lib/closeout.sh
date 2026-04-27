@@ -147,6 +147,7 @@ atlas_closeout_write_manifest() {
     printf -- '- Evidence records: %s\n' "$ATLAS_READINESS_EVIDENCE_COUNT"
     printf -- '- Findings: %s\n' "$ATLAS_READINESS_FINDING_COUNT"
     printf -- '- Open findings: %s\n' "$ATLAS_READINESS_OPEN_FINDINGS_COUNT"
+    printf -- '- Expired accepted risks: %s\n' "$ATLAS_READINESS_EXPIRED_ACCEPTED_RISK_COUNT"
     printf -- '- Validation plans: %s\n' "$ATLAS_READINESS_VALIDATION_COUNT"
     printf -- '- Pending validation: %s\n' "$ATLAS_READINESS_PENDING_VALIDATION_COUNT"
     printf -- '- Report freshness: %s\n' "$ATLAS_READINESS_REPORT_FRESHNESS"
