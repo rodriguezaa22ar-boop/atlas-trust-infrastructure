@@ -171,7 +171,7 @@ quick flow:
   atlas op archive [name]
   atlas op archive-packet [name] [packet-name]
   atlas op archive-verify [name] [archive-packet]
-  atlas op trust-chain [name] [--strict]
+  atlas op trust-chain [name] [--strict] [--json]
   atlas op close [name] [--force]
 
 targets:
@@ -207,7 +207,7 @@ operations:
   atlas op archive [name]
   atlas op archive-packet [name] [packet-name]
   atlas op archive-verify [name] [archive-packet]
-  atlas op trust-chain [name] [--strict]
+  atlas op trust-chain [name] [--strict] [--json]
   atlas op next
   atlas op close [name] [--force]
   atlas op recon <workflow> [interface]

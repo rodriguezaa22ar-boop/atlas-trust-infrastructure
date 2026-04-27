@@ -331,9 +331,10 @@ Atlas now also exposes the operator-level story and reporting layer:
   artifact pointers
 - `atlas op archive-verify [name] [archive-packet]`: read-only archive packet
   verification for recorded artifact hashes and ledger event count
-- `atlas op trust-chain [name] [--strict]`: read-only operation trust-chain
-  closeout check across readiness, accepted-risk review packets, closeout,
-  audit, archive, archive-packet verification, and v1 readiness
+- `atlas op trust-chain [name] [--strict] [--json]`: read-only operation
+  trust-chain closeout check across readiness, accepted-risk review packets,
+  closeout, audit, archive, archive-packet verification, and v1 readiness; JSON
+  emits schema `atlas.operation_trust_chain.v1`
 - `atlas op close [name] [--force]`: close only when readiness passes unless an
   explicit forced closure is recorded
 - `atlas advisor brief`: state-only AI advisor readout with redaction guardrails

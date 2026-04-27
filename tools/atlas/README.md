@@ -121,7 +121,7 @@ atlas op audit-verify <name>
 atlas op archive <name>
 atlas op archive-packet <name>
 atlas op archive-verify <name>
-atlas op trust-chain <name> [--strict]
+atlas op trust-chain <name> [--strict] [--json]
 ```
 
 `atlas target brief <target>` gives the fast operator readout: surface counts,
@@ -542,12 +542,14 @@ evidence manifest, handoff, closeout manifest, accepted-risk review packet,
 audit packet, and operation ledger so operators can detect later retention-file
 drift.
 
-`atlas op trust-chain [name] [--strict]` reads the operation without mutating
-state and consolidates the closeout chain into one final status. It checks close
-readiness, artifact freshness, accepted-risk review packet verification,
-closeout verification, audit packet verification, archive packet verification,
-and operation-scoped v1 readiness. With `--strict`, the command exits nonzero
-unless the trust chain is `current`.
+`atlas op trust-chain [name] [--strict] [--json]` reads the operation without
+mutating state and consolidates the closeout chain into one final status. It
+checks close readiness, artifact freshness, accepted-risk review packet
+verification, closeout verification, audit packet verification, archive packet
+verification, and operation-scoped v1 readiness. With `--strict`, the command
+exits nonzero unless the trust chain is `current`. With `--json`, it emits the
+same state under schema `atlas.operation_trust_chain.v1` for gates, replay,
+dashboards, and future Atlas OS consumers.
 
 ## AI Advisor
 

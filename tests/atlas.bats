@@ -160,7 +160,7 @@ make_repo_clean_and_synced() {
   [[ "$output" == *"atlas op archive [name]"* ]]
   [[ "$output" == *"atlas op archive-packet [name] [packet-name]"* ]]
   [[ "$output" == *"atlas op archive-verify [name] [archive-packet]"* ]]
-  [[ "$output" == *"atlas op trust-chain [name] [--strict]"* ]]
+  [[ "$output" == *"atlas op trust-chain [name] [--strict] [--json]"* ]]
   [[ "$output" == *"atlas op close [name] [--force]"* ]]
   [[ "$output" == *"atlas target brief <target>"* ]]
 }
@@ -2531,6 +2531,18 @@ EOF
   [[ "$output" == *"Next Trust Step: Generate an archive packet before final archive review."* ]]
   [[ "$output" == *"Archive Packet: missing path=none"* ]]
   [[ "$output" == *"Archive Packet: missing packet=-"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op trust-chain archive-op --json --strict
+  [ "$status" -ne 0 ]
+  printf '%s\n' "$output" |
+    jq -e '
+      .schema_version == "atlas.operation_trust_chain.v1" and
+      .operation.slug == "archive-op" and
+      .status == "incomplete" and
+      .freshness.archive_packet == "missing" and
+      .verification.archive_packet.status == "missing" and
+      .v1.overall == "ready"
+    '
   archive_events_after="$(wc -l < "$TEST_ROOT/toolkit/sessions/archive-op/ledger.ndjson" | tr -d ' ')"
   [ "$archive_events_after" = "$archive_events_before" ]
 
@@ -2598,6 +2610,22 @@ EOF
   [[ "$output" == *"V1 Readiness: ready required_not_ready=0"* ]]
   [[ "$output" == *"Archive Packet: current path=$archive_packet_path"* ]]
   [[ "$output" == *"Archive Packet: verified packet=$archive_packet_path"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op trust-chain archive-op --json --strict
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" |
+    jq -e --arg archive_packet_path "$archive_packet_path" '
+      .schema_version == "atlas.operation_trust_chain.v1" and
+      .operation.slug == "archive-op" and
+      .status == "current" and
+      .next_step == "Trust chain is current." and
+      .freshness.archive_packet == "current" and
+      .verification.archive_packet.status == "verified" and
+      .artifacts.archive_packet == $archive_packet_path and
+      .v1.overall == "ready" and
+      .v1.required_not_ready == 0 and
+      .ledger.events > 0
+    '
   trust_events_after="$(wc -l < "$TEST_ROOT/toolkit/sessions/archive-op/ledger.ndjson" | tr -d ' ')"
   [ "$trust_events_after" = "$trust_events_before" ]
 

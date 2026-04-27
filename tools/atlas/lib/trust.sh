@@ -139,14 +139,141 @@ atlas_trust_chain_print() {
   ui_kv "Latest Ledger Event" "${ATLAS_READINESS_LATEST_LEDGER_AT:-none} ${ATLAS_READINESS_LATEST_LEDGER_EVENT_NAME:-none}"
 }
 
+atlas_trust_chain_print_json() {
+  atlas_trust_chain_collect
+
+  jq -n \
+    --arg schema_version "atlas.operation_trust_chain.v1" \
+    --arg slug "$ATLAS_OP_SLUG" \
+    --arg name "$ATLAS_OP_NAME" \
+    --arg target "$ATLAS_OP_TARGET" \
+    --arg operation_status "$ATLAS_OP_STATUS" \
+    --arg status "$ATLAS_TRUST_CHAIN_STATUS" \
+    --arg next_step "$ATLAS_TRUST_CHAIN_NEXT_STEP" \
+    --arg close_readiness "$ATLAS_READINESS_STATUS" \
+    --arg readiness_next_step "$ATLAS_READINESS_NEXT_STEP" \
+    --argjson evidence_records "${ATLAS_READINESS_EVIDENCE_COUNT:-0}" \
+    --argjson open_findings "${ATLAS_READINESS_OPEN_FINDINGS_COUNT:-0}" \
+    --argjson accepted_risks "${ATLAS_READINESS_ACCEPTED_RISK_COUNT:-0}" \
+    --argjson expired_accepted_risks "${ATLAS_READINESS_EXPIRED_ACCEPTED_RISK_COUNT:-0}" \
+    --argjson pending_validation "${ATLAS_READINESS_PENDING_VALIDATION_COUNT:-0}" \
+    --arg v1_overall "$ATLAS_TRUST_V1_OVERALL" \
+    --argjson v1_required_not_ready "${ATLAS_TRUST_V1_REQUIRED_NOT_READY:-0}" \
+    --argjson v1_blocked "${ATLAS_TRUST_V1_BLOCKED:-0}" \
+    --argjson v1_warnings "${ATLAS_TRUST_V1_WARNINGS:-0}" \
+    --arg report_freshness "$ATLAS_READINESS_REPORT_FRESHNESS" \
+    --arg bundle_freshness "$ATLAS_READINESS_BUNDLE_FRESHNESS" \
+    --arg handoff_freshness "$ATLAS_READINESS_HANDOFF_FRESHNESS" \
+    --arg closeout_freshness "$ATLAS_READINESS_CLOSEOUT_FRESHNESS" \
+    --arg review_packet_freshness "$ATLAS_READINESS_REVIEW_PACKET_FRESHNESS" \
+    --arg audit_packet_freshness "$ATLAS_READINESS_AUDIT_PACKET_FRESHNESS" \
+    --arg archive_packet_freshness "$ATLAS_READINESS_ARCHIVE_PACKET_FRESHNESS" \
+    --arg closeout_verification "$ATLAS_ARCHIVE_CLOSEOUT_VERIFICATION_STATUS" \
+    --argjson closeout_problems "${ATLAS_ARCHIVE_CLOSEOUT_VERIFICATION_PROBLEMS:-0}" \
+    --arg review_packet_verification "$ATLAS_ARCHIVE_REVIEW_PACKET_VERIFICATION_STATUS" \
+    --arg audit_packet_verification "$ATLAS_ARCHIVE_AUDIT_PACKET_VERIFICATION_STATUS" \
+    --arg archive_packet_verification "$ATLAS_TRUST_ARCHIVE_PACKET_VERIFICATION_STATUS" \
+    --arg report_path "${ATLAS_READINESS_LATEST_REPORT_PATH:-none}" \
+    --arg evidence_bundle "${ATLAS_READINESS_LATEST_BUNDLE_DETAIL:-none}" \
+    --arg handoff_path "${ATLAS_READINESS_LATEST_HANDOFF_PATH:-none}" \
+    --arg closeout_path "${ATLAS_READINESS_LATEST_CLOSEOUT_PATH:-none}" \
+    --arg review_packet_path "${ATLAS_READINESS_LATEST_REVIEW_PACKET_PATH:-none}" \
+    --arg audit_packet_path "${ATLAS_READINESS_LATEST_AUDIT_PACKET_PATH:-none}" \
+    --arg archive_packet_path "${ATLAS_READINESS_LATEST_ARCHIVE_PACKET_PATH:-none}" \
+    --arg closeout_verification_path "$ATLAS_ARCHIVE_CLOSEOUT_VERIFICATION_PATH" \
+    --arg review_packet_verification_path "$ATLAS_ARCHIVE_REVIEW_PACKET_VERIFICATION_PATH" \
+    --arg audit_packet_verification_path "$ATLAS_ARCHIVE_AUDIT_PACKET_VERIFICATION_PATH" \
+    --arg archive_packet_verification_path "$ATLAS_TRUST_ARCHIVE_PACKET_VERIFICATION_PATH" \
+    --arg ledger_file "$ATLAS_ARCHIVE_LEDGER_FILE" \
+    --argjson ledger_events "${ATLAS_ARCHIVE_LEDGER_EVENTS:-0}" \
+    --arg ledger_sha "$ATLAS_ARCHIVE_LEDGER_SHA" \
+    --arg latest_ledger_at "${ATLAS_READINESS_LATEST_LEDGER_AT:-none}" \
+    --arg latest_ledger_event "${ATLAS_READINESS_LATEST_LEDGER_EVENT_NAME:-none}" \
+    '{
+      schema_version: $schema_version,
+      operation: {
+        slug: $slug,
+        name: $name,
+        target: $target,
+        status: $operation_status
+      },
+      status: $status,
+      next_step: $next_step,
+      readiness: {
+        close: $close_readiness,
+        next_step: $readiness_next_step,
+        evidence_records: $evidence_records,
+        open_findings: $open_findings,
+        accepted_risks: $accepted_risks,
+        expired_accepted_risks: $expired_accepted_risks,
+        pending_validation: $pending_validation
+      },
+      v1: {
+        overall: $v1_overall,
+        required_not_ready: $v1_required_not_ready,
+        blocked: $v1_blocked,
+        warnings: $v1_warnings
+      },
+      freshness: {
+        report: $report_freshness,
+        evidence_bundle: $bundle_freshness,
+        handoff: $handoff_freshness,
+        closeout: $closeout_freshness,
+        accepted_risk_review_packet: $review_packet_freshness,
+        audit_packet: $audit_packet_freshness,
+        archive_packet: $archive_packet_freshness
+      },
+      verification: {
+        closeout: {
+          status: $closeout_verification,
+          path: $closeout_verification_path,
+          problems: $closeout_problems
+        },
+        accepted_risk_review_packet: {
+          status: $review_packet_verification,
+          path: $review_packet_verification_path
+        },
+        audit_packet: {
+          status: $audit_packet_verification,
+          path: $audit_packet_verification_path
+        },
+        archive_packet: {
+          status: $archive_packet_verification,
+          path: $archive_packet_verification_path
+        }
+      },
+      artifacts: {
+        report: $report_path,
+        evidence_bundle: $evidence_bundle,
+        handoff: $handoff_path,
+        closeout: $closeout_path,
+        accepted_risk_review_packet: $review_packet_path,
+        audit_packet: $audit_packet_path,
+        archive_packet: $archive_packet_path
+      },
+      ledger: {
+        path: $ledger_file,
+        events: $ledger_events,
+        sha256: $ledger_sha,
+        latest_event_at: $latest_ledger_at,
+        latest_event: $latest_ledger_event
+      }
+    }'
+}
+
 cmd_op_trust_chain() {
   local operation_name=""
   local strict=0
+  local json=0
 
   while [ "$#" -gt 0 ]; do
     case "$1" in
     --strict)
       strict=1
+      shift
+      ;;
+    --json)
+      json=1
       shift
       ;;
     --)
@@ -158,14 +285,14 @@ cmd_op_trust_chain() {
       ;;
     *)
       if [ -n "$operation_name" ]; then
-        fail "op trust-chain [name] [--strict]"
+        fail "op trust-chain [name] [--strict] [--json]"
       fi
       operation_name="$1"
       shift
       ;;
     esac
   done
-  [ "$#" -eq 0 ] || fail "op trust-chain [name] [--strict]"
+  [ "$#" -eq 0 ] || fail "op trust-chain [name] [--strict] [--json]"
 
   if [ -n "$operation_name" ]; then
     load_atlas_operation "$operation_name"
@@ -173,7 +300,11 @@ cmd_op_trust_chain() {
     load_active_operation
   fi
 
-  atlas_trust_chain_print
+  if [ "$json" -eq 1 ]; then
+    atlas_trust_chain_print_json
+  else
+    atlas_trust_chain_print
+  fi
   if [ "$strict" -eq 1 ] && [ "$ATLAS_TRUST_CHAIN_STATUS" != "current" ]; then
     return 1
   fi

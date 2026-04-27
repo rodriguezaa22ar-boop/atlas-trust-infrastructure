@@ -334,6 +334,11 @@ The near-term roadmap is:
     recorded commit. The procedure runs v1 readiness, full QA, and release
     packet verification against that checkout, and the test suite preserves the
     required replay commands and boundaries.
+59. Add operation trust-chain JSON. `atlas op trust-chain --json` now emits the
+    same read-only closeout state as machine-readable
+    `atlas.operation_trust_chain.v1` JSON, including readiness, freshness,
+    verification, artifacts, ledger anchors, and operation-scoped v1 readiness.
+    Strict mode still fails nonzero unless the trust chain is current.
 
 ## First Serious Version
 
