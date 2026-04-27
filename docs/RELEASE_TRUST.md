@@ -66,9 +66,9 @@ packet, not only against current `HEAD`.
 ```
 
 `atlas release replay` automates the clean-checkout replay path by creating a
-temporary detached worktree at the packet commit, running QA, checking v1
-readiness, verifying the release packet against the recorded commit, and
-removing the worktree. `--skip-qa` is available for a faster metadata replay,
+temporary isolated replay checkout at the packet commit, running QA, checking
+v1 readiness, verifying the release packet against the recorded commit, and
+removing the checkout. `--skip-qa` is available for a faster metadata replay,
 but skipped QA is not equivalent to full replay.
 
 The manual clean-checkout replay procedure lives at

@@ -262,7 +262,7 @@ make_repo_clean_and_synced() {
   grep -q 'release packet verification with `atlas release verify`' "$object_model"
   grep -q 'clean-checkout release replay with `atlas release replay`' "$object_model"
   grep -q 'skipped QA replay is not equivalent' "$object_model"
-  grep -q 'release replay gate' "$object_model"
+  grep -q 'replay gate' "$object_model"
   grep -q '^## Invariants$' "$object_model"
   grep -q 'No secrets in packets or business-flow records' "$object_model"
   grep -q 'Read-only commands must not mutate state' "$object_model"
@@ -271,7 +271,8 @@ make_repo_clean_and_synced() {
   grep -q 'TRUST_OBJECT_MODEL.md' "$schema_index"
   grep -q 'Add Atlas trust object model' "$blueprint"
   grep -q 'Add Atlas release replay command' "$blueprint"
-  grep -q 'running QA unless `--skip-qa` is used' "$blueprint"
+  grep -q 'running QA unless `--skip-qa` is' "$blueprint"
+  grep -q 'used, checking v1 strict readiness' "$blueprint"
 }
 
 @test "business-flow evidence design stays optional and metadata-only" {
@@ -486,7 +487,8 @@ EOF
   grep -q './tools/atlas/bin/atlas release verify "$packet" --commit "$commit"' "$replay_doc"
   grep -q './tools/atlas/bin/atlas release replay docs/retention/releases/atlas-m36-json.json' "$replay_doc"
   grep -q './tools/atlas/bin/atlas release replay docs/retention/releases/atlas-m34.md' "$replay_doc"
-  grep -q 'Use `--skip-qa` only for faster metadata replay' "$replay_doc"
+  grep -q 'Use `--skip-qa` only for faster metadata' "$replay_doc"
+  grep -q 'being handled separately' "$replay_doc"
   grep -q 'metadata-only guardrails' "$replay_doc"
   grep -q 'release provenance' "$replay_doc"
   grep -q 'docs/RELEASE_TRUST.md' "$replay_doc"
@@ -1536,7 +1538,7 @@ EOF
   [[ "$output" == *"release packet requires operation trust chain status=current"* ]]
 }
 
-@test "atlas release replay checks release packet from detached worktree" {
+@test "atlas release replay checks release packet from replay worktree" {
   make_repo_clean_and_synced
 
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release packet replay-json \
@@ -1551,6 +1553,7 @@ EOF
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release replay "$json_packet_path" --skip-qa
   [ "$status" -eq 0 ]
   [[ "$output" == *"Atlas Release Replay"* ]]
+  [[ "$output" == *"Branch: atlas-replay-"* ]]
   [[ "$output" == *"QA: skipped"* ]]
   [[ "$output" == *"V1 Status: ok"* ]]
   [[ "$output" == *"Release Verify: ok"* ]]

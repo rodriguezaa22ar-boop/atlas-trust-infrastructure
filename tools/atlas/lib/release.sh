@@ -644,9 +644,6 @@ atlas_release_replay_clean_env() {
 }
 
 atlas_release_replay_cleanup() {
-  if [ -n "${atlas_release_replay_cleanup_worktree:-}" ]; then
-    git -C "${atlas_release_replay_cleanup_root:-$LAB_ROOT}" worktree remove --force "$atlas_release_replay_cleanup_worktree" >/dev/null 2>&1 || true
-  fi
   if [ -n "${atlas_release_replay_cleanup_parent:-}" ]; then
     rm -rf "$atlas_release_replay_cleanup_parent"
   fi
@@ -1135,8 +1132,9 @@ cmd_release_replay() {
   local commit
   local run_qa=1
   local keep_worktree=0
-  local worktree_parent=""
-  local worktree=""
+  local replay_parent=""
+  local replay_checkout=""
+  local replay_branch=""
   local qa_log
   local v1_log
   local verify_log
@@ -1172,16 +1170,15 @@ cmd_release_replay() {
   git -C "$LAB_ROOT" rev-parse --verify "$commit^{commit}" >/dev/null 2>&1 ||
     fail "release replay commit is not available locally: $commit"
 
-  worktree_parent="$(mktemp -d)"
-  worktree="$worktree_parent/worktree"
-  qa_log="$worktree_parent/dev-qa.log"
-  v1_log="$worktree_parent/v1-status.log"
-  verify_log="$worktree_parent/release-verify.log"
+  replay_parent="$(mktemp -d)"
+  replay_checkout="$replay_parent/checkout"
+  replay_branch="atlas-replay-$(printf '%s' "$commit" | cut -c1-12)-$$"
+  qa_log="$replay_parent/dev-qa.log"
+  v1_log="$replay_parent/v1-status.log"
+  verify_log="$replay_parent/release-verify.log"
 
   if [ "$keep_worktree" = "0" ]; then
-    atlas_release_replay_cleanup_root="$LAB_ROOT"
-    atlas_release_replay_cleanup_worktree="$worktree"
-    atlas_release_replay_cleanup_parent="$worktree_parent"
+    atlas_release_replay_cleanup_parent="$replay_parent"
     trap atlas_release_replay_cleanup EXIT
   fi
 
@@ -1189,33 +1186,36 @@ cmd_release_replay() {
   ui_rule
   ui_kv "Packet" "$packet_file"
   ui_kv "Commit" "$commit"
-  ui_kv "Worktree" "$worktree"
+  ui_kv "Branch" "$replay_branch"
+  ui_kv "Checkout" "$replay_checkout"
   ui_rule
 
-  git -C "$LAB_ROOT" worktree add --detach "$worktree" "$commit" >/dev/null 2>&1 ||
-    fail "release replay could not create detached worktree for $commit"
+  git clone --no-local --quiet "$LAB_ROOT" "$replay_checkout" >/dev/null 2>&1 ||
+    fail "release replay could not create isolated replay checkout"
+  git -C "$replay_checkout" checkout -B "$replay_branch" "$commit" >/dev/null 2>&1 ||
+    fail "release replay could not check out $commit"
+  if git -C "$replay_checkout" rev-parse --verify refs/remotes/origin/main >/dev/null 2>&1; then
+    git -C "$replay_checkout" branch --set-upstream-to=origin/main "$replay_branch" >/dev/null 2>&1 || true
+  fi
 
   if [ "$run_qa" = "1" ]; then
     command -v nix-shell >/dev/null 2>&1 || fail "release replay requires nix-shell for QA; pass --skip-qa for metadata-only replay"
-    atlas_release_replay_run "QA" "$qa_log" atlas_release_replay_clean_env bash -c "cd \"\$1\" && nix-shell --run './bin/dev-qa'" _ "$worktree" ||
+    atlas_release_replay_run "QA" "$qa_log" atlas_release_replay_clean_env bash -c "cd \"\$1\" && nix-shell --run './bin/dev-qa'" _ "$replay_checkout" ||
       return 1
   else
     ui_kv "QA" "skipped"
   fi
 
-  atlas_release_replay_run "V1 Status" "$v1_log" atlas_release_replay_clean_env "$worktree/tools/atlas/bin/atlas" v1 status --strict ||
+  atlas_release_replay_run "V1 Status" "$v1_log" atlas_release_replay_clean_env "$replay_checkout/tools/atlas/bin/atlas" v1 status --strict ||
     return 1
-  atlas_release_replay_run "Release Verify" "$verify_log" atlas_release_replay_clean_env "$worktree/tools/atlas/bin/atlas" release verify "$packet_file" --commit "$commit" ||
+  atlas_release_replay_run "Release Verify" "$verify_log" atlas_release_replay_clean_env "$replay_checkout/tools/atlas/bin/atlas" release verify "$packet_file" --commit "$commit" ||
     return 1
 
   if [ "$keep_worktree" = "1" ]; then
-    ui_kv "Cleanup" "kept worktree=$worktree"
+    ui_kv "Cleanup" "kept checkout=$replay_checkout"
   else
-    git -C "$LAB_ROOT" worktree remove --force "$worktree" >/dev/null 2>&1 || true
-    rm -rf "$worktree_parent"
-    atlas_release_replay_cleanup_worktree=""
+    rm -rf "$replay_parent"
     atlas_release_replay_cleanup_parent=""
-    atlas_release_replay_cleanup_root=""
     trap - EXIT
     ui_kv "Cleanup" "removed"
   fi

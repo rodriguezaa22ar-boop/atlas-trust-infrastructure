@@ -43,10 +43,10 @@ From the current repository root:
 ./tools/atlas/bin/atlas release replay docs/retention/releases/atlas-m36-json.json
 ```
 
-`atlas release replay` creates a detached temporary worktree at the packet
-commit, runs `nix-shell --run './bin/dev-qa'`, checks `atlas v1 status
+`atlas release replay` creates a temporary isolated replay checkout at the
+packet commit, runs `nix-shell --run './bin/dev-qa'`, checks `atlas v1 status
 --strict`, runs `atlas release verify <packet> --commit <commit>`, and removes
-the worktree. Use `--skip-qa` only for faster metadata replay when full QA is
+the checkout. Use `--skip-qa` only for faster metadata replay when full QA is
 being handled separately.
 
 The equivalent manual procedure is:

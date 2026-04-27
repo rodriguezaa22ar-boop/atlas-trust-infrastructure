@@ -176,12 +176,12 @@ recorded packet fields as proof by themselves.
 
 `atlas release replay [packet] [--skip-qa] [--keep-worktree]` checks a retained
 release packet from the commit recorded inside the packet. It creates a
-temporary detached worktree, runs `nix-shell --run './bin/dev-qa'`, checks
-`atlas v1 status --strict`, runs `atlas release verify <packet> --commit
-<commit>`, and removes the worktree. `--skip-qa` performs only the metadata,
-readiness, and packet verification replay; it is faster but not equivalent to
-the full replay gate. `--keep-worktree` preserves the detached worktree for
-manual debugging.
+temporary isolated replay checkout, runs `nix-shell --run './bin/dev-qa'`,
+checks `atlas v1 status --strict`, runs `atlas release verify <packet>
+--commit <commit>`, and removes the checkout. `--skip-qa` performs only the
+metadata, readiness, and packet verification replay; it is faster but not
+equivalent to the full replay gate. `--keep-worktree` preserves the replay
+checkout for manual debugging.
 
 Release replay from a clean checkout is also documented in
 [`docs/retention/releases/REPLAY_VERIFICATION.md`](../../docs/retention/releases/REPLAY_VERIFICATION.md).

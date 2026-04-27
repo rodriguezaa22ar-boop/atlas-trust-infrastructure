@@ -448,10 +448,10 @@ The near-term roadmap is:
     during release verification, and a future `atlas release replay` command is
     not claimed until implemented.
 75. Add Atlas release replay command. `atlas release replay` now automates the
-    retained clean-checkout replay runbook by creating a detached worktree at
-    the packet commit, running QA unless `--skip-qa` is used, checking v1
-    strict readiness, verifying the packet against the recorded commit, and
-    removing the worktree unless `--keep-worktree` is used.
+    retained clean-checkout replay runbook by creating a temporary isolated
+    replay checkout at the packet commit, running QA unless `--skip-qa` is
+    used, checking v1 strict readiness, verifying the packet against the
+    recorded commit, and removing the checkout unless `--keep-worktree` is used.
 
 ## First Serious Version
 

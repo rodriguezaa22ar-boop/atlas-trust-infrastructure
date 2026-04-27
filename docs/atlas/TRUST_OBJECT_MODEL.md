@@ -151,8 +151,8 @@ Current Atlas replay support includes:
   `docs/retention/releases/REPLAY_VERIFICATION.md`
 
 `atlas release replay` runs the packet against the commit recorded inside the
-packet from a detached temporary worktree. By default it runs `dev-qa`, v1
-strict readiness, and release verification. `--skip-qa` is available for a
+packet from a temporary isolated replay checkout. By default it runs `dev-qa`,
+v1 strict readiness, and release verification. `--skip-qa` is available for a
 faster metadata replay, but a skipped QA replay is not equivalent to the full
 release replay gate.
 
