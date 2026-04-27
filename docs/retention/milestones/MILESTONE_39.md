@@ -85,5 +85,8 @@ validated/resolved.
 
 ## Repo State
 
-- implementation committed
-- ready to push and tag after this retention note is committed
+- implementation committed: `2fea85b Add Atlas web validation plan queue`
+- retention note committed: `b2d6db9 Record Atlas retention milestone 39`
+- pushed to `origin/main`
+- tagged: `atlas-retention-m39`
+- repo clean and synced after milestone push
