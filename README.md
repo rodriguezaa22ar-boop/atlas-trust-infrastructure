@@ -257,6 +257,9 @@ Atlas now also exposes the operator-level story and reporting layer:
 - `atlas finding add <title>`: observed, inferred, or validated finding record
 - `atlas finding update <id>` / `atlas finding resolve <id>`: append lifecycle
   updates with validation links and notes while preserving finding history
+- `atlas finding accept <id> --reason <text>`: record accepted-risk ownership,
+  reason, optional expiry, and evidence links while making readiness treat the
+  finding as non-blocking
 - `atlas validation plan <lane>`: plan, approve, run, retest, and supersede
   bounded validation when an executed run is replaced by a successful rerun
 - `atlas validation retest <id>`: promotes confirmed findings to validated

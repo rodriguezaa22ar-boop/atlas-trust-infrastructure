@@ -217,6 +217,11 @@ atlas_findings_append_update_record() {
   local note="${12}"
   local evidence_text="${13}"
   local validation_text="${14}"
+  local accepted_reason="${15:-}"
+  local accepted_owner="${16:-}"
+  local accepted_until="${17:-}"
+  local accepted_at="${18:-}"
+  local accepted_by="${19:-}"
   local index_file
 
   intel_require_jq
@@ -242,6 +247,11 @@ atlas_findings_append_update_record() {
     --arg note "$note" \
     --arg evidence_text "$evidence_text" \
     --arg validation_text "$validation_text" \
+    --arg accepted_reason "$accepted_reason" \
+    --arg accepted_owner "$accepted_owner" \
+    --arg accepted_until "$accepted_until" \
+    --arg accepted_at "$accepted_at" \
+    --arg accepted_by "$accepted_by" \
     '{
       id: $id,
       operation: $operation,
@@ -260,7 +270,12 @@ atlas_findings_append_update_record() {
       updated_at: $updated_at,
       event: "updated",
       note: $note
-    }' >>"$index_file"
+    }
+    + (if $accepted_reason != "" then {accepted_reason: $accepted_reason} else {} end)
+    + (if $accepted_owner != "" then {accepted_owner: $accepted_owner} else {} end)
+    + (if $accepted_until != "" then {accepted_until: $accepted_until} else {} end)
+    + (if $accepted_at != "" then {accepted_at: $accepted_at} else {} end)
+    + (if $accepted_by != "" then {accepted_by: $accepted_by} else {} end)' >>"$index_file"
 }
 
 cmd_finding_add() {
@@ -389,6 +404,11 @@ cmd_finding_update() {
   local impact=""
   local recommendation=""
   local note=""
+  local accepted_reason=""
+  local accepted_owner=""
+  local accepted_until=""
+  local accepted_at=""
+  local accepted_by=""
   local evidence_ids=()
   local validation_ids=()
   local record
@@ -407,6 +427,11 @@ cmd_finding_update() {
   local current_evidence
   local current_validations
   local created_at
+  local current_accepted_reason
+  local current_accepted_owner
+  local current_accepted_until
+  local current_accepted_at
+  local current_accepted_by
   local merged_evidence
   local merged_validations
 
@@ -463,6 +488,31 @@ cmd_finding_update() {
       note="$2"
       shift 2
       ;;
+    --accepted-reason)
+      need_args 2 "$#" "finding update <id> --accepted-reason <text>"
+      accepted_reason="$2"
+      shift 2
+      ;;
+    --accepted-owner)
+      need_args 2 "$#" "finding update <id> --accepted-owner <owner>"
+      accepted_owner="$2"
+      shift 2
+      ;;
+    --accepted-until)
+      need_args 2 "$#" "finding update <id> --accepted-until <date>"
+      accepted_until="$2"
+      shift 2
+      ;;
+    --accepted-at)
+      need_args 2 "$#" "finding update <id> --accepted-at <timestamp>"
+      accepted_at="$2"
+      shift 2
+      ;;
+    --accepted-by)
+      need_args 2 "$#" "finding update <id> --accepted-by <operator>"
+      accepted_by="$2"
+      shift 2
+      ;;
     *)
       fail "unknown finding update option: $1"
       ;;
@@ -491,7 +541,12 @@ cmd_finding_update() {
           (.recommendation // ""),
           ((.evidence // []) | join(" ")),
           ((.validations // []) | join(" ")),
-          (.created_at // "")
+          (.created_at // ""),
+          (.accepted_reason // ""),
+          (.accepted_owner // ""),
+          (.accepted_until // ""),
+          (.accepted_at // ""),
+          (.accepted_by // "")
         ]
         | .[]
       '
@@ -509,6 +564,11 @@ cmd_finding_update() {
   current_evidence="${fields[10]:-}"
   current_validations="${fields[11]:-}"
   created_at="${fields[12]:-}"
+  current_accepted_reason="${fields[13]:-}"
+  current_accepted_owner="${fields[14]:-}"
+  current_accepted_until="${fields[15]:-}"
+  current_accepted_at="${fields[16]:-}"
+  current_accepted_by="${fields[17]:-}"
   [ "$operation" = "$ATLAS_OP_SLUG" ] || fail "finding '$finding_id' does not belong to active operation '$ATLAS_OP_SLUG'"
 
   [ -n "$title" ] || title="$current_title"
@@ -519,6 +579,11 @@ cmd_finding_update() {
   [ -n "$impact" ] || impact="$current_impact"
   [ -n "$recommendation" ] || recommendation="$current_recommendation"
   [ -n "$created_at" ] || created_at="$(timestamp)"
+  [ -n "$accepted_reason" ] || accepted_reason="$current_accepted_reason"
+  [ -n "$accepted_owner" ] || accepted_owner="$current_accepted_owner"
+  [ -n "$accepted_until" ] || accepted_until="$current_accepted_until"
+  [ -n "$accepted_at" ] || accepted_at="$current_accepted_at"
+  [ -n "$accepted_by" ] || accepted_by="$current_accepted_by"
 
   atlas_findings_validate_level "$level"
   atlas_findings_validate_severity "$severity"
@@ -533,7 +598,7 @@ cmd_finding_update() {
   # shellcheck disable=SC2086
   merged_validations="$(atlas_findings_join_unique $current_validations "${validation_ids[@]}")"
 
-  atlas_findings_append_update_record "$finding_id" "$target" "$title" "$level" "$severity" "$confidence" "$status" "$source" "$impact" "$recommendation" "$created_at" "$note" "$merged_evidence" "$merged_validations"
+  atlas_findings_append_update_record "$finding_id" "$target" "$title" "$level" "$severity" "$confidence" "$status" "$source" "$impact" "$recommendation" "$created_at" "$note" "$merged_evidence" "$merged_validations" "$accepted_reason" "$accepted_owner" "$accepted_until" "$accepted_at" "$accepted_by"
   atlas_ledger_append_current "finding.updated" "read-only" "atlas" "ok" "finding=$finding_id level=$level severity=$severity status=$status validations=$merged_validations"
 
   ui_ok "finding updated"
@@ -550,6 +615,18 @@ cmd_finding_update() {
   if [ -n "$merged_validations" ]; then
     printf 'validations: %s\n' "$merged_validations"
   fi
+  if [ -n "$accepted_reason" ]; then
+    printf 'accepted_reason: %s\n' "$accepted_reason"
+  fi
+  if [ -n "$accepted_owner" ]; then
+    printf 'accepted_owner: %s\n' "$accepted_owner"
+  fi
+  if [ -n "$accepted_until" ]; then
+    printf 'accepted_until: %s\n' "$accepted_until"
+  fi
+  if [ -n "$accepted_by" ]; then
+    printf 'accepted_by: %s\n' "$accepted_by"
+  fi
 }
 
 cmd_finding_resolve() {
@@ -558,6 +635,105 @@ cmd_finding_resolve() {
 
   shift
   cmd_finding_update "$finding_id" --status resolved "$@"
+}
+
+cmd_finding_accept() {
+  need_args 1 "$#" "finding accept <id> --reason text [--owner owner] [--expires date]"
+  local finding_id="$1"
+  local reason=""
+  local owner=""
+  local expires=""
+  local accepted_at
+  local accepted_by
+  local note
+  local args=()
+  local evidence_ids=()
+  local validation_ids=()
+  local evidence_id
+  local validation_id
+
+  shift
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+    --reason)
+      need_args 2 "$#" "finding accept <id> --reason <text>"
+      reason="$2"
+      shift 2
+      ;;
+    --owner)
+      need_args 2 "$#" "finding accept <id> --owner <owner>"
+      owner="$2"
+      shift 2
+      ;;
+    --expires | --until)
+      need_args 2 "$#" "finding accept <id> --expires <date>"
+      expires="$2"
+      shift 2
+      ;;
+    --evidence)
+      need_args 2 "$#" "finding accept <id> --evidence <evidence-id>"
+      evidence_ids+=("$2")
+      shift 2
+      ;;
+    --validation)
+      need_args 2 "$#" "finding accept <id> --validation <validation-plan-id>"
+      validation_ids+=("$2")
+      shift 2
+      ;;
+    *)
+      fail "unknown finding accept option: $1"
+      ;;
+    esac
+  done
+
+  [ -n "$reason" ] || fail "acceptance reason is required"
+
+  accepted_at="$(timestamp)"
+  accepted_by="$(atlas_approval_operator)"
+  note="accepted risk: $reason"
+  if [ -n "$owner" ]; then
+    note="$note owner=$owner"
+  fi
+  if [ -n "$expires" ]; then
+    note="$note expires=$expires"
+  fi
+
+  args=(
+    "$finding_id"
+    --status accepted
+    --note "$note"
+    --accepted-reason "$reason"
+    --accepted-at "$accepted_at"
+    --accepted-by "$accepted_by"
+  )
+  if [ -n "$owner" ]; then
+    args+=(--accepted-owner "$owner")
+  fi
+  if [ -n "$expires" ]; then
+    args+=(--accepted-until "$expires")
+  fi
+  for evidence_id in "${evidence_ids[@]}"; do
+    args+=(--evidence "$evidence_id")
+  done
+  for validation_id in "${validation_ids[@]}"; do
+    args+=(--validation "$validation_id")
+  done
+
+  cmd_finding_update "${args[@]}" >/dev/null
+  atlas_ledger_append_current "finding.accepted" "read-only" "atlas" "accepted" "finding=$finding_id owner=$owner expires=$expires reason=$reason"
+
+  ui_ok "finding accepted"
+  printf 'id: %s\n' "$finding_id"
+  printf 'status: accepted\n'
+  printf 'reason: %s\n' "$reason"
+  printf 'accepted_by: %s\n' "$accepted_by"
+  printf 'accepted_at: %s\n' "$accepted_at"
+  if [ -n "$owner" ]; then
+    printf 'owner: %s\n' "$owner"
+  fi
+  if [ -n "$expires" ]; then
+    printf 'expires: %s\n' "$expires"
+  fi
 }
 
 cmd_finding_list() {
@@ -621,6 +797,11 @@ cmd_finding_show() {
   local created_at
   local updated_at
   local note
+  local accepted_reason
+  local accepted_owner
+  local accepted_until
+  local accepted_at
+  local accepted_by
 
   load_active_operation
   index_file="$(atlas_findings_index_file "$ATLAS_OP_DIR")"
@@ -650,7 +831,12 @@ cmd_finding_show() {
           ((.validations // []) | join(" ")),
           (.created_at // "?"),
           (.updated_at // ""),
-          (.note // "")
+          (.note // ""),
+          (.accepted_reason // ""),
+          (.accepted_owner // ""),
+          (.accepted_until // ""),
+          (.accepted_at // ""),
+          (.accepted_by // "")
         ]
         | .[]
       '
@@ -671,6 +857,11 @@ cmd_finding_show() {
   created_at="${fields[13]:-}"
   updated_at="${fields[14]:-}"
   note="${fields[15]:-}"
+  accepted_reason="${fields[16]:-}"
+  accepted_owner="${fields[17]:-}"
+  accepted_until="${fields[18]:-}"
+  accepted_at="${fields[19]:-}"
+  accepted_by="${fields[20]:-}"
 
   ui_heading "Finding Record"
   ui_rule
@@ -694,6 +885,21 @@ cmd_finding_show() {
   fi
   if [ -n "$validations" ]; then
     ui_kv "Validation Plans" "$validations"
+  fi
+  if [ -n "$accepted_reason" ]; then
+    ui_kv "Accepted Reason" "$accepted_reason"
+  fi
+  if [ -n "$accepted_owner" ]; then
+    ui_kv "Accepted Owner" "$accepted_owner"
+  fi
+  if [ -n "$accepted_until" ]; then
+    ui_kv "Accepted Until" "$accepted_until"
+  fi
+  if [ -n "$accepted_at" ]; then
+    ui_kv "Accepted At" "$accepted_at"
+  fi
+  if [ -n "$accepted_by" ]; then
+    ui_kv "Accepted By" "$accepted_by"
   fi
   ui_kv "Created" "$created_at"
   if [ -n "$updated_at" ]; then
@@ -754,12 +960,22 @@ atlas_findings_report_markdown() {
       else
         ""
       end;
+    def acceptance_text:
+      if (.accepted_reason // "") != "" then
+        " Accepted risk: " + .accepted_reason + "." +
+        (if (.accepted_owner // "") != "" then " Owner: " + .accepted_owner + "." else "" end) +
+        (if (.accepted_until // "") != "" then " Accepted until: " + .accepted_until + "." else "" end) +
+        (if (.accepted_by // "") != "" then " Accepted by: " + .accepted_by + "." else "" end)
+      else
+        ""
+      end;
     "- " + (.severity // "info") + " / " + (.level // "inferred") + " / " + (.status // "open") + ": " +
     (.title // "untitled finding") +
     (if (.impact // "") != "" then " Impact: " + .impact + "." else "" end) +
     (if (.recommendation // "") != "" then " Recommendation: " + .recommendation + "." else "" end) +
     evidence_text +
     validation_text +
+    acceptance_text +
     (if (.note // "") != "" then " Latest note: " + .note + "." else "" end)
   ' "$index_file"
 }

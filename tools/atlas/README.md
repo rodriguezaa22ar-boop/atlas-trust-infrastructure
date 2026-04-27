@@ -316,6 +316,10 @@ atlas finding update finding_20260425T201000Z \
   --status validated \
   --validation vp_20260425T202000Z \
   --note "confirmed by validation run"
+atlas finding accept finding_20260425T201000Z \
+  --reason "owner accepts residual exposure" \
+  --owner "Alta" \
+  --expires 2026-12-31
 atlas finding show finding_20260425T201000Z
 ```
 
@@ -329,6 +333,10 @@ Finding levels are deliberately explicit:
 records instead of rewriting history. List, story, report, and advisor views
 show the latest state for each finding, while `atlas finding show <id>` includes
 the full history with evidence, validation plan links, status, and notes.
+`atlas finding accept <id> --reason <text>` records explicit accepted-risk
+metadata on the same append-only history: reason, operator, optional owner,
+optional expiry, and supporting evidence or validation links. Accepted findings
+are visible in reports but no longer block operation readiness.
 
 Operation reports now render recorded findings instead of only leaving a
 placeholder.

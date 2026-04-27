@@ -259,6 +259,10 @@ The near-term roadmap is:
     updates the linked finding to `validated/resolved` for resolved retests or
     `validated/open` for still-open retests, so reports reflect that a finding
     has been confirmed even when remediation is still outstanding.
+44. Add explicit accepted-risk handling. `atlas finding accept` now records
+    accepted-risk reason, operator, optional owner, optional expiry, and
+    supporting evidence or validation links on the append-only finding history,
+    making accepted findings auditable and non-blocking for readiness.
 
 ## First Serious Version
 

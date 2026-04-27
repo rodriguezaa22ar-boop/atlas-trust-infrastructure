@@ -321,8 +321,8 @@ atlas_v1_collect_operation_readiness() {
       1 \
       "ready" \
       "finding lifecycle commands are available" \
-      "tests/atlas.bats finding lifecycle tests" \
-      "atlas finding add; atlas finding update; atlas finding resolve" \
+      "tests/atlas.bats finding lifecycle and accepted-risk tests" \
+      "atlas finding add; atlas finding update; atlas finding accept; atlas finding resolve" \
       "operation finding index" \
       "finding records are NDJSON files"
     atlas_v1_add_pillar \
@@ -384,10 +384,10 @@ atlas_v1_collect_operation_readiness() {
       1 \
       "warning" \
       "operation has unresolved findings: $ATLAS_READINESS_OPEN_FINDINGS_COUNT" \
-      "tests/atlas.bats finding lifecycle tests" \
-      "atlas finding list; atlas finding resolve" \
+      "tests/atlas.bats finding lifecycle and accepted-risk tests" \
+      "atlas finding list; atlas finding accept; atlas finding resolve" \
       "${ATLAS_OP_DIR}/findings.ndjson" \
-      "accepted-risk workflow is file-backed"
+      "accepted-risk workflow is file-backed and metadata-only"
   else
     atlas_v1_add_pillar \
       "findings" \
@@ -395,10 +395,10 @@ atlas_v1_collect_operation_readiness() {
       1 \
       "ready" \
       "finding lifecycle is implemented and no unresolved findings block this operation" \
-      "tests/atlas.bats finding lifecycle tests" \
-      "atlas finding list; atlas finding resolve" \
+      "tests/atlas.bats finding lifecycle and accepted-risk tests" \
+      "atlas finding list; atlas finding accept; atlas finding resolve" \
       "${ATLAS_OP_DIR}/findings.ndjson" \
-      "accepted-risk workflow is file-backed"
+      "accepted-risk workflow is file-backed and metadata-only"
   fi
 
   if [ "$ATLAS_READINESS_PENDING_VALIDATION_COUNT" -gt 0 ]; then

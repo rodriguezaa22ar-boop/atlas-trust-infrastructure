@@ -103,6 +103,10 @@ atlas_report_finding_rows_by_level() {
           (.recommendation // ""),
           ((.evidence // []) | join(", ")),
           ((.validations // []) | join(", ")),
+          (.accepted_reason // ""),
+          (.accepted_owner // ""),
+          (.accepted_until // ""),
+          (.accepted_by // ""),
           (.note // "")
         ]
       | @tsv
@@ -133,7 +137,19 @@ atlas_report_print_finding_level() {
           printf " Validation plans: %s.", $9
         }
         if ($10 != "") {
-          printf " Latest note: %s.", $10
+          printf " Accepted risk: %s.", $10
+        }
+        if ($11 != "") {
+          printf " Owner: %s.", $11
+        }
+        if ($12 != "") {
+          printf " Accepted until: %s.", $12
+        }
+        if ($13 != "") {
+          printf " Accepted by: %s.", $13
+        }
+        if ($14 != "") {
+          printf " Latest note: %s.", $14
         }
         printf "\n"
       }'

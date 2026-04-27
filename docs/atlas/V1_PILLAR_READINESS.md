@@ -129,12 +129,13 @@ Each pillar status must include:
 
 - Status: `ready`
 - Reason: observed, inferred, validated, resolved, accepted, and lifecycle
-  finding records are supported.
-- Tests: `tests/atlas.bats` finding lifecycle tests.
+  finding records are supported, including explicit accepted-risk metadata.
+- Tests: `tests/atlas.bats` finding lifecycle and accepted-risk tests.
 - Commands: `atlas finding add`, `atlas finding update`,
-  `atlas finding resolve`
+  `atlas finding accept`, `atlas finding resolve`
 - Artifacts: operation finding index.
-- Limitations: accepted-risk workflow is file-backed.
+- Limitations: accepted-risk workflow is file-backed and metadata-only; expiry
+  is recorded but not yet enforced automatically.
 
 ### Validation
 

@@ -57,6 +57,7 @@ make_repo_clean_and_synced() {
   [[ "$output" == *"atlas evidence bundle [bundle-name]"* ]]
   [[ "$output" == *"atlas finding add <title> [--level observed|inferred|validated]"* ]]
   [[ "$output" == *"atlas finding update <id> [--level level] [--status status]"* ]]
+  [[ "$output" == *"atlas finding accept <id> --reason text"* ]]
   [[ "$output" == *"atlas finding resolve <id> [--evidence id] [--validation id]"* ]]
   [[ "$output" == *"atlas validation plan <lane> [--finding id] [--evidence id]"* ]]
   [[ "$output" == *"atlas validation retest <id> --result resolved|still-open"* ]]
@@ -1836,6 +1837,102 @@ EOF
   [[ "$output" == *"changed"* ]]
   [[ "$output" == *"Verification Status: attention-required"* ]]
   [[ "$output" == *"Verification Problems: 2"* ]]
+}
+
+@test "atlas finding accept records risk ownership and unblocks readiness" {
+  mkdir -p "$TEST_ROOT/toolkit/targets"
+  cat > "$TEST_ROOT/toolkit/targets/demo-node.env" <<'EOF'
+NAME=demo-node
+ADDRESS=10.10.10.10
+SCOPE_STATUS=in-scope
+CRITICALITY=medium
+CREATED_AT=2026-04-23T20:53:16Z
+EOF
+  artifact="$TEST_ROOT/accepted-risk-artifact.txt"
+  printf 'ssh reachable from authorized test node\n' > "$artifact"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op start accepted-risk-op demo-node authorized risk acceptance
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence add "$artifact" --kind scan-output --classification public
+  [ "$status" -eq 0 ]
+  evidence_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  [ -n "$evidence_id" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding add "SSH management reachable" \
+    --level observed \
+    --severity low \
+    --confidence high \
+    --evidence "$evidence_id" \
+    --recommendation "Restrict SSH to the management subnet"
+  [ "$status" -eq 0 ]
+  finding_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  [ -n "$finding_id" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op readiness accepted-risk-op
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Open Findings: 1"* ]]
+  [[ "$output" == *"Resolve, accept, or retest unresolved findings before closure."* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding accept "$finding_id"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"acceptance reason is required"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding accept "$finding_id" \
+    --reason "owner accepts residual lab exposure" \
+    --owner "Alta" \
+    --expires "2026-12-31" \
+    --evidence "$evidence_id"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"finding accepted"* ]]
+  [[ "$output" == *"status: accepted"* ]]
+  [[ "$output" == *"reason: owner accepts residual lab exposure"* ]]
+  [[ "$output" == *"owner: Alta"* ]]
+  [[ "$output" == *"expires: 2026-12-31"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding update "$finding_id" \
+    --note "acceptance reviewed during closeout"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"status: accepted"* ]]
+  [[ "$output" == *"accepted_reason: owner accepts residual lab exposure"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding show "$finding_id"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Status: accepted"* ]]
+  [[ "$output" == *"Accepted Reason: owner accepts residual lab exposure"* ]]
+  [[ "$output" == *"Accepted Owner: Alta"* ]]
+  [[ "$output" == *"Accepted Until: 2026-12-31"* ]]
+  [[ "$output" == *"Accepted By:"* ]]
+  [[ "$output" == *"Latest Note: acceptance reviewed during closeout"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op readiness accepted-risk-op
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Open Findings: 0"* ]]
+  [[ "$output" == *"no unresolved findings remain"* ]]
+  [[ "$output" == *"Report Freshness: missing"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op report accepted-risk-op accepted-risk-report
+  [ "$status" -eq 0 ]
+  report_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "report" { print $2; exit }')"
+  [ -f "$report_path" ]
+  grep -q 'Accepted risk: owner accepts residual lab exposure' "$report_path"
+  grep -q 'Owner: Alta' "$report_path"
+  grep -q 'Accepted until: 2026-12-31' "$report_path"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op readiness accepted-risk-op
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Open Findings: 0"* ]]
+  [[ "$output" == *"Report Freshness: current"* ]]
+  [[ "$output" == *"Close Readiness: ready"* ]]
+
+  jq -s -e \
+    --arg finding_id "$finding_id" \
+    --arg evidence_id "$evidence_id" \
+    'map(select(.id == $finding_id)) | last | select(.status == "accepted" and .accepted_reason == "owner accepts residual lab exposure" and .accepted_owner == "Alta" and .accepted_until == "2026-12-31" and (.evidence | index($evidence_id)))' \
+    "$TEST_ROOT/toolkit/sessions/accepted-risk-op/findings.ndjson"
+  jq -e --arg finding_id "$finding_id" \
+    'select(.event == "finding.accepted" and (.detail | contains($finding_id)) and (.detail | contains("owner accepts residual lab exposure")))' \
+    "$TEST_ROOT/toolkit/sessions/accepted-risk-op/ledger.ndjson"
 }
 
 @test "atlas operation archive summarizes final verification state" {
