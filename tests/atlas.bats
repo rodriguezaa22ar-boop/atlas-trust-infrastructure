@@ -168,6 +168,7 @@ make_repo_clean_and_synced() {
   grep -q 'atlas flow add <flow-name>' "$flow_doc"
   grep -q 'atlas flow list' "$flow_doc"
   grep -q 'atlas flow show <flow>' "$flow_doc"
+  grep -q 'atlas flow link-evidence <flow> <evidence-id>' "$flow_doc"
   grep -q 'atlas flow packet <flow>' "$flow_doc"
   grep -q 'atlas flow verify <flow>' "$flow_doc"
   grep -q 'state/atlas/flows/<flow-slug>.env' "$flow_doc"
@@ -255,6 +256,97 @@ make_repo_clean_and_synced() {
   [ "$status" -ne 0 ]
   [[ "$output" == *"forbidden raw-content marker"* ]]
   [ ! -f "$TEST_ROOT/toolkit/state/atlas/flows/bad-flow.env" ]
+}
+
+@test "atlas flow link-evidence stores metadata-only operation links" {
+  mkdir -p "$TEST_ROOT/toolkit/targets"
+  cat > "$TEST_ROOT/toolkit/targets/demo-node.env" <<'EOF'
+NAME=demo-node
+ADDRESS=10.10.10.10
+SCOPE_STATUS=in-scope
+CRITICALITY=high
+CREATED_AT=2026-04-23T20:53:16Z
+EOF
+  artifact="$TEST_ROOT/flow-evidence-artifact.txt"
+  printf 'metadata-only business-flow evidence proof\n' > "$artifact"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow add customer-signup \
+    --type customer_onboarding \
+    --owner product \
+    --criticality high \
+    --environment staging \
+    --scope-status in-scope \
+    --data-class email \
+    --system web_app \
+    --control audit_logging
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow link-evidence customer-signup ev_missing
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"no active operation"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op start flow-link-op demo-node authorized flow evidence link
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow link-evidence customer-signup ev_missing
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"unknown evidence id in active operation"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence add "$artifact" --kind redacted-report --classification public
+  [ "$status" -eq 0 ]
+  evidence_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  evidence_sha="$(printf '%s\n' "$output" | awk -F': ' '$1 == "sha256" { print $2; exit }')"
+  [ -n "$evidence_id" ]
+  [ -n "$evidence_sha" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow link-evidence customer-signup "$evidence_id"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"business flow evidence linked"* ]]
+  [[ "$output" == *"flow_id: flow_customer_signup"* ]]
+  [[ "$output" == *"operation: flow-link-op"* ]]
+  [[ "$output" == *"evidence_id: $evidence_id"* ]]
+
+  flow_links="$TEST_ROOT/toolkit/sessions/flow-link-op/business_flows.ndjson"
+  evidence_links="$TEST_ROOT/toolkit/sessions/flow-link-op/flow_evidence.ndjson"
+  ledger="$TEST_ROOT/toolkit/sessions/flow-link-op/ledger.ndjson"
+  [ -s "$flow_links" ]
+  [ -s "$evidence_links" ]
+  [ -s "$ledger" ]
+
+  jq -e '
+    .schema_version == "atlas.business_flow_link.v1" and
+    .flow_id == "flow_customer_signup" and
+    .flow_slug == "customer-signup" and
+    .operation == "flow-link-op" and
+    .target == "demo-node" and
+    .metadata_only == true
+  ' "$flow_links"
+
+  jq -e --arg evidence_id "$evidence_id" --arg evidence_sha "$evidence_sha" '
+    .schema_version == "atlas.flow_evidence_link.v1" and
+    .flow_id == "flow_customer_signup" and
+    .operation == "flow-link-op" and
+    .evidence_id == $evidence_id and
+    .kind == "redacted-report" and
+    .evidence_sha256 == $evidence_sha and
+    .evidence_classification == "public" and
+    .evidence_redacted == false and
+    .metadata_only == true and
+    .notes == "Metadata-only reference. Raw evidence not embedded." and
+    (has("source_path") | not) and
+    (has("raw_evidence") | not) and
+    (has("evidence_body") | not)
+  ' "$evidence_links"
+
+  jq -e --arg evidence_id "$evidence_id" '
+    select(
+      .event == "flow.evidence_linked" and
+      .capability == "read-only" and
+      .tool == "atlas" and
+      (.detail | contains("flow_id=flow_customer_signup")) and
+      (.detail | contains("evidence=" + $evidence_id))
+    )
+  ' "$ledger"
 }
 
 @test "release replay verification runbook preserves clean-checkout procedure" {
@@ -476,6 +568,7 @@ make_repo_clean_and_synced() {
   [[ "$output" == *"atlas flow add <flow-name>"* ]]
   [[ "$output" == *"atlas flow list"* ]]
   [[ "$output" == *"atlas flow show <flow>"* ]]
+  [[ "$output" == *"atlas flow link-evidence <flow> <evidence-id>"* ]]
   [[ "$output" == *"atlas web assess <url> [assessment-name]"* ]]
   [[ "$output" == *"atlas web validation-plan [--all]"* ]]
   [[ "$output" == *"atlas web validation-approve [--all] --reason text"* ]]

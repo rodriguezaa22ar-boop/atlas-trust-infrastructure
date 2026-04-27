@@ -39,6 +39,7 @@ atlas evidence show ev_...
 atlas flow add customer-signup --type customer_onboarding --owner product --criticality high --environment staging --scope-status in-scope --data-class email --system web_app --control audit_logging
 atlas flow list
 atlas flow show customer-signup
+atlas flow link-evidence customer-signup ev_...
 atlas finding add "SSH reachable" --level observed --severity low --evidence ev_...
 atlas finding update finding_... --level validated --validation vp_... --note "confirmed by validation run"
 atlas finding accept finding_... --reason "owner accepts residual exposure" --owner Alta --expires 2026-12-31
@@ -213,13 +214,16 @@ validation item, and `--plan <id>` approves one explicit plan. Approval is
 metadata-only: it records the reason and operator, then leaves validation
 execution and retest as separate commands.
 
-`atlas flow add/list/show` manages optional metadata-only Business Flow Evidence
-records under `state/atlas/flows/`. These records describe business-critical
-processes with labels such as owner, criticality, systems, data classes, and
-control objectives. They are referential records only: they must not contain
-secrets, customer records, request or response bodies, payment data, tokens, or
-raw evidence. Evidence links, flow packets, flow verification, and readiness
-integration remain planned later steps.
+`atlas flow add/list/show/link-evidence` manages optional metadata-only
+Business Flow Evidence records. Global flow records live under
+`state/atlas/flows/`; operation evidence links live under
+`sessions/<operation>/flow_evidence.ndjson`. Flow records describe
+business-critical processes with labels such as owner, criticality, systems,
+data classes, and control objectives. Evidence links reference existing Atlas
+evidence IDs, hashes, and retained paths without copying raw evidence. Flow
+records and links must not contain secrets, customer records, request or
+response bodies, payment data, tokens, or raw evidence. Flow packets, flow
+verification, and readiness integration remain planned later steps.
 
 The full trust lifecycle is documented in
 [`docs/TRUST_LIFECYCLE.md`](../../docs/TRUST_LIFECYCLE.md). It

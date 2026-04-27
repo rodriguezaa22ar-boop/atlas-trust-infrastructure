@@ -414,6 +414,14 @@ The near-term roadmap is:
     class labels, system aliases, and control objective labels while rejecting
     obvious secret-bearing markers. Evidence links, flow packets, verification,
     and readiness integration remain planned later steps.
+72. Add metadata-only business-flow evidence links. `atlas flow link-evidence`
+    now connects an optional business flow to an existing evidence ID in the
+    active operation by writing metadata-only NDJSON under
+    `sessions/<operation>/business_flows.ndjson` and
+    `sessions/<operation>/flow_evidence.ndjson`. The link records evidence ID,
+    kind, retained path, SHA-256, classification, and redaction state without
+    copying raw evidence or storing evidence bodies. Flow packets, verification,
+    and readiness integration remain planned later steps.
 
 ## First Serious Version
 

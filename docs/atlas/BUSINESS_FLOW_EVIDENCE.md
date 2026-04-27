@@ -174,16 +174,25 @@ The first runtime slice implements global metadata-only flow records:
 atlas flow add <flow-name>
 atlas flow list
 atlas flow show <flow>
+atlas flow link-evidence <flow> <evidence-id>
 ```
 
 Implemented records are written to:
 
 ```text
 state/atlas/flows/<flow-slug>.env
+sessions/<operation>/business_flows.ndjson
+sessions/<operation>/flow_evidence.ndjson
 ```
 
-This slice does not implement operation-specific flow links, evidence links,
-flow packets, flow verification, or readiness integration yet.
+`atlas flow link-evidence` requires an active operation and an existing evidence
+ID in that operation. The link records metadata such as evidence ID, kind,
+retained path, SHA-256, classification, and redaction state. It does not copy
+the evidence artifact and does not store the evidence body or original source
+path.
+
+This slice does not implement flow packets, flow verification, or readiness
+integration yet.
 
 ## Flow Record Contract
 
@@ -314,12 +323,12 @@ The first runtime command set should stay small:
 atlas flow add <flow-name>
 atlas flow list
 atlas flow show <flow>
+atlas flow link-evidence <flow> <evidence-id>
 ```
 
 The next runtime command set should add:
 
 ```bash
-atlas flow link-evidence <flow> <evidence-id>
 atlas flow packet <flow> [packet-name]
 atlas flow verify <flow> [packet-name]
 ```

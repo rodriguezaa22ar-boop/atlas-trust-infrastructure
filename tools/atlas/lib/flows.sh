@@ -27,6 +27,18 @@ atlas_flow_file_for_slug() {
   printf '%s/%s.env\n' "$(atlas_flow_dir)" "$slug"
 }
 
+atlas_flow_operation_links_file() {
+  local op_dir="$1"
+
+  printf '%s/business_flows.ndjson\n' "$op_dir"
+}
+
+atlas_flow_evidence_links_file() {
+  local op_dir="$1"
+
+  printf '%s/flow_evidence.ndjson\n' "$op_dir"
+}
+
 atlas_flow_slug_for_input() {
   local input="$1"
   local slug
@@ -178,6 +190,112 @@ atlas_flow_files() {
     [ -e "$file" ] || return 0
     printf '%s\n' "$file"
   done
+}
+
+atlas_flow_operation_link_exists() {
+  local file="$1"
+  local flow_id="$2"
+  local operation="$3"
+
+  [ -s "$file" ] || return 1
+  jq -e \
+    --arg flow_id "$flow_id" \
+    --arg operation "$operation" \
+    'select(.flow_id == $flow_id and .operation == $operation)' \
+    "$file" >/dev/null
+}
+
+atlas_flow_append_operation_link() {
+  local file="$1"
+  local linked_at="$2"
+
+  intel_require_jq
+  : >>"$file"
+  chmod 600 "$file" 2>/dev/null || true
+
+  if atlas_flow_operation_link_exists "$file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG"; then
+    return 0
+  fi
+
+  jq -cn \
+    --arg schema_version "atlas.business_flow_link.v1" \
+    --arg flow_id "$ATLAS_FLOW_ID" \
+    --arg flow_slug "$ATLAS_FLOW_SLUG" \
+    --arg flow_name "$ATLAS_FLOW_NAME" \
+    --arg operation "$ATLAS_OP_SLUG" \
+    --arg target "$ATLAS_OP_TARGET" \
+    --arg linked_at "$linked_at" \
+    --arg linked_by "atlas" \
+    '{
+      schema_version: $schema_version,
+      flow_id: $flow_id,
+      flow_slug: $flow_slug,
+      flow_name: $flow_name,
+      operation: $operation,
+      target: $target,
+      linked_at: $linked_at,
+      linked_by: $linked_by,
+      metadata_only: true
+    }' >>"$file"
+}
+
+atlas_flow_append_evidence_link() {
+  local file="$1"
+  local evidence_record="$2"
+  local evidence_id="$3"
+  local linked_at="$4"
+  local evidence_kind
+  local evidence_path
+  local evidence_sha256
+  local evidence_classification
+  local evidence_redacted
+
+  intel_require_jq
+
+  evidence_kind="$(printf '%s\n' "$evidence_record" | jq -r '.kind // "artifact"')"
+  evidence_path="$(printf '%s\n' "$evidence_record" | jq -r '.path // ""')"
+  evidence_sha256="$(printf '%s\n' "$evidence_record" | jq -r '.sha256 // ""')"
+  evidence_classification="$(printf '%s\n' "$evidence_record" | jq -r '.classification // "internal"')"
+  evidence_redacted="$(printf '%s\n' "$evidence_record" | jq -r '(.redacted // false) | tostring')"
+
+  [ -n "$evidence_path" ] || fail "evidence record missing retained path: $evidence_id"
+  [ -n "$evidence_sha256" ] || fail "evidence record missing sha256: $evidence_id"
+
+  : >>"$file"
+  chmod 600 "$file" 2>/dev/null || true
+
+  jq -cn \
+    --arg schema_version "atlas.flow_evidence_link.v1" \
+    --arg flow_id "$ATLAS_FLOW_ID" \
+    --arg flow_slug "$ATLAS_FLOW_SLUG" \
+    --arg operation "$ATLAS_OP_SLUG" \
+    --arg target "$ATLAS_OP_TARGET" \
+    --arg evidence_id "$evidence_id" \
+    --arg kind "$evidence_kind" \
+    --arg evidence_path "$evidence_path" \
+    --arg evidence_sha256 "$evidence_sha256" \
+    --arg evidence_classification "$evidence_classification" \
+    --argjson evidence_redacted "$evidence_redacted" \
+    --arg linked_at "$linked_at" \
+    --arg linked_by "atlas" \
+    --arg notes "Metadata-only reference. Raw evidence not embedded." \
+    '{
+      schema_version: $schema_version,
+      flow_id: $flow_id,
+      flow_slug: $flow_slug,
+      operation: $operation,
+      target: $target,
+      evidence_id: $evidence_id,
+      kind: $kind,
+      evidence_path: $evidence_path,
+      evidence_sha256: $evidence_sha256,
+      evidence_classification: $evidence_classification,
+      evidence_redacted: $evidence_redacted,
+      linked_at: $linked_at,
+      linked_by: $linked_by,
+      notes: $notes,
+      metadata_only: true
+    }' >>"$file"
 }
 
 cmd_flow_add() {
@@ -351,6 +469,44 @@ cmd_flow_show() {
   atlas_flow_print_csv_list "$ATLAS_FLOW_CONTROL_OBJECTIVES"
 }
 
+cmd_flow_link_evidence() {
+  need_args 2 "$#" "flow link-evidence <flow> <evidence-id>"
+  local flow="$1"
+  local evidence_id="$2"
+  local evidence_record
+  local linked_at
+  local flow_links_file
+  local evidence_links_file
+  local evidence_kind
+  local evidence_path
+  local evidence_sha256
+
+  atlas_flow_load "$flow"
+  load_active_operation
+
+  evidence_record="$(atlas_evidence_latest_record "$evidence_id" || true)"
+  [ -n "$evidence_record" ] || fail "unknown evidence id in active operation: $evidence_id"
+
+  linked_at="$(timestamp)"
+  flow_links_file="$(atlas_flow_operation_links_file "$ATLAS_OP_DIR")"
+  evidence_links_file="$(atlas_flow_evidence_links_file "$ATLAS_OP_DIR")"
+
+  atlas_flow_append_operation_link "$flow_links_file" "$linked_at"
+  atlas_flow_append_evidence_link "$evidence_links_file" "$evidence_record" "$evidence_id" "$linked_at"
+
+  evidence_kind="$(printf '%s\n' "$evidence_record" | jq -r '.kind // "artifact"')"
+  evidence_path="$(printf '%s\n' "$evidence_record" | jq -r '.path // ""')"
+  evidence_sha256="$(printf '%s\n' "$evidence_record" | jq -r '.sha256 // ""')"
+
+  atlas_ledger_append_current "flow.evidence_linked" "read-only" "atlas" "ok" "flow_id=$ATLAS_FLOW_ID evidence=$evidence_id kind=$evidence_kind sha256=$evidence_sha256 path=$evidence_path"
+
+  ui_ok "business flow evidence linked"
+  printf 'flow_id: %s\n' "$ATLAS_FLOW_ID"
+  printf 'operation: %s\n' "$ATLAS_OP_SLUG"
+  printf 'evidence_id: %s\n' "$evidence_id"
+  printf 'link_path: %s\n' "$evidence_links_file"
+}
+
 dispatch_flow_command() {
   case "${1:-}" in
   add)
@@ -364,6 +520,10 @@ dispatch_flow_command() {
   show)
     shift
     cmd_flow_show "$@"
+    ;;
+  link-evidence)
+    shift
+    cmd_flow_link_evidence "$@"
     ;;
   *)
     usage
