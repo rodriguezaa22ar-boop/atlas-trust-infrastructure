@@ -232,6 +232,10 @@ The near-term roadmap is:
     validation, report, handoff, closeout, audit, archive, v1 readiness, and
     release trust JSON. The test suite now exercises that full chain and
     verifies closeout, audit, archive, and release trust artifacts.
+37. Add web assessment packetization. `atlas web assess <url>` now turns a
+    bounded public web posture check into an Atlas operation with retained
+    route/header evidence, structured findings, an evidence bundle, an
+    operation report, and a handoff packet.
 
 ## First Serious Version
 

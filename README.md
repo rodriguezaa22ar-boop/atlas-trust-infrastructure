@@ -56,6 +56,7 @@ Useful commands:
 ./tools/atlas/bin/atlas release packet atlas-current --qa-status pass
 ./tools/atlas/bin/atlas release packet atlas-current --json --qa-status pass
 ./tools/atlas/bin/atlas release verify atlas-current
+./tools/atlas/bin/atlas web assess https://example.com example-web-review --scope-status in-scope
 ./tools/atlas/bin/atlas profile list
 ./tools/atlas/bin/atlas profile show htb-starting-point
 ./tools/atlas/bin/atlas target update edge-router --scope-status in-scope --criticality high --tag lab
@@ -223,6 +224,10 @@ Atlas now also exposes the operator-level story and reporting layer:
 - `atlas release verify [packet-name]`: release trust packet verification for
   clean/synced state, passing QA status, required retention notes, known
   limitations, and embedded v1 readiness JSON in either packet format
+- `atlas web assess <url> [assessment-name]`: bounded public web assessment
+  packetization that creates an Atlas operation, stores route/header results
+  as evidence, records posture findings, bundles evidence, and writes report
+  and handoff packets
 - [Atlas Trust Lifecycle](docs/atlas/TRUST_LIFECYCLE.md): the end-to-end
   proof path from scoped operation through evidence, validation, retention,
   archive, v1 readiness, and release trust JSON

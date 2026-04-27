@@ -62,6 +62,9 @@ TOOL_NAME="atlas"
 # shellcheck source=../lib/release.sh
 . "$TOOL_DIR/lib/release.sh"
 # shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/web.sh
+. "$TOOL_DIR/lib/web.sh"
+# shellcheck source-path=SCRIPTDIR
 # shellcheck source=../lib/doctor.sh
 . "$TOOL_DIR/lib/doctor.sh"
 # shellcheck source-path=SCRIPTDIR
@@ -88,6 +91,7 @@ usage:
   atlas v1 status [name] [--strict] [--json]
   atlas release packet [packet-name] [--json]
   atlas release verify [packet]
+  atlas web assess <url> [assessment-name]
   atlas menu
   atlas profile list
   atlas profile show <name>
@@ -135,6 +139,7 @@ quick flow:
   atlas validation retest <id> --result resolved|still-open
   atlas cycle
   atlas advisor brief
+  atlas web assess <url> [assessment-name]
   atlas op story [name]
   atlas op report [name] [report-name]
   atlas op readiness [name]
@@ -292,6 +297,9 @@ v1:
 release:
   atlas release packet [packet-name] [--json] [--qa-status status] [--qa-command command] [--qa-note text] [--allow-dirty] [--allow-unsynced] [--allow-not-ready]
   atlas release verify [packet] [--commit sha]
+
+web:
+  atlas web assess <url> [assessment-name] [--target name] [--scope-status status] [--criticality level] [--owner owner] [--timeout seconds]
 EOF
 }
 
@@ -1936,6 +1944,19 @@ release)
 	verify)
 		shift
 		cmd_release_verify "$@"
+		;;
+	*)
+		usage
+		exit 1
+		;;
+	esac
+	;;
+web)
+	shift
+	case "${1:-assess}" in
+	"" | assess)
+		[ "$#" -gt 0 ] && shift
+		cmd_web_assess "$@"
 		;;
 	*)
 		usage

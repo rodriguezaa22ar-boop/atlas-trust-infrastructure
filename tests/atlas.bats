@@ -39,6 +39,7 @@ make_repo_clean_and_synced() {
   [[ "$output" == *"atlas release packet [packet-name]"* ]]
   [[ "$output" == *"atlas release packet [packet-name] [--json]"* ]]
   [[ "$output" == *"atlas release verify [packet]"* ]]
+  [[ "$output" == *"atlas web assess <url> [assessment-name]"* ]]
   [[ "$output" == *"atlas scope status"* ]]
   [[ "$output" == *"atlas evidence add <path> [--kind kind]"* ]]
   [[ "$output" == *"atlas evidence redact <id> <redacted-path>"* ]]
@@ -82,6 +83,115 @@ make_repo_clean_and_synced() {
   [[ "$output" == *"atlas op archive-verify [name] [archive-packet]"* ]]
   [[ "$output" == *"atlas op close [name] [--force]"* ]]
   [[ "$output" == *"atlas target brief <target>"* ]]
+}
+
+@test "atlas web assess packetizes bounded web posture into operation evidence" {
+  mkdir -p "$TEST_ROOT/fake-bin"
+  cat > "$TEST_ROOT/fake-bin/curl" <<'EOF'
+#!/usr/bin/env bash
+headers=""
+body=""
+url=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+  -D)
+    headers="$2"
+    shift 2
+    ;;
+  -o)
+    body="$2"
+    shift 2
+    ;;
+  --max-time)
+    shift 2
+    ;;
+  -sS)
+    shift
+    ;;
+  *)
+    url="$1"
+    shift
+    ;;
+  esac
+done
+
+status="200 OK"
+content_type="text/html; charset=utf-8"
+server="fake-edge"
+location=""
+
+case "$url" in
+https://example.test/static*)
+  content_type="application/javascript"
+  ;;
+esac
+
+{
+  printf 'HTTP/1.1 %s\r\n' "$status"
+  printf 'Content-Type: %s\r\n' "$content_type"
+  printf 'Server: %s\r\n' "$server"
+  if [ -n "$location" ]; then
+    printf 'Location: %s\r\n' "$location"
+  fi
+  printf '\r\n'
+} > "$headers"
+
+cat > "$body" <<'HTML'
+<!doctype html><html><head><title>Execution OS</title></head><body><div id="root"></div></body></html>
+HTML
+EOF
+  chmod +x "$TEST_ROOT/fake-bin/curl"
+
+  run env LAB_ATLAS_CURL_BIN="$TEST_ROOT/fake-bin/curl" \
+    "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" web assess https://example.test m37-web \
+    --scope-status in-scope \
+    --criticality medium \
+    --owner platform
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"web assessment packetized"* ]]
+  [[ "$output" == *"operation: m37-web"* ]]
+  [[ "$output" == *"target: example.test"* ]]
+  [[ "$output" == *"findings: 4"* ]]
+
+  summary_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "summary" { print $2; exit }')"
+  routes_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "routes" { print $2; exit }')"
+  bundle_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "bundle" { print $2; exit }')"
+  report_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "report" { print $2; exit }')"
+  handoff_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "handoff" { print $2; exit }')"
+
+  [ -f "$summary_path" ]
+  [ -f "$routes_path" ]
+  [ -d "$bundle_path" ]
+  [ -f "$report_path" ]
+  [ -f "$handoff_path" ]
+
+  grep -q '^# Atlas Web Assessment Packet$' "$summary_path"
+  grep -q 'Finding Count: 4' "$summary_path"
+  grep -q 'Missing Security Headers' "$summary_path"
+  grep -q '/robots.txt' "$routes_path"
+  grep -q 'Content-Security-Policy' "$routes_path"
+  grep -q 'Missing browser hardening headers' "$report_path"
+  grep -q 'HTTP origin does not redirect to HTTPS' "$report_path"
+  grep -q 'Metadata routes return application HTML' "$report_path"
+  grep -q 'Admin-style routes return successful responses' "$report_path"
+  grep -q 'Close readiness: attention-required' "$handoff_path"
+
+  grep -q '^NAME=example.test$' "$TEST_ROOT/toolkit/targets/example.test.env"
+  grep -q '^ADDRESS=https://example.test$' "$TEST_ROOT/toolkit/targets/example.test.env"
+  grep -q '^SCOPE_STATUS=in-scope$' "$TEST_ROOT/toolkit/targets/example.test.env"
+  grep -q '^OWNER=platform$' "$TEST_ROOT/toolkit/targets/example.test.env"
+
+  jq -e 'select(.event == "web.assessment.generated" and (.detail | contains("findings=4")))' \
+    "$TEST_ROOT/toolkit/sessions/m37-web/ledger.ndjson"
+  jq -s -e 'map(select(.kind == "web-assessment-summary" or .kind == "web-assessment-routes")) | length == 2' \
+    "$TEST_ROOT/toolkit/sessions/m37-web/evidence.ndjson"
+  jq -s -e 'map(select(.title == "Missing browser hardening headers" or .title == "HTTP origin does not redirect to HTTPS" or .title == "Metadata routes return application HTML" or .title == "Admin-style routes return successful responses")) | length == 4' \
+    "$TEST_ROOT/toolkit/sessions/m37-web/findings.ndjson"
+  jq -e 'select(.observation_type == "web_probe" and .target == "example.test")' \
+    "$TEST_ROOT/toolkit/state/intel/observations.jsonl"
+  jq -e 'select(.observation_type == "http_posture_finding" and .target == "example.test")' \
+    "$TEST_ROOT/toolkit/state/intel/observations.jsonl"
 }
 
 @test "atlas v1 status reports product pillar readiness" {
