@@ -22,6 +22,7 @@ atlas release packet atlas-current --qa-status pass
 atlas release packet atlas-current --json --qa-status pass
 atlas release verify atlas-current
 atlas web assess https://example.com example-web-review --scope-status in-scope --api-path /api/auth/me --cors-origin https://example.net
+atlas web validation-plan --all
 atlas menu
 atlas profile list
 atlas profile show htb-starting-point
@@ -152,6 +153,14 @@ operation report, and emits a handoff packet. Operators can add repeated
 use `--skip-api` for route-only review. The command is intended for authorized
 public web review; it does not fuzz, brute force, exploit, or crawl arbitrary
 content.
+
+`atlas web validation-plan [--all]` creates approval-gated posture validation
+plans for open web assessment findings in the active operation. Without
+arguments it queues the highest-severity unplanned web finding. `--all` queues
+every open web assessment finding that does not already have a validation plan,
+and `--finding <id>` targets one finding explicitly. Planning is metadata-only:
+it records the validation queue and evidence links but does not rerun probes or
+touch the target.
 
 The full trust lifecycle is documented in
 [`docs/atlas/TRUST_LIFECYCLE.md`](../../docs/atlas/TRUST_LIFECYCLE.md). It

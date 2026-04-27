@@ -491,6 +491,80 @@ atlas_web_add_finding() {
   printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }'
 }
 
+atlas_web_is_assessment_finding_title() {
+  case "$1" in
+  "Missing browser hardening headers" | \
+    "HTTP origin does not redirect to HTTPS" | \
+    "Metadata routes return application HTML" | \
+    "Admin-style routes return successful responses" | \
+    "Credentialed CORS allows probe origin")
+    return 0
+    ;;
+  *)
+    return 1
+    ;;
+  esac
+}
+
+atlas_web_assessment_finding_rows() {
+  local finding_id="${1:-}"
+  local index_file
+
+  intel_require_jq
+  index_file="$(atlas_findings_index_file "$ATLAS_OP_DIR")"
+  [ -s "$index_file" ] || return 0
+
+  jq -sr \
+    --arg finding_id "$finding_id" '
+      def severity_rank:
+        {
+          "critical": 5,
+          "high": 4,
+          "medium": 3,
+          "low": 2,
+          "info": 1
+        }[.] // 0;
+      def web_assessment_title:
+        . == "Missing browser hardening headers" or
+        . == "HTTP origin does not redirect to HTTPS" or
+        . == "Metadata routes return application HTML" or
+        . == "Admin-style routes return successful responses" or
+        . == "Credentialed CORS allows probe origin";
+      reduce .[] as $record ({}; .[$record.id] = $record)
+      | [.[]]
+      | map(select(
+          (.status // "") == "open" and
+          ((.title // "") | web_assessment_title) and
+          ($finding_id == "" or .id == $finding_id)
+        ))
+      | sort_by((.severity // "info" | severity_rank), (.created_at // ""), (.id // ""))
+      | reverse
+      | .[]
+      | [
+          (.id // ""),
+          (.title // ""),
+          (.severity // ""),
+          ((.evidence // []) | join(" "))
+        ]
+      | @tsv
+    ' "$index_file"
+}
+
+atlas_web_finding_has_validation_plan() {
+  local finding_id="$1"
+  local index_file
+
+  index_file="$(atlas_validation_index_file "$ATLAS_OP_DIR")"
+  [ -s "$index_file" ] || return 1
+
+  jq -se \
+    --arg finding_id "$finding_id" '
+      reduce .[] as $record ({}; .[$record.id] = $record)
+      | [.[]]
+      | any(.finding == $finding_id)
+    ' "$index_file" >/dev/null
+}
+
 atlas_web_publish_intel() {
   local target="$1"
   local routes_file="$2"
@@ -898,4 +972,109 @@ cmd_web_assess() {
   printf 'bundle: %s\n' "$bundle_dir"
   printf 'report: %s\n' "$report_path"
   printf 'handoff: %s\n' "$handoff_path"
+}
+
+cmd_web_validation_plan() {
+  local all="0"
+  local finding_id=""
+  local lane="posture"
+  local rows=()
+  local row
+  local id
+  local title
+  local severity
+  local evidence_text
+  local evidence_id
+  local plan_args=()
+  local plan_output
+  local plan_id
+  local planned_ids=()
+  local skipped_ids=()
+  local considered_count=0
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+    --all)
+      all="1"
+      shift
+      ;;
+    --finding)
+      need_args 2 "$#" "web validation-plan --finding <id>"
+      finding_id="$2"
+      shift 2
+      ;;
+    --lane)
+      need_args 2 "$#" "web validation-plan --lane <lane>"
+      lane="$2"
+      shift 2
+      ;;
+    *)
+      fail "unknown web validation-plan option: $1"
+      ;;
+    esac
+  done
+
+  if [ "$all" = "1" ] && [ -n "$finding_id" ]; then
+    fail "web validation-plan accepts either --all or --finding, not both"
+  fi
+
+  load_active_operation
+
+  while IFS= read -r row; do
+    [ -n "$row" ] || continue
+    rows+=("$row")
+  done < <(atlas_web_assessment_finding_rows "$finding_id")
+
+  if [ "${#rows[@]}" -eq 0 ]; then
+    if [ -n "$finding_id" ]; then
+      fail "no open web assessment finding found for: $finding_id"
+    fi
+    ui_note "no open web assessment findings are waiting for a validation plan"
+    return 0
+  fi
+
+  if [ "$all" != "1" ] && [ -z "$finding_id" ]; then
+    rows=("${rows[0]}")
+  fi
+
+  for row in "${rows[@]}"; do
+    IFS=$'\t' read -r id title severity evidence_text <<<"$row"
+    [ -n "$id" ] || continue
+    considered_count=$((considered_count + 1))
+
+    if ! atlas_web_is_assessment_finding_title "$title"; then
+      skipped_ids+=("$id")
+      continue
+    fi
+
+    if atlas_web_finding_has_validation_plan "$id"; then
+      skipped_ids+=("$id")
+      continue
+    fi
+
+    plan_args=("$lane" --finding "$id" --reason "validate $severity web assessment finding: $title")
+    for evidence_id in $evidence_text; do
+      [ -n "$evidence_id" ] || continue
+      plan_args+=(--evidence "$evidence_id")
+    done
+
+    plan_output="$(cmd_validation_plan "${plan_args[@]}")"
+    plan_id="$(printf '%s\n' "$plan_output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+    [ -n "$plan_id" ] || fail "unable to record validation plan for finding: $id"
+    planned_ids+=("$plan_id")
+  done
+
+  ui_ok "web validation plans queued"
+  printf 'operation: %s\n' "$ATLAS_OP_SLUG"
+  printf 'target: %s\n' "$ATLAS_OP_TARGET"
+  printf 'lane: %s\n' "$lane"
+  printf 'considered: %s\n' "$considered_count"
+  printf 'planned: %s\n' "${#planned_ids[@]}"
+  printf 'skipped: %s\n' "${#skipped_ids[@]}"
+  if [ "${#planned_ids[@]}" -gt 0 ]; then
+    printf 'plan_ids: %s\n' "${planned_ids[*]}"
+  fi
+  if [ "${#skipped_ids[@]}" -gt 0 ]; then
+    printf 'skipped_findings: %s\n' "${skipped_ids[*]}"
+  fi
 }

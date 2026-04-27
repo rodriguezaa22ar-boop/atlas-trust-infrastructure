@@ -240,6 +240,10 @@ The near-term roadmap is:
     bounded API route and CORS preflight evidence, supports explicit
     `--api-path` and `--cors-origin` probes, and raises a structured finding
     when credentialed CORS allows the configured probe origin.
+39. Add web assessment validation queueing. `atlas web validation-plan` now
+    turns open web assessment findings into approval-gated posture validation
+    plans, links the original route/API evidence, and skips findings that
+    already have validation plans.
 
 ## First Serious Version
 

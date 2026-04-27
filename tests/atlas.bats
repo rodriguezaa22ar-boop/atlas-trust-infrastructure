@@ -49,6 +49,7 @@ make_repo_clean_and_synced() {
   [[ "$output" == *"atlas release packet [packet-name] [--json]"* ]]
   [[ "$output" == *"atlas release verify [packet]"* ]]
   [[ "$output" == *"atlas web assess <url> [assessment-name]"* ]]
+  [[ "$output" == *"atlas web validation-plan [--all]"* ]]
   [[ "$output" == *"atlas scope status"* ]]
   [[ "$output" == *"atlas evidence add <path> [--kind kind]"* ]]
   [[ "$output" == *"atlas evidence redact <id> <redacted-path>"* ]]
@@ -335,6 +336,28 @@ EOF
     "$TEST_ROOT/toolkit/sessions/m38-cors/findings.ndjson"
   jq -e 'select(.observation_type == "cors_posture_finding" and .target == "api.example.test")' \
     "$TEST_ROOT/toolkit/state/intel/observations.jsonl"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" web validation-plan --all
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"web validation plans queued"* ]]
+  [[ "$output" == *"operation: m38-cors"* ]]
+  [[ "$output" == *"lane: posture"* ]]
+  [[ "$output" == *"considered: 5"* ]]
+  [[ "$output" == *"planned: 5"* ]]
+  [[ "$output" == *"skipped: 0"* ]]
+  [[ "$output" == *"plan_ids:"* ]]
+
+  jq -s -e 'length == 5 and all(.[]; .lane == "posture" and .status == "planned" and .capability == "safe-validation" and (.finding != null))' \
+    "$TEST_ROOT/toolkit/sessions/m38-cors/validation-plans.ndjson"
+  jq -s -e 'map(select(.reason | contains("Credentialed CORS allows probe origin"))) | length == 1' \
+    "$TEST_ROOT/toolkit/sessions/m38-cors/validation-plans.ndjson"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" web validation-plan --all
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"planned: 0"* ]]
+  [[ "$output" == *"skipped: 5"* ]]
 }
 
 @test "atlas v1 status reports product pillar readiness" {
