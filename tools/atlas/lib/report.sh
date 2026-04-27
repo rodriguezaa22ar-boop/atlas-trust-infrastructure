@@ -107,6 +107,8 @@ atlas_report_finding_rows_by_level() {
           (.accepted_owner // ""),
           (.accepted_until // ""),
           (.accepted_by // ""),
+          (.review_reason // ""),
+          (.reviewed_by // ""),
           (.note // "")
         ]
       | @tsv
@@ -149,7 +151,13 @@ atlas_report_print_finding_level() {
           printf " Accepted by: %s.", $13
         }
         if ($14 != "") {
-          printf " Latest note: %s.", $14
+          printf " Risk review: %s.", $14
+        }
+        if ($15 != "") {
+          printf " Reviewed by: %s.", $15
+        }
+        if ($16 != "") {
+          printf " Latest note: %s.", $16
         }
         printf "\n"
       }'

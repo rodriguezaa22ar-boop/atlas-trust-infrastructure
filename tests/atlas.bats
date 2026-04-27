@@ -58,6 +58,7 @@ make_repo_clean_and_synced() {
   [[ "$output" == *"atlas finding add <title> [--level observed|inferred|validated]"* ]]
   [[ "$output" == *"atlas finding update <id> [--level level] [--status status]"* ]]
   [[ "$output" == *"atlas finding accept <id> --reason text"* ]]
+  [[ "$output" == *"atlas finding review <id> --reason text"* ]]
   [[ "$output" == *"atlas finding resolve <id> [--evidence id] [--validation id]"* ]]
   [[ "$output" == *"atlas validation plan <lane> [--finding id] [--evidence id]"* ]]
   [[ "$output" == *"atlas validation retest <id> --result resolved|still-open"* ]]
@@ -1968,6 +1969,10 @@ EOF
   finding_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
   [ -n "$finding_id" ]
 
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding review "$finding_id" --reason "premature review"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"finding review requires an accepted finding; current status: open"* ]]
+
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding accept "$finding_id" \
     --reason "owner accepts residual lab exposure through review date" \
     --owner "Alta" \
@@ -1976,6 +1981,10 @@ EOF
   [ "$status" -eq 0 ]
   [[ "$output" == *"status: accepted"* ]]
   [[ "$output" == *"expires: 2026-04-01"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding review "$finding_id"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"review reason is required"* ]]
 
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op report expired-risk-op expired-risk-report
   [ "$status" -eq 0 ]
@@ -2021,6 +2030,59 @@ EOF
     --arg finding_id "$finding_id" \
     'map(select(.id == $finding_id)) | last | select(.status == "accepted" and .accepted_until == "2026-04-01")' \
     "$TEST_ROOT/toolkit/sessions/expired-risk-op/findings.ndjson"
+
+  run env ATLAS_TODAY=2026-04-27 "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding review "$finding_id" \
+    --reason "owner renewed acceptance after review" \
+    --owner "Alta" \
+    --expires "2999-12-31" \
+    --evidence "$evidence_id"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"finding reviewed"* ]]
+  [[ "$output" == *"status: accepted"* ]]
+  [[ "$output" == *"reason: owner renewed acceptance after review"* ]]
+  [[ "$output" == *"reviewed_by:"* ]]
+  [[ "$output" == *"expires: 2999-12-31"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding show "$finding_id"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Status: accepted"* ]]
+  [[ "$output" == *"Accepted Reason: owner renewed acceptance after review"* ]]
+  [[ "$output" == *"Accepted Until: 2999-12-31"* ]]
+  [[ "$output" == *"Risk Review Reason: owner renewed acceptance after review"* ]]
+  [[ "$output" == *"Risk Reviewed By:"* ]]
+
+  run env ATLAS_TODAY=2026-04-27 "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op readiness expired-risk-op
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Expired Accepted Risks: 0"* ]]
+  [[ "$output" == *"Report Freshness: stale"* ]]
+  [[ "$output" == *"Latest State Change:"* ]]
+  [[ "$output" == *"finding.reviewed"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op report expired-risk-op expired-risk-reviewed-report
+  [ "$status" -eq 0 ]
+  reviewed_report_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "report" { print $2; exit }')"
+  [ -f "$reviewed_report_path" ]
+  grep -q 'Risk review: owner renewed acceptance after review' "$reviewed_report_path"
+
+  run env ATLAS_TODAY=2026-04-27 "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op readiness expired-risk-op
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Expired Accepted Risks: 0"* ]]
+  [[ "$output" == *"Report Freshness: current"* ]]
+  [[ "$output" == *"Close Readiness: ready"* ]]
+
+  run env ATLAS_TODAY=2026-04-27 "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" v1 status expired-risk-op --strict
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Findings"* ]]
+  [[ "$output" == *"finding lifecycle is implemented and no unresolved findings block this operation"* ]]
+  [[ "$output" == *"Overall: ready"* ]]
+
+  jq -s -e \
+    --arg finding_id "$finding_id" \
+    'map(select(.id == $finding_id)) | last | select(.status == "accepted" and .accepted_until == "2999-12-31" and .review_reason == "owner renewed acceptance after review")' \
+    "$TEST_ROOT/toolkit/sessions/expired-risk-op/findings.ndjson"
+  jq -e --arg finding_id "$finding_id" \
+    'select(.event == "finding.reviewed" and (.detail | contains($finding_id)) and (.detail | contains("owner renewed acceptance after review")))' \
+    "$TEST_ROOT/toolkit/sessions/expired-risk-op/ledger.ndjson"
 }
 
 @test "atlas operation archive summarizes final verification state" {

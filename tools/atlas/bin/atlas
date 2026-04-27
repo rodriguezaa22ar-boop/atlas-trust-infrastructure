@@ -110,6 +110,7 @@ usage:
   atlas finding add <title> [--level observed|inferred|validated]
   atlas finding update <id> [--level level] [--status status]
   atlas finding accept <id> --reason text [--owner owner] [--expires date]
+  atlas finding review <id> --reason text [--owner owner] [--expires date]
   atlas finding resolve <id> [--evidence id] [--validation id]
   atlas finding list
   atlas finding show <id>
@@ -2089,6 +2090,10 @@ finding | findings)
 	accept)
 		shift
 		cmd_finding_accept "$@"
+		;;
+	review)
+		shift
+		cmd_finding_review "$@"
 		;;
 	resolve)
 		shift

@@ -276,6 +276,7 @@ atlas_readiness_latest_material_change() {
         "finding.recorded",
         "finding.updated",
         "finding.accepted",
+        "finding.reviewed",
         "approval.granted",
         "validation.planned",
         "validation.approved",

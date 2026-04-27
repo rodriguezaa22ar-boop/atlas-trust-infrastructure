@@ -222,6 +222,9 @@ atlas_findings_append_update_record() {
   local accepted_until="${17:-}"
   local accepted_at="${18:-}"
   local accepted_by="${19:-}"
+  local review_reason="${20:-}"
+  local reviewed_at="${21:-}"
+  local reviewed_by="${22:-}"
   local index_file
 
   intel_require_jq
@@ -252,6 +255,9 @@ atlas_findings_append_update_record() {
     --arg accepted_until "$accepted_until" \
     --arg accepted_at "$accepted_at" \
     --arg accepted_by "$accepted_by" \
+    --arg review_reason "$review_reason" \
+    --arg reviewed_at "$reviewed_at" \
+    --arg reviewed_by "$reviewed_by" \
     '{
       id: $id,
       operation: $operation,
@@ -275,7 +281,10 @@ atlas_findings_append_update_record() {
     + (if $accepted_owner != "" then {accepted_owner: $accepted_owner} else {} end)
     + (if $accepted_until != "" then {accepted_until: $accepted_until} else {} end)
     + (if $accepted_at != "" then {accepted_at: $accepted_at} else {} end)
-    + (if $accepted_by != "" then {accepted_by: $accepted_by} else {} end)' >>"$index_file"
+    + (if $accepted_by != "" then {accepted_by: $accepted_by} else {} end)
+    + (if $review_reason != "" then {review_reason: $review_reason} else {} end)
+    + (if $reviewed_at != "" then {reviewed_at: $reviewed_at} else {} end)
+    + (if $reviewed_by != "" then {reviewed_by: $reviewed_by} else {} end)' >>"$index_file"
 }
 
 cmd_finding_add() {
@@ -409,6 +418,9 @@ cmd_finding_update() {
   local accepted_until=""
   local accepted_at=""
   local accepted_by=""
+  local review_reason=""
+  local reviewed_at=""
+  local reviewed_by=""
   local evidence_ids=()
   local validation_ids=()
   local record
@@ -432,6 +444,9 @@ cmd_finding_update() {
   local current_accepted_until
   local current_accepted_at
   local current_accepted_by
+  local current_review_reason
+  local current_reviewed_at
+  local current_reviewed_by
   local merged_evidence
   local merged_validations
 
@@ -513,6 +528,21 @@ cmd_finding_update() {
       accepted_by="$2"
       shift 2
       ;;
+    --review-reason)
+      need_args 2 "$#" "finding update <id> --review-reason <text>"
+      review_reason="$2"
+      shift 2
+      ;;
+    --reviewed-at)
+      need_args 2 "$#" "finding update <id> --reviewed-at <timestamp>"
+      reviewed_at="$2"
+      shift 2
+      ;;
+    --reviewed-by)
+      need_args 2 "$#" "finding update <id> --reviewed-by <operator>"
+      reviewed_by="$2"
+      shift 2
+      ;;
     *)
       fail "unknown finding update option: $1"
       ;;
@@ -546,7 +576,10 @@ cmd_finding_update() {
           (.accepted_owner // ""),
           (.accepted_until // ""),
           (.accepted_at // ""),
-          (.accepted_by // "")
+          (.accepted_by // ""),
+          (.review_reason // ""),
+          (.reviewed_at // ""),
+          (.reviewed_by // "")
         ]
         | .[]
       '
@@ -569,6 +602,9 @@ cmd_finding_update() {
   current_accepted_until="${fields[15]:-}"
   current_accepted_at="${fields[16]:-}"
   current_accepted_by="${fields[17]:-}"
+  current_review_reason="${fields[18]:-}"
+  current_reviewed_at="${fields[19]:-}"
+  current_reviewed_by="${fields[20]:-}"
   [ "$operation" = "$ATLAS_OP_SLUG" ] || fail "finding '$finding_id' does not belong to active operation '$ATLAS_OP_SLUG'"
 
   [ -n "$title" ] || title="$current_title"
@@ -584,6 +620,9 @@ cmd_finding_update() {
   [ -n "$accepted_until" ] || accepted_until="$current_accepted_until"
   [ -n "$accepted_at" ] || accepted_at="$current_accepted_at"
   [ -n "$accepted_by" ] || accepted_by="$current_accepted_by"
+  [ -n "$review_reason" ] || review_reason="$current_review_reason"
+  [ -n "$reviewed_at" ] || reviewed_at="$current_reviewed_at"
+  [ -n "$reviewed_by" ] || reviewed_by="$current_reviewed_by"
 
   atlas_findings_validate_level "$level"
   atlas_findings_validate_severity "$severity"
@@ -598,7 +637,7 @@ cmd_finding_update() {
   # shellcheck disable=SC2086
   merged_validations="$(atlas_findings_join_unique $current_validations "${validation_ids[@]}")"
 
-  atlas_findings_append_update_record "$finding_id" "$target" "$title" "$level" "$severity" "$confidence" "$status" "$source" "$impact" "$recommendation" "$created_at" "$note" "$merged_evidence" "$merged_validations" "$accepted_reason" "$accepted_owner" "$accepted_until" "$accepted_at" "$accepted_by"
+  atlas_findings_append_update_record "$finding_id" "$target" "$title" "$level" "$severity" "$confidence" "$status" "$source" "$impact" "$recommendation" "$created_at" "$note" "$merged_evidence" "$merged_validations" "$accepted_reason" "$accepted_owner" "$accepted_until" "$accepted_at" "$accepted_by" "$review_reason" "$reviewed_at" "$reviewed_by"
   atlas_ledger_append_current "finding.updated" "read-only" "atlas" "ok" "finding=$finding_id level=$level severity=$severity status=$status validations=$merged_validations"
 
   ui_ok "finding updated"
@@ -626,6 +665,12 @@ cmd_finding_update() {
   fi
   if [ -n "$accepted_by" ]; then
     printf 'accepted_by: %s\n' "$accepted_by"
+  fi
+  if [ -n "$review_reason" ]; then
+    printf 'review_reason: %s\n' "$review_reason"
+  fi
+  if [ -n "$reviewed_by" ]; then
+    printf 'reviewed_by: %s\n' "$reviewed_by"
   fi
 }
 
@@ -736,6 +781,116 @@ cmd_finding_accept() {
   fi
 }
 
+cmd_finding_review() {
+  need_args 1 "$#" "finding review <id> --reason text [--owner owner] [--expires date]"
+  local finding_id="$1"
+  local reason=""
+  local owner=""
+  local expires=""
+  local reviewed_at
+  local reviewed_by
+  local note
+  local record
+  local current_status
+  local args=()
+  local evidence_ids=()
+  local validation_ids=()
+  local evidence_id
+  local validation_id
+
+  shift
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+    --reason)
+      need_args 2 "$#" "finding review <id> --reason <text>"
+      reason="$2"
+      shift 2
+      ;;
+    --owner)
+      need_args 2 "$#" "finding review <id> --owner <owner>"
+      owner="$2"
+      shift 2
+      ;;
+    --expires | --until)
+      need_args 2 "$#" "finding review <id> --expires <date>"
+      expires="$2"
+      shift 2
+      ;;
+    --evidence)
+      need_args 2 "$#" "finding review <id> --evidence <evidence-id>"
+      evidence_ids+=("$2")
+      shift 2
+      ;;
+    --validation)
+      need_args 2 "$#" "finding review <id> --validation <validation-plan-id>"
+      validation_ids+=("$2")
+      shift 2
+      ;;
+    *)
+      fail "unknown finding review option: $1"
+      ;;
+    esac
+  done
+
+  [ -n "$reason" ] || fail "review reason is required"
+
+  load_active_operation
+  record="$(atlas_findings_latest_record "$finding_id" || true)"
+  [ -n "$record" ] || fail "unknown finding: $finding_id"
+  current_status="$(printf '%s\n' "$record" | jq -r '.status // "open"')"
+  [ "$current_status" = "accepted" ] || fail "finding review requires an accepted finding; current status: $current_status"
+
+  reviewed_at="$(timestamp)"
+  reviewed_by="$(atlas_approval_operator)"
+  note="accepted risk reviewed: $reason"
+  if [ -n "$owner" ]; then
+    note="$note owner=$owner"
+  fi
+  if [ -n "$expires" ]; then
+    note="$note expires=$expires"
+  fi
+
+  args=(
+    "$finding_id"
+    --status accepted
+    --note "$note"
+    --accepted-reason "$reason"
+    --accepted-at "$reviewed_at"
+    --accepted-by "$reviewed_by"
+    --review-reason "$reason"
+    --reviewed-at "$reviewed_at"
+    --reviewed-by "$reviewed_by"
+  )
+  if [ -n "$owner" ]; then
+    args+=(--accepted-owner "$owner")
+  fi
+  if [ -n "$expires" ]; then
+    args+=(--accepted-until "$expires")
+  fi
+  for evidence_id in "${evidence_ids[@]}"; do
+    args+=(--evidence "$evidence_id")
+  done
+  for validation_id in "${validation_ids[@]}"; do
+    args+=(--validation "$validation_id")
+  done
+
+  cmd_finding_update "${args[@]}" >/dev/null
+  atlas_ledger_append_current "finding.reviewed" "read-only" "atlas" "reviewed" "finding=$finding_id owner=$owner expires=$expires reason=$reason"
+
+  ui_ok "finding reviewed"
+  printf 'id: %s\n' "$finding_id"
+  printf 'status: accepted\n'
+  printf 'reason: %s\n' "$reason"
+  printf 'reviewed_by: %s\n' "$reviewed_by"
+  printf 'reviewed_at: %s\n' "$reviewed_at"
+  if [ -n "$owner" ]; then
+    printf 'owner: %s\n' "$owner"
+  fi
+  if [ -n "$expires" ]; then
+    printf 'expires: %s\n' "$expires"
+  fi
+}
+
 cmd_finding_list() {
   local index_file
 
@@ -802,6 +957,9 @@ cmd_finding_show() {
   local accepted_until
   local accepted_at
   local accepted_by
+  local review_reason
+  local reviewed_at
+  local reviewed_by
 
   load_active_operation
   index_file="$(atlas_findings_index_file "$ATLAS_OP_DIR")"
@@ -836,7 +994,10 @@ cmd_finding_show() {
           (.accepted_owner // ""),
           (.accepted_until // ""),
           (.accepted_at // ""),
-          (.accepted_by // "")
+          (.accepted_by // ""),
+          (.review_reason // ""),
+          (.reviewed_at // ""),
+          (.reviewed_by // "")
         ]
         | .[]
       '
@@ -862,6 +1023,9 @@ cmd_finding_show() {
   accepted_until="${fields[18]:-}"
   accepted_at="${fields[19]:-}"
   accepted_by="${fields[20]:-}"
+  review_reason="${fields[21]:-}"
+  reviewed_at="${fields[22]:-}"
+  reviewed_by="${fields[23]:-}"
 
   ui_heading "Finding Record"
   ui_rule
@@ -900,6 +1064,15 @@ cmd_finding_show() {
   fi
   if [ -n "$accepted_by" ]; then
     ui_kv "Accepted By" "$accepted_by"
+  fi
+  if [ -n "$review_reason" ]; then
+    ui_kv "Risk Review Reason" "$review_reason"
+  fi
+  if [ -n "$reviewed_at" ]; then
+    ui_kv "Risk Reviewed At" "$reviewed_at"
+  fi
+  if [ -n "$reviewed_by" ]; then
+    ui_kv "Risk Reviewed By" "$reviewed_by"
   fi
   ui_kv "Created" "$created_at"
   if [ -n "$updated_at" ]; then
@@ -965,7 +1138,9 @@ atlas_findings_report_markdown() {
         " Accepted risk: " + .accepted_reason + "." +
         (if (.accepted_owner // "") != "" then " Owner: " + .accepted_owner + "." else "" end) +
         (if (.accepted_until // "") != "" then " Accepted until: " + .accepted_until + "." else "" end) +
-        (if (.accepted_by // "") != "" then " Accepted by: " + .accepted_by + "." else "" end)
+        (if (.accepted_by // "") != "" then " Accepted by: " + .accepted_by + "." else "" end) +
+        (if (.review_reason // "") != "" then " Risk review: " + .review_reason + "." else "" end) +
+        (if (.reviewed_by // "") != "" then " Reviewed by: " + .reviewed_by + "." else "" end)
       else
         ""
       end;

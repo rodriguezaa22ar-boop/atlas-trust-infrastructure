@@ -260,6 +260,8 @@ Atlas now also exposes the operator-level story and reporting layer:
 - `atlas finding accept <id> --reason <text>`: record accepted-risk ownership,
   reason, optional expiry, and evidence links while making readiness treat the
   finding as non-blocking until any recorded expiry date has passed
+- `atlas finding review <id> --reason <text>`: re-review an accepted risk,
+  renew owner/expiry metadata, and record a dedicated finding review ledger event
 - `atlas validation plan <lane>`: plan, approve, run, retest, and supersede
   bounded validation when an executed run is replaced by a successful rerun
 - `atlas validation retest <id>`: promotes confirmed findings to validated

@@ -322,7 +322,7 @@ atlas_v1_collect_operation_readiness() {
       "ready" \
       "finding lifecycle commands are available" \
       "tests/atlas.bats finding lifecycle and accepted-risk tests" \
-      "atlas finding add; atlas finding update; atlas finding accept; atlas finding resolve" \
+      "atlas finding add; atlas finding update; atlas finding accept; atlas finding review; atlas finding resolve" \
       "operation finding index" \
       "finding records are NDJSON files; accepted-risk expiry is checked during operation readiness"
     atlas_v1_add_pillar \
@@ -385,7 +385,7 @@ atlas_v1_collect_operation_readiness() {
       "warning" \
       "operation has unresolved findings: $ATLAS_READINESS_OPEN_FINDINGS_COUNT" \
       "tests/atlas.bats finding lifecycle and accepted-risk tests" \
-      "atlas finding list; atlas finding accept; atlas finding resolve" \
+      "atlas finding list; atlas finding accept; atlas finding review; atlas finding resolve" \
       "${ATLAS_OP_DIR}/findings.ndjson" \
       "accepted-risk workflow is file-backed and metadata-only"
   elif [ "$ATLAS_READINESS_EXPIRED_ACCEPTED_RISK_COUNT" -gt 0 ]; then
@@ -396,7 +396,7 @@ atlas_v1_collect_operation_readiness() {
       "warning" \
       "operation has expired accepted risks: $ATLAS_READINESS_EXPIRED_ACCEPTED_RISK_COUNT" \
       "tests/atlas.bats accepted-risk expiry tests" \
-      "atlas finding list; atlas finding accept; atlas op readiness" \
+      "atlas finding list; atlas finding review; atlas op readiness" \
       "${ATLAS_OP_DIR}/findings.ndjson" \
       "accepted-risk expiry is date-based; no reminder scheduler yet"
   else
@@ -407,7 +407,7 @@ atlas_v1_collect_operation_readiness() {
       "ready" \
       "finding lifecycle is implemented and no unresolved findings block this operation" \
       "tests/atlas.bats finding lifecycle and accepted-risk tests" \
-      "atlas finding list; atlas finding accept; atlas finding resolve" \
+      "atlas finding list; atlas finding accept; atlas finding review; atlas finding resolve" \
       "${ATLAS_OP_DIR}/findings.ndjson" \
       "accepted-risk workflow is file-backed and metadata-only; expiry is checked during operation readiness"
   fi

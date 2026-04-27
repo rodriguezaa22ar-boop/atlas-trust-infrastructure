@@ -267,6 +267,10 @@ The near-term roadmap is:
     past expiry dates as expired accepted risks, blocks clean closure until they
     are reviewed, and surfaces the same review gate in audit flags, handoff,
     closeout, archive, and v1 status output.
+46. Add accepted-risk renewal workflow. `atlas finding review` now provides an
+    explicit governance command for re-reviewing accepted findings, renewing
+    owner/expiry metadata, preserving review history, and recording a dedicated
+    `finding.reviewed` ledger event.
 
 ## First Serious Version
 

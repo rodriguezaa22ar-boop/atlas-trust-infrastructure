@@ -320,6 +320,10 @@ atlas finding accept finding_20260425T201000Z \
   --reason "owner accepts residual exposure" \
   --owner "Alta" \
   --expires 2026-12-31
+atlas finding review finding_20260425T201000Z \
+  --reason "owner renewed acceptance after review" \
+  --owner "Alta" \
+  --expires 2027-03-31
 atlas finding show finding_20260425T201000Z
 ```
 
@@ -339,6 +343,9 @@ optional expiry, and supporting evidence or validation links. Accepted findings
 are visible in reports but no longer block operation readiness while the
 acceptance is current. When an accepted-risk expiry date has passed, readiness,
 audit, and v1 status flag the finding for review before clean closure.
+`atlas finding review <id> --reason <text>` is the explicit renewal path for an
+accepted risk. It only applies to accepted findings, records review metadata,
+can update owner/expiry, and appends a `finding.reviewed` ledger event.
 
 Operation reports now render recorded findings instead of only leaving a
 placeholder.
