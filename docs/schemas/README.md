@@ -43,6 +43,8 @@ These contracts document planned optional modules. They are not stable command o
 ## Release Trust Consumers
 
 - `atlas release verify` validates `atlas.release_trust.v1`.
+- `atlas release replay` validates `atlas.release_trust.v1` from a detached
+  checkout of the packet commit.
 - Release replay verification checks `atlas.release_trust.v1` against the
   packet's recorded commit from a clean checkout.
 - `atlas production status` reports `atlas.production_readiness.v1` and

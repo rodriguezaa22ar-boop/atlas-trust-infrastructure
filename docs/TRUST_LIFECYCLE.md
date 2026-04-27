@@ -24,7 +24,7 @@ still current.
 | Audit | `atlas op audit-packet`, `atlas op audit-verify` | audit packet and audit verification |
 | Archive | `atlas op archive-packet`, `atlas op archive-verify` | archive packet and archive verification |
 | Trust Chain | `atlas op trust-chain --strict`, `atlas op trust-chain --json` | consolidated operation trust-chain status and `atlas.operation_trust_chain.v1` JSON |
-| Release | `atlas v1 status --strict`, `atlas release packet --json`, `atlas release verify` | v1 readiness and release trust JSON |
+| Release | `atlas v1 status --strict`, `atlas release packet --json`, `atlas release verify`, `atlas release replay` | v1 readiness and release trust JSON |
 | Provenance | signed Git tag, retained public key, release provenance packet | signed release provenance tied to retained release evidence |
 
 ## Current Rule
@@ -54,6 +54,7 @@ A trust chain is current only when:
 ./tools/atlas/bin/atlas v1 status <operation> --strict
 ./tools/atlas/bin/atlas release packet <release-name> --json --operation <operation> --qa-status pass
 ./tools/atlas/bin/atlas release verify <release-name>
+./tools/atlas/bin/atlas release replay <release-name>
 ./tools/atlas/bin/atlas production status --strict
 ```
 

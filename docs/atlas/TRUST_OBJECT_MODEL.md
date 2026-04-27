@@ -145,12 +145,16 @@ represent.
 Current Atlas replay support includes:
 
 - release packet verification with `atlas release verify`
+- clean-checkout release replay with `atlas release replay`
 - operation trust-chain replay during release verification
 - clean-checkout release replay procedure documented in
   `docs/retention/releases/REPLAY_VERIFICATION.md`
 
-A future `atlas release replay` command may automate the documented runbook, but
-the command does not exist yet. Documentation must not imply that it does.
+`atlas release replay` runs the packet against the commit recorded inside the
+packet from a detached temporary worktree. By default it runs `dev-qa`, v1
+strict readiness, and release verification. `--skip-qa` is available for a
+faster metadata replay, but a skipped QA replay is not equivalent to the full
+release replay gate.
 
 ## Invariants
 

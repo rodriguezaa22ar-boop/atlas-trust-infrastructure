@@ -23,6 +23,7 @@ atlas production status --json
 atlas release packet atlas-current --qa-status pass
 atlas release packet atlas-current --json --operation april-review --qa-status pass
 atlas release verify atlas-current
+atlas release replay atlas-current
 atlas web assess https://example.com example-web-review --scope-status in-scope --api-path /api/auth/me --cors-origin https://example.net
 atlas web validation-plan --all
 atlas web validation-approve --all --reason "approved bounded web validation"
@@ -173,7 +174,16 @@ chain, verification reloads the local operation and replays the trust-chain
 check, ledger anchor, and archive packet verification instead of treating the
 recorded packet fields as proof by themselves.
 
-Release replay from a clean checkout is documented in
+`atlas release replay [packet] [--skip-qa] [--keep-worktree]` checks a retained
+release packet from the commit recorded inside the packet. It creates a
+temporary detached worktree, runs `nix-shell --run './bin/dev-qa'`, checks
+`atlas v1 status --strict`, runs `atlas release verify <packet> --commit
+<commit>`, and removes the worktree. `--skip-qa` performs only the metadata,
+readiness, and packet verification replay; it is faster but not equivalent to
+the full replay gate. `--keep-worktree` preserves the detached worktree for
+manual debugging.
+
+Release replay from a clean checkout is also documented in
 [`docs/retention/releases/REPLAY_VERIFICATION.md`](../../docs/retention/releases/REPLAY_VERIFICATION.md).
 That procedure checks a retained packet against the commit recorded inside the
 packet, which is necessary when later milestones have advanced the current

@@ -19,6 +19,7 @@ target secrets, private keys, tokens, packet captures, or evidence bodies.
 ./tools/atlas/bin/atlas release packet <name> --json --qa-status pass
 ./tools/atlas/bin/atlas release packet <name> --json --operation <operation> --qa-status pass
 ./tools/atlas/bin/atlas release verify <name>
+./tools/atlas/bin/atlas release replay <name>
 ```
 
 ## Release Packet
@@ -61,9 +62,16 @@ packet, not only against current `HEAD`.
 
 ```bash
 ./tools/atlas/bin/atlas release verify docs/retention/releases/atlas-m67-production-candidate.json --commit 3e2a8b734fed694b350c4916c242c5e2ffd80e76
+./tools/atlas/bin/atlas release replay docs/retention/releases/atlas-m67-production-candidate.json
 ```
 
-The clean-checkout replay procedure lives at
+`atlas release replay` automates the clean-checkout replay path by creating a
+temporary detached worktree at the packet commit, running QA, checking v1
+readiness, verifying the release packet against the recorded commit, and
+removing the worktree. `--skip-qa` is available for a faster metadata replay,
+but skipped QA is not equivalent to full replay.
+
+The manual clean-checkout replay procedure lives at
 [retention/releases/REPLAY_VERIFICATION.md](retention/releases/REPLAY_VERIFICATION.md).
 
 ## Verify / Replay / Provenance Alignment
@@ -73,8 +81,8 @@ checks:
 
 - `atlas release verify`: validates a retained release packet against an
   expected commit.
-- release replay verification: checks that packet from a clean checkout of the
-  packet's recorded commit.
+- `atlas release replay`: checks that packet from a clean checkout of the
+  packet's recorded commit, including QA unless `--skip-qa` is used.
 - `atlas production status`: verifies the latest release packet, signed
   provenance packet, retained public key, and production dry-run note together.
 

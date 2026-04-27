@@ -260,7 +260,9 @@ make_repo_clean_and_synced() {
   grep -q 'Verification must fail closed' "$object_model"
   grep -q '^## Replay$' "$object_model"
   grep -q 'release packet verification with `atlas release verify`' "$object_model"
-  grep -q 'the command does not exist yet' "$object_model"
+  grep -q 'clean-checkout release replay with `atlas release replay`' "$object_model"
+  grep -q 'skipped QA replay is not equivalent' "$object_model"
+  grep -q 'release replay gate' "$object_model"
   grep -q '^## Invariants$' "$object_model"
   grep -q 'No secrets in packets or business-flow records' "$object_model"
   grep -q 'Read-only commands must not mutate state' "$object_model"
@@ -268,8 +270,8 @@ make_repo_clean_and_synced() {
 
   grep -q 'TRUST_OBJECT_MODEL.md' "$schema_index"
   grep -q 'Add Atlas trust object model' "$blueprint"
-  grep -q '`atlas release replay` command is' "$blueprint"
-  grep -q 'not claimed until implemented' "$blueprint"
+  grep -q 'Add Atlas release replay command' "$blueprint"
+  grep -q 'running QA unless `--skip-qa` is used' "$blueprint"
 }
 
 @test "business-flow evidence design stays optional and metadata-only" {
@@ -482,6 +484,9 @@ EOF
   grep -q "nix-shell --run './bin/dev-qa'" "$replay_doc"
   grep -q './tools/atlas/bin/atlas v1 status --strict' "$replay_doc"
   grep -q './tools/atlas/bin/atlas release verify "$packet" --commit "$commit"' "$replay_doc"
+  grep -q './tools/atlas/bin/atlas release replay docs/retention/releases/atlas-m36-json.json' "$replay_doc"
+  grep -q './tools/atlas/bin/atlas release replay docs/retention/releases/atlas-m34.md' "$replay_doc"
+  grep -q 'Use `--skip-qa` only for faster metadata replay' "$replay_doc"
   grep -q 'metadata-only guardrails' "$replay_doc"
   grep -q 'release provenance' "$replay_doc"
   grep -q 'docs/RELEASE_TRUST.md' "$replay_doc"
@@ -537,6 +542,7 @@ EOF
   grep -q 'metadata-only' "$index_file"
   grep -q 'Release Trust Consumers' "$index_file"
   grep -q 'atlas release verify' "$index_file"
+  grep -q 'atlas release replay' "$index_file"
   grep -q 'Release replay verification' "$index_file"
 
   grep -q '^# `atlas.release_trust.v1`$' "$release_schema"
@@ -689,6 +695,7 @@ EOF
   [[ "$output" == *"atlas release packet [packet-name]"* ]]
   [[ "$output" == *"atlas release packet [packet-name] [--json]"* ]]
   [[ "$output" == *"atlas release verify [packet]"* ]]
+  [[ "$output" == *"atlas release replay [packet]"* ]]
   [[ "$output" == *"atlas flow add <flow-name>"* ]]
   [[ "$output" == *"atlas flow list"* ]]
   [[ "$output" == *"atlas flow show <flow>"* ]]
@@ -1527,6 +1534,38 @@ EOF
     --qa-status pass
   [ "$status" -ne 0 ]
   [[ "$output" == *"release packet requires operation trust chain status=current"* ]]
+}
+
+@test "atlas release replay checks release packet from detached worktree" {
+  make_repo_clean_and_synced
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release packet replay-json \
+    --json \
+    --qa-status pass \
+    --qa-note "release replay test packet"
+
+  [ "$status" -eq 0 ]
+  json_packet_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "release_packet_json" { print $2; exit }')"
+  [ -f "$json_packet_path" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release replay "$json_packet_path" --skip-qa
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Atlas Release Replay"* ]]
+  [[ "$output" == *"QA: skipped"* ]]
+  [[ "$output" == *"V1 Status: ok"* ]]
+  [[ "$output" == *"Release Verify: ok"* ]]
+  [[ "$output" == *"Cleanup: removed"* ]]
+  [[ "$output" == *"release replay verified"* ]]
+
+  jq 'del(.commit)' "$json_packet_path" > "$TEST_ROOT/replay-missing-commit.json"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release replay "$TEST_ROOT/replay-missing-commit.json" --skip-qa
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"release replay could not determine packet commit"* ]]
+
+  jq '.commit = "0000000000000000000000000000000000000000"' "$json_packet_path" > "$TEST_ROOT/replay-missing-git-commit.json"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release replay "$TEST_ROOT/replay-missing-git-commit.json" --skip-qa
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"release replay commit is not available locally"* ]]
 }
 
 @test "atlas v1 status fails strict on operation evidence and governance gaps" {

@@ -22,11 +22,12 @@ Atlas is in the trust infrastructure lane:
    `docs/atlas/TRUST_INFRASTRUCTURE_DIRECTION.md`.
 2. Trust object model and schema consolidation. Implemented as
    `docs/atlas/TRUST_OBJECT_MODEL.md`.
-3. Metadata-only Business Flow Evidence packets.
-4. Business Flow Evidence verification.
-5. Optional Business Flow Evidence readiness integration.
-6. Flow record, flow link, and flow packet schema stabilization.
-7. JSON parity for archive, audit, and business-flow packets where needed.
+3. Release replay command. Implemented as `atlas release replay`.
+4. Metadata-only Business Flow Evidence packets.
+5. Business Flow Evidence verification.
+6. Optional Business Flow Evidence readiness integration.
+7. Flow record, flow link, and flow packet schema stabilization.
+8. JSON parity for archive, audit, and business-flow packets where needed.
 
 ## Later Control-Plane Work
 

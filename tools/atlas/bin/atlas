@@ -101,6 +101,7 @@ usage:
   atlas production status [--strict] [--json]
   atlas release packet [packet-name] [--json] [--operation name]
   atlas release verify [packet]
+  atlas release replay [packet]
   atlas flow add <flow-name>
   atlas flow list
   atlas flow show <flow>
@@ -149,6 +150,7 @@ quick flow:
   atlas production status
   atlas release packet
   atlas release verify
+  atlas release replay
   atlas profile show htb-starting-point
   atlas scope status
   atlas target list
@@ -342,6 +344,7 @@ production:
 release:
   atlas release packet [packet-name] [--json] [--operation name] [--qa-status status] [--qa-command command] [--qa-note text] [--allow-dirty] [--allow-unsynced] [--allow-not-ready]
   atlas release verify [packet] [--commit sha]
+  atlas release replay [packet] [--skip-qa] [--keep-worktree]
 
 web:
   atlas web assess <url> [assessment-name] [--target name] [--scope-status status] [--criticality level] [--owner owner] [--timeout seconds] [--api-path path] [--cors-origin origin] [--skip-api]
@@ -2008,6 +2011,10 @@ release)
 	verify)
 		shift
 		cmd_release_verify "$@"
+		;;
+	replay)
+		shift
+		cmd_release_replay "$@"
 		;;
 	*)
 		usage

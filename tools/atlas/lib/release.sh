@@ -592,6 +592,66 @@ atlas_release_resolve_packet() {
   fail "unknown release trust packet: $packet_arg"
 }
 
+atlas_release_packet_commit() {
+  local packet_file="$1"
+
+  case "$packet_file" in
+  *.json)
+    jq -r 'select(type == "object") | .commit // empty' "$packet_file" 2>/dev/null || true
+    ;;
+  *)
+    atlas_release_packet_field "$packet_file" "Commit"
+    ;;
+  esac
+}
+
+atlas_release_replay_run() {
+  local label="$1"
+  local log_file="$2"
+  shift 2
+
+  if "$@" >"$log_file" 2>&1; then
+    ui_kv "$label" "ok"
+    return 0
+  fi
+
+  ui_kv "$label" "fail"
+  sed -n '1,160p' "$log_file" >&2
+  return 1
+}
+
+atlas_release_replay_clean_env() {
+  env \
+    -u LAB_ROOT \
+    -u LAB_CONFIG \
+    -u LAB_BIN_DIR \
+    -u LAB_LIB_DIR \
+    -u LAB_PERSIST_DIR \
+    -u LAB_STATE_DIR \
+    -u LAB_TARGETS_DIR \
+    -u LAB_SESSIONS_DIR \
+    -u LAB_TOOLS_DIR \
+    -u LAB_REPORTS_DIR \
+    -u LAB_LOGS_DIR \
+    -u LAB_DOCS_DIR \
+    -u LAB_RELEASES_DIR \
+    -u LAB_INTEL_DIR \
+    -u LAB_INTEL_OBSERVATIONS_FILE \
+    -u LAB_INTEL_ENTITIES_FILE \
+    -u LAB_INTEL_OUTCOMES_FILE \
+    -u LAB_INTEL_RELATIONSHIPS_FILE \
+    "$@"
+}
+
+atlas_release_replay_cleanup() {
+  if [ -n "${atlas_release_replay_cleanup_worktree:-}" ]; then
+    git -C "${atlas_release_replay_cleanup_root:-$LAB_ROOT}" worktree remove --force "$atlas_release_replay_cleanup_worktree" >/dev/null 2>&1 || true
+  fi
+  if [ -n "${atlas_release_replay_cleanup_parent:-}" ]; then
+    rm -rf "$atlas_release_replay_cleanup_parent"
+  fi
+}
+
 atlas_release_verify_failures=0
 
 atlas_release_verify_row() {
@@ -1067,4 +1127,99 @@ cmd_release_verify() {
 
   packet_file="$(atlas_release_resolve_packet "$packet_arg")"
   atlas_release_verify_packet "$packet_file" "$expected_commit"
+}
+
+cmd_release_replay() {
+  local packet_arg=""
+  local packet_file
+  local commit
+  local run_qa=1
+  local keep_worktree=0
+  local worktree_parent=""
+  local worktree=""
+  local qa_log
+  local v1_log
+  local verify_log
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+    --skip-qa)
+      run_qa=0
+      shift
+      ;;
+    --keep-worktree)
+      keep_worktree=1
+      shift
+      ;;
+    -*)
+      fail "unknown release replay option: $1"
+      ;;
+    *)
+      if [ -n "$packet_arg" ]; then
+        fail "release replay [packet] [--skip-qa] [--keep-worktree]"
+      fi
+      packet_arg="$1"
+      shift
+      ;;
+    esac
+  done
+
+  atlas_release_git_available || fail "release replay requires a git checkout"
+
+  packet_file="$(atlas_release_resolve_packet "$packet_arg")"
+  commit="$(atlas_release_packet_commit "$packet_file")"
+  [ -n "$commit" ] || fail "release replay could not determine packet commit"
+  git -C "$LAB_ROOT" rev-parse --verify "$commit^{commit}" >/dev/null 2>&1 ||
+    fail "release replay commit is not available locally: $commit"
+
+  worktree_parent="$(mktemp -d)"
+  worktree="$worktree_parent/worktree"
+  qa_log="$worktree_parent/dev-qa.log"
+  v1_log="$worktree_parent/v1-status.log"
+  verify_log="$worktree_parent/release-verify.log"
+
+  if [ "$keep_worktree" = "0" ]; then
+    atlas_release_replay_cleanup_root="$LAB_ROOT"
+    atlas_release_replay_cleanup_worktree="$worktree"
+    atlas_release_replay_cleanup_parent="$worktree_parent"
+    trap atlas_release_replay_cleanup EXIT
+  fi
+
+  ui_heading "Atlas Release Replay"
+  ui_rule
+  ui_kv "Packet" "$packet_file"
+  ui_kv "Commit" "$commit"
+  ui_kv "Worktree" "$worktree"
+  ui_rule
+
+  git -C "$LAB_ROOT" worktree add --detach "$worktree" "$commit" >/dev/null 2>&1 ||
+    fail "release replay could not create detached worktree for $commit"
+
+  if [ "$run_qa" = "1" ]; then
+    command -v nix-shell >/dev/null 2>&1 || fail "release replay requires nix-shell for QA; pass --skip-qa for metadata-only replay"
+    atlas_release_replay_run "QA" "$qa_log" atlas_release_replay_clean_env bash -c "cd \"\$1\" && nix-shell --run './bin/dev-qa'" _ "$worktree" ||
+      return 1
+  else
+    ui_kv "QA" "skipped"
+  fi
+
+  atlas_release_replay_run "V1 Status" "$v1_log" atlas_release_replay_clean_env "$worktree/tools/atlas/bin/atlas" v1 status --strict ||
+    return 1
+  atlas_release_replay_run "Release Verify" "$verify_log" atlas_release_replay_clean_env "$worktree/tools/atlas/bin/atlas" release verify "$packet_file" --commit "$commit" ||
+    return 1
+
+  if [ "$keep_worktree" = "1" ]; then
+    ui_kv "Cleanup" "kept worktree=$worktree"
+  else
+    git -C "$LAB_ROOT" worktree remove --force "$worktree" >/dev/null 2>&1 || true
+    rm -rf "$worktree_parent"
+    atlas_release_replay_cleanup_worktree=""
+    atlas_release_replay_cleanup_parent=""
+    atlas_release_replay_cleanup_root=""
+    trap - EXIT
+    ui_kv "Cleanup" "removed"
+  fi
+
+  ui_rule
+  ui_ok "release replay verified"
 }

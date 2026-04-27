@@ -40,6 +40,18 @@ Markdown packets can be replayed too, but the commit must be extracted from the
 From the current repository root:
 
 ```bash
+./tools/atlas/bin/atlas release replay docs/retention/releases/atlas-m36-json.json
+```
+
+`atlas release replay` creates a detached temporary worktree at the packet
+commit, runs `nix-shell --run './bin/dev-qa'`, checks `atlas v1 status
+--strict`, runs `atlas release verify <packet> --commit <commit>`, and removes
+the worktree. Use `--skip-qa` only for faster metadata replay when full QA is
+being handled separately.
+
+The equivalent manual procedure is:
+
+```bash
 packet="$(pwd)/docs/retention/releases/atlas-m36-json.json"
 commit="$(jq -r '.commit' "$packet")"
 worktree="$(mktemp -d)"
@@ -67,6 +79,12 @@ Expected result:
 For Markdown packets:
 
 ```bash
+./tools/atlas/bin/atlas release replay docs/retention/releases/atlas-m34.md
+```
+
+The equivalent manual procedure is:
+
+```bash
 packet="$(pwd)/docs/retention/releases/atlas-m34.md"
 commit="$(awk -F': ' '$1 == "Commit" { print $2; exit }' "$packet")"
 worktree="$(mktemp -d)"
@@ -92,6 +110,7 @@ Record these results when replaying a release:
 - `atlas v1 status --strict`
 - `nix-shell --run './bin/dev-qa'`
 - `atlas release verify <packet> --commit <commit>`
+- `atlas release replay <packet>`
 - retained limitations
 - any replay failure and the first failing check
 

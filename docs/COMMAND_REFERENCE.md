@@ -60,6 +60,7 @@ nix-shell --run './bin/dev-qa'
 ./tools/atlas/bin/atlas release packet atlas-current --qa-status pass
 ./tools/atlas/bin/atlas release packet atlas-current --json --operation april-review --qa-status pass
 ./tools/atlas/bin/atlas release verify atlas-current
+./tools/atlas/bin/atlas release replay atlas-current
 ```
 
 ## Atlas Targets And Profiles
