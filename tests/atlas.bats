@@ -122,6 +122,47 @@ make_repo_clean_and_synced() {
   grep -q 'raw runtime artifacts' "$parity_doc"
 }
 
+@test "schema docs pin implemented Atlas JSON contracts" {
+  schemas_dir="$TEST_ROOT/toolkit/docs/schemas"
+  index_file="$schemas_dir/README.md"
+  release_schema="$schemas_dir/release-trust.v1.md"
+  production_schema="$schemas_dir/production-readiness.v1.md"
+  trust_chain_schema="$schemas_dir/operation-trust-chain.v1.md"
+
+  [ -f "$index_file" ]
+  [ -f "$release_schema" ]
+  [ -f "$production_schema" ]
+  [ -f "$trust_chain_schema" ]
+
+  grep -q 'atlas.release_trust.v1' "$index_file"
+  grep -q 'atlas.production_readiness.v1' "$index_file"
+  grep -q 'atlas.operation_trust_chain.v1' "$index_file"
+  grep -q 'metadata-only' "$index_file"
+
+  grep -q '^# `atlas.release_trust.v1`$' "$release_schema"
+  grep -q 'atlas release packet <packet-name> --json' "$release_schema"
+  grep -q '`schema_version`: must be `atlas.release_trust.v1`' "$release_schema"
+  grep -q '`metadata_only`: must be `true`' "$release_schema"
+  grep -q 'operation trust-chain replay' "$release_schema"
+  grep -q 'raw runtime artifacts' "$release_schema"
+  grep -q 'Cryptographic signing' "$release_schema"
+
+  grep -q '^# `atlas.production_readiness.v1`$' "$production_schema"
+  grep -q 'atlas production status --json' "$production_schema"
+  grep -q '`schema_version`: must be `atlas.production_readiness.v1`' "$production_schema"
+  grep -q '`counts.required_not_ready`' "$production_schema"
+  grep -q 'retained production dry-run' "$production_schema"
+  grep -q 'Mutating repository or operation state' "$production_schema"
+
+  grep -q '^# `atlas.operation_trust_chain.v1`$' "$trust_chain_schema"
+  grep -q 'atlas op trust-chain <operation> --json' "$trust_chain_schema"
+  grep -q '`schema_version`: must be `atlas.operation_trust_chain.v1`' "$trust_chain_schema"
+  grep -q '`ledger`: path, event count, SHA-256 anchor' "$trust_chain_schema"
+  grep -q 'must be replayed' "$trust_chain_schema"
+  grep -q 'from current retained operation state' "$trust_chain_schema"
+  grep -q 'Expanding operation scope' "$trust_chain_schema"
+}
+
 @test "atlas help groups target-first workflow and story commands" {
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" help
 
@@ -2233,6 +2274,17 @@ EOF
   [[ "$output" == *"Accepted Until: 2999-12-31"* ]]
   [[ "$output" == *"Risk Review Reason: owner renewed acceptance after review"* ]]
   [[ "$output" == *"Risk Reviewed By:"* ]]
+
+  ledger_file="$TEST_ROOT/toolkit/sessions/expired-risk-op/ledger.ndjson"
+  tmp_ledger="$TEST_ROOT/expired-risk-ledger.ndjson"
+  jq -c '
+    if (.event == "report.generated" or .event == "finding.reviewed") then
+      .ts = "2026-04-27T10:24:32Z"
+    else
+      .
+    end
+  ' "$ledger_file" > "$tmp_ledger"
+  mv "$tmp_ledger" "$ledger_file"
 
   run env ATLAS_TODAY=2026-04-27 "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op readiness expired-risk-op
   [ "$status" -eq 0 ]

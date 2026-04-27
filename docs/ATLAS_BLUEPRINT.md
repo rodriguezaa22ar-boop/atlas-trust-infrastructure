@@ -345,6 +345,11 @@ The near-term roadmap is:
     metadata-only guardrails each future JSON packet must preserve. The test
     suite checks that implemented schemas and missing packet gaps remain
     explicit.
+61. Add trust schema contracts. `docs/schemas/` now documents the implemented
+    schema-versioned JSON contracts for release trust packets, production
+    readiness status, and operation trust-chain status. Each contract records
+    required fields, verification rules, metadata boundaries, and non-goals so
+    future JSON packet work has a stable pattern.
 
 ## First Serious Version
 

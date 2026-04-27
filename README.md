@@ -177,6 +177,8 @@ Markdown packet surfaces and JSON contract support stay explicit. Current JSON
 support covers v1 readiness, production readiness, release trust packets, and
 operation trust-chain status; audit, archive, closeout, handoff, accepted-risk
 review, and advisor prompt packets remain documented gaps until implemented.
+Implemented schema-versioned JSON contracts are documented in
+[docs/schemas/](./docs/schemas/).
 
 ## Safety Boundary
 

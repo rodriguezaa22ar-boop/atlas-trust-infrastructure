@@ -180,6 +180,8 @@ That matrix records which human-readable packet/status surfaces already have
 machine-readable JSON contracts and which remain planned gaps. JSON parity does
 not mean embedding raw evidence or target data; packet JSON remains
 metadata-only and must carry the same trust-critical status as the human view.
+Implemented schema-versioned JSON contracts are documented under
+[`docs/schemas/`](../../docs/schemas/).
 
 `atlas web assess <url> [assessment-name]` packetizes a bounded public web
 posture review as an Atlas operation. It creates or reuses a target record,

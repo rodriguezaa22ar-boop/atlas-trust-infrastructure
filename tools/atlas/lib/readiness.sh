@@ -272,6 +272,30 @@ atlas_readiness_latest_ledger_event() {
   jq -r '[.ts, .event, .detail] | @tsv' "$ledger_file" | tail -n 1
 }
 
+atlas_readiness_latest_event_line() {
+  local event="$1"
+  local ledger_file
+
+  [ -n "${ATLAS_OP_DIR:-}" ] || return 0
+  ledger_file="$(atlas_ledger_file "$ATLAS_OP_DIR")"
+  [ -s "$ledger_file" ] || return 0
+
+  jq -r --arg event "$event" '
+    select(.event == $event)
+    | input_line_number
+  ' "$ledger_file" | tail -n 1
+}
+
+atlas_readiness_latest_ledger_event_line() {
+  local ledger_file
+
+  [ -n "${ATLAS_OP_DIR:-}" ] || return 0
+  ledger_file="$(atlas_ledger_file "$ATLAS_OP_DIR")"
+  [ -s "$ledger_file" ] || return 0
+
+  jq -r 'input_line_number' "$ledger_file" | tail -n 1
+}
+
 atlas_readiness_latest_review_packet_change() {
   local ledger_file
 
@@ -292,6 +316,25 @@ atlas_readiness_latest_review_packet_change() {
   ' "$ledger_file" | tail -n 1
 }
 
+atlas_readiness_latest_review_packet_change_line() {
+  local ledger_file
+
+  [ -n "${ATLAS_OP_DIR:-}" ] || return 0
+  ledger_file="$(atlas_ledger_file "$ATLAS_OP_DIR")"
+  [ -s "$ledger_file" ] || return 0
+
+  jq -r '
+    . as $record
+    | select([
+      "finding.recorded",
+      "finding.updated",
+      "finding.accepted",
+      "finding.reviewed"
+    ] | index($record.event))
+    | input_line_number
+  ' "$ledger_file" | tail -n 1
+}
+
 atlas_readiness_latest_audit_packet_change() {
   local ledger_file
 
@@ -303,6 +346,19 @@ atlas_readiness_latest_audit_packet_change() {
     select((.event // "") != "archive.packet.generated")
     | [.ts, .event, .detail]
     | @tsv
+  ' "$ledger_file" | tail -n 1
+}
+
+atlas_readiness_latest_audit_packet_change_line() {
+  local ledger_file
+
+  [ -n "${ATLAS_OP_DIR:-}" ] || return 0
+  ledger_file="$(atlas_ledger_file "$ATLAS_OP_DIR")"
+  [ -s "$ledger_file" ] || return 0
+
+  jq -r '
+    select((.event // "") != "archive.packet.generated")
+    | input_line_number
   ' "$ledger_file" | tail -n 1
 }
 
@@ -336,6 +392,35 @@ atlas_readiness_latest_material_change() {
   ' "$ledger_file" | tail -n 1
 }
 
+atlas_readiness_latest_material_change_line() {
+  local ledger_file
+
+  [ -n "${ATLAS_OP_DIR:-}" ] || return 0
+  ledger_file="$(atlas_ledger_file "$ATLAS_OP_DIR")"
+  [ -s "$ledger_file" ] || return 0
+
+  jq -r '
+    . as $record
+    | select(
+      [
+        "tool.completed",
+        "artifact.created",
+        "artifact.redacted",
+        "finding.recorded",
+        "finding.updated",
+        "finding.accepted",
+        "finding.reviewed",
+        "approval.granted",
+        "validation.planned",
+        "validation.approved",
+        "validation.executed",
+        "validation.retested"
+      ] | index($record.event)
+    )
+    | input_line_number
+  ' "$ledger_file" | tail -n 1
+}
+
 atlas_readiness_latest_evidence_change() {
   local ledger_file
 
@@ -351,13 +436,52 @@ atlas_readiness_latest_evidence_change() {
   ' "$ledger_file" | tail -n 1
 }
 
+atlas_readiness_latest_evidence_change_line() {
+  local ledger_file
+
+  [ -n "${ATLAS_OP_DIR:-}" ] || return 0
+  ledger_file="$(atlas_ledger_file "$ATLAS_OP_DIR")"
+  [ -s "$ledger_file" ] || return 0
+
+  jq -r '
+    . as $record
+    | select(["artifact.created", "artifact.redacted"] | index($record.event))
+    | input_line_number
+  ' "$ledger_file" | tail -n 1
+}
+
+atlas_readiness_event_after() {
+  local candidate_at="$1"
+  local candidate_line="$2"
+  local baseline_at="$3"
+  local baseline_line="$4"
+
+  [ -n "$candidate_at" ] || return 1
+  [ -n "$baseline_at" ] || return 1
+
+  if [[ "$candidate_at" > "$baseline_at" ]]; then
+    return 0
+  fi
+
+  if [[ "$candidate_at" == "$baseline_at" ]] &&
+    [ -n "$candidate_line" ] &&
+    [ -n "$baseline_line" ] &&
+    [ "$candidate_line" -gt "$baseline_line" ]; then
+    return 0
+  fi
+
+  return 1
+}
+
 atlas_readiness_report_freshness() {
   local latest_report_at="$1"
   local latest_change_at="$2"
+  local latest_report_line="${3:-}"
+  local latest_change_line="${4:-}"
 
   if [ -z "$latest_report_at" ]; then
     printf 'missing\n'
-  elif [ -n "$latest_change_at" ] && [[ "$latest_change_at" > "$latest_report_at" ]]; then
+  elif atlas_readiness_event_after "$latest_change_at" "$latest_change_line" "$latest_report_at" "$latest_report_line"; then
     printf 'stale\n'
   else
     printf 'current\n'
@@ -367,10 +491,12 @@ atlas_readiness_report_freshness() {
 atlas_readiness_bundle_freshness() {
   local latest_bundle_at="$1"
   local latest_evidence_change_at="$2"
+  local latest_bundle_line="${3:-}"
+  local latest_evidence_change_line="${4:-}"
 
   if [ -z "$latest_bundle_at" ]; then
     printf 'missing\n'
-  elif [ -n "$latest_evidence_change_at" ] && [[ "$latest_evidence_change_at" > "$latest_bundle_at" ]]; then
+  elif atlas_readiness_event_after "$latest_evidence_change_at" "$latest_evidence_change_line" "$latest_bundle_at" "$latest_bundle_line"; then
     printf 'stale\n'
   else
     printf 'current\n'
@@ -382,14 +508,18 @@ atlas_readiness_handoff_freshness() {
   local latest_change_at="$2"
   local latest_report_at="$3"
   local latest_bundle_at="$4"
+  local latest_handoff_line="${5:-}"
+  local latest_change_line="${6:-}"
+  local latest_report_line="${7:-}"
+  local latest_bundle_line="${8:-}"
 
   if [ -z "$latest_handoff_at" ]; then
     printf 'missing\n'
-  elif [ -n "$latest_change_at" ] && [[ "$latest_change_at" > "$latest_handoff_at" ]]; then
+  elif atlas_readiness_event_after "$latest_change_at" "$latest_change_line" "$latest_handoff_at" "$latest_handoff_line"; then
     printf 'stale\n'
-  elif [ -n "$latest_report_at" ] && [[ "$latest_report_at" > "$latest_handoff_at" ]]; then
+  elif atlas_readiness_event_after "$latest_report_at" "$latest_report_line" "$latest_handoff_at" "$latest_handoff_line"; then
     printf 'stale\n'
-  elif [ -n "$latest_bundle_at" ] && [[ "$latest_bundle_at" > "$latest_handoff_at" ]]; then
+  elif atlas_readiness_event_after "$latest_bundle_at" "$latest_bundle_line" "$latest_handoff_at" "$latest_handoff_line"; then
     printf 'stale\n'
   else
     printf 'current\n'
@@ -402,16 +532,21 @@ atlas_readiness_closeout_freshness() {
   local latest_report_at="$3"
   local latest_bundle_at="$4"
   local latest_handoff_at="$5"
+  local latest_closeout_line="${6:-}"
+  local latest_change_line="${7:-}"
+  local latest_report_line="${8:-}"
+  local latest_bundle_line="${9:-}"
+  local latest_handoff_line="${10:-}"
 
   if [ -z "$latest_closeout_at" ]; then
     printf 'missing\n'
-  elif [ -n "$latest_change_at" ] && [[ "$latest_change_at" > "$latest_closeout_at" ]]; then
+  elif atlas_readiness_event_after "$latest_change_at" "$latest_change_line" "$latest_closeout_at" "$latest_closeout_line"; then
     printf 'stale\n'
-  elif [ -n "$latest_report_at" ] && [[ "$latest_report_at" > "$latest_closeout_at" ]]; then
+  elif atlas_readiness_event_after "$latest_report_at" "$latest_report_line" "$latest_closeout_at" "$latest_closeout_line"; then
     printf 'stale\n'
-  elif [ -n "$latest_bundle_at" ] && [[ "$latest_bundle_at" > "$latest_closeout_at" ]]; then
+  elif atlas_readiness_event_after "$latest_bundle_at" "$latest_bundle_line" "$latest_closeout_at" "$latest_closeout_line"; then
     printf 'stale\n'
-  elif [ -n "$latest_handoff_at" ] && [[ "$latest_handoff_at" > "$latest_closeout_at" ]]; then
+  elif atlas_readiness_event_after "$latest_handoff_at" "$latest_handoff_line" "$latest_closeout_at" "$latest_closeout_line"; then
     printf 'stale\n'
   else
     printf 'current\n'
@@ -421,10 +556,12 @@ atlas_readiness_closeout_freshness() {
 atlas_readiness_audit_packet_freshness() {
   local latest_audit_packet_at="$1"
   local latest_ledger_at="$2"
+  local latest_audit_packet_line="${3:-}"
+  local latest_ledger_line="${4:-}"
 
   if [ -z "$latest_audit_packet_at" ]; then
     printf 'missing\n'
-  elif [ -n "$latest_ledger_at" ] && [[ "$latest_ledger_at" > "$latest_audit_packet_at" ]]; then
+  elif atlas_readiness_event_after "$latest_ledger_at" "$latest_ledger_line" "$latest_audit_packet_at" "$latest_audit_packet_line"; then
     printf 'stale\n'
   else
     printf 'current\n'
@@ -434,10 +571,12 @@ atlas_readiness_audit_packet_freshness() {
 atlas_readiness_archive_packet_freshness() {
   local latest_archive_packet_at="$1"
   local latest_ledger_at="$2"
+  local latest_archive_packet_line="${3:-}"
+  local latest_ledger_line="${4:-}"
 
   if [ -z "$latest_archive_packet_at" ]; then
     printf 'missing\n'
-  elif [ -n "$latest_ledger_at" ] && [[ "$latest_ledger_at" > "$latest_archive_packet_at" ]]; then
+  elif atlas_readiness_event_after "$latest_ledger_at" "$latest_ledger_line" "$latest_archive_packet_at" "$latest_archive_packet_line"; then
     printf 'stale\n'
   else
     printf 'current\n'
@@ -447,10 +586,12 @@ atlas_readiness_archive_packet_freshness() {
 atlas_readiness_review_packet_freshness() {
   local latest_review_packet_at="$1"
   local latest_review_packet_change_at="$2"
+  local latest_review_packet_line="${3:-}"
+  local latest_review_packet_change_line="${4:-}"
 
   if [ -z "$latest_review_packet_at" ]; then
     printf 'missing\n'
-  elif [ -n "$latest_review_packet_change_at" ] && [[ "$latest_review_packet_change_at" > "$latest_review_packet_at" ]]; then
+  elif atlas_readiness_event_after "$latest_review_packet_change_at" "$latest_review_packet_change_line" "$latest_review_packet_at" "$latest_review_packet_line"; then
     printf 'stale\n'
   else
     printf 'current\n'
@@ -545,38 +686,50 @@ atlas_readiness_collect() {
   local latest_report
   local latest_report_at=""
   local latest_report_path=""
+  local latest_report_line=""
   local latest_bundle
   local latest_bundle_at=""
   local latest_bundle_detail=""
+  local latest_bundle_line=""
   local latest_handoff
   local latest_handoff_at=""
   local latest_handoff_path=""
+  local latest_handoff_line=""
   local latest_closeout
   local latest_closeout_at=""
   local latest_closeout_path=""
+  local latest_closeout_line=""
   local latest_audit_packet
   local latest_audit_packet_at=""
   local latest_audit_packet_path=""
+  local latest_audit_packet_line=""
   local latest_archive_packet
   local latest_archive_packet_at=""
   local latest_archive_packet_path=""
+  local latest_archive_packet_line=""
   local latest_review_packet
   local latest_review_packet_at=""
   local latest_review_packet_path=""
+  local latest_review_packet_line=""
   local latest_ledger_event
   local latest_ledger_at=""
   local latest_ledger_event_name=""
+  local latest_ledger_line=""
   local latest_review_packet_change
   local latest_review_packet_change_at=""
   local latest_review_packet_change_event=""
+  local latest_review_packet_change_line=""
   local latest_audit_packet_change
   local latest_audit_packet_change_at=""
+  local latest_audit_packet_change_line=""
   local latest_change
   local latest_change_at=""
   local latest_change_event=""
+  local latest_change_line=""
   local latest_evidence_change
   local latest_evidence_change_at=""
   local latest_evidence_change_event=""
+  local latest_evidence_change_line=""
   local report_freshness
   local bundle_freshness
   local handoff_freshness
@@ -606,6 +759,18 @@ atlas_readiness_collect() {
   latest_audit_packet_change="$(atlas_readiness_latest_audit_packet_change)"
   latest_change="$(atlas_readiness_latest_material_change)"
   latest_evidence_change="$(atlas_readiness_latest_evidence_change)"
+  latest_report_line="$(atlas_readiness_latest_event_line "report.generated")"
+  latest_bundle_line="$(atlas_readiness_latest_event_line "evidence.bundle.generated")"
+  latest_handoff_line="$(atlas_readiness_latest_event_line "handoff.generated")"
+  latest_closeout_line="$(atlas_readiness_latest_event_line "closeout.manifest.generated")"
+  latest_audit_packet_line="$(atlas_readiness_latest_event_line "audit.packet.generated")"
+  latest_archive_packet_line="$(atlas_readiness_latest_event_line "archive.packet.generated")"
+  latest_review_packet_line="$(atlas_readiness_latest_event_line "finding.review_packet.generated")"
+  latest_ledger_line="$(atlas_readiness_latest_ledger_event_line)"
+  latest_review_packet_change_line="$(atlas_readiness_latest_review_packet_change_line)"
+  latest_audit_packet_change_line="$(atlas_readiness_latest_audit_packet_change_line)"
+  latest_change_line="$(atlas_readiness_latest_material_change_line)"
+  latest_evidence_change_line="$(atlas_readiness_latest_evidence_change_line)"
 
   if [ -n "$latest_report" ]; then
     IFS=$'\t' read -r latest_report_at latest_report_path <<<"$latest_report"
@@ -644,13 +809,13 @@ atlas_readiness_collect() {
     IFS=$'\t' read -r latest_evidence_change_at latest_evidence_change_event _ <<<"$latest_evidence_change"
   fi
 
-  report_freshness="$(atlas_readiness_report_freshness "$latest_report_at" "$latest_change_at")"
-  bundle_freshness="$(atlas_readiness_bundle_freshness "$latest_bundle_at" "$latest_evidence_change_at")"
-  handoff_freshness="$(atlas_readiness_handoff_freshness "$latest_handoff_at" "$latest_change_at" "$latest_report_at" "$latest_bundle_at")"
-  closeout_freshness="$(atlas_readiness_closeout_freshness "$latest_closeout_at" "$latest_change_at" "$latest_report_at" "$latest_bundle_at" "$latest_handoff_at")"
-  audit_packet_freshness="$(atlas_readiness_audit_packet_freshness "$latest_audit_packet_at" "$latest_audit_packet_change_at")"
-  archive_packet_freshness="$(atlas_readiness_archive_packet_freshness "$latest_archive_packet_at" "$latest_ledger_at")"
-  review_packet_freshness="$(atlas_readiness_review_packet_freshness "$latest_review_packet_at" "$latest_review_packet_change_at")"
+  report_freshness="$(atlas_readiness_report_freshness "$latest_report_at" "$latest_change_at" "$latest_report_line" "$latest_change_line")"
+  bundle_freshness="$(atlas_readiness_bundle_freshness "$latest_bundle_at" "$latest_evidence_change_at" "$latest_bundle_line" "$latest_evidence_change_line")"
+  handoff_freshness="$(atlas_readiness_handoff_freshness "$latest_handoff_at" "$latest_change_at" "$latest_report_at" "$latest_bundle_at" "$latest_handoff_line" "$latest_change_line" "$latest_report_line" "$latest_bundle_line")"
+  closeout_freshness="$(atlas_readiness_closeout_freshness "$latest_closeout_at" "$latest_change_at" "$latest_report_at" "$latest_bundle_at" "$latest_handoff_at" "$latest_closeout_line" "$latest_change_line" "$latest_report_line" "$latest_bundle_line" "$latest_handoff_line")"
+  audit_packet_freshness="$(atlas_readiness_audit_packet_freshness "$latest_audit_packet_at" "$latest_audit_packet_change_at" "$latest_audit_packet_line" "$latest_audit_packet_change_line")"
+  archive_packet_freshness="$(atlas_readiness_archive_packet_freshness "$latest_archive_packet_at" "$latest_ledger_at" "$latest_archive_packet_line" "$latest_ledger_line")"
+  review_packet_freshness="$(atlas_readiness_review_packet_freshness "$latest_review_packet_at" "$latest_review_packet_change_at" "$latest_review_packet_line" "$latest_review_packet_change_line")"
   readiness="$(atlas_readiness_status "$evidence_count" "$open_count" "$pending_count" "$latest_report" "$report_freshness" "$expired_accepted_count")"
   next_step="$(atlas_readiness_next_step "$evidence_count" "$open_count" "$pending_count" "$latest_report" "$latest_bundle" "$report_freshness" "$bundle_freshness" "$latest_handoff" "$handoff_freshness" "$latest_closeout" "$closeout_freshness" "$latest_audit_packet" "$audit_packet_freshness" "$latest_archive_packet" "$archive_packet_freshness" "$expired_accepted_count")"
 
