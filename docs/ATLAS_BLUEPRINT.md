@@ -280,6 +280,10 @@ The near-term roadmap is:
     the review queue as a metadata-only retention packet with finding-index and
     ledger anchors, while `atlas finding review-verify` proves the packet still
     matches retained accepted-risk state.
+49. Add accepted-risk review packet freshness. Readiness now reports latest
+    accepted-risk review packet freshness, audit flags missing or stale review
+    packets when accepted risks exist, and archive snapshots/packets include
+    accepted-risk review packet verification and hashes.
 
 ## First Serious Version
 

@@ -2167,6 +2167,16 @@ EOF
     --evidence "$evidence_id"
   [ "$status" -eq 0 ]
 
+  run env ATLAS_TODAY=2026-04-27 "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op readiness review-queue-op
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Accepted Risks: 4"* ]]
+  [[ "$output" == *"Latest Accepted Risk Review Packet: none generated yet"* ]]
+  [[ "$output" == *"Accepted Risk Review Packet Freshness: missing"* ]]
+
+  run env ATLAS_TODAY=2026-04-27 "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op audit review-queue-op
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"missing accepted-risk review packet: accepted_risks=4"* ]]
+
   run env ATLAS_TODAY=2026-04-27 "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding review-queue --within 30
   [ "$status" -eq 0 ]
   [[ "$output" == *"Accepted Risk Review Queue"* ]]
@@ -2208,6 +2218,13 @@ EOF
   jq -e --arg review_packet_path "$review_packet_path" 'select(.event == "finding.review_packet.generated" and .detail == $review_packet_path)' \
     "$TEST_ROOT/toolkit/sessions/review-queue-op/ledger.ndjson"
 
+  run env ATLAS_TODAY=2026-04-27 "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op readiness review-queue-op
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Accepted Risks: 4"* ]]
+  [[ "$output" == *"Latest Accepted Risk Review Packet:"* ]]
+  [[ "$output" == *"$review_packet_path"* ]]
+  [[ "$output" == *"Accepted Risk Review Packet Freshness: current"* ]]
+
   review_verify_events_before="$(wc -l < "$TEST_ROOT/toolkit/sessions/review-queue-op/ledger.ndjson" | tr -d ' ')"
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding review-verify "$review_packet_path"
   [ "$status" -eq 0 ]
@@ -2220,11 +2237,22 @@ EOF
   review_verify_events_after="$(wc -l < "$TEST_ROOT/toolkit/sessions/review-queue-op/ledger.ndjson" | tr -d ' ')"
   [ "$review_verify_events_after" = "$review_verify_events_before" ]
 
+  sleep 1
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding review "$due_soon_id" \
     --reason "owner renewed near-term lab risk" \
     --expires "2999-12-31" \
     --evidence "$evidence_id"
   [ "$status" -eq 0 ]
+
+  run env ATLAS_TODAY=2026-04-27 "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op readiness review-queue-op
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Accepted Risk Review Packet Freshness: stale"* ]]
+  [[ "$output" == *"Latest Accepted Risk Change:"* ]]
+  [[ "$output" == *"finding.reviewed"* ]]
+
+  run env ATLAS_TODAY=2026-04-27 "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op audit review-queue-op
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"stale accepted-risk review packet: $review_packet_path"* ]]
 
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding review-verify "$review_packet_path"
   [ "$status" -ne 0 ]
@@ -2232,6 +2260,35 @@ EOF
   [[ "$output" == *"changed"* ]]
   [[ "$output" == *"Operation Ledger"* ]]
   [[ "$output" == *"Verification Status: attention-required"* ]]
+
+  sleep 1
+  run env ATLAS_TODAY=2026-04-27 "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding review-packet queue-review --within 30
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"accepted-risk review packet written"* ]]
+  regenerated_review_packet_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "review_packet" { print $2; exit }')"
+  [ "$regenerated_review_packet_path" = "$review_packet_path" ]
+
+  run env ATLAS_TODAY=2026-04-27 "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op readiness review-queue-op
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Accepted Risk Review Packet Freshness: current"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding review-verify "$review_packet_path"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Verification Status: verified"* ]]
+
+  run env ATLAS_TODAY=2026-04-27 "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op archive review-queue-op
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Accepted Risk Review Packet Freshness: current"* ]]
+  [[ "$output" == *"Accepted Risk Review Packet Verification: verified"* ]]
+  [[ "$output" == *"Latest Accepted Risk Review Packet: $review_packet_path"* ]]
+
+  run env ATLAS_TODAY=2026-04-27 "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op archive-packet review-queue-op review-queue-archive
+  [ "$status" -eq 0 ]
+  review_archive_packet_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "archive_packet" { print $2; exit }')"
+  [ -f "$review_archive_packet_path" ]
+  grep -q 'Accepted-risk review packet freshness: current' "$review_archive_packet_path"
+  grep -q 'Accepted-risk review packet verification: verified' "$review_archive_packet_path"
+  grep -q "$review_packet_path" "$review_archive_packet_path"
 
   run env ATLAS_TODAY=2026-04-27 "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding review-queue --within nope
   [ "$status" -ne 0 ]

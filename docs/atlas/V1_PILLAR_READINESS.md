@@ -131,7 +131,7 @@ Each pillar status must include:
 - Reason: observed, inferred, validated, resolved, accepted, and lifecycle
   finding records are supported, including explicit accepted-risk metadata and
   accepted-risk expiry review, renewal, review queue triage, and review packet
-  verification.
+  verification/freshness.
 - Tests: `tests/atlas.bats` finding lifecycle, accepted-risk, and
   accepted-risk expiry/review queue packet tests.
 - Commands: `atlas finding add`, `atlas finding update`,
@@ -167,13 +167,15 @@ Each pillar status must include:
 
 - Status: `ready`
 - Reason: handoff, closeout, audit, archive, release trust, verification, and
-  freshness checks are implemented.
+  freshness checks are implemented, including accepted-risk review packet
+  freshness in readiness, audit, and archive views.
 - Tests: `tests/atlas.bats` retention/archive tests, release packet tests, and
   end-to-end trust lifecycle test.
 - Commands: `atlas op closeout`, `atlas op audit-packet`,
   `atlas op archive-verify`, `atlas release packet`, `atlas release verify`
 - Artifacts: closeout manifest, audit packet, archive packet, release trust
-  packet, release trust JSON schema `atlas.release_trust.v1`.
+  packet, accepted-risk review packet references, release trust JSON schema
+  `atlas.release_trust.v1`.
 - Limitations: no cryptographic signing yet.
 
 ### AI Advisor

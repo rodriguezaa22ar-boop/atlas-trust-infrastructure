@@ -20,9 +20,35 @@ atlas_archive_audit_packet_verification_status() {
   fi
 }
 
+atlas_archive_review_packet_verification_status() {
+  local packet_path="${ATLAS_READINESS_LATEST_REVIEW_PACKET_PATH:-}"
+
+  if [ "${ATLAS_READINESS_ACCEPTED_RISK_COUNT:-0}" -eq 0 ]; then
+    printf 'not-required\t-\n'
+    return 0
+  fi
+
+  if [ -z "$packet_path" ]; then
+    printf 'missing\t-\n'
+    return 0
+  fi
+
+  if [ ! -f "$packet_path" ]; then
+    printf 'missing\t%s\n' "$packet_path"
+    return 0
+  fi
+
+  if (atlas_findings_verify_review_packet "$packet_path" >/dev/null 2>&1); then
+    printf 'verified\t%s\n' "$packet_path"
+  else
+    printf 'attention-required\t%s\n' "$packet_path"
+  fi
+}
+
 atlas_archive_status() {
   local closeout_verification_status="$1"
   local audit_packet_verification_status="$2"
+  local review_packet_verification_status="${3:-not-required}"
 
   if [ "$ATLAS_READINESS_STATUS" != "ready" ]; then
     printf 'attention-required\n'
@@ -31,14 +57,17 @@ atlas_archive_status() {
   elif [ "$ATLAS_READINESS_BUNDLE_FRESHNESS" = "stale" ] ||
     [ "$ATLAS_READINESS_HANDOFF_FRESHNESS" = "stale" ] ||
     [ "$ATLAS_READINESS_CLOSEOUT_FRESHNESS" = "stale" ] ||
+    { [ "${ATLAS_READINESS_ACCEPTED_RISK_COUNT:-0}" -gt 0 ] && [ "$ATLAS_READINESS_REVIEW_PACKET_FRESHNESS" = "stale" ]; } ||
     [ "$ATLAS_READINESS_AUDIT_PACKET_FRESHNESS" = "stale" ] ||
     [ "$ATLAS_READINESS_ARCHIVE_PACKET_FRESHNESS" = "stale" ]; then
     printf 'attention-required\n'
   elif [ -z "$ATLAS_READINESS_LATEST_CLOSEOUT" ] ||
+    { [ "${ATLAS_READINESS_ACCEPTED_RISK_COUNT:-0}" -gt 0 ] && [ -z "$ATLAS_READINESS_LATEST_REVIEW_PACKET" ]; } ||
     [ -z "$ATLAS_READINESS_LATEST_AUDIT_PACKET" ] ||
     [ -z "$ATLAS_READINESS_LATEST_ARCHIVE_PACKET" ]; then
     printf 'incomplete\n'
   elif [ "$closeout_verification_status" != "verified" ] ||
+    { [ "${ATLAS_READINESS_ACCEPTED_RISK_COUNT:-0}" -gt 0 ] && [ "$review_packet_verification_status" != "verified" ]; } ||
     [ "$audit_packet_verification_status" != "verified" ]; then
     printf 'attention-required\n'
   else
@@ -49,6 +78,7 @@ atlas_archive_status() {
 atlas_archive_next_step() {
   local closeout_verification_status="$1"
   local audit_packet_verification_status="$2"
+  local review_packet_verification_status="${3:-not-required}"
 
   if [ "$ATLAS_READINESS_STATUS" != "ready" ]; then
     printf '%s\n' "$ATLAS_READINESS_NEXT_STEP"
@@ -64,6 +94,12 @@ atlas_archive_next_step() {
     printf 'Regenerate the closeout manifest before final archive review.\n'
   elif [ "$closeout_verification_status" != "verified" ]; then
     printf 'Resolve closeout verification issues before final archive review.\n'
+  elif [ "${ATLAS_READINESS_ACCEPTED_RISK_COUNT:-0}" -gt 0 ] && [ -z "$ATLAS_READINESS_LATEST_REVIEW_PACKET" ]; then
+    printf 'Generate an accepted-risk review packet before final archive review.\n'
+  elif [ "${ATLAS_READINESS_ACCEPTED_RISK_COUNT:-0}" -gt 0 ] && [ "$ATLAS_READINESS_REVIEW_PACKET_FRESHNESS" = "stale" ]; then
+    printf 'Regenerate the accepted-risk review packet before final archive review.\n'
+  elif [ "${ATLAS_READINESS_ACCEPTED_RISK_COUNT:-0}" -gt 0 ] && [ "$review_packet_verification_status" != "verified" ]; then
+    printf 'Resolve accepted-risk review packet verification issues before final archive review.\n'
   elif [ -z "$ATLAS_READINESS_LATEST_AUDIT_PACKET" ]; then
     printf 'Generate an audit packet before final archive review.\n'
   elif [ "$ATLAS_READINESS_AUDIT_PACKET_FRESHNESS" = "stale" ]; then
@@ -99,6 +135,9 @@ atlas_archive_collect() {
   local audit_packet_verification
   local audit_packet_verification_status
   local audit_packet_verification_path
+  local review_packet_verification
+  local review_packet_verification_status
+  local review_packet_verification_path
   local archive_status
   local archive_next_step
   local ledger_file
@@ -106,6 +145,7 @@ atlas_archive_collect() {
   local ledger_sha=""
   local handoff_sha=""
   local closeout_sha=""
+  local review_packet_sha=""
   local audit_packet_sha=""
 
   atlas_scope_load_snapshot
@@ -127,8 +167,11 @@ atlas_archive_collect() {
   audit_packet_verification="$(atlas_archive_audit_packet_verification_status)"
   IFS=$'\t' read -r audit_packet_verification_status audit_packet_verification_path <<<"$audit_packet_verification"
 
-  archive_status="$(atlas_archive_status "$closeout_verification_status" "$audit_packet_verification_status")"
-  archive_next_step="$(atlas_archive_next_step "$closeout_verification_status" "$audit_packet_verification_status")"
+  review_packet_verification="$(atlas_archive_review_packet_verification_status)"
+  IFS=$'\t' read -r review_packet_verification_status review_packet_verification_path <<<"$review_packet_verification"
+
+  archive_status="$(atlas_archive_status "$closeout_verification_status" "$audit_packet_verification_status" "$review_packet_verification_status")"
+  archive_next_step="$(atlas_archive_next_step "$closeout_verification_status" "$audit_packet_verification_status" "$review_packet_verification_status")"
 
   ledger_file="$(atlas_ledger_file "$ATLAS_OP_DIR")"
   if [ -f "$ledger_file" ]; then
@@ -137,6 +180,7 @@ atlas_archive_collect() {
   fi
   handoff_sha="$(atlas_closeout_sha_for_file "${ATLAS_READINESS_LATEST_HANDOFF_PATH:-}")"
   closeout_sha="$(atlas_closeout_sha_for_file "${ATLAS_READINESS_LATEST_CLOSEOUT_PATH:-}")"
+  review_packet_sha="$(atlas_closeout_sha_for_file "${ATLAS_READINESS_LATEST_REVIEW_PACKET_PATH:-}")"
   audit_packet_sha="$(atlas_closeout_sha_for_file "${ATLAS_READINESS_LATEST_AUDIT_PACKET_PATH:-}")"
 
   ATLAS_ARCHIVE_LATEST_REPORT_AT="$report_at"
@@ -154,6 +198,8 @@ atlas_archive_collect() {
   ATLAS_ARCHIVE_CLOSEOUT_VERIFICATION_PROBLEMS="$closeout_verification_problems"
   ATLAS_ARCHIVE_AUDIT_PACKET_VERIFICATION_STATUS="$audit_packet_verification_status"
   ATLAS_ARCHIVE_AUDIT_PACKET_VERIFICATION_PATH="$audit_packet_verification_path"
+  ATLAS_ARCHIVE_REVIEW_PACKET_VERIFICATION_STATUS="$review_packet_verification_status"
+  ATLAS_ARCHIVE_REVIEW_PACKET_VERIFICATION_PATH="$review_packet_verification_path"
   ATLAS_ARCHIVE_STATUS="$archive_status"
   ATLAS_ARCHIVE_NEXT_STEP="$archive_next_step"
   ATLAS_ARCHIVE_LEDGER_FILE="$ledger_file"
@@ -161,6 +207,7 @@ atlas_archive_collect() {
   ATLAS_ARCHIVE_LEDGER_SHA="$ledger_sha"
   ATLAS_ARCHIVE_HANDOFF_SHA="$handoff_sha"
   ATLAS_ARCHIVE_CLOSEOUT_SHA="$closeout_sha"
+  ATLAS_ARCHIVE_REVIEW_PACKET_SHA="$review_packet_sha"
   ATLAS_ARCHIVE_AUDIT_PACKET_SHA="$audit_packet_sha"
 }
 
@@ -180,17 +227,20 @@ atlas_archive_print() {
   ui_kv "Readiness Next Step" "$ATLAS_READINESS_NEXT_STEP"
   ui_kv "Evidence Records" "$ATLAS_READINESS_EVIDENCE_COUNT"
   ui_kv "Open Findings" "$ATLAS_READINESS_OPEN_FINDINGS_COUNT"
+  ui_kv "Accepted Risks" "$ATLAS_READINESS_ACCEPTED_RISK_COUNT"
   ui_kv "Expired Accepted Risks" "$ATLAS_READINESS_EXPIRED_ACCEPTED_RISK_COUNT"
   ui_kv "Pending Validation" "$ATLAS_READINESS_PENDING_VALIDATION_COUNT"
   ui_kv "Report Freshness" "$ATLAS_READINESS_REPORT_FRESHNESS"
   ui_kv "Bundle Freshness" "$ATLAS_READINESS_BUNDLE_FRESHNESS"
   ui_kv "Handoff Freshness" "$ATLAS_READINESS_HANDOFF_FRESHNESS"
   ui_kv "Closeout Freshness" "$ATLAS_READINESS_CLOSEOUT_FRESHNESS"
+  ui_kv "Accepted Risk Review Packet Freshness" "$ATLAS_READINESS_REVIEW_PACKET_FRESHNESS"
   ui_kv "Audit Packet Freshness" "$ATLAS_READINESS_AUDIT_PACKET_FRESHNESS"
   ui_kv "Archive Packet Freshness" "$ATLAS_READINESS_ARCHIVE_PACKET_FRESHNESS"
   ui_rule
   ui_subheading "Verification"
   ui_kv "Closeout Verification" "$ATLAS_ARCHIVE_CLOSEOUT_VERIFICATION_STATUS manifest=$ATLAS_ARCHIVE_CLOSEOUT_VERIFICATION_PATH problems=$ATLAS_ARCHIVE_CLOSEOUT_VERIFICATION_PROBLEMS"
+  ui_kv "Accepted Risk Review Packet Verification" "$ATLAS_ARCHIVE_REVIEW_PACKET_VERIFICATION_STATUS packet=$ATLAS_ARCHIVE_REVIEW_PACKET_VERIFICATION_PATH"
   ui_kv "Audit Packet Verification" "$ATLAS_ARCHIVE_AUDIT_PACKET_VERIFICATION_STATUS packet=$ATLAS_ARCHIVE_AUDIT_PACKET_VERIFICATION_PATH"
   ui_rule
   ui_subheading "Archive Artifacts"
@@ -208,6 +258,7 @@ atlas_archive_print() {
   fi
   ui_kv "Latest Handoff" "${ATLAS_READINESS_LATEST_HANDOFF_PATH:-none generated yet}"
   ui_kv "Latest Closeout" "${ATLAS_READINESS_LATEST_CLOSEOUT_PATH:-none generated yet}"
+  ui_kv "Latest Accepted Risk Review Packet" "${ATLAS_READINESS_LATEST_REVIEW_PACKET_PATH:-none generated yet}"
   ui_kv "Latest Audit Packet" "${ATLAS_READINESS_LATEST_AUDIT_PACKET_PATH:-none generated yet}"
   ui_kv "Latest Archive Packet" "${ATLAS_READINESS_LATEST_ARCHIVE_PACKET_PATH:-none generated yet}"
   ui_kv "Operation Ledger" "$ATLAS_ARCHIVE_LEDGER_FILE events=$ATLAS_ARCHIVE_LEDGER_EVENTS sha256=$ATLAS_ARCHIVE_LEDGER_SHA"
@@ -237,6 +288,11 @@ atlas_archive_markdown_artifacts() {
   printf -- "- Latest closeout: \`%s\`" "${ATLAS_READINESS_LATEST_CLOSEOUT_PATH:-none}"
   if [ -n "${ATLAS_ARCHIVE_CLOSEOUT_SHA:-}" ]; then
     printf ' sha256=%s' "$ATLAS_ARCHIVE_CLOSEOUT_SHA"
+  fi
+  printf '\n'
+  printf -- "- Latest accepted-risk review packet: \`%s\`" "${ATLAS_READINESS_LATEST_REVIEW_PACKET_PATH:-none}"
+  if [ -n "${ATLAS_ARCHIVE_REVIEW_PACKET_SHA:-}" ]; then
+    printf ' sha256=%s' "$ATLAS_ARCHIVE_REVIEW_PACKET_SHA"
   fi
   printf '\n'
   printf -- "- Latest audit packet: \`%s\`" "${ATLAS_READINESS_LATEST_AUDIT_PACKET_PATH:-none}"
@@ -274,17 +330,20 @@ atlas_archive_write_packet() {
     printf -- '- Close readiness: %s\n' "$ATLAS_READINESS_STATUS"
     printf -- '- Evidence records: %s\n' "$ATLAS_READINESS_EVIDENCE_COUNT"
     printf -- '- Open findings: %s\n' "$ATLAS_READINESS_OPEN_FINDINGS_COUNT"
+    printf -- '- Accepted risks: %s\n' "$ATLAS_READINESS_ACCEPTED_RISK_COUNT"
     printf -- '- Expired accepted risks: %s\n' "$ATLAS_READINESS_EXPIRED_ACCEPTED_RISK_COUNT"
     printf -- '- Pending validation: %s\n' "$ATLAS_READINESS_PENDING_VALIDATION_COUNT"
     printf -- '- Report freshness: %s\n' "$ATLAS_READINESS_REPORT_FRESHNESS"
     printf -- '- Bundle freshness: %s\n' "$ATLAS_READINESS_BUNDLE_FRESHNESS"
     printf -- '- Handoff freshness: %s\n' "$ATLAS_READINESS_HANDOFF_FRESHNESS"
     printf -- '- Closeout freshness: %s\n' "$ATLAS_READINESS_CLOSEOUT_FRESHNESS"
+    printf -- '- Accepted-risk review packet freshness: %s\n' "$ATLAS_READINESS_REVIEW_PACKET_FRESHNESS"
     printf -- '- Audit packet freshness: %s\n' "$ATLAS_READINESS_AUDIT_PACKET_FRESHNESS"
     printf -- '- Archive packet freshness: %s\n' "$ATLAS_READINESS_ARCHIVE_PACKET_FRESHNESS"
 
     printf '\n## Verification\n\n'
     printf -- '- Closeout verification: %s manifest=%s problems=%s\n' "$ATLAS_ARCHIVE_CLOSEOUT_VERIFICATION_STATUS" "$ATLAS_ARCHIVE_CLOSEOUT_VERIFICATION_PATH" "$ATLAS_ARCHIVE_CLOSEOUT_VERIFICATION_PROBLEMS"
+    printf -- '- Accepted-risk review packet verification: %s packet=%s\n' "$ATLAS_ARCHIVE_REVIEW_PACKET_VERIFICATION_STATUS" "$ATLAS_ARCHIVE_REVIEW_PACKET_VERIFICATION_PATH"
     printf -- '- Audit packet verification: %s packet=%s\n' "$ATLAS_ARCHIVE_AUDIT_PACKET_VERIFICATION_STATUS" "$ATLAS_ARCHIVE_AUDIT_PACKET_VERIFICATION_PATH"
 
     printf '\n## Archive Artifacts\n\n'
@@ -472,6 +531,7 @@ atlas_archive_verify_packet() {
   atlas_archive_verify_hash_anchor "$packet_file" "Evidence manifest" "Evidence Manifest"
   atlas_archive_verify_hash_anchor "$packet_file" "Latest handoff" "Latest Handoff"
   atlas_archive_verify_hash_anchor "$packet_file" "Latest closeout" "Latest Closeout"
+  atlas_archive_verify_hash_anchor "$packet_file" "Latest accepted-risk review packet" "Accepted Risk Review Packet"
   atlas_archive_verify_hash_anchor "$packet_file" "Latest audit packet" "Latest Audit Packet"
   atlas_archive_verify_ledger_anchor "$packet_file"
   ui_rule

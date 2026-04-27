@@ -213,6 +213,18 @@ atlas_audit_print_flags() {
     printf 'stale closeout: %s\n' "${ATLAS_READINESS_LATEST_CLOSEOUT_PATH:-none}"
     flag_count=$((flag_count + 1))
   fi
+  if [ "${ATLAS_READINESS_ACCEPTED_RISK_COUNT:-0}" -gt 0 ]; then
+    case "$ATLAS_READINESS_REVIEW_PACKET_FRESHNESS" in
+    missing)
+      printf 'missing accepted-risk review packet: accepted_risks=%s\n' "$ATLAS_READINESS_ACCEPTED_RISK_COUNT"
+      flag_count=$((flag_count + 1))
+      ;;
+    stale)
+      printf 'stale accepted-risk review packet: %s\n' "${ATLAS_READINESS_LATEST_REVIEW_PACKET_PATH:-none}"
+      flag_count=$((flag_count + 1))
+      ;;
+    esac
+  fi
   if [ "$ATLAS_READINESS_AUDIT_PACKET_FRESHNESS" = "stale" ]; then
     printf 'stale audit packet: %s\n' "${ATLAS_READINESS_LATEST_AUDIT_PACKET_PATH:-none}"
     flag_count=$((flag_count + 1))
@@ -309,6 +321,9 @@ atlas_audit_write_packet() {
     printf -- '- Closeout manifest: %s\n' "$verification_path"
     printf -- '- Closeout manifest SHA256: %s\n' "${closeout_manifest_sha:-none}"
     printf -- '- Closeout verification problems: %s\n' "$verification_problems"
+    printf -- '- Accepted risks: %s\n' "${ATLAS_READINESS_ACCEPTED_RISK_COUNT:-0}"
+    printf -- '- Accepted-risk review packet: %s\n' "${ATLAS_READINESS_LATEST_REVIEW_PACKET_PATH:-none}"
+    printf -- '- Accepted-risk review packet freshness: %s\n' "${ATLAS_READINESS_REVIEW_PACKET_FRESHNESS:-unknown}"
     printf -- '- Audit packet freshness: %s\n' "$ATLAS_READINESS_AUDIT_PACKET_FRESHNESS"
 
     printf '\n## Event Counts\n\n'
