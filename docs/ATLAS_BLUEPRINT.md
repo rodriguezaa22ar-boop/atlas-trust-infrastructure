@@ -323,6 +323,11 @@ The near-term roadmap is:
     exploitation, domain boundaries, metadata-only packet rules, read-only
     command non-mutation, Nix QA, v1/production readiness separation, AI Advisor
     limits, and future Atlas OS/ISI/kernel boundaries.
+57. Add milestone retention navigation. `docs/retention/MILESTONE_INDEX.md`
+    now indexes retained milestones by commit, title, category, runtime impact,
+    trust impact, verification, and tag so the trust history is externally
+    legible. The Bats suite checks that every retained milestone note is present
+    in the index with its `atlas-retention-mXX` tag.
 
 ## First Serious Version
 

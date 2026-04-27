@@ -164,6 +164,10 @@ workflow notes in [docs/agents/](./docs/agents/). Those docs keep future agent
 sessions aligned with Atlas' authorized-assessment boundary, metadata-only
 packet rules, read-only command expectations, and maturity language.
 
+The retained milestone chain is indexed in
+[docs/retention/MILESTONE_INDEX.md](./docs/retention/MILESTONE_INDEX.md) so the
+trust history can be reviewed without opening every individual milestone note.
+
 ## Safety Boundary
 
 Atlas is designed for authorized assessment orchestration only.

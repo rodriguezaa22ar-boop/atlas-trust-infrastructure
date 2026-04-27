@@ -60,6 +60,30 @@ make_repo_clean_and_synced() {
     "$TEST_ROOT/toolkit/docs/agents/AGENT_VALIDATION.md"
 }
 
+@test "retention milestone index covers retained milestone notes" {
+  index_file="$TEST_ROOT/toolkit/docs/retention/MILESTONE_INDEX.md"
+
+  [ -f "$index_file" ]
+  grep -q '| Milestone | Commit | Title | Category | Runtime Change? | Trust Impact | Verification | Tag |' "$index_file"
+  grep -q '## Category Notes' "$index_file"
+  grep -q '## Update Rule' "$index_file"
+
+  for note_file in \
+    "$TEST_ROOT/toolkit/docs/retention/MILESTONE_30.md" \
+    "$TEST_ROOT/toolkit/docs/retention/milestones"/MILESTONE_*.md; do
+    [ -f "$note_file" ] || continue
+    note_name="$(basename "$note_file")"
+    milestone="${note_name#MILESTONE_}"
+    milestone="${milestone%.md}"
+    grep -q "MILESTONE_${milestone}.md" "$index_file"
+    grep -q "atlas-retention-m${milestone}" "$index_file"
+  done
+
+  grep -q 'release-trust' "$index_file"
+  grep -q 'agent-governance' "$index_file"
+  grep -q 'retention' "$index_file"
+}
+
 @test "atlas help groups target-first workflow and story commands" {
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" help
 
