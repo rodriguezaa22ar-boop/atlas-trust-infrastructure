@@ -24,6 +24,7 @@ the chain is still current.
 | Closeout | `atlas op close`, `atlas op closeout`, `atlas op verify` | closeout manifest and hash verification |
 | Audit | `atlas op audit-packet`, `atlas op audit-verify` | audit packet and audit verification |
 | Archive | `atlas op archive-packet`, `atlas op archive-verify` | archive packet and archive verification |
+| Trust Chain | `atlas op trust-chain --strict` | consolidated operation trust-chain status |
 | Release | `atlas v1 status --strict`, `atlas release packet --json`, `atlas release verify` | v1 readiness and release trust JSON |
 
 ## Overall Rule
@@ -32,7 +33,9 @@ A lifecycle proof is current only when:
 
 - operation readiness is `ready`
 - report, handoff, closeout, audit packet, and archive packet freshness are current
+- accepted-risk review packet verification passes when accepted risks exist
 - closeout, audit packet, archive packet, and release packet verification pass
+- `atlas op trust-chain --strict` returns `current`
 - `atlas v1 status --strict` returns overall `ready`
 - release trust JSON uses schema `atlas.release_trust.v1`
 
@@ -58,6 +61,7 @@ atlas op audit-packet trust-lifecycle-op trust-lifecycle-audit
 atlas op audit-verify trust-lifecycle-op
 atlas op archive-packet trust-lifecycle-op trust-lifecycle-archive
 atlas op archive-verify trust-lifecycle-op
+atlas op trust-chain trust-lifecycle-op --strict
 atlas v1 status trust-lifecycle-op --strict
 atlas release packet trust-lifecycle-m36 --json --qa-status pass
 atlas release verify trust-lifecycle-m36

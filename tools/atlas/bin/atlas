@@ -56,6 +56,9 @@ TOOL_NAME="atlas"
 # shellcheck source=../lib/archive.sh
 . "$TOOL_DIR/lib/archive.sh"
 # shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/trust.sh
+. "$TOOL_DIR/lib/trust.sh"
+# shellcheck source-path=SCRIPTDIR
 # shellcheck source=../lib/advisor.sh
 . "$TOOL_DIR/lib/advisor.sh"
 # shellcheck source-path=SCRIPTDIR
@@ -163,6 +166,7 @@ quick flow:
   atlas op archive [name]
   atlas op archive-packet [name] [packet-name]
   atlas op archive-verify [name] [archive-packet]
+  atlas op trust-chain [name] [--strict]
   atlas op close [name] [--force]
 
 targets:
@@ -198,6 +202,7 @@ operations:
   atlas op archive [name]
   atlas op archive-packet [name] [packet-name]
   atlas op archive-verify [name] [archive-packet]
+  atlas op trust-chain [name] [--strict]
   atlas op next
   atlas op close [name] [--force]
   atlas op recon <workflow> [interface]
@@ -2228,6 +2233,10 @@ op)
 	archive-verify)
 		shift
 		cmd_op_archive_verify "$@"
+		;;
+	trust-chain)
+		shift
+		cmd_op_trust_chain "$@"
 		;;
 	next)
 		shift

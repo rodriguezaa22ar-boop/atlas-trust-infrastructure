@@ -284,6 +284,11 @@ The near-term roadmap is:
     accepted-risk review packet freshness, audit flags missing or stale review
     packets when accepted risks exist, and archive snapshots/packets include
     accepted-risk review packet verification and hashes.
+50. Add operation trust-chain closeout. `atlas op trust-chain` now provides a
+    read-only final closeout check across readiness, artifact freshness,
+    accepted-risk review packets, closeout verification, audit packet
+    verification, archive packet verification, and operation-scoped v1
+    readiness, with `--strict` failing unless the chain is current.
 
 ## First Serious Version
 

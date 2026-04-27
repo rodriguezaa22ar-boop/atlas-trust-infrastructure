@@ -98,6 +98,7 @@ make_repo_clean_and_synced() {
   [[ "$output" == *"atlas op archive [name]"* ]]
   [[ "$output" == *"atlas op archive-packet [name] [packet-name]"* ]]
   [[ "$output" == *"atlas op archive-verify [name] [archive-packet]"* ]]
+  [[ "$output" == *"atlas op trust-chain [name] [--strict]"* ]]
   [[ "$output" == *"atlas op close [name] [--force]"* ]]
   [[ "$output" == *"atlas target brief <target>"* ]]
 }
@@ -2367,6 +2368,14 @@ EOF
   [[ "$output" == *"$closeout_path"* ]]
   [[ "$output" == *"$audit_packet_path"* ]]
   [[ "$output" == *"Latest Archive Packet: none generated yet"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op trust-chain archive-op --strict
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Operation Trust Chain"* ]]
+  [[ "$output" == *"Trust Chain Status: incomplete"* ]]
+  [[ "$output" == *"Next Trust Step: Generate an archive packet before final archive review."* ]]
+  [[ "$output" == *"Archive Packet: missing path=none"* ]]
+  [[ "$output" == *"Archive Packet: missing packet=-"* ]]
   archive_events_after="$(wc -l < "$TEST_ROOT/toolkit/sessions/archive-op/ledger.ndjson" | tr -d ' ')"
   [ "$archive_events_after" = "$archive_events_before" ]
 
@@ -2425,6 +2434,18 @@ EOF
   archive_verify_events_after="$(wc -l < "$TEST_ROOT/toolkit/sessions/archive-op/ledger.ndjson" | tr -d ' ')"
   [ "$archive_verify_events_after" = "$archive_verify_events_before" ]
 
+  trust_events_before="$(wc -l < "$TEST_ROOT/toolkit/sessions/archive-op/ledger.ndjson" | tr -d ' ')"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op trust-chain archive-op --strict
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Operation Trust Chain"* ]]
+  [[ "$output" == *"Trust Chain Status: current"* ]]
+  [[ "$output" == *"Next Trust Step: Trust chain is current."* ]]
+  [[ "$output" == *"V1 Readiness: ready required_not_ready=0"* ]]
+  [[ "$output" == *"Archive Packet: current path=$archive_packet_path"* ]]
+  [[ "$output" == *"Archive Packet: verified packet=$archive_packet_path"* ]]
+  trust_events_after="$(wc -l < "$TEST_ROOT/toolkit/sessions/archive-op/ledger.ndjson" | tr -d ' ')"
+  [ "$trust_events_after" = "$trust_events_before" ]
+
   printf '\narchive report changed after packet\n' >> "$report_path"
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op archive-verify archive-op "$archive_packet_path"
   [ "$status" -ne 0 ]
@@ -2432,6 +2453,12 @@ EOF
   [[ "$output" == *"changed"* ]]
   [[ "$output" == *"Verification Status: attention-required"* ]]
   [[ "$output" == *"Verification Problems: 1"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op trust-chain archive-op --strict
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Trust Chain Status: attention-required"* ]]
+  [[ "$output" == *"Closeout: attention-required manifest=$closeout_path"* ]]
+  [[ "$output" == *"Archive Packet: attention-required packet=$archive_packet_path"* ]]
 
   sleep 1
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op audit-packet archive-op archive-audit-after-archive
@@ -2606,6 +2633,15 @@ EOF
   [[ "$output" == *"$closeout_path"* ]]
   [[ "$output" == *"$audit_packet_path"* ]]
   [[ "$output" == *"$archive_packet_path"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op trust-chain trust-lifecycle-op --strict
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Operation Trust Chain"* ]]
+  [[ "$output" == *"Trust Chain Status: current"* ]]
+  [[ "$output" == *"V1 Readiness: ready required_not_ready=0"* ]]
+  [[ "$output" == *"Closeout: verified manifest=$closeout_path"* ]]
+  [[ "$output" == *"Audit Packet: verified packet=$audit_packet_path"* ]]
+  [[ "$output" == *"Archive Packet: verified packet=$archive_packet_path"* ]]
 
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" v1 status trust-lifecycle-op --strict
   [ "$status" -eq 0 ]

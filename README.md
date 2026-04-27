@@ -71,6 +71,7 @@ Useful commands:
 ./tools/atlas/bin/atlas op readiness april-review
 ./tools/atlas/bin/atlas op audit april-review
 ./tools/atlas/bin/atlas op archive april-review
+./tools/atlas/bin/atlas op trust-chain april-review --strict
 ./tools/atlas/bin/atlas story demo-web-app
 ./tools/wiremap/bin/wiremap workflow run perimeter-sweep 10.0.0.8
 ./tools/wiremap/bin/wiremap capture creds ./state/wiremap-runs/<run>
@@ -301,6 +302,9 @@ Atlas now also exposes the operator-level story and reporting layer:
   artifact pointers
 - `atlas op archive-verify [name] [archive-packet]`: read-only archive packet
   verification for recorded artifact hashes and ledger event count
+- `atlas op trust-chain [name] [--strict]`: read-only operation trust-chain
+  closeout check across readiness, accepted-risk review packets, closeout,
+  audit, archive, archive-packet verification, and v1 readiness
 - `atlas op close [name] [--force]`: close only when readiness passes unless an
   explicit forced closure is recorded
 - `atlas advisor brief`: state-only AI advisor readout with redaction guardrails
