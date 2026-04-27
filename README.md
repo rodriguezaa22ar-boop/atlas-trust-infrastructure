@@ -223,6 +223,9 @@ Atlas now also exposes the operator-level story and reporting layer:
 - `atlas release verify [packet-name]`: release trust packet verification for
   clean/synced state, passing QA status, required retention notes, known
   limitations, and embedded v1 readiness JSON in either packet format
+- [Atlas Trust Lifecycle](docs/atlas/TRUST_LIFECYCLE.md): the end-to-end
+  proof path from scoped operation through evidence, validation, retention,
+  archive, v1 readiness, and release trust JSON
 - `atlas target update <name>`: target registry metadata for scope status,
   criticality, owner, and tags
 - `atlas target brief <target>`: concise surface, operation-state, validation,

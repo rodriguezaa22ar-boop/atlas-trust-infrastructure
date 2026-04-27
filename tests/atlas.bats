@@ -1390,6 +1390,189 @@ EOF
   [[ "$output" == *"stale archive packet:"* ]]
 }
 
+@test "atlas trust lifecycle proves operation-to-release verification chain" {
+  make_repo_clean_and_synced
+
+  mkdir -p "$TEST_ROOT/toolkit/targets" "$TEST_ROOT/toolkit/state/intel"
+  cat > "$TEST_ROOT/toolkit/targets/demo-node.env" <<'EOF'
+NAME=demo-node
+ADDRESS=10.10.10.10
+SCOPE_STATUS=in-scope
+CRITICALITY=high
+CREATED_AT=2026-04-23T20:53:16Z
+EOF
+  cat > "$TEST_ROOT/toolkit/state/intel/observations.jsonl" <<'EOF'
+{"observed_at":"2026-04-24T00:00:00Z","source_tool":"wiremap","source_name":"fast","source_run_id":"run-1","target":"demo-node","observation_type":"host_state","confidence":"high","value":{"state":"up"}}
+{"observed_at":"2026-04-24T00:00:01Z","source_tool":"wiremap","source_name":"fast","source_run_id":"run-1","target":"demo-node","observation_type":"service_open","confidence":"high","value":{"service_entity_id":"service:demo-node:22/tcp","portproto":"22/tcp","service":"ssh","detail":"OpenSSH 9.7"}}
+EOF
+  cat > "$TEST_ROOT/toolkit/state/intel/entities.jsonl" <<'EOF'
+{"observed_at":"2026-04-24T00:00:01Z","entity_type":"service","entity_id":"service:demo-node:22/tcp","target":"demo-node","attributes":{"portproto":"22/tcp","service":"ssh","detail":"OpenSSH 9.7"}}
+EOF
+  : > "$TEST_ROOT/toolkit/state/intel/outcomes.jsonl"
+  : > "$TEST_ROOT/toolkit/state/intel/relationships.jsonl"
+  mkdir -p "$TEST_ROOT/fake-bin"
+  cat > "$TEST_ROOT/fake-bin/nmap" <<'EOF'
+#!/usr/bin/env bash
+target="${*: -1}"
+printf 'Starting Nmap 7.98 ( https://nmap.org ) at 2026-04-24 00:00 UTC\n'
+printf 'Nmap scan report for %s\n' "$target"
+printf 'Host is up, received user-set (0.00025s latency).\n'
+printf 'PORT   STATE SERVICE REASON  VERSION\n'
+printf '22/tcp open  ssh     syn-ack OpenSSH 9.7\n'
+printf '\nNmap done: 1 IP address (1 host up) scanned in 0.04 seconds\n'
+EOF
+  chmod +x "$TEST_ROOT/fake-bin/nmap"
+  export LAB_VECTOR_NMAP_BIN="$TEST_ROOT/fake-bin/nmap"
+
+  artifact="$TEST_ROOT/trust-lifecycle-evidence.txt"
+  retest_artifact="$TEST_ROOT/trust-lifecycle-retest.txt"
+  printf 'ssh reachable from authorized lifecycle proof\n' > "$artifact"
+  printf 'ssh exposure resolved in authorized lifecycle proof\n' > "$retest_artifact"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op start --profile htb-starting-point trust-lifecycle-op demo-node authorized lifecycle proof
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence add "$artifact" --kind scan-output --classification public
+  [ "$status" -eq 0 ]
+  evidence_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  [ -n "$evidence_id" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding add "SSH management reachable" \
+    --level observed \
+    --severity low \
+    --confidence high \
+    --evidence "$evidence_id" \
+    --recommendation "Restrict SSH to the management subnet"
+  [ "$status" -eq 0 ]
+  finding_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  [ -n "$finding_id" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" validation plan validate \
+    --finding "$finding_id" \
+    --evidence "$evidence_id" \
+    --reason "confirm observed SSH service"
+  [ "$status" -eq 0 ]
+  plan_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  [ -n "$plan_id" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" validation approve "$plan_id" lifecycle validation approved
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" validation run "$plan_id" "Lifecycle Validation"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"validation_status: executed"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence add "$retest_artifact" --kind retest-output --classification public
+  [ "$status" -eq 0 ]
+  retest_evidence_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  [ -n "$retest_evidence_id" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" validation retest "$plan_id" \
+    --result resolved \
+    --evidence "$retest_evidence_id" \
+    --note "remediation confirmed in lifecycle proof"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"finding_status: resolved"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence bundle trust-lifecycle-bundle
+  [ "$status" -eq 0 ]
+  bundle_dir="$(printf '%s\n' "$output" | awk -F': ' '$1 == "bundle" { print $2; exit }')"
+  manifest_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "manifest" { print $2; exit }')"
+  [ -d "$bundle_dir" ]
+  [ -f "$manifest_path" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op report trust-lifecycle-op trust-lifecycle-report
+  [ "$status" -eq 0 ]
+  report_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "report" { print $2; exit }')"
+  [ -f "$report_path" ]
+  grep -q 'Retest: resolved' "$report_path"
+  grep -q 'remediation confirmed in lifecycle proof' "$report_path"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op handoff trust-lifecycle-op trust-lifecycle-handoff
+  [ "$status" -eq 0 ]
+  handoff_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "handoff" { print $2; exit }')"
+  [ -f "$handoff_path" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op readiness trust-lifecycle-op
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Close Readiness: ready"* ]]
+  [[ "$output" == *"Report Freshness: current"* ]]
+  [[ "$output" == *"Bundle Freshness: current"* ]]
+  [[ "$output" == *"Handoff Freshness: current"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op close trust-lifecycle-op
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"readiness: ready"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op closeout trust-lifecycle-op trust-lifecycle-closeout
+  [ "$status" -eq 0 ]
+  closeout_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "closeout" { print $2; exit }')"
+  [ -f "$closeout_path" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op verify trust-lifecycle-op "$closeout_path"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Verification Status: verified"* ]]
+  [[ "$output" == *"Verification Problems: 0"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op audit-packet trust-lifecycle-op trust-lifecycle-audit
+  [ "$status" -eq 0 ]
+  audit_packet_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "audit_packet" { print $2; exit }')"
+  [ -f "$audit_packet_path" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op audit-verify trust-lifecycle-op "$audit_packet_path"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Verification Status: verified"* ]]
+  [[ "$output" == *"Verification Problems: 0"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op archive-packet trust-lifecycle-op trust-lifecycle-archive
+  [ "$status" -eq 0 ]
+  archive_packet_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "archive_packet" { print $2; exit }')"
+  [ -f "$archive_packet_path" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op archive-verify trust-lifecycle-op "$archive_packet_path"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Verification Status: verified"* ]]
+  [[ "$output" == *"Verification Problems: 0"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op archive trust-lifecycle-op
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Archive Status: current"* ]]
+  [[ "$output" == *"$report_path"* ]]
+  [[ "$output" == *"$bundle_dir"* ]]
+  [[ "$output" == *"$handoff_path"* ]]
+  [[ "$output" == *"$closeout_path"* ]]
+  [[ "$output" == *"$audit_packet_path"* ]]
+  [[ "$output" == *"$archive_packet_path"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" v1 status trust-lifecycle-op --strict
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Overall: ready"* ]]
+  [[ "$output" == *"Required Not Ready: 0"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release packet trust-lifecycle-m36 \
+    --json \
+    --qa-status pass \
+    --qa-note "trust lifecycle proof passed"
+  [ "$status" -eq 0 ]
+  release_packet_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "release_packet_json" { print $2; exit }')"
+  [ -f "$release_packet_path" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release verify "$release_packet_path"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Schema: ok atlas.release_trust.v1"* ]]
+  [[ "$output" == *"Repository State: ok clean"* ]]
+  [[ "$output" == *"Upstream Sync: ok synced"* ]]
+  [[ "$output" == *"QA Status: ok pass"* ]]
+  [[ "$output" == *"V1 Readiness: ok overall=ready required_not_ready=0"* ]]
+
+  jq -e '
+    .schema_version == "atlas.release_trust.v1" and
+    .metadata_only == true and
+    .qa.status == "pass" and
+    .readiness.overall == "ready"
+  ' "$release_packet_path"
+}
+
 @test "atlas operation close can force closure with readiness snapshot" {
   mkdir -p "$TEST_ROOT/toolkit/targets"
   cat > "$TEST_ROOT/toolkit/targets/demo-node.env" <<'EOF'

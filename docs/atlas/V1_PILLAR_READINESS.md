@@ -162,7 +162,7 @@ Each pillar status must include:
 - Reason: handoff, closeout, audit, archive, release trust, verification, and
   freshness checks are implemented.
 - Tests: `tests/atlas.bats` retention/archive tests, release packet tests, and
-  v1 archive-stale test.
+  end-to-end trust lifecycle test.
 - Commands: `atlas op closeout`, `atlas op audit-packet`,
   `atlas op archive-verify`, `atlas release packet`, `atlas release verify`
 - Artifacts: closeout manifest, audit packet, archive packet, release trust

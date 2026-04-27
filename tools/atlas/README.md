@@ -141,6 +141,12 @@ header, metadata-only guardrail, commit, clean repository state, synced
 upstream state, passing QA status, embedded v1 readiness JSON, required
 retention notes, and known limitations for both Markdown and JSON packets.
 
+The full trust lifecycle is documented in
+[`docs/atlas/TRUST_LIFECYCLE.md`](../../docs/atlas/TRUST_LIFECYCLE.md). It
+defines the end-to-end proof path from scoped operation through evidence,
+validation, report, handoff, closeout, audit, archive, v1 readiness, and
+release trust JSON.
+
 `atlas target story <target>` is the full cross-tool view. It starts with the
 same operator brief, then expands into the target record, current service and
 web surface, Vector outcomes, posture findings, recent shared evidence,

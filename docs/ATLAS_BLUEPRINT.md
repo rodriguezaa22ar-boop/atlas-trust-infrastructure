@@ -227,6 +227,11 @@ The near-term roadmap is:
     same metadata-only release trust record as machine-readable
     `atlas.release_trust.v1` JSON, and `atlas release verify` validates both
     Markdown and JSON release packets with the same release-gate rules.
+36. Prove the end-to-end trust lifecycle. `docs/atlas/TRUST_LIFECYCLE.md` now
+    defines the full path from scoped operation through evidence, findings,
+    validation, report, handoff, closeout, audit, archive, v1 readiness, and
+    release trust JSON. The test suite now exercises that full chain and
+    verifies closeout, audit, archive, and release trust artifacts.
 
 ## First Serious Version
 
