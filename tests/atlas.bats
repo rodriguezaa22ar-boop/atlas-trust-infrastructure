@@ -476,6 +476,102 @@ EOF
   ' "$ledger"
 }
 
+@test "atlas flow packet writes metadata-only business flow packet" {
+  mkdir -p "$TEST_ROOT/toolkit/targets"
+  cat > "$TEST_ROOT/toolkit/targets/demo-node.env" <<'EOF'
+NAME=demo-node
+ADDRESS=10.10.10.10
+SCOPE_STATUS=in-scope
+CRITICALITY=high
+CREATED_AT=2026-04-23T20:53:16Z
+EOF
+  artifact="$TEST_ROOT/flow-packet-artifact.txt"
+  printf 'raw business-flow packet proof that must not be copied\n' > "$artifact"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow add customer-signup \
+    --type customer_onboarding \
+    --owner product \
+    --criticality high \
+    --environment staging \
+    --scope-status in-scope \
+    --data-class email \
+    --data-class account_metadata \
+    --system web_app \
+    --system auth_service \
+    --control authentication_required \
+    --control audit_logging
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow packet customer-signup
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"no active operation"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op start flow-packet-op demo-node authorized flow packet
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow packet customer-signup
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"business flow has no links in active operation"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence add "$artifact" --kind redacted-report --classification public
+  [ "$status" -eq 0 ]
+  evidence_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  evidence_sha="$(printf '%s\n' "$output" | awk -F': ' '$1 == "sha256" { print $2; exit }')"
+  [ -n "$evidence_id" ]
+  [ -n "$evidence_sha" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow link-evidence customer-signup "$evidence_id"
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow packet customer-signup customer-signup-flow
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"business flow packet written"* ]]
+  [[ "$output" == *"flow_id: flow_customer_signup"* ]]
+  [[ "$output" == *"operation: flow-packet-op"* ]]
+  [[ "$output" == *"packet:"* ]]
+
+  packet_path="$TEST_ROOT/toolkit/sessions/flow-packet-op/flow_packets/customer-signup-flow.md"
+  ledger="$TEST_ROOT/toolkit/sessions/flow-packet-op/ledger.ndjson"
+  [ -s "$packet_path" ]
+  [ -s "$ledger" ]
+
+  grep -q '^# Atlas Business Flow Evidence Packet$' "$packet_path"
+  grep -q 'Schema: atlas.business_flow_packet.v1' "$packet_path"
+  grep -q 'Metadata Only: true' "$packet_path"
+  grep -q 'Raw Evidence Embedded: false' "$packet_path"
+  grep -q 'Operation: flow-packet-op' "$packet_path"
+  grep -q 'Target: demo-node' "$packet_path"
+  grep -q 'Flow ID: flow_customer_signup' "$packet_path"
+  grep -q 'Flow Name: customer-signup' "$packet_path"
+  grep -q 'Owner: product' "$packet_path"
+  grep -q 'Criticality: high' "$packet_path"
+  grep -q 'Environment: staging' "$packet_path"
+  grep -q 'Scope Status: in-scope' "$packet_path"
+  grep -q 'web_app' "$packet_path"
+  grep -q 'email' "$packet_path"
+  grep -q 'audit_logging' "$packet_path"
+  grep -q "Evidence ID: $evidence_id" "$packet_path"
+  grep -q "SHA-256: $evidence_sha" "$packet_path"
+  grep -q 'Classification: public' "$packet_path"
+  grep -q 'Redacted: false' "$packet_path"
+  grep -q 'Status: current' "$packet_path"
+  grep -q 'Flow verification remains a later command' "$packet_path"
+  ! grep -q 'source_path' "$packet_path"
+  ! grep -q 'raw_evidence' "$packet_path"
+  ! grep -q 'evidence_body' "$packet_path"
+  ! grep -q 'raw business-flow packet proof that must not be copied' "$packet_path"
+
+  jq -e '
+    select(
+      .event == "flow.packet.generated" and
+      .capability == "read-only" and
+      .tool == "atlas" and
+      (.detail | contains("flow_id=flow_customer_signup")) and
+      (.detail | contains("evidence_links=1"))
+    )
+  ' "$ledger"
+}
+
 @test "release replay verification runbook preserves clean-checkout procedure" {
   replay_doc="$TEST_ROOT/toolkit/docs/retention/releases/REPLAY_VERIFICATION.md"
 
@@ -702,6 +798,7 @@ EOF
   [[ "$output" == *"atlas flow list"* ]]
   [[ "$output" == *"atlas flow show <flow>"* ]]
   [[ "$output" == *"atlas flow link-evidence <flow> <evidence-id>"* ]]
+  [[ "$output" == *"atlas flow packet <flow> [packet-name]"* ]]
   [[ "$output" == *"atlas web assess <url> [assessment-name]"* ]]
   [[ "$output" == *"atlas web validation-plan [--all]"* ]]
   [[ "$output" == *"atlas web validation-approve [--all] --reason text"* ]]

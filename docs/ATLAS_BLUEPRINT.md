@@ -452,6 +452,16 @@ The near-term roadmap is:
     replay checkout at the packet commit, running QA unless `--skip-qa` is
     used, checking v1 strict readiness, verifying the packet against the
     recorded commit, and removing the checkout unless `--keep-worktree` is used.
+76. Add metadata-only business-flow packets. `atlas flow packet` now generates
+    an operation-scoped Markdown Business Flow Evidence packet under
+    `sessions/<operation>/flow_packets/` after a flow is linked to evidence.
+    The packet records flow labels, operation and target metadata, evidence
+    IDs, retained evidence paths, SHA-256 hashes, classification, redaction
+    state, freshness metadata, and known limitations without embedding raw
+    evidence, source paths, customer records, secrets, request or response
+    bodies, payment data, or credential material. Flow verification, JSON
+    parity, finding and validation links, retention references, and readiness
+    integration remain planned later steps.
 
 ## First Serious Version
 

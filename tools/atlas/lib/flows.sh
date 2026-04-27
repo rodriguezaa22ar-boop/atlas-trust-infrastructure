@@ -39,6 +39,25 @@ atlas_flow_evidence_links_file() {
   printf '%s/flow_evidence.ndjson\n' "$op_dir"
 }
 
+atlas_flow_packet_dir() {
+  printf '%s/flow_packets\n' "$ATLAS_OP_DIR"
+}
+
+atlas_flow_packet_slug_for() {
+  local name="$1"
+  local slug
+
+  slug="$(slugify "$name")"
+  [ -n "$slug" ] || fail "flow packet name produced an empty slug"
+  printf '%s\n' "$slug"
+}
+
+atlas_flow_packet_path_for_name() {
+  local name="$1"
+
+  printf '%s/%s.md\n' "$(atlas_flow_packet_dir)" "$(atlas_flow_packet_slug_for "$name")"
+}
+
 atlas_flow_slug_for_input() {
   local input="$1"
   local slug
@@ -128,6 +147,23 @@ atlas_flow_print_csv_list() {
   done < <(printf '%s\n' "$value" | tr ',' '\n')
 }
 
+atlas_flow_packet_csv_section() {
+  local title="$1"
+  local value="$2"
+  local item
+
+  printf '\n## %s\n\n' "$title"
+  if [ -z "$value" ]; then
+    printf -- '- none recorded\n'
+    return 0
+  fi
+
+  while IFS= read -r item; do
+    [ -n "$item" ] || continue
+    printf -- '- %s\n' "$item"
+  done < <(printf '%s\n' "$value" | tr ',' '\n')
+}
+
 atlas_flow_load_file() {
   local file="$1"
   local SCHEMA_VERSION=""
@@ -203,6 +239,68 @@ atlas_flow_operation_link_exists() {
     --arg operation "$operation" \
     'select(.flow_id == $flow_id and .operation == $operation)' \
     "$file" >/dev/null
+}
+
+atlas_flow_evidence_link_count() {
+  local file="$1"
+  local flow_id="$2"
+  local operation="$3"
+
+  if [ ! -s "$file" ]; then
+    printf '0\n'
+    return 0
+  fi
+
+  jq -sr \
+    --arg flow_id "$flow_id" \
+    --arg operation "$operation" \
+    '[.[] | select(.flow_id == $flow_id and .operation == $operation)] | length' \
+    "$file"
+}
+
+atlas_flow_latest_evidence_linked_at() {
+  local file="$1"
+  local flow_id="$2"
+  local operation="$3"
+
+  if [ ! -s "$file" ]; then
+    return 0
+  fi
+
+  jq -sr \
+    --arg flow_id "$flow_id" \
+    --arg operation "$operation" \
+    '[.[] | select(.flow_id == $flow_id and .operation == $operation) | .linked_at // empty] | max // ""' \
+    "$file"
+}
+
+atlas_flow_packet_evidence_refs() {
+  local file="$1"
+  local flow_id="$2"
+  local operation="$3"
+
+  jq -r \
+    --arg flow_id "$flow_id" \
+    --arg operation "$operation" \
+    'select(.flow_id == $flow_id and .operation == $operation) |
+      "- Evidence ID: " + (.evidence_id // "unknown") + "\n" +
+      "  - Kind: " + (.kind // "artifact") + "\n" +
+      "  - Retained Path: " + (.evidence_path // "unknown") + "\n" +
+      "  - SHA-256: " + (.evidence_sha256 // "unknown") + "\n" +
+      "  - Classification: " + (.evidence_classification // "unknown") + "\n" +
+      "  - Redacted: " + ((.evidence_redacted // false) | tostring) + "\n" +
+      "  - Linked At: " + (.linked_at // "unknown") + "\n" +
+      "  - Metadata Only: " + ((.metadata_only // false) | tostring)' \
+    "$file"
+}
+
+atlas_flow_validate_packet_file() {
+  local packet_file="$1"
+  local line
+
+  while IFS= read -r line; do
+    atlas_flow_forbidden_content_check "$line"
+  done <"$packet_file"
 }
 
 atlas_flow_append_operation_link() {
@@ -507,6 +605,115 @@ cmd_flow_link_evidence() {
   printf 'link_path: %s\n' "$evidence_links_file"
 }
 
+cmd_flow_packet() {
+  need_args 1 "$#" "flow packet <flow> [packet-name]"
+  [ "$#" -le 2 ] || fail "flow packet <flow> [packet-name]"
+
+  local flow="$1"
+  local packet_name="${2:-}"
+  local generated_at
+  local packet_file
+  local packet_dir
+  local flow_file
+  local flow_sha
+  local flow_links_file
+  local evidence_links_file
+  local evidence_link_count
+  local latest_evidence_link
+
+  atlas_flow_load "$flow"
+  load_active_operation
+  intel_require_jq
+
+  if [ -z "$packet_name" ]; then
+    packet_name="$ATLAS_FLOW_SLUG-flow-packet"
+  fi
+
+  flow_file="$(atlas_flow_file_for_slug "$ATLAS_FLOW_SLUG")"
+  flow_sha="$(atlas_evidence_hash_path "$flow_file")"
+  flow_links_file="$(atlas_flow_operation_links_file "$ATLAS_OP_DIR")"
+  evidence_links_file="$(atlas_flow_evidence_links_file "$ATLAS_OP_DIR")"
+
+  if ! atlas_flow_operation_link_exists "$flow_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG"; then
+    fail "business flow has no links in active operation; run 'atlas flow link-evidence' first"
+  fi
+
+  evidence_link_count="$(atlas_flow_evidence_link_count "$evidence_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  [ "$evidence_link_count" -gt 0 ] || fail "business flow has no evidence links in active operation"
+
+  generated_at="$(timestamp)"
+  packet_dir="$(atlas_flow_packet_dir)"
+  packet_file="$(atlas_flow_packet_path_for_name "$packet_name")"
+  latest_evidence_link="$(atlas_flow_latest_evidence_linked_at "$evidence_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+
+  mkdir -p "$packet_dir"
+  chmod 700 "$packet_dir" 2>/dev/null || true
+
+  {
+    printf '# Atlas Business Flow Evidence Packet\n\n'
+    printf '## Packet\n\n'
+    printf -- '- Schema: atlas.business_flow_packet.v1\n'
+    printf -- '- Packet Name: %s\n' "$(atlas_flow_packet_slug_for "$packet_name")"
+    printf -- '- Generated At: %s\n' "$generated_at"
+    printf -- '- Operation: %s\n' "$ATLAS_OP_SLUG"
+    printf -- '- Target: %s\n' "$ATLAS_OP_TARGET"
+    printf -- '- Metadata Only: true\n'
+    printf -- '- Raw Evidence Embedded: false\n'
+    printf '\n## Metadata Boundary\n\n'
+    printf -- '- Stores flow labels, operation labels, evidence IDs, hashes, retained paths, classifications, timestamps, and known limitations.\n'
+    printf -- '- Does not store raw evidence bodies, customer records, request bodies, response bodies, payment data, credentials, token-bearing values, key material, or authorization headers.\n'
+    printf '\n## Flow\n\n'
+    printf -- '- Flow ID: %s\n' "$ATLAS_FLOW_ID"
+    printf -- '- Flow Slug: %s\n' "$ATLAS_FLOW_SLUG"
+    printf -- '- Flow Name: %s\n' "$ATLAS_FLOW_NAME"
+    printf -- '- Type: %s\n' "$ATLAS_FLOW_TYPE"
+    printf -- '- Owner: %s\n' "$ATLAS_FLOW_OWNER"
+    printf -- '- Criticality: %s\n' "$ATLAS_FLOW_CRITICALITY"
+    printf -- '- Environment: %s\n' "$ATLAS_FLOW_ENVIRONMENT"
+    printf -- '- Scope Status: %s\n' "$ATLAS_FLOW_SCOPE_STATUS"
+    printf -- '- Flow Record: %s\n' "$flow_file"
+    printf -- '- Flow Record SHA-256: %s\n' "$flow_sha"
+    atlas_flow_packet_csv_section "Systems" "$ATLAS_FLOW_SYSTEMS"
+    atlas_flow_packet_csv_section "Data Classes" "$ATLAS_FLOW_DATA_CLASSES"
+    atlas_flow_packet_csv_section "Control Objectives" "$ATLAS_FLOW_CONTROL_OBJECTIVES"
+    printf '\n## Evidence References\n\n'
+    atlas_flow_packet_evidence_refs "$evidence_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG"
+    printf '\n\n## Findings\n\n'
+    printf -- '- none linked in this packet version\n'
+    printf '\n## Validation\n\n'
+    printf -- '- none linked in this packet version\n'
+    printf '\n## Approvals\n\n'
+    printf -- '- none linked in this packet version\n'
+    printf '\n## Freshness\n\n'
+    printf -- '- Status: current\n'
+    printf -- '- Packet Generated At: %s\n' "$generated_at"
+    if [ -n "$latest_evidence_link" ]; then
+      printf -- '- Latest Evidence Link: %s\n' "$latest_evidence_link"
+    else
+      printf -- '- Latest Evidence Link: none recorded\n'
+    fi
+    printf -- '- Evidence Link Count: %s\n' "$evidence_link_count"
+    printf '\n## Known Limitations\n\n'
+    printf -- '- This packet is metadata-only and does not embed raw evidence content.\n'
+    printf -- '- Flow verification remains a later command and is not claimed by this packet.\n'
+    printf -- '- Finding, validation, approval, retention, and JSON packet parity links are not included in this first packet slice.\n'
+    printf -- '- This packet is not production certification, payment verification, legal compliance evidence, or a third-party audit.\n'
+  } >"$packet_file"
+
+  chmod 600 "$packet_file" 2>/dev/null || true
+  if ! atlas_flow_validate_packet_file "$packet_file"; then
+    rm -f "$packet_file"
+    fail "business-flow packet failed metadata-only validation"
+  fi
+
+  atlas_ledger_append_current "flow.packet.generated" "read-only" "atlas" "ok" "flow_id=$ATLAS_FLOW_ID packet=$packet_file evidence_links=$evidence_link_count"
+
+  ui_ok "business flow packet written"
+  printf 'flow_id: %s\n' "$ATLAS_FLOW_ID"
+  printf 'operation: %s\n' "$ATLAS_OP_SLUG"
+  printf 'packet: %s\n' "$packet_file"
+}
+
 dispatch_flow_command() {
   case "${1:-}" in
   add)
@@ -524,6 +731,10 @@ dispatch_flow_command() {
   link-evidence)
     shift
     cmd_flow_link_evidence "$@"
+    ;;
+  packet)
+    shift
+    cmd_flow_packet "$@"
     ;;
   *)
     usage

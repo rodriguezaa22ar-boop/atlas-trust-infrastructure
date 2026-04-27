@@ -2,15 +2,15 @@
 
 ## Purpose
 
-`atlas.business_flow_packet.v1` describes the planned machine-readable companion
-to an Atlas Business Flow Evidence packet.
+`atlas.business_flow_packet.v1` describes the Atlas Business Flow Evidence
+packet contract.
 
 The packet is metadata-only. It records which business flow was reviewed, which
 Atlas artifacts support the review, what validation or findings exist, and
 whether the packet is current.
 
-This is a design contract for the planned optional Business Flow Evidence module.
-It is not yet emitted by a stable Atlas command.
+The current `atlas flow packet` implementation emits a Markdown packet aligned
+to this contract. A stable JSON companion is still planned.
 
 ## Required Fields
 
@@ -133,4 +133,3 @@ automation.
 - This packet is not a payment or banking record.
 - This packet is not a compliance certification.
 - This packet is not a substitute for third-party audit evidence.
-

@@ -23,20 +23,21 @@ documented at [../atlas/TRUST_OBJECT_MODEL.md](../atlas/TRUST_OBJECT_MODEL.md).
 
 ## Design Contracts
 
-These contracts document planned optional modules. They are not stable command outputs yet.
+These contracts document optional modules and non-JSON packet surfaces. They
+are not stable command outputs yet for JSON.
 
-| Schema | Planned Surface | Contract |
+| Schema | Surface | Contract |
 | --- | --- | --- |
-| `atlas.business_flow_evidence.v1` | `atlas flow packet --json` evidence object | [business-flow-evidence.v1.md](business-flow-evidence.v1.md) |
-| `atlas.business_flow_packet.v1` | `atlas flow packet --json` packet object | [business-flow-packet.v1.md](business-flow-packet.v1.md) |
+| `atlas.business_flow_evidence.v1` | optional flow evidence object, JSON planned | [business-flow-evidence.v1.md](business-flow-evidence.v1.md) |
+| `atlas.business_flow_packet.v1` | `atlas flow packet` Markdown, JSON planned | [business-flow-packet.v1.md](business-flow-packet.v1.md) |
 
 ## Rules
 
 - Every schema-versioned Atlas JSON output must be documented here.
 - Every documented schema must name required fields and verification rules.
 - Packet-oriented schemas must remain metadata-only.
-- Design contracts must be clearly marked as planned until a stable command
-  emits them.
+- Design contracts must clearly distinguish implemented Markdown behavior from
+  planned JSON behavior until a stable JSON command emits them.
 - Future JSON packet formats should be added here before being treated as
   stable release or replay inputs.
 

@@ -175,6 +175,7 @@ atlas flow add <flow-name>
 atlas flow list
 atlas flow show <flow>
 atlas flow link-evidence <flow> <evidence-id>
+atlas flow packet <flow> [packet-name]
 ```
 
 Implemented records are written to:
@@ -183,6 +184,7 @@ Implemented records are written to:
 state/atlas/flows/<flow-slug>.env
 sessions/<operation>/business_flows.ndjson
 sessions/<operation>/flow_evidence.ndjson
+sessions/<operation>/flow_packets/<packet-name>.md
 ```
 
 `atlas flow link-evidence` requires an active operation and an existing evidence
@@ -191,8 +193,14 @@ retained path, SHA-256, classification, and redaction state. It does not copy
 the evidence artifact and does not store the evidence body or original source
 path.
 
-This slice does not implement flow packets, flow verification, or readiness
-integration yet.
+`atlas flow packet` requires an active operation and an existing business-flow
+evidence link in that operation. It writes a metadata-only Markdown packet with
+flow identity, operation metadata, data class labels, system aliases, control
+objective labels, evidence IDs, retained evidence paths, SHA-256 hashes,
+classification, redaction state, freshness metadata, and known limitations.
+
+This slice does not implement flow verification, JSON packet parity, finding or
+validation links, retention links, or readiness integration yet.
 
 ## Flow Record Contract
 
@@ -248,9 +256,14 @@ Rules:
 
 ## Flow Packet
 
-`atlas flow packet` should eventually generate a metadata-only Markdown packet.
+`atlas flow packet <flow> [packet-name]` generates a metadata-only Markdown
+packet under:
 
-The packet should include:
+```text
+sessions/<operation>/flow_packets/<packet-name>.md
+```
+
+The packet includes:
 
 - flow identity
 - owner
@@ -261,12 +274,16 @@ The packet should include:
 - data classes
 - control objectives
 - evidence references
-- finding references
-- validation references
-- approval references
+- retained evidence paths
+- evidence SHA-256 hashes
+- classification and redaction state
 - freshness state
 - known limitations
 - SHA-256 anchors where available
+
+The first packet slice records findings, validation, approvals, retention
+references, and JSON parity as known limitations instead of claiming those links
+exist.
 
 The packet must not include:
 
@@ -324,12 +341,12 @@ atlas flow add <flow-name>
 atlas flow list
 atlas flow show <flow>
 atlas flow link-evidence <flow> <evidence-id>
+atlas flow packet <flow> [packet-name]
 ```
 
 The next runtime command set should add:
 
 ```bash
-atlas flow packet <flow> [packet-name]
 atlas flow verify <flow> [packet-name]
 ```
 

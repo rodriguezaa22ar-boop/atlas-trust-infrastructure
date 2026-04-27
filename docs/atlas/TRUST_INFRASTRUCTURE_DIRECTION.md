@@ -208,13 +208,13 @@ verification, negative tests, and readiness integration are stable.
 1. Keep this trust-infrastructure direction current.
 2. Keep `docs/atlas/TRUST_OBJECT_MODEL.md` current as the object and packet
    contract map.
-3. Continue Business Flow Evidence with metadata-only flow packets.
-4. Add `atlas flow verify` for packet and link verification.
-5. Add negative flow verification tests for missing, stale, tampered, or
+3. Continue Business Flow Evidence with `atlas flow verify` for packet and link
+   verification.
+4. Add negative flow verification tests for missing, stale, tampered, or
    secret-bearing metadata.
-6. Add optional Business Flow Evidence readiness integration.
-7. Stabilize flow, packet, audit, archive, release, and trust-chain schemas.
-8. Add packet/replay parity where retained proof needs machine-readable gates.
+5. Add optional Business Flow Evidence readiness integration.
+6. Stabilize flow, packet, audit, archive, release, and trust-chain schemas.
+7. Add packet/replay parity where retained proof needs machine-readable gates.
 
 Do not jump to Atlas OS, web UI, kernel work, ISI runtime, fleet control, SQL
 migration, or autonomous features before the metadata-first trust

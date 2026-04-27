@@ -34,6 +34,7 @@ A packet or status surface has JSON parity only when:
 | `atlas op audit-packet` | Markdown | no | planned | gap | Needs JSON audit packet and verifier parity. |
 | `atlas op archive-packet` | Markdown | no | planned | gap | Needs JSON archive packet and verifier parity. |
 | `atlas finding review-packet` | Markdown | no | planned | gap | Needs JSON accepted-risk review packet and verifier parity. |
+| `atlas flow packet` | Markdown | no | `atlas.business_flow_packet.v1` | gap | Markdown flow packet is implemented; JSON and verifier parity remain planned. |
 | `atlas advisor prompt` | Markdown | no | planned | non-blocking gap | Advisor packets remain metadata-only; JSON can come after trust packets. |
 
 ## Implemented JSON Schemas
@@ -52,7 +53,8 @@ Priority order:
 3. closeout manifest
 4. handoff packet
 5. accepted-risk review packet
-6. advisor prompt packet
+6. business-flow packet
+7. advisor prompt packet
 
 ## Guardrails
 

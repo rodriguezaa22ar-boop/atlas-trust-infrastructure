@@ -71,7 +71,7 @@ Packets are metadata-only records that anchor trust state at a point in time.
 | Release provenance packet | Binds a release packet hash to a signed Git tag and retained public key. |
 | Production dry-run note | Records local production-contract dry-run evidence. |
 | Advisor packet | Carries metadata-only AI Advisor context. |
-| Business-flow packet | Planned metadata-only flow proof linking flows to evidence, findings, validation, and retention. |
+| Business-flow packet | Metadata-only flow proof linking flows to operation evidence. Finding, validation, retention, verification, and JSON parity are planned. |
 
 Packets must not embed raw runtime artifacts, secrets, customer records,
 payloads, session contents, packet captures, private keys, tokens, credentials,
@@ -199,5 +199,5 @@ Readiness language remains layered:
 - local production readiness: Atlas local production contract passes
 - external production certification: not claimed unless independently proven
 
-Business Flow Evidence remains optional until the flow packet, verification,
-negative tests, schemas, and readiness integration are stable.
+Business Flow Evidence remains optional until flow verification, negative tests,
+schemas, and readiness integration are stable.

@@ -61,9 +61,9 @@ repository in filesystem order.
 
 - [schemas/README.md](schemas/README.md): implemented JSON contracts.
 - [schemas/business-flow-evidence.v1.md](schemas/business-flow-evidence.v1.md):
-  planned business-flow evidence contract.
+  optional business-flow evidence contract.
 - [schemas/business-flow-packet.v1.md](schemas/business-flow-packet.v1.md):
-  planned business-flow packet contract.
+  business-flow packet contract, with Markdown implemented and JSON planned.
 - [atlas/PACKET_FORMAT_PARITY.md](atlas/PACKET_FORMAT_PARITY.md): Markdown and
   JSON parity matrix.
 
