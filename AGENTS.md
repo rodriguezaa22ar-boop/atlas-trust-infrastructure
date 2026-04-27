@@ -623,6 +623,13 @@ When working on Atlas:
 8. Summarize changed files, behavior, tests, and limitations.
 9. Do not claim production readiness.
 
+Supporting workflow and validation notes live in:
+
+```text
+docs/agents/AGENT_WORKFLOW.md
+docs/agents/AGENT_VALIDATION.md
+```
+
 ---
 
 ## Definition of Done

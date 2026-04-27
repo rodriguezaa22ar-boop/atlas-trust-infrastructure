@@ -316,6 +316,13 @@ The near-term roadmap is:
     signing/provenance, and retained production dry-run evidence. The current
     expected result is `not-ready`, because Atlas is still an internal
     release-trust candidate rather than a production-certified product.
+56. Validate agent guidance. `docs/agents/AGENT_WORKFLOW.md` and
+    `docs/agents/AGENT_VALIDATION.md` now turn the root `AGENTS.md` guidance
+    into an explicit workflow and a testable contract. The Bats suite checks
+    that root guidance still covers authorized assessment, no autonomous
+    exploitation, domain boundaries, metadata-only packet rules, read-only
+    command non-mutation, Nix QA, v1/production readiness separation, AI Advisor
+    limits, and future Atlas OS/ISI/kernel boundaries.
 
 ## First Serious Version
 

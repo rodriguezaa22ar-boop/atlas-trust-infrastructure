@@ -38,6 +38,28 @@ make_repo_clean_and_synced() {
   git -C "$TEST_ROOT/toolkit" update-ref refs/remotes/origin/main HEAD
 }
 
+@test "root AGENTS guidance preserves Atlas agent safety contract" {
+  agents_file="$TEST_ROOT/toolkit/AGENTS.md"
+
+  [ -f "$agents_file" ]
+  grep -qi 'authorized assessment' "$agents_file"
+  grep -q 'autonomous exploitation' "$agents_file"
+  grep -q 'Do not collapse these domains' "$agents_file"
+  grep -q 'metadata-only' "$agents_file"
+  grep -q 'Commands documented as read-only must not mutate state' "$agents_file"
+  grep -q "nix-shell --run './bin/dev-qa'" "$agents_file"
+  grep -q 'It must not be treated as production certification' "$agents_file"
+  grep -q 'atlas production status' "$agents_file"
+  grep -q 'not-ready` for production' "$agents_file"
+  grep -q 'not an execution engine' "$agents_file"
+  grep -q 'Atlas OS, ISI, and kernel-level work are future layers' "$agents_file"
+
+  [ -f "$TEST_ROOT/toolkit/docs/agents/AGENT_WORKFLOW.md" ]
+  [ -f "$TEST_ROOT/toolkit/docs/agents/AGENT_VALIDATION.md" ]
+  grep -q "bats tests/atlas.bats --filter \"root AGENTS guidance\"" \
+    "$TEST_ROOT/toolkit/docs/agents/AGENT_VALIDATION.md"
+}
+
 @test "atlas help groups target-first workflow and story commands" {
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" help
 

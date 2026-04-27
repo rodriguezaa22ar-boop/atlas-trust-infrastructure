@@ -159,6 +159,11 @@ The stricter production-readiness contract is captured in
 release signing/provenance, retained production dry runs, and a current
 verified release packet are in place.
 
+Agent work is guided by the root [AGENTS.md](./AGENTS.md), with validation and
+workflow notes in [docs/agents/](./docs/agents/). Those docs keep future agent
+sessions aligned with Atlas' authorized-assessment boundary, metadata-only
+packet rules, read-only command expectations, and maturity language.
+
 ## Safety Boundary
 
 Atlas is designed for authorized assessment orchestration only.
