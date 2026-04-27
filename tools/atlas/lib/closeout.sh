@@ -344,6 +344,7 @@ atlas_closeout_disallowed_later_ledger_events() {
       select(
         ((.event // "") != "audit.packet.generated")
         and ((.event // "") != "archive.packet.generated")
+        and ((.event // "") != "finding.review_packet.generated")
       )
       | (.event // "?")
     ' |

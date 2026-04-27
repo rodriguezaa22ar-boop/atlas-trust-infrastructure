@@ -39,6 +39,8 @@ atlas finding update finding_... --level validated --validation vp_... --note "c
 atlas finding accept finding_... --reason "owner accepts residual exposure" --owner Alta --expires 2026-12-31
 atlas finding review finding_... --reason "owner renewed acceptance" --owner Alta --expires 2027-03-31
 atlas finding review-queue --within 30
+atlas finding review-packet accepted-risk-review --within 30
+atlas finding review-verify accepted-risk-review
 atlas finding resolve finding_... --validation vp_... --note "remediation confirmed"
 atlas finding list
 atlas finding show finding_...
@@ -328,6 +330,8 @@ atlas finding review finding_20260425T201000Z \
   --owner "Alta" \
   --expires 2027-03-31
 atlas finding review-queue --within 30
+atlas finding review-packet accepted-risk-review --within 30
+atlas finding review-verify accepted-risk-review
 atlas finding show finding_20260425T201000Z
 ```
 
@@ -354,6 +358,12 @@ can update owner/expiry, and appends a `finding.reviewed` ledger event.
 for the active operation. It groups accepted risks as `expired`, `due-soon`,
 `no-expiry`, or `current` so owners can review risk acceptances before expiry
 blocks closeout.
+`atlas finding review-packet [packet-name] [--within days]` preserves that
+queue as a metadata-only Markdown packet under the operation directory. The
+packet records queue counts, the review window, a finding-index hash, and an
+operation-ledger anchor. `atlas finding review-verify [packet]` reads the packet
+without writing ledger events and fails if the finding index changed or if
+disallowed ledger events occurred after the packet.
 
 Operation reports now render recorded findings instead of only leaving a
 placeholder.

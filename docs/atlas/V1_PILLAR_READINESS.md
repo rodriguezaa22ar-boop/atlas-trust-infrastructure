@@ -130,13 +130,16 @@ Each pillar status must include:
 - Status: `ready`
 - Reason: observed, inferred, validated, resolved, accepted, and lifecycle
   finding records are supported, including explicit accepted-risk metadata and
-  accepted-risk expiry review, renewal, and review queue triage.
+  accepted-risk expiry review, renewal, review queue triage, and review packet
+  verification.
 - Tests: `tests/atlas.bats` finding lifecycle, accepted-risk, and
-  accepted-risk expiry/review queue tests.
+  accepted-risk expiry/review queue packet tests.
 - Commands: `atlas finding add`, `atlas finding update`,
   `atlas finding accept`, `atlas finding review`,
-  `atlas finding review-queue`, `atlas finding resolve`, `atlas op readiness`
-- Artifacts: operation finding index.
+  `atlas finding review-queue`, `atlas finding review-packet`,
+  `atlas finding review-verify`, `atlas finding resolve`,
+  `atlas op readiness`
+- Artifacts: operation finding index and accepted-risk review packets.
 - Limitations: accepted-risk expiry is date-based and checked during readiness;
   Atlas does not yet send scheduled reminders before expiry.
 

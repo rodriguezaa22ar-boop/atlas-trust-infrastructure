@@ -264,6 +264,10 @@ Atlas now also exposes the operator-level story and reporting layer:
   renew owner/expiry metadata, and record a dedicated finding review ledger event
 - `atlas finding review-queue [--within days]`: list accepted risks by
   expired, due-soon, no-expiry, or current review state for the active operation
+- `atlas finding review-packet [packet-name]`: write a metadata-only accepted
+  risk review packet with queue counts, finding-index hash, and ledger anchor
+- `atlas finding review-verify [packet]`: verify an accepted-risk review packet
+  still matches the retained finding index and allowed ledger history
 - `atlas validation plan <lane>`: plan, approve, run, retest, and supersede
   bounded validation when an executed run is replaced by a successful rerun
 - `atlas validation retest <id>`: promotes confirmed findings to validated

@@ -60,6 +60,8 @@ make_repo_clean_and_synced() {
   [[ "$output" == *"atlas finding accept <id> --reason text"* ]]
   [[ "$output" == *"atlas finding review <id> --reason text"* ]]
   [[ "$output" == *"atlas finding review-queue [--within days]"* ]]
+  [[ "$output" == *"atlas finding review-packet [packet-name] [--within days]"* ]]
+  [[ "$output" == *"atlas finding review-verify [packet]"* ]]
   [[ "$output" == *"atlas finding resolve <id> [--evidence id] [--validation id]"* ]]
   [[ "$output" == *"atlas validation plan <lane> [--finding id] [--evidence id]"* ]]
   [[ "$output" == *"atlas validation retest <id> --result resolved|still-open"* ]]
@@ -2183,6 +2185,53 @@ EOF
   [[ "$output" == *"current"* ]]
   [[ "$output" == *"$no_expiry_id"* ]]
   [[ "$output" == *"no-expiry"* ]]
+
+  run env ATLAS_TODAY=2026-04-27 "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding review-packet queue-review --within 30
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"accepted-risk review packet written"* ]]
+  review_packet_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "review_packet" { print $2; exit }')"
+  [ -f "$review_packet_path" ]
+  grep -q '^# Atlas Accepted Risk Review Packet$' "$review_packet_path"
+  grep -q 'No raw artifact contents are included' "$review_packet_path"
+  grep -q 'Review window: 30 days' "$review_packet_path"
+  grep -q 'Due by: 2026-05-27' "$review_packet_path"
+  grep -q 'Expired: 1' "$review_packet_path"
+  grep -q 'Due soon: 1' "$review_packet_path"
+  grep -q 'No expiry: 1' "$review_packet_path"
+  grep -q 'Current: 1' "$review_packet_path"
+  grep -q 'Finding index: .*sha256=' "$review_packet_path"
+  grep -q 'Operation ledger: .*events=.*sha256=' "$review_packet_path"
+  grep -q "$expired_id" "$review_packet_path"
+  grep -q "$due_soon_id" "$review_packet_path"
+  grep -q "$current_id" "$review_packet_path"
+  grep -q "$no_expiry_id" "$review_packet_path"
+  jq -e --arg review_packet_path "$review_packet_path" 'select(.event == "finding.review_packet.generated" and .detail == $review_packet_path)' \
+    "$TEST_ROOT/toolkit/sessions/review-queue-op/ledger.ndjson"
+
+  review_verify_events_before="$(wc -l < "$TEST_ROOT/toolkit/sessions/review-queue-op/ledger.ndjson" | tr -d ' ')"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding review-verify "$review_packet_path"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Accepted Risk Review Packet Verification"* ]]
+  [[ "$output" == *"Finding Index"* ]]
+  [[ "$output" == *"Operation Ledger"* ]]
+  [[ "$output" == *"verified"* ]]
+  [[ "$output" == *"Verification Status: verified"* ]]
+  [[ "$output" == *"Verification Problems: 0"* ]]
+  review_verify_events_after="$(wc -l < "$TEST_ROOT/toolkit/sessions/review-queue-op/ledger.ndjson" | tr -d ' ')"
+  [ "$review_verify_events_after" = "$review_verify_events_before" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding review "$due_soon_id" \
+    --reason "owner renewed near-term lab risk" \
+    --expires "2999-12-31" \
+    --evidence "$evidence_id"
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding review-verify "$review_packet_path"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Finding Index"* ]]
+  [[ "$output" == *"changed"* ]]
+  [[ "$output" == *"Operation Ledger"* ]]
+  [[ "$output" == *"Verification Status: attention-required"* ]]
 
   run env ATLAS_TODAY=2026-04-27 "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding review-queue --within nope
   [ "$status" -ne 0 ]

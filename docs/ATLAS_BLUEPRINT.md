@@ -276,6 +276,10 @@ The near-term roadmap is:
     `no-expiry`, or `current` state using a configurable review window, giving
     operators a read-only workload view before expired acceptances block
     closeout.
+48. Add accepted-risk review packets. `atlas finding review-packet` now writes
+    the review queue as a metadata-only retention packet with finding-index and
+    ledger anchors, while `atlas finding review-verify` proves the packet still
+    matches retained accepted-risk state.
 
 ## First Serious Version
 

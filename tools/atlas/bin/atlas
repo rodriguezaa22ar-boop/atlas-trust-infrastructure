@@ -112,6 +112,8 @@ usage:
   atlas finding accept <id> --reason text [--owner owner] [--expires date]
   atlas finding review <id> --reason text [--owner owner] [--expires date]
   atlas finding review-queue [--within days]
+  atlas finding review-packet [packet-name] [--within days]
+  atlas finding review-verify [packet]
   atlas finding resolve <id> [--evidence id] [--validation id]
   atlas finding list
   atlas finding show <id>
@@ -288,6 +290,8 @@ findings:
   atlas finding accept <id> --reason text [--owner owner] [--expires date]
   atlas finding review <id> --reason text [--owner owner] [--expires date]
   atlas finding review-queue [--within days]
+  atlas finding review-packet [packet-name] [--within days]
+  atlas finding review-verify [packet]
   atlas finding resolve <id> [--evidence id] [--validation id] [--note text]
   atlas finding list
   atlas finding show <id>
@@ -2102,6 +2106,14 @@ finding | findings)
 	review-queue)
 		shift
 		cmd_finding_review_queue "$@"
+		;;
+	review-packet)
+		shift
+		cmd_finding_review_packet "$@"
+		;;
+	review-verify)
+		shift
+		cmd_finding_review_verify "$@"
 		;;
 	resolve)
 		shift
