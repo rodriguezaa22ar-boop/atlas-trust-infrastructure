@@ -31,6 +31,31 @@ of ad hoc terminal reports.
 - `nix-shell --run './bin/dev-lint'`: lint ok
 - `nix-shell --run './bin/dev-qa'`: 65/65, lint ok, stress ok
 
+## Live Smoke
+
+Command:
+
+```bash
+atlas web assess https://execution-hub-27.emergent.host execution-hub-m37-live-verified --scope-status in-scope --criticality high --owner Alta --timeout 15
+```
+
+Result:
+
+- operation: `execution-hub-m37-live-verified`
+- target: `execution-hub-27.emergent.host`
+- findings: 4
+- retained packet: `sessions/execution-hub-m37-live-verified/web-assessment/summary.md`
+- report: `reports/execution-hub-m37-live-verified-web-report.md`
+- handoff: `sessions/execution-hub-m37-live-verified/handoff/execution-hub-m37-live-verified-web-handoff.md`
+- evidence bundle: `sessions/execution-hub-m37-live-verified/evidence-bundles/execution-hub-m37-live-verified-web-assessment`
+
+Observed findings:
+
+- missing browser hardening headers
+- HTTP origin does not redirect to HTTPS
+- metadata routes return application HTML
+- admin-style routes return successful responses
+
 ## Boundaries
 
 `atlas web assess` is intentionally bounded. It does not fuzz, brute force,
@@ -40,5 +65,8 @@ findings for operator follow-up.
 
 ## Repo State
 
-- implementation committed
-- ready to push and tag after this retention note is committed
+- implementation committed: `2326912 Add Atlas web assessment packetization`
+- retention note committed: `42d81ba Record Atlas retention milestone 37`
+- pushed to `origin/main`
+- tagged: `atlas-retention-m37`
+- repo clean and synced after milestone push
