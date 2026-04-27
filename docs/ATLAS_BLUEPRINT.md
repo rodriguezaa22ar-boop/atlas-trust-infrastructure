@@ -299,6 +299,11 @@ The near-term roadmap is:
     the current operation trust-chain result, compares ledger and archive packet
     replay state, and fails if the packet's recorded trust-chain claim no
     longer matches live retained operation state.
+53. Add Markdown release candidate replay parity. Markdown release packets now
+    record the operation ledger event count and SHA alongside the operation
+    trust-chain summary, and `atlas release verify` replays ledger and archive
+    packet state for Markdown packets with the same retained-result standard as
+    JSON release packets.
 
 ## First Serious Version
 

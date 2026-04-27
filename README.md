@@ -230,7 +230,8 @@ Atlas now also exposes the operator-level story and reporting layer:
   clean/synced state, passing QA status, required retention notes, known
   limitations, embedded v1 readiness JSON, and any recorded operation trust
   chain; when an operation chain is recorded, verification replays the current
-  local operation trust-chain result instead of trusting the packet field alone
+  local operation trust-chain, ledger, and archive packet results instead of
+  trusting the packet fields alone
 - `atlas web assess <url> [assessment-name]`: bounded public web assessment
   packetization that creates an Atlas operation, stores route/header and
   API/CORS results as evidence, records posture findings, bundles evidence,

@@ -2674,6 +2674,22 @@ EOF
   [[ "$output" == *"Overall: ready"* ]]
   [[ "$output" == *"Required Not Ready: 0"* ]]
 
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release packet trust-lifecycle-m53-md \
+    --operation trust-lifecycle-op \
+    --qa-status pass \
+    --qa-note "trust lifecycle markdown proof passed"
+  [ "$status" -eq 0 ]
+  markdown_release_packet_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "release_packet" { print $2; exit }')"
+  [ -f "$markdown_release_packet_path" ]
+  grep -q 'Trust chain status: current' "$markdown_release_packet_path"
+  grep -q 'Operation ledger: .*events=.*sha256=' "$markdown_release_packet_path"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release verify "$markdown_release_packet_path"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Operation Trust Chain: ok status=current replay=current operation=trust-lifecycle-op"* ]]
+  [[ "$output" == *"Operation Ledger Replay: ok"* ]]
+  [[ "$output" == *"Operation Archive Replay: ok verification=verified"* ]]
+
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release packet trust-lifecycle-m36 \
     --json \
     --operation trust-lifecycle-op \
@@ -2705,6 +2721,11 @@ EOF
   ' "$release_packet_path"
 
   printf '\nrelease candidate report changed after release packet\n' >> "$report_path"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release verify "$markdown_release_packet_path"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Operation Trust Chain: fail packet_status=current replay_status=attention-required operation=trust-lifecycle-op"* ]]
+  [[ "$output" == *"Operation Archive Replay: fail"* ]]
+
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release verify "$release_packet_path"
   [ "$status" -ne 0 ]
   [[ "$output" == *"Operation Trust Chain: fail packet_status=current replay_status=attention-required operation=trust-lifecycle-op"* ]]

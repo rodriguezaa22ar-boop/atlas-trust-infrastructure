@@ -290,6 +290,8 @@ atlas_release_print_operation_trust() {
   printf -- '- Archive packet verification: %s\n' "$value"
   value="$(printf '%s\n' "$operation_trust_json" | jq -r '.artifacts.archive_packet')"
   printf -- '- Archive packet: %s\n' "$value"
+  value="$(printf '%s\n' "$operation_trust_json" | jq -r '.ledger.path + " events=" + (.ledger.events | tostring) + " sha256=" + .ledger.sha256')"
+  printf -- '- Operation ledger: %s\n' "$value"
 }
 
 atlas_release_write_packet() {
@@ -652,6 +654,15 @@ atlas_release_verify_operation_trust_markdown() {
   local packet_status
   local current_json
   local current_status
+  local packet_ledger
+  local packet_ledger_events
+  local packet_ledger_sha
+  local current_ledger_events
+  local current_ledger_sha
+  local packet_archive_path
+  local current_archive_path
+  local packet_archive_verification
+  local current_archive_verification
 
   operation_slug="$(atlas_release_packet_bullet "$packet_file" "Operation ID")"
   packet_status="$(atlas_release_packet_bullet "$packet_file" "Trust chain status")"
@@ -676,6 +687,31 @@ atlas_release_verify_operation_trust_markdown() {
     atlas_release_verify_row "Operation Trust Chain" "ok" "status=current replay=current operation=$operation_slug"
   else
     atlas_release_verify_row "Operation Trust Chain" "fail" "packet_status=${packet_status:-missing} replay_status=${current_status:-missing} operation=$operation_slug"
+  fi
+
+  packet_ledger="$(atlas_release_packet_bullet "$packet_file" "Operation ledger")"
+  packet_ledger_events="$(atlas_closeout_anchor_token "$packet_ledger" "events")"
+  packet_ledger_sha="$(atlas_closeout_anchor_token "$packet_ledger" "sha256")"
+  current_ledger_events="$(printf '%s\n' "$current_json" | jq -r '.ledger.events // ""')"
+  current_ledger_sha="$(printf '%s\n' "$current_json" | jq -r '.ledger.sha256 // ""')"
+  if [ -n "$packet_ledger_events" ] &&
+    [ "$packet_ledger_events" = "$current_ledger_events" ] &&
+    [ "$packet_ledger_sha" = "$current_ledger_sha" ]; then
+    atlas_release_verify_row "Operation Ledger Replay" "ok" "events=$current_ledger_events sha256=$current_ledger_sha"
+  else
+    atlas_release_verify_row "Operation Ledger Replay" "fail" "packet_events=${packet_ledger_events:-missing} replay_events=${current_ledger_events:-missing} packet_sha=${packet_ledger_sha:-missing} replay_sha=${current_ledger_sha:-missing}"
+  fi
+
+  packet_archive_path="$(atlas_release_packet_bullet "$packet_file" "Archive packet")"
+  current_archive_path="$(printf '%s\n' "$current_json" | jq -r '.artifacts.archive_packet // ""')"
+  packet_archive_verification="$(atlas_release_packet_bullet "$packet_file" "Archive packet verification")"
+  current_archive_verification="$(printf '%s\n' "$current_json" | jq -r '.verification.archive_packet // ""')"
+  if [ "$packet_archive_path" = "$current_archive_path" ] &&
+    [ "$packet_archive_verification" = "verified" ] &&
+    [ "$current_archive_verification" = "verified" ]; then
+    atlas_release_verify_row "Operation Archive Replay" "ok" "verification=verified packet=$current_archive_path"
+  else
+    atlas_release_verify_row "Operation Archive Replay" "fail" "packet_verification=${packet_archive_verification:-missing} replay_verification=${current_archive_verification:-missing} packet_path=${packet_archive_path:-missing} replay_path=${current_archive_path:-missing}"
   fi
 }
 

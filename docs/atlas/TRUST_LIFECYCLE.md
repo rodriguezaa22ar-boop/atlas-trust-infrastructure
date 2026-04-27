@@ -37,10 +37,10 @@ A lifecycle proof is current only when:
 - closeout, audit packet, archive packet, and release packet verification pass
 - `atlas op trust-chain --strict` returns `current`
 - `atlas v1 status --strict` returns overall `ready`
-- release trust JSON uses schema `atlas.release_trust.v1`, records the
-  operation trust chain when the release candidate is tied to a completed
-  operation, and `atlas release verify` replays that operation trust chain from
-  current local operation state
+- release trust packets record the operation trust chain when the release
+  candidate is tied to a completed operation, and `atlas release verify` replays
+  that operation's trust-chain, ledger, and archive packet state from current
+  local operation state
 
 ## Verified Path
 
@@ -66,6 +66,7 @@ atlas op archive-packet trust-lifecycle-op trust-lifecycle-archive
 atlas op archive-verify trust-lifecycle-op
 atlas op trust-chain trust-lifecycle-op --strict
 atlas v1 status trust-lifecycle-op --strict
+atlas release packet trust-lifecycle-m53 --operation trust-lifecycle-op --qa-status pass
 atlas release packet trust-lifecycle-m36 --json --operation trust-lifecycle-op --qa-status pass
 atlas release verify trust-lifecycle-m36
 ```

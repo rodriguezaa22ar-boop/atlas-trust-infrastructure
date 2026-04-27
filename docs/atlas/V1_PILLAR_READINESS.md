@@ -168,8 +168,9 @@ Each pillar status must include:
 - Status: `ready`
 - Reason: handoff, closeout, audit, archive, trust-chain closeout, release
   trust, release-candidate operation binding, release verify trust-chain replay,
-  verification, and freshness checks are implemented, including accepted-risk
-  review packet freshness in readiness, audit, archive, and trust-chain views.
+  Markdown/JSON replay parity, verification, and freshness checks are
+  implemented, including accepted-risk review packet freshness in readiness,
+  audit, archive, and trust-chain views.
 - Tests: `tests/atlas.bats` retention/archive tests, release packet tests, and
   end-to-end trust lifecycle test.
 - Commands: `atlas op closeout`, `atlas op audit-packet`,
