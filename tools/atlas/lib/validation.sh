@@ -241,7 +241,11 @@ atlas_validation_load_plan() {
           (.retest_result // ""),
           (.retest_note // ""),
           (.retested_at // ""),
-          (.retested_by // "")
+          (.retested_by // ""),
+          (.superseded_by_plan // ""),
+          (.superseded_reason // ""),
+          (.superseded_at // ""),
+          (.superseded_by // "")
         ]
         | .[]
       '
@@ -267,6 +271,10 @@ atlas_validation_load_plan() {
   ATLAS_VALIDATION_RETEST_NOTE="${fields[17]:-}"
   ATLAS_VALIDATION_RETESTED_AT="${fields[18]:-}"
   ATLAS_VALIDATION_RETESTED_BY="${fields[19]:-}"
+  ATLAS_VALIDATION_SUPERSEDED_BY_PLAN="${fields[20]:-}"
+  ATLAS_VALIDATION_SUPERSEDED_REASON="${fields[21]:-}"
+  ATLAS_VALIDATION_SUPERSEDED_AT="${fields[22]:-}"
+  ATLAS_VALIDATION_SUPERSEDED_BY="${fields[23]:-}"
 }
 
 atlas_validation_evidence_args() {
@@ -472,6 +480,18 @@ cmd_validation_show() {
   if [ -n "$ATLAS_VALIDATION_RETEST_NOTE" ]; then
     ui_kv "Retest Note" "$ATLAS_VALIDATION_RETEST_NOTE"
   fi
+  if [ -n "$ATLAS_VALIDATION_SUPERSEDED_BY_PLAN" ]; then
+    ui_kv "Superseded By" "$ATLAS_VALIDATION_SUPERSEDED_BY_PLAN"
+  fi
+  if [ -n "$ATLAS_VALIDATION_SUPERSEDED_AT" ]; then
+    ui_kv "Superseded At" "$ATLAS_VALIDATION_SUPERSEDED_AT"
+  fi
+  if [ -n "$ATLAS_VALIDATION_SUPERSEDED_BY" ]; then
+    ui_kv "Superseded By Operator" "$ATLAS_VALIDATION_SUPERSEDED_BY"
+  fi
+  if [ -n "$ATLAS_VALIDATION_SUPERSEDED_REASON" ]; then
+    ui_kv "Superseded Reason" "$ATLAS_VALIDATION_SUPERSEDED_REASON"
+  fi
 }
 
 cmd_validation_approve() {
@@ -665,6 +685,174 @@ cmd_validation_retest() {
   fi
 }
 
+cmd_validation_supersede() {
+  need_args 1 "$#" "validation supersede <id> --by <replacement-id> --reason text"
+  local plan_id="$1"
+  local replacement_id=""
+  local reason=""
+  local evidence_ids=()
+  local evidence_id
+  local original_target
+  local original_lane
+  local original_capability
+  local original_reason
+  local original_finding
+  local original_plan_path
+  local original_created_at
+  local original_approval_reason
+  local original_approved_by
+  local original_session_dir
+  local original_result_status
+  local original_retest_result
+  local original_retest_note
+  local original_retested_at
+  local original_retested_by
+  local replacement_target
+  local replacement_lane
+  local replacement_finding
+  local replacement_status
+  local replacement_result_status
+  local superseded_at
+  local index_file
+  local evidence_text
+
+  shift
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+    --by)
+      need_args 2 "$#" "validation supersede <id> --by <replacement-id>"
+      replacement_id="$2"
+      shift 2
+      ;;
+    --reason)
+      need_args 2 "$#" "validation supersede <id> --reason <text>"
+      reason="$2"
+      shift 2
+      ;;
+    *)
+      fail "unknown validation supersede option: $1"
+      ;;
+    esac
+  done
+
+  [ -n "$replacement_id" ] || fail "validation supersede requires --by <replacement-id>"
+  [ -n "$reason" ] || fail "validation supersede requires --reason <text>"
+  [ "$plan_id" != "$replacement_id" ] || fail "validation plan cannot supersede itself"
+
+  load_active_operation
+  atlas_validation_load_plan "$plan_id"
+  [ "$ATLAS_VALIDATION_OPERATION" = "$ATLAS_OP_SLUG" ] || fail "validation plan '$plan_id' does not belong to active operation '$ATLAS_OP_SLUG'"
+  [ "$ATLAS_VALIDATION_STATUS" != "superseded" ] || fail "validation plan '$plan_id' is already superseded"
+  [ "$ATLAS_VALIDATION_STATUS" = "executed" ] || fail "validation plan '$plan_id' must be executed before supersession; status: $ATLAS_VALIDATION_STATUS"
+
+  original_target="$ATLAS_VALIDATION_TARGET"
+  original_lane="$ATLAS_VALIDATION_LANE"
+  original_capability="$ATLAS_VALIDATION_CAPABILITY"
+  original_reason="$ATLAS_VALIDATION_REASON"
+  original_finding="$ATLAS_VALIDATION_FINDING"
+  original_plan_path="$ATLAS_VALIDATION_PLAN_PATH"
+  original_created_at="$ATLAS_VALIDATION_CREATED_AT"
+  original_approval_reason="$ATLAS_VALIDATION_APPROVAL_REASON"
+  original_approved_by="$ATLAS_VALIDATION_APPROVED_BY"
+  original_session_dir="$ATLAS_VALIDATION_SESSION_DIR"
+  original_result_status="$ATLAS_VALIDATION_RESULT_STATUS"
+  original_retest_result="$ATLAS_VALIDATION_RETEST_RESULT"
+  original_retest_note="$ATLAS_VALIDATION_RETEST_NOTE"
+  original_retested_at="$ATLAS_VALIDATION_RETESTED_AT"
+  original_retested_by="$ATLAS_VALIDATION_RETESTED_BY"
+  while IFS= read -r evidence_id; do
+    evidence_ids+=("$evidence_id")
+  done < <(atlas_validation_evidence_args "$ATLAS_VALIDATION_EVIDENCE")
+
+  atlas_validation_load_plan "$replacement_id"
+  replacement_target="$ATLAS_VALIDATION_TARGET"
+  replacement_lane="$ATLAS_VALIDATION_LANE"
+  replacement_finding="$ATLAS_VALIDATION_FINDING"
+  replacement_status="$ATLAS_VALIDATION_STATUS"
+  replacement_result_status="$ATLAS_VALIDATION_RESULT_STATUS"
+
+  [ "$ATLAS_VALIDATION_OPERATION" = "$ATLAS_OP_SLUG" ] || fail "replacement validation plan '$replacement_id' does not belong to active operation '$ATLAS_OP_SLUG'"
+  [ "$replacement_status" = "executed" ] || fail "replacement validation plan '$replacement_id' must be executed; status: $replacement_status"
+  [ "$replacement_result_status" = "success" ] || fail "replacement validation plan '$replacement_id' must have result success; result: ${replacement_result_status:-unknown}"
+  [ "$replacement_target" = "$original_target" ] || fail "replacement validation plan target differs from superseded plan"
+  [ "$replacement_lane" = "$original_lane" ] || fail "replacement validation plan lane differs from superseded plan"
+  if [ -n "$original_finding" ] || [ -n "$replacement_finding" ]; then
+    [ "$replacement_finding" = "$original_finding" ] || fail "replacement validation plan finding differs from superseded plan"
+  fi
+
+  atlas_validation_check_capability_allowed "$original_capability" "$original_target"
+  atlas_validation_check_lane_allowed "$original_lane"
+  atlas_scope_preflight "read-only" "atlas" "$original_target" "record validation supersession $plan_id by $replacement_id"
+
+  index_file="$(atlas_validation_index_file "$ATLAS_OP_DIR")"
+  : >>"$index_file"
+  chmod 600 "$index_file" 2>/dev/null || true
+  evidence_text="${evidence_ids[*]}"
+  superseded_at="$(timestamp)"
+
+  jq -cn \
+    --arg id "$plan_id" \
+    --arg operation "$ATLAS_OP_SLUG" \
+    --arg target "$original_target" \
+    --arg lane "$original_lane" \
+    --arg capability "$original_capability" \
+    --arg reason "$original_reason" \
+    --arg finding_id "$original_finding" \
+    --arg plan_path "$original_plan_path" \
+    --arg created_at "$original_created_at" \
+    --arg updated_at "$superseded_at" \
+    --arg approval_reason "$original_approval_reason" \
+    --arg approved_by "$original_approved_by" \
+    --arg session_dir "$original_session_dir" \
+    --arg result_status "$original_result_status" \
+    --arg retest_result "$original_retest_result" \
+    --arg retest_note "$original_retest_note" \
+    --arg retested_at "$original_retested_at" \
+    --arg retested_by "$original_retested_by" \
+    --arg evidence_text "$evidence_text" \
+    --arg superseded_by_plan "$replacement_id" \
+    --arg superseded_reason "$reason" \
+    --arg superseded_at "$superseded_at" \
+    --arg superseded_by "$(atlas_approval_operator)" \
+    '{
+      id: $id,
+      operation: $operation,
+      target: $target,
+      lane: $lane,
+      capability: $capability,
+      status: "superseded",
+      reason: $reason,
+      finding: (if $finding_id == "" then null else $finding_id end),
+      evidence: ($evidence_text | split(" ") | map(select(length > 0))),
+      plan_path: $plan_path,
+      created_at: $created_at,
+      updated_at: $updated_at,
+      approval_reason: (if $approval_reason == "" then null else $approval_reason end),
+      approved_by: (if $approved_by == "" then null else $approved_by end),
+      session_dir: (if $session_dir == "" then null else $session_dir end),
+      result_status: (if $result_status == "" then null else $result_status end),
+      retest_result: (if $retest_result == "" then null else $retest_result end),
+      retest_note: (if $retest_note == "" then null else $retest_note end),
+      retested_at: (if $retested_at == "" then null else $retested_at end),
+      retested_by: (if $retested_by == "" then null else $retested_by end),
+      superseded_by_plan: $superseded_by_plan,
+      superseded_reason: $superseded_reason,
+      superseded_at: $superseded_at,
+      superseded_by: $superseded_by
+    }' >>"$index_file"
+
+  atlas_ledger_append_current "validation.superseded" "$original_capability" "atlas" "superseded" "validation_plan=$plan_id superseded_by=$replacement_id reason=$reason"
+  record_operation_history "$ATLAS_OP_DIR" "validation-supersede:$original_lane" "$plan_id->$replacement_id"
+
+  ui_ok "validation plan superseded"
+  printf 'id: %s\n' "$plan_id"
+  printf 'status: superseded\n'
+  printf 'replacement: %s\n' "$replacement_id"
+  printf 'reason: %s\n' "$reason"
+  printf 'target: %s\n' "$original_target"
+  printf 'lane: %s\n' "$original_lane"
+}
+
 atlas_validation_count_for_target() {
   local target="${1:-}"
   local index_file
@@ -710,7 +898,13 @@ atlas_validation_rows_for_target() {
           (.capability // "?"),
           (.status // "?"),
           (.finding // "-"),
-          (.retest_result // .result_status // "-")
+          (
+            if (.status // "") == "superseded" then
+              "superseded-by=" + (.superseded_by_plan // "?")
+            else
+              (.retest_result // .result_status // "-")
+            end
+          )
         ]
       | @tsv
     ' "$index_file"
@@ -756,6 +950,8 @@ atlas_validation_report_markdown() {
       (if ((.evidence // []) | length) > 0 then " Evidence: " + ((.evidence // []) | join(", ")) + "." else "" end) +
       (if (.result_status // "") != "" then " Result: " + .result_status + "." else "" end) +
       (if (.retest_result // "") != "" then " Retest: " + .retest_result + "." else "" end) +
-      (if (.retest_note // "") != "" then " Retest note: " + .retest_note + "." else "" end)
+      (if (.retest_note // "") != "" then " Retest note: " + .retest_note + "." else "" end) +
+      (if (.superseded_by_plan // "") != "" then " Superseded by: " + .superseded_by_plan + "." else "" end) +
+      (if (.superseded_reason // "") != "" then " Superseded reason: " + .superseded_reason + "." else "" end)
   ' "$index_file"
 }

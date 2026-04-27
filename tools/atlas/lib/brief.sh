@@ -149,7 +149,13 @@ atlas_brief_latest_validation() {
         (.id // "?"),
         (.lane // "?"),
         (.status // "?"),
-        (.retest_result // .result_status // "-")
+        (
+          if (.status // "") == "superseded" then
+            "superseded-by=" + (.superseded_by_plan // "?")
+          else
+            (.retest_result // .result_status // "-")
+          end
+        )
       ]
     | @tsv
   ' "$index_file"

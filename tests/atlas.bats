@@ -60,6 +60,7 @@ make_repo_clean_and_synced() {
   [[ "$output" == *"atlas finding resolve <id> [--evidence id] [--validation id]"* ]]
   [[ "$output" == *"atlas validation plan <lane> [--finding id] [--evidence id]"* ]]
   [[ "$output" == *"atlas validation retest <id> --result resolved|still-open"* ]]
+  [[ "$output" == *"atlas validation supersede <id> --by replacement-id --reason text"* ]]
   [[ "$output" == *"atlas advisor brief [name]"* ]]
   [[ "$output" == *"atlas advisor prompt [name] [packet-name]"* ]]
   [[ "$output" == *"atlas cycle [target]"* ]]
@@ -1274,6 +1275,137 @@ EOF
     "$TEST_ROOT/toolkit/sessions/retest-op/ledger.ndjson"
   jq -e --arg finding_id "$finding_id" 'select(.event == "finding.updated" and (.detail | contains($finding_id)) and (.detail | contains("status=resolved")))' \
     "$TEST_ROOT/toolkit/sessions/retest-op/ledger.ndjson"
+}
+
+@test "atlas validation supersede links obsolete run to successful replacement" {
+  mkdir -p "$TEST_ROOT/toolkit/targets" "$TEST_ROOT/toolkit/state/intel"
+  cat > "$TEST_ROOT/toolkit/targets/demo-node.env" <<'EOF'
+NAME=demo-node
+ADDRESS=10.10.10.10
+SCOPE_STATUS=in-scope
+CRITICALITY=high
+CREATED_AT=2026-04-23T20:53:16Z
+EOF
+  cat > "$TEST_ROOT/toolkit/state/intel/observations.jsonl" <<'EOF'
+{"observed_at":"2026-04-24T00:00:00Z","source_tool":"wiremap","source_name":"fast","source_run_id":"run-1","target":"demo-node","observation_type":"host_state","confidence":"high","value":{"state":"up"}}
+{"observed_at":"2026-04-24T00:00:01Z","source_tool":"wiremap","source_name":"fast","source_run_id":"run-1","target":"demo-node","observation_type":"service_open","confidence":"high","value":{"service_entity_id":"service:demo-node:22/tcp","portproto":"22/tcp","service":"ssh","detail":"OpenSSH 9.7"}}
+EOF
+  cat > "$TEST_ROOT/toolkit/state/intel/entities.jsonl" <<'EOF'
+{"observed_at":"2026-04-24T00:00:01Z","entity_type":"service","entity_id":"service:demo-node:22/tcp","target":"demo-node","attributes":{"portproto":"22/tcp","service":"ssh","detail":"OpenSSH 9.7"}}
+EOF
+  : > "$TEST_ROOT/toolkit/state/intel/outcomes.jsonl"
+  : > "$TEST_ROOT/toolkit/state/intel/relationships.jsonl"
+  printf 'fail\n' > "$TEST_ROOT/nmap-mode"
+  mkdir -p "$TEST_ROOT/fake-bin"
+  cat > "$TEST_ROOT/fake-bin/nmap" <<'EOF'
+#!/usr/bin/env bash
+mode="$(cat "$TEST_ROOT/nmap-mode")"
+target="${*: -1}"
+if [ "$mode" = "fail" ]; then
+  printf 'network unavailable in sandbox for %s\n' "$target" >&2
+  exit 1
+fi
+printf 'Starting Nmap 7.98 ( https://nmap.org ) at 2026-04-24 00:00 UTC\n'
+printf 'Nmap scan report for %s\n' "$target"
+printf 'Host is up, received user-set (0.00025s latency).\n'
+printf 'PORT   STATE SERVICE REASON  VERSION\n'
+printf '22/tcp open  ssh     syn-ack OpenSSH 9.7\n'
+printf '\nNmap done: 1 IP address (1 host up) scanned in 0.04 seconds\n'
+EOF
+  chmod +x "$TEST_ROOT/fake-bin/nmap"
+  export LAB_VECTOR_NMAP_BIN="$TEST_ROOT/fake-bin/nmap"
+
+  artifact="$TEST_ROOT/validation-artifact.txt"
+  printf 'ssh reachable from authorized test node\n' > "$artifact"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op start --profile htb-starting-point supersede-op demo-node authorized supersession loop
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence add "$artifact" --kind scan-output
+  [ "$status" -eq 0 ]
+  evidence_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  [ -n "$evidence_id" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding add "SSH management reachable" \
+    --level observed \
+    --severity low \
+    --confidence high \
+    --evidence "$evidence_id"
+  [ "$status" -eq 0 ]
+  finding_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  [ -n "$finding_id" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" validation plan validate \
+    --finding "$finding_id" \
+    --evidence "$evidence_id" \
+    --reason "first validation attempt"
+  [ "$status" -eq 0 ]
+  failed_plan_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  [ -n "$failed_plan_id" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" validation approve "$failed_plan_id" approved failed attempt
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" validation run "$failed_plan_id" "Failed Validation Session"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Status: failed"* ]]
+  [[ "$output" == *"validation_status: executed"* ]]
+
+  printf 'success\n' > "$TEST_ROOT/nmap-mode"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" validation plan validate \
+    --finding "$finding_id" \
+    --evidence "$evidence_id" \
+    --reason "replacement validation attempt"
+  [ "$status" -eq 0 ]
+  replacement_plan_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  [ -n "$replacement_plan_id" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" validation approve "$replacement_plan_id" approved replacement attempt
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" validation run "$replacement_plan_id" "Replacement Validation Session"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Status: success"* ]]
+  [[ "$output" == *"validation_status: executed"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" validation supersede "$failed_plan_id" \
+    --by "$replacement_plan_id" \
+    --reason "first run blocked by sandbox network"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"validation plan superseded"* ]]
+  [[ "$output" == *"status: superseded"* ]]
+  [[ "$output" == *"replacement: $replacement_plan_id"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" validation show "$failed_plan_id"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Status: superseded"* ]]
+  [[ "$output" == *"Result: failed"* ]]
+  [[ "$output" == *"Superseded By: $replacement_plan_id"* ]]
+  [[ "$output" == *"Superseded Reason: first run blocked by sandbox network"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" validation list
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"$failed_plan_id"* ]]
+  [[ "$output" == *"superseded"* ]]
+  [[ "$output" == *"$replacement_plan_id"* ]]
+  [[ "$output" == *"executed"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op report supersede-op supersede-report
+  [ "$status" -eq 0 ]
+  report_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "report" { print $2; exit }')"
+  [ -f "$report_path" ]
+  grep -q "$failed_plan_id / validate / safe-validation / superseded" "$report_path"
+  grep -q "Superseded by: $replacement_plan_id" "$report_path"
+  grep -q "Superseded reason: first run blocked by sandbox network" "$report_path"
+
+  jq -s -e \
+    --arg failed_plan_id "$failed_plan_id" \
+    --arg replacement_plan_id "$replacement_plan_id" \
+    'map(select(.id == $failed_plan_id)) | last | select(.status == "superseded" and .result_status == "failed" and .superseded_by_plan == $replacement_plan_id)' \
+    "$TEST_ROOT/toolkit/sessions/supersede-op/validation-plans.ndjson"
+  jq -e --arg failed_plan_id "$failed_plan_id" --arg replacement_plan_id "$replacement_plan_id" \
+    'select(.event == "validation.superseded" and (.detail | contains($failed_plan_id)) and (.detail | contains($replacement_plan_id)))' \
+    "$TEST_ROOT/toolkit/sessions/supersede-op/ledger.ndjson"
 }
 
 @test "atlas operation readiness reports closure blockers and ready state" {

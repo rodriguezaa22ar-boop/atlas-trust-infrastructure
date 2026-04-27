@@ -118,6 +118,7 @@ usage:
   atlas validation approve <id> <reason...>
   atlas validation run <id> [session-name]
   atlas validation retest <id> --result resolved|still-open
+  atlas validation supersede <id> --by replacement-id --reason text
   atlas advisor brief [name]
   atlas advisor prompt [name] [packet-name]
   atlas cycle [target]
@@ -139,6 +140,7 @@ quick flow:
   atlas validation approve <id> <reason...>
   atlas validation run <id> [session-name]
   atlas validation retest <id> --result resolved|still-open
+  atlas validation supersede <id> --by replacement-id --reason text
   atlas cycle
   atlas advisor brief
   atlas web assess <url> [assessment-name]
@@ -205,6 +207,7 @@ operations:
   atlas op validation approve <id> <reason...>
   atlas op validation run <id> [session-name]
   atlas op validation retest <id> --result resolved|still-open
+  atlas op validation supersede <id> --by replacement-id --reason text
   atlas op brief
   atlas op advisor
 
@@ -290,6 +293,7 @@ validation:
   atlas validation approve <id> <reason...>
   atlas validation run <id> [session-name]
   atlas validation retest <id> --result resolved|still-open [--evidence id] [--note text]
+  atlas validation supersede <id> --by replacement-id --reason text
 
 advisor:
   atlas advisor brief [name]
@@ -1911,6 +1915,10 @@ dispatch_validation_command() {
 	retest)
 		shift
 		cmd_validation_retest "$@"
+		;;
+	supersede)
+		shift
+		cmd_validation_supersede "$@"
 		;;
 	*)
 		usage

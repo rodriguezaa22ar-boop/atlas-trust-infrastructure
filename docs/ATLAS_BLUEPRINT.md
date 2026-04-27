@@ -251,6 +251,10 @@ The near-term roadmap is:
     URL base path when probing route, HTTP redirect, and API/CORS checks so
     path-scoped applications such as local bWAPP labs and Gruyere instances are
     assessed at their real mounted path rather than the host root.
+42. Add validation supersession. `atlas validation supersede` now marks an
+    executed validation plan as superseded by an executed successful replacement
+    plan in the same operation, target, lane, and finding, preserving failed or
+    obsolete run history while making the current replacement explicit.
 
 ## First Serious Version
 

@@ -98,6 +98,7 @@ atlas validation plan <lane>
 atlas validation approve <id> <reason...>
 atlas validation run <id> [session-name]
 atlas validation retest <id> --result resolved|still-open [--evidence id]
+atlas validation supersede <id> --by <replacement-id> --reason <text>
 atlas advisor brief
 atlas op story
 atlas op report
@@ -360,6 +361,12 @@ finding is `resolved` or `still-open`, merges any new retest evidence into the
 validation record, and appends a finding lifecycle update. Reports, briefs, and
 `validation show` surface the latest retest result without rewriting the
 original validation run.
+
+If an executed validation run is obsolete because a later bounded run replaces
+it, `atlas validation supersede <id> --by <replacement-id> --reason <text>`
+marks the old run as superseded without deleting history. The replacement must
+be an executed successful validation plan in the same operation, target, lane,
+and linked finding.
 
 ## Operation Scope
 
