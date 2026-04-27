@@ -66,6 +66,27 @@ packet, not only against current `HEAD`.
 The clean-checkout replay procedure lives at
 [retention/releases/REPLAY_VERIFICATION.md](retention/releases/REPLAY_VERIFICATION.md).
 
+## Verify / Replay / Provenance Alignment
+
+The release trust docs, tests, and schemas are aligned around three separate
+checks:
+
+- `atlas release verify`: validates a retained release packet against an
+  expected commit.
+- release replay verification: checks that packet from a clean checkout of the
+  packet's recorded commit.
+- `atlas production status`: verifies the latest release packet, signed
+  provenance packet, retained public key, and production dry-run note together.
+
+The schema contracts that support those checks are:
+
+- `atlas.release_trust.v1`
+- `atlas.release_provenance.v1`
+- `atlas.production_readiness.v1`
+
+The parity matrix is tracked in
+[atlas/PACKET_FORMAT_PARITY.md](atlas/PACKET_FORMAT_PARITY.md).
+
 ## Signing And Provenance
 
 Milestone 67 added signed release provenance. The current retained evidence

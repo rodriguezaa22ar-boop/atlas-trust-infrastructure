@@ -84,3 +84,20 @@ Every new JSON packet format should include:
 - negative verifier path for stale or malformed JSON
 - docs update in this parity matrix
 - milestone index update
+
+## Release Verify / Replay Alignment
+
+Release trust currently has machine-readable coverage for the release packet,
+release provenance packet, and production-readiness status:
+
+- `atlas release verify` consumes `atlas.release_trust.v1` packets and can
+  verify against an explicit commit for historical replay.
+- `docs/retention/releases/REPLAY_VERIFICATION.md` defines the clean-checkout
+  replay procedure for retained packets.
+- `atlas production status` consumes the latest release packet and
+  `atlas.release_provenance.v1` provenance packet to report whether the local
+  production contract is ready.
+
+This alignment means release packet JSON, replay docs, production-readiness
+JSON, and signed provenance must be updated together when any release trust
+field becomes trust-critical.

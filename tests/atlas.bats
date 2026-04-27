@@ -86,6 +86,8 @@ make_repo_clean_and_synced() {
 
 @test "root README stays a concise landing page with dedicated docs" {
   readme="$TEST_ROOT/toolkit/README.md"
+  docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
+  one_page="$TEST_ROOT/toolkit/docs/ATLAS_ONE_PAGE.md"
   command_ref="$TEST_ROOT/toolkit/docs/COMMAND_REFERENCE.md"
   trust_lifecycle="$TEST_ROOT/toolkit/docs/TRUST_LIFECYCLE.md"
   operator_guide="$TEST_ROOT/toolkit/docs/OPERATOR_GUIDE.md"
@@ -93,6 +95,8 @@ make_repo_clean_and_synced() {
   web_assessment="$TEST_ROOT/toolkit/docs/WEB_ASSESSMENT.md"
 
   [ -f "$readme" ]
+  [ -f "$docs_index" ]
+  [ -f "$one_page" ]
   [ -f "$command_ref" ]
   [ -f "$trust_lifecycle" ]
   [ -f "$operator_guide" ]
@@ -105,12 +109,28 @@ make_repo_clean_and_synced() {
   grep -q '^## Current Maturity$' "$readme"
   grep -q '^## Top 10 Commands$' "$readme"
   grep -q '^## Docs Map$' "$readme"
+  grep -q 'docs/INDEX.md' "$readme"
+  grep -q 'docs/ATLAS_ONE_PAGE.md' "$readme"
   grep -q 'docs/COMMAND_REFERENCE.md' "$readme"
   grep -q 'docs/TRUST_LIFECYCLE.md' "$readme"
   grep -q 'docs/OPERATOR_GUIDE.md' "$readme"
   grep -q 'docs/RELEASE_TRUST.md' "$readme"
   grep -q 'docs/WEB_ASSESSMENT.md' "$readme"
   ! grep -q '^## Shared Intel$' "$readme"
+
+  grep -q '^# Atlas Documentation Index$' "$docs_index"
+  grep -q 'Start here' "$docs_index"
+  grep -q 'Operator workflow' "$docs_index"
+  grep -q 'Release trust' "$docs_index"
+  grep -q 'Production readiness' "$docs_index"
+  grep -q 'Milestones' "$docs_index"
+  grep -q 'Agent guidance' "$docs_index"
+
+  grep -q '^# Atlas In One Page$' "$one_page"
+  grep -q 'What Is Atlas?' "$one_page"
+  grep -q 'What Does It Not Do?' "$one_page"
+  grep -q 'What Is Ready-To-Refine?' "$one_page"
+  grep -q 'What Is The Trust Chain?' "$one_page"
 
   grep -q '^# Command Reference$' "$command_ref"
   grep -q './tools/atlas/bin/atlas release packet atlas-current --json' "$command_ref"
@@ -135,7 +155,8 @@ make_repo_clean_and_synced() {
   grep -q './tools/atlas/bin/atlas v1 status --strict' "$replay_doc"
   grep -q './tools/atlas/bin/atlas release verify "$packet" --commit "$commit"' "$replay_doc"
   grep -q 'metadata-only guardrails' "$replay_doc"
-  grep -q 'cryptographic signing' "$replay_doc"
+  grep -q 'release provenance' "$replay_doc"
+  grep -q 'docs/RELEASE_TRUST.md' "$replay_doc"
   grep -q 'Do not repair a failed historical packet in place' "$replay_doc"
 }
 
@@ -148,6 +169,7 @@ make_repo_clean_and_synced() {
   grep -q 'JSON is for gates, replay,' "$parity_doc"
   grep -q 'future Atlas OS consumers' "$parity_doc"
   grep -q '## Current Matrix' "$parity_doc"
+  grep -q '## Release Verify / Replay Alignment' "$parity_doc"
   grep -q 'atlas.release_trust.v1' "$parity_doc"
   grep -q 'atlas.release_provenance.v1' "$parity_doc"
   grep -q 'atlas.production_readiness.v1' "$parity_doc"
@@ -162,6 +184,8 @@ make_repo_clean_and_synced() {
   grep -q '1. archive packet' "$parity_doc"
   grep -q 'metadata-only assertion' "$parity_doc"
   grep -q 'raw runtime artifacts' "$parity_doc"
+  grep -q 'atlas release verify' "$parity_doc"
+  grep -q 'REPLAY_VERIFICATION.md' "$parity_doc"
 }
 
 @test "schema docs pin implemented Atlas JSON contracts" {
@@ -183,6 +207,9 @@ make_repo_clean_and_synced() {
   grep -q 'atlas.production_readiness.v1' "$index_file"
   grep -q 'atlas.operation_trust_chain.v1' "$index_file"
   grep -q 'metadata-only' "$index_file"
+  grep -q 'Release Trust Consumers' "$index_file"
+  grep -q 'atlas release verify' "$index_file"
+  grep -q 'Release replay verification' "$index_file"
 
   grep -q '^# `atlas.release_trust.v1`$' "$release_schema"
   grep -q 'atlas release packet <packet-name> --json' "$release_schema"

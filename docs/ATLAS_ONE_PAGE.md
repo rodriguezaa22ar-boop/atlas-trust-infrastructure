@@ -1,0 +1,88 @@
+# Atlas In One Page
+
+## What Is Atlas?
+
+Atlas is a shell-native control plane for authorized security assessment
+workflows. It coordinates scope, targets, recon, evidence, findings,
+validation, reports, retention, and release trust while keeping the underlying
+domain tools separate.
+
+Atlas is the operator-facing layer. `wiremap` owns reconnaissance and packet
+evidence, `vector` owns ranked action lanes and bounded validation, `intelctl`
+owns direct shared-intel inspection, and `labctl` owns build and administration
+workflows.
+
+## Who Is It For?
+
+Atlas is for operators who need a local-first assessment workflow with clear
+scope, retained evidence, auditability, and release trust. It is designed for
+authorized lab, internal, training, and controlled assessment work where the
+operator wants a verifiable record instead of scattered terminal output.
+
+## What Problem Does It Solve?
+
+Atlas gives one consistent workflow for:
+
+- registering targets and scope
+- starting operations
+- collecting and hashing evidence
+- recording findings and accepted-risk ownership
+- planning and approving validation
+- generating reports and handoff packets
+- closing, auditing, and archiving operations
+- checking readiness and release trust
+- retaining signed release provenance
+
+The goal is not to make assessment work flashy. The goal is to make it
+bounded, reviewable, and hard to misunderstand later.
+
+## What Does It Not Do?
+
+Atlas does not provide or encourage:
+
+- autonomous exploitation
+- persistence
+- destructive testing
+- credential spraying
+- denial-of-service workflows
+- stealth/evasion behavior
+- out-of-scope target expansion
+- malware-like behavior
+- unauthorized access
+
+Atlas does not infer authorization. Scope must be recorded accurately by the
+operator.
+
+## What Is Ready-To-Refine?
+
+`atlas v1 status` reports internal pillar readiness. In Atlas language,
+`ready` means ready for internal testing, refinement, and trust hardening. It
+does not mean externally audited, enterprise-ready, deployment-certified, or
+tamper-proof.
+
+## What Is Production-Ready?
+
+`atlas production status --strict` reports whether Atlas passes its stricter
+local production contract. That contract currently requires clean and synced
+repository state, v1 readiness, a verified release packet, a documented
+production contract, signed release provenance, and retained dry-run evidence.
+
+When Atlas reports `production-ready`, that means the local Atlas production
+contract passes for retained release evidence. It is not an external audit,
+SLSA certification, enterprise certification, or deployment certification.
+
+## What Is The Trust Chain?
+
+The trust chain is the proof path from scope to release:
+
+```text
+scope -> evidence -> findings -> validation -> report -> handoff -> closeout
+-> audit -> archive -> operation trust-chain -> release packet -> provenance
+```
+
+Each step records metadata, paths, hashes, counts, status, verification output,
+or known limitations. Trust packets are metadata-only; they do not embed raw
+secrets, private keys, packet captures, tokens, credential material, or
+unredacted evidence bodies.
+
+Start with [INDEX.md](INDEX.md) for the full documentation map.

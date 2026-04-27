@@ -25,3 +25,11 @@ metadata-only boundaries, and non-goals.
 - Packet-oriented schemas must remain metadata-only.
 - Future JSON packet formats should be added here before being treated as
   stable release or replay inputs.
+
+## Release Trust Consumers
+
+- `atlas release verify` validates `atlas.release_trust.v1`.
+- Release replay verification checks `atlas.release_trust.v1` against the
+  packet's recorded commit from a clean checkout.
+- `atlas production status` reports `atlas.production_readiness.v1` and
+  verifies `atlas.release_provenance.v1` when signing/provenance is required.

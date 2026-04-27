@@ -1,0 +1,76 @@
+# Atlas Documentation Index
+
+## Purpose
+
+Use this index when you want to understand Atlas quickly without reading the
+repository in filesystem order.
+
+## Start here
+
+- [ATLAS_ONE_PAGE.md](ATLAS_ONE_PAGE.md): one-page explanation of what Atlas is,
+  who it is for, what it does, and what it does not do.
+- [../README.md](../README.md): short landing page with quick start, safety
+  boundary, current maturity, and docs map.
+
+## Operator workflow
+
+- [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md): end-to-end operator workflow.
+- [COMMAND_REFERENCE.md](COMMAND_REFERENCE.md): detailed command reference.
+- [WEB_ASSESSMENT.md](WEB_ASSESSMENT.md): bounded `atlas web assess` workflow.
+- [demo/DEMO_OPERATION.md](demo/DEMO_OPERATION.md): local demo operation.
+
+## Trust lifecycle
+
+- [TRUST_LIFECYCLE.md](TRUST_LIFECYCLE.md): scope-to-release trust chain.
+- [TRUST_MODEL.md](TRUST_MODEL.md): trust anchors and verification pattern.
+- [atlas/TRUST_LIFECYCLE.md](atlas/TRUST_LIFECYCLE.md): Atlas-local lifecycle
+  detail.
+
+## Release trust
+
+- [RELEASE_TRUST.md](RELEASE_TRUST.md): release packet, verify, replay,
+  signing, and provenance.
+- [retention/releases/REPLAY_VERIFICATION.md](retention/releases/REPLAY_VERIFICATION.md):
+  clean-checkout replay procedure.
+- [atlas/PRODUCTION_READINESS.md](atlas/PRODUCTION_READINESS.md): local
+  production readiness contract.
+
+## Production readiness
+
+- [atlas/V1_PILLAR_READINESS.md](atlas/V1_PILLAR_READINESS.md): v1 pillar
+  readiness contract.
+- [atlas/PRODUCTION_READINESS.md](atlas/PRODUCTION_READINESS.md): stricter
+  production-readiness gates.
+- [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md): what Atlas still does not
+  claim.
+
+## Safety model
+
+- [SECURITY_MODEL.md](SECURITY_MODEL.md): authorized-use boundary and
+  capability tiers.
+- [RESPONSIBLE_USE.md](RESPONSIBLE_USE.md): responsible-use constraints.
+- [agents/AGENT_WORKFLOW.md](agents/AGENT_WORKFLOW.md): agent work protocol.
+
+## Schemas
+
+- [schemas/README.md](schemas/README.md): implemented JSON contracts.
+- [atlas/PACKET_FORMAT_PARITY.md](atlas/PACKET_FORMAT_PARITY.md): Markdown and
+  JSON parity matrix.
+
+## Milestones
+
+- [retention/MILESTONE_INDEX.md](retention/MILESTONE_INDEX.md): retained
+  milestone history.
+- [retention/milestones/](retention/milestones/): milestone notes.
+
+## Agent guidance
+
+- [../AGENTS.md](../AGENTS.md): root Codex/agent guidance.
+- [agents/AGENT_VALIDATION.md](agents/AGENT_VALIDATION.md): validation rules
+  for agent guidance.
+
+## Roadmap
+
+- [ROADMAP.md](ROADMAP.md): current and future phases.
+- [ATLAS_BLUEPRINT.md](ATLAS_BLUEPRINT.md): detailed architecture and milestone
+  blueprint.

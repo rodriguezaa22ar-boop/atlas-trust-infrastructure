@@ -115,6 +115,10 @@ was generated.
 
 ## Current Boundary
 
-Replay verification is still local verification. It does not provide
-cryptographic signing, external provenance, SLSA attestation, or immutable
-storage. Those remain future production-readiness gates.
+Replay verification is still local verification. Atlas now retains signed
+release provenance through a signed Git tag and retained public key, but replay
+verification itself is not external provenance, SLSA attestation, immutable
+storage, or third-party audit.
+
+For the current release trust model, see
+[`docs/RELEASE_TRUST.md`](../../RELEASE_TRUST.md).

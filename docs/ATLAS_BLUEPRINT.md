@@ -391,6 +391,15 @@ The near-term roadmap is:
     moves into top-level docs: `docs/COMMAND_REFERENCE.md`,
     `docs/TRUST_LIFECYCLE.md`, `docs/OPERATOR_GUIDE.md`,
     `docs/RELEASE_TRUST.md`, and `docs/WEB_ASSESSMENT.md`.
+69. Add reviewability navigation docs. `docs/INDEX.md` now gives reviewers a
+    single map through start-here material, operator workflow, trust lifecycle,
+    release trust, production readiness, safety, schemas, milestones, agent
+    guidance, and roadmap. `docs/ATLAS_ONE_PAGE.md` explains Atlas, its
+    audience, problem statement, non-goals, ready-to-refine language,
+    production-readiness meaning, and the trust chain. Release verify/replay
+    docs, schema index, and packet parity now explicitly align release packet
+    verification, clean-checkout replay, production status, and signed
+    provenance.
 
 ## First Serious Version
 
