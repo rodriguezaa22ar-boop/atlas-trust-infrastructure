@@ -53,6 +53,7 @@ changes, verification output, repo state, and boundaries for that milestone.
 | [56](milestones/MILESTONE_56.md) | `63773156e376e018ed7de97788b54258e80cf04b` | agent guidance validation | agent-governance | no | Makes the root agent safety contract testable. | agent focused test: 1/1; `dev-qa`: 74/74 | `atlas-retention-m56` |
 | [57](milestones/MILESTONE_57.md) | `b0ebddbcdc3cb9c4caab28973df78c1c36176654` | milestone retention index | retention | no | Makes the milestone trust history externally navigable and self-checking. | index focused test: 1/1; `dev-qa`: 75/75 | `atlas-retention-m57` |
 | [58](milestones/MILESTONE_58.md) | `cc8e97616fc917b74434d7404fa1a9bab53aeb6e` | release replay verification guidance | release-trust | no | Defines clean-checkout replay for retained release packets. | replay focused test: 1/1; `dev-qa`: 76/76 | `atlas-retention-m58` |
+| [59](milestones/MILESTONE_59.md) | `fed8dcc8b16f3fa943c1a630ffa7c46751b27112` | operation trust-chain JSON | release-trust | yes | Makes operation trust-chain state machine-readable for gates and future dashboards. | archive focused test: 1/1; trust lifecycle focused test: 1/1; `dev-qa`: 76/76 | `atlas-retention-m59` |
 
 ## Category Notes
 
