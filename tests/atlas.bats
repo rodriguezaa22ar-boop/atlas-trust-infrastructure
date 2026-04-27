@@ -84,6 +84,47 @@ make_repo_clean_and_synced() {
   grep -q 'retention' "$index_file"
 }
 
+@test "root README stays a concise landing page with dedicated docs" {
+  readme="$TEST_ROOT/toolkit/README.md"
+  command_ref="$TEST_ROOT/toolkit/docs/COMMAND_REFERENCE.md"
+  trust_lifecycle="$TEST_ROOT/toolkit/docs/TRUST_LIFECYCLE.md"
+  operator_guide="$TEST_ROOT/toolkit/docs/OPERATOR_GUIDE.md"
+  release_trust="$TEST_ROOT/toolkit/docs/RELEASE_TRUST.md"
+  web_assessment="$TEST_ROOT/toolkit/docs/WEB_ASSESSMENT.md"
+
+  [ -f "$readme" ]
+  [ -f "$command_ref" ]
+  [ -f "$trust_lifecycle" ]
+  [ -f "$operator_guide" ]
+  [ -f "$release_trust" ]
+  [ -f "$web_assessment" ]
+
+  [ "$(wc -l < "$readme")" -le 150 ]
+  grep -q '^## Quick Start$' "$readme"
+  grep -q '^## Safety Boundary$' "$readme"
+  grep -q '^## Current Maturity$' "$readme"
+  grep -q '^## Top 10 Commands$' "$readme"
+  grep -q '^## Docs Map$' "$readme"
+  grep -q 'docs/COMMAND_REFERENCE.md' "$readme"
+  grep -q 'docs/TRUST_LIFECYCLE.md' "$readme"
+  grep -q 'docs/OPERATOR_GUIDE.md' "$readme"
+  grep -q 'docs/RELEASE_TRUST.md' "$readme"
+  grep -q 'docs/WEB_ASSESSMENT.md' "$readme"
+  ! grep -q '^## Shared Intel$' "$readme"
+
+  grep -q '^# Command Reference$' "$command_ref"
+  grep -q './tools/atlas/bin/atlas release packet atlas-current --json' "$command_ref"
+  grep -q './tools/atlas/bin/atlas web assess <url>' "$command_ref"
+
+  grep -q '^# Trust Lifecycle$' "$trust_lifecycle"
+  grep -q 'signed release provenance' "$trust_lifecycle"
+  grep -q '^# Operator Guide$' "$operator_guide"
+  grep -q '^# Release Trust$' "$release_trust"
+  grep -q 'atlas.release_provenance.v1' "$release_trust"
+  grep -q '^# Web Assessment$' "$web_assessment"
+  grep -q 'atlas web assess' "$web_assessment"
+}
+
 @test "release replay verification runbook preserves clean-checkout procedure" {
   replay_doc="$TEST_ROOT/toolkit/docs/retention/releases/REPLAY_VERIFICATION.md"
 
@@ -203,7 +244,7 @@ make_repo_clean_and_synced() {
   grep -q 'metadata-only' "$trust_doc"
   grep -q 'docs/schemas/operation-trust-chain.v1.md' "$trust_doc"
   grep -q 'must replay' "$trust_doc"
-  grep -q 'Production readiness remains blocked' "$trust_doc"
+  grep -q 'Production readiness is limited to the local contract' "$trust_doc"
 
   grep -q 'Trust Chain Status: current' "$samples_doc"
   grep -q '"schema_version": "atlas.operation_trust_chain.v1"' "$samples_doc"

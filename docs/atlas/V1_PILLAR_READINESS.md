@@ -123,7 +123,8 @@ Each pillar status must include:
   tests.
 - Commands: `atlas evidence add`, `atlas evidence bundle`, `atlas evidence hash`
 - Artifacts: evidence records, copied artifacts, and bundle manifests.
-- Limitations: no cryptographic signing yet.
+- Limitations: evidence artifacts are hashed and can be bundled, but evidence
+  artifacts are not individually signed.
 
 ### Findings
 
@@ -179,7 +180,8 @@ Each pillar status must include:
 - Artifacts: closeout manifest, audit packet, archive packet, release trust
   packet, optional operation trust-chain summary, accepted-risk review packet
   references, release trust JSON schema `atlas.release_trust.v1`.
-- Limitations: no cryptographic signing yet.
+- Limitations: release provenance uses signed Git tags, but operation
+  retention packets are not individually signed.
 
 ### AI Advisor
 

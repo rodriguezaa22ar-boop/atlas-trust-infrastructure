@@ -83,7 +83,8 @@ Expected release-bound verification path:
 
 ## Known Limits
 
-- Trust packets are not cryptographically signed yet.
+- Operation trust packets are hash-anchored but not individually signed.
 - Replay verification is local-first and repository-backed.
-- Production readiness remains blocked until signing/provenance and retained
-  production dry-run evidence exist.
+- Production readiness is limited to the local contract reported by
+  `atlas production status`; it is not an external audit or deployment
+  certification.

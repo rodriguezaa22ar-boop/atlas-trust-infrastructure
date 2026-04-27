@@ -140,9 +140,10 @@ command, and `--json` emits the same contract in machine-readable form.
 readiness gate. It is stricter than `atlas v1 status`: it requires v1 internal
 readiness, a clean and synced repository, a current verified release trust
 packet, the production readiness contract, signing/provenance, and retained
-production dry-run or external validation evidence. The current project state
-is expected to report `not-ready` until those production hardening artifacts
-exist. The contract lives in
+production dry-run or external validation evidence. When it reports
+`production-ready`, that means the local Atlas production contract passes for
+retained release evidence. It is not an external audit or deployment
+certification. The contract lives in
 [`docs/atlas/PRODUCTION_READINESS.md`](../../docs/atlas/PRODUCTION_READINESS.md).
 
 `atlas release packet [packet-name] [--json] [--operation name]` writes a
@@ -210,10 +211,11 @@ metadata-only: it records the reason and operator, then leaves validation
 execution and retest as separate commands.
 
 The full trust lifecycle is documented in
-[`docs/atlas/TRUST_LIFECYCLE.md`](../../docs/atlas/TRUST_LIFECYCLE.md). It
+[`docs/TRUST_LIFECYCLE.md`](../../docs/TRUST_LIFECYCLE.md). It
 defines the end-to-end proof path from scoped operation through evidence,
 validation, report, handoff, closeout, audit, archive, v1 readiness, and
-release trust JSON.
+release trust JSON. The older Atlas-local lifecycle note remains at
+[`docs/atlas/TRUST_LIFECYCLE.md`](../../docs/atlas/TRUST_LIFECYCLE.md).
 
 `atlas target story <target>` is the full cross-tool view. It starts with the
 same operator brief, then expands into the target record, current service and

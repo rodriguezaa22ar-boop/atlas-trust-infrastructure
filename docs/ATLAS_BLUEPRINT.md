@@ -385,6 +385,12 @@ The near-term roadmap is:
     no-overclaim metadata for the current commit or retained release commit.
     Release packet discovery now ignores `*.provenance.json` so provenance
     evidence does not masquerade as a release trust packet.
+68. Refocus the root README as a reviewer landing page. The README now keeps
+    identity, quick start, safety boundary, current maturity, top commands, and
+    a docs map in one short entry point. Heavy command and workflow material
+    moves into top-level docs: `docs/COMMAND_REFERENCE.md`,
+    `docs/TRUST_LIFECYCLE.md`, `docs/OPERATOR_GUIDE.md`,
+    `docs/RELEASE_TRUST.md`, and `docs/WEB_ASSESSMENT.md`.
 
 ## First Serious Version
 

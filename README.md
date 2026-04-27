@@ -1,117 +1,114 @@
 # Native Lab Toolkit
 
-This toolkit is a local-first architecture for building native terminal tools
-for the local USB-backed lab runtime without cloning third-party repositories
-into the working tree.
+Native Lab Toolkit is a local-first, shell-native toolkit for authorized
+security assessment workflows. It keeps operator state, target records, shared
+intel, evidence, findings, validation, reports, retention packets, and release
+trust artifacts in an inspectable file-backed tree.
 
-The design goal is simple:
+`atlas` is the main operator control plane. It does not replace the domain
+tools; it coordinates them:
 
-- keep operator state under one portable root
-- generate your own tool modules instead of mirroring external projects
-- make the tree easy to move to the encrypted USB lab vault when you are ready
-- separate architecture, state, and execution cleanly
+- `atlas`: scope, operations, evidence, findings, validation, reports,
+  retention, and release trust
+- `wiremap`: reconnaissance, capture, and evidence interpretation
+- `vector`: ranked action lanes, bounded validation, sessions, and outcomes
+- `intelctl`: direct shared-intel inspection
+- `labctl`: build, release, target, and administration workflows
 
-## Device Roles
+## Quick Start
 
-- This device: architecture, authoring, release staging, runtime execution, and verification
-- USB lab vault: removable cache, outputs, and deployment target
-
-## Layout
-
-- `bin/`: top-level entrypoints
-- `lib/`: shared shell helpers
-- `etc/`: local configuration overrides
-- `docs/`: architecture notes
-- `tools/`: native tool modules you author
-- `targets/`: target records
-- `sessions/`: per-session workspaces
-- `reports/`: generated operation reports
-- `logs/`: operator-side logs
-- `state/`: shared state, run history, and cross-tool intel
-
-## Current Entry Point
-
-Run the toolkit from this directory:
-
-```bash
-./bin/labctl status
-```
-
-Useful commands:
-
-```bash
-./bin/labctl init
-./bin/labctl target add edge-router 192.168.1.1 home-lab
-./bin/labctl target list
-./bin/labctl session open april-lab edge-router
-./bin/labctl report new april-findings
-./bin/labctl tool new egress-check "check direct and proxied egress"
-./bin/labctl tool distill jq-shape jq --help
-./bin/labctl tool list
-./bin/labctl release build usb-slim egress-check
-./bin/intelctl summary
-./tools/atlas/bin/atlas doctor
-./tools/atlas/bin/atlas v1 status --strict
-./tools/atlas/bin/atlas v1 status --json
-./tools/atlas/bin/atlas production status
-./tools/atlas/bin/atlas production status --json
-./tools/atlas/bin/atlas release packet atlas-current --qa-status pass
-./tools/atlas/bin/atlas release packet atlas-current --json --operation april-review --qa-status pass
-./tools/atlas/bin/atlas release verify atlas-current
-./tools/atlas/bin/atlas web assess https://example.com example-web-review --scope-status in-scope
-./tools/atlas/bin/atlas web validation-plan --all
-./tools/atlas/bin/atlas web validation-approve --all --reason "approved bounded web validation"
-./tools/atlas/bin/atlas profile list
-./tools/atlas/bin/atlas profile show htb-starting-point
-./tools/atlas/bin/atlas target update edge-router --scope-status in-scope --criticality high --tag lab
-./tools/atlas/bin/atlas target story 10.0.0.8
-./tools/atlas/bin/atlas target next 10.0.0.8
-./tools/atlas/bin/atlas op start --profile htb-starting-point april-review 10.0.0.8 bounded review
-./tools/atlas/bin/atlas op show april-review
-./tools/atlas/bin/atlas op action candidates
-./tools/atlas/bin/atlas op report april-review
-./tools/atlas/bin/atlas op readiness april-review
-./tools/atlas/bin/atlas op audit april-review
-./tools/atlas/bin/atlas op archive april-review
-./tools/atlas/bin/atlas op trust-chain april-review --strict
-./tools/atlas/bin/atlas story demo-web-app
-./tools/wiremap/bin/wiremap workflow run perimeter-sweep 10.0.0.8
-./tools/wiremap/bin/wiremap capture creds ./state/wiremap-runs/<run>
-./tools/vector/bin/vector candidates 10.0.0.8
-./tools/vector/bin/vector run research 10.0.0.8
-./tools/vector/bin/vector session list
-```
-
-The local status view also reflects the current role model:
-
-```bash
-./bin/labctl status
-```
-
-## Development Environment
-
-This device is the build node, so the project carries its own shell-native dev
-environment.
-
-Enter it with:
+Run from the repository root:
 
 ```bash
 nix-shell
+./bin/labctl status
+./tools/atlas/bin/atlas doctor
+./tools/atlas/bin/atlas v1 status --strict
+./tools/atlas/bin/atlas production status --strict
 ```
 
-That shell provides the tooling needed for this project:
+Full local QA:
 
-- `shellcheck`
-- `shfmt`
-- `bats`
-- `git`
-- `jq`
-- `fd`
-- `rg`
-- `rsync`
-- `tmux`
+```bash
+nix-shell --run './bin/dev-qa'
+```
 
-Development helpers:
+## Safety Boundary
+
+Atlas is for authorized assessment orchestration only.
+
+Do not use it for autonomous exploitation, persistence, destructive testing,
+credential spraying, denial-of-service workflows, stealth/evasion behavior, or
+out-of-scope target expansion. Target-touching workflows should preserve scope
+checks, capability classification, operator intent, approval gates where
+required, ledger events, and evidence handling.
+
+## Current Maturity
+
+Atlas currently reports `production-ready` under its local production contract
+when all retained release evidence verifies:
+
+- v1 internal readiness is ready
+- repository state is clean and synced
+- release trust packet verification passes
+- production readiness contract exists
+- signing/provenance verifies through a retained public key
+- production dry-run evidence is retained
+
+This does not mean external audit, enterprise certification, SLSA
+certification, deployment certification, immutable storage, or tamper-proof
+infrastructure. It means the local Atlas gates pass against retained evidence.
+
+## Top 10 Commands
+
+```bash
+./bin/labctl status
+./tools/atlas/bin/atlas doctor
+./tools/atlas/bin/atlas v1 status --strict
+./tools/atlas/bin/atlas production status --strict
+./tools/atlas/bin/atlas target update <target> --scope-status in-scope
+./tools/atlas/bin/atlas op start --profile <profile> <operation> <target> <notes...>
+./tools/atlas/bin/atlas web assess <url> <assessment-name> --scope-status in-scope
+./tools/atlas/bin/atlas op trust-chain <operation> --strict
+./tools/atlas/bin/atlas release packet <name> --json --qa-status pass
+./tools/atlas/bin/atlas release verify <name>
+```
+
+## Docs Map
+
+| Start Here | Purpose |
+| --- | --- |
+| [docs/OPERATOR_GUIDE.md](docs/OPERATOR_GUIDE.md) | End-to-end operator workflow. |
+| [docs/COMMAND_REFERENCE.md](docs/COMMAND_REFERENCE.md) | Full command reference moved out of the README. |
+| [docs/TRUST_LIFECYCLE.md](docs/TRUST_LIFECYCLE.md) | Scope-to-release trust chain explanation. |
+| [docs/RELEASE_TRUST.md](docs/RELEASE_TRUST.md) | Release packets, verification, replay, signing, and provenance. |
+| [docs/WEB_ASSESSMENT.md](docs/WEB_ASSESSMENT.md) | `atlas web assess` flow and boundaries. |
+| [docs/ATLAS_BLUEPRINT.md](docs/ATLAS_BLUEPRINT.md) | Product architecture and milestone history. |
+| [docs/atlas/V1_PILLAR_READINESS.md](docs/atlas/V1_PILLAR_READINESS.md) | v1 pillar readiness contract. |
+| [docs/atlas/PRODUCTION_READINESS.md](docs/atlas/PRODUCTION_READINESS.md) | Local production readiness contract. |
+| [docs/TRUST_MODEL.md](docs/TRUST_MODEL.md) | Trust model and verification pattern. |
+| [docs/SECURITY_MODEL.md](docs/SECURITY_MODEL.md) | Safety model, tiers, and allowed boundaries. |
+| [docs/RESPONSIBLE_USE.md](docs/RESPONSIBLE_USE.md) | Responsible-use policy. |
+| [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) | Current limitations and language boundaries. |
+| [docs/CI.md](docs/CI.md) | GitHub Actions and local QA parity. |
+
+## Repository Layout
+
+- `bin/`: top-level entrypoints and development helpers
+- `lib/`: shared shell helpers
+- `tools/`: native tool modules
+- `targets/`: target records
+- `sessions/`: per-session workspaces
+- `reports/`: generated operation reports
+- `state/`: shared state, run history, and cross-tool intel
+- `docs/`: architecture, operator, trust, release, and retention docs
+
+## Development
+
+The development shell provides the expected local toolchain, including
+`bats`, `git`, `gpg`, `jq`, `rg`, `shellcheck`, and `shfmt`.
+
+Common development gates:
 
 ```bash
 ./bin/dev-fmt
@@ -121,272 +118,5 @@ Development helpers:
 ./bin/dev-qa
 ```
 
-This keeps the local system development-ready without forcing every dependency
-into the base system profile.
-
-Suggested local QA gate before staging to the local USB runtime:
-
-```bash
-nix-shell --run './bin/dev-qa'
-```
-
-## Lean Operation Model
-
-This toolkit now has an explicit anti-bloat workflow:
-
-- `tool new`: author a native module from scratch
-- `tool distill`: capture only the upstream command shape and save it as intel
-- `release build`: assemble a slim runtime tree with selected tools only
-
-That means you can study existing tools without dragging their full source
-trees, build chains, caches, and unused assets into your operating workflow.
-
-Read more in [docs/LEAN.md](./docs/LEAN.md).
-
-## Atlas Blueprint
-
-Atlas is the operator control plane for authorized security assessment work.
-The near-term product direction is captured in
-[docs/ATLAS_BLUEPRINT.md](./docs/ATLAS_BLUEPRINT.md): keep Atlas as the
-single front door, split its internals into focused modules, and build the next
-foundation through doctor, scope, ledger, evidence, findings, validation,
-reports, advisor, exposure-cycle views, retention packets, and v1 readiness
-checks. The current v1 pillar contract is captured in
-[docs/atlas/V1_PILLAR_READINESS.md](./docs/atlas/V1_PILLAR_READINESS.md).
-The stricter production-readiness contract is captured in
-[docs/atlas/PRODUCTION_READINESS.md](./docs/atlas/PRODUCTION_READINESS.md);
-`atlas production status` reports Atlas as not-ready until release
-signing/provenance, retained production dry runs, and a current verified
-release packet are in place. A `production-ready` result means the local Atlas
-contract gates pass for retained release evidence; it is not an external audit
-or deployment certification.
-
-Agent work is guided by the root [AGENTS.md](./AGENTS.md), with validation and
-workflow notes in [docs/agents/](./docs/agents/). Those docs keep future agent
-sessions aligned with Atlas' authorized-assessment boundary, metadata-only
-packet rules, read-only command expectations, and maturity language.
-
-The retained milestone chain is indexed in
-[docs/retention/MILESTONE_INDEX.md](./docs/retention/MILESTONE_INDEX.md) so the
-trust history can be reviewed without opening every individual milestone note.
-Release replay procedure is documented in
-[docs/retention/releases/REPLAY_VERIFICATION.md](./docs/retention/releases/REPLAY_VERIFICATION.md)
-for checking retained release packets from a clean checkout of the packet's
-recorded commit.
-Packet format parity is tracked in
-[docs/atlas/PACKET_FORMAT_PARITY.md](./docs/atlas/PACKET_FORMAT_PARITY.md) so
-Markdown packet surfaces and JSON contract support stay explicit. Current JSON
-support covers v1 readiness, production readiness, release trust packets,
-release provenance packets, and operation trust-chain status; audit, archive,
-closeout, handoff, accepted-risk review, and advisor prompt packets remain
-documented gaps until implemented.
-Implemented schema-versioned JSON contracts are documented in
-[docs/schemas/](./docs/schemas/).
-An end-to-end local operator walkthrough is available in
-[docs/demo/DEMO_OPERATION.md](./docs/demo/DEMO_OPERATION.md), with trust-chain
-reading guidance and sample output shapes in [docs/demo/](./docs/demo/).
-External positioning and safety docs are captured in [docs/TRUST_MODEL.md](./docs/TRUST_MODEL.md),
-[docs/SECURITY_MODEL.md](./docs/SECURITY_MODEL.md),
-[docs/RESPONSIBLE_USE.md](./docs/RESPONSIBLE_USE.md),
-[docs/KNOWN_LIMITATIONS.md](./docs/KNOWN_LIMITATIONS.md), and
-[docs/ROADMAP.md](./docs/ROADMAP.md).
-The repository CI gate is documented in [docs/CI.md](./docs/CI.md) and mirrors
-the local `nix-shell --run './bin/dev-qa'` workflow.
-
-## Safety Boundary
-
-Atlas is designed for authorized assessment orchestration only.
-
-Atlas does not provide autonomous exploitation, persistence, destructive
-testing, credential spraying, denial-of-service workflows, or out-of-scope
-target expansion.
-
-Target-touching operation workflows are expected to pass through scope checks,
-capability classification, operation logging, and evidence recording. Tier 3
-safe-validation actions require an explicit approval record before execution.
-
-## Shared Intel
-
-The toolkit now has a shared memory layer for cross-tool recommendations.
-
-- `state/intel/observations.jsonl`: tool-level facts such as open services
-- `state/intel/entities.jsonl`: normalized hosts and services
-- `state/intel/outcomes.jsonl`: run results and counts
-- `state/intel/relationships.jsonl`: links such as host-to-service exposure
-
-Inspect it with:
-
-```bash
-./bin/intelctl summary
-./bin/intelctl observations
-./bin/intelctl entities service
-./bin/intelctl outcomes
-./bin/intelctl graph 10.0.0.8 --format dot --output graph.dot
-./bin/intelctl paths 10.0.0.8 --format ndjson
-```
-
-The first publisher is `wiremap`. That gives the next tool a stable shared
-intel spine instead of coupling it to raw run files.
-
-The first consumer is `vector`, which turns shared observations into ranked
-action lanes, explainable plans, bounded runs, session-backed outcomes, and
-Metasploit-backed research when the Framework is present.
-
-The unified runtime front-end is `atlas`, which gives you one operator app
-without flattening the domain tools:
-
-- `atlas` is the front door
-- `wiremap` remains the recon and packet-evidence engine
-- `vector` remains the action and session engine
-- `intelctl` remains the direct shared-intel inspector
-
-That split is now sharper:
-
-- `atlas` wraps both domains so the operator remembers one command instead of three
-- `wiremap` owns discovery, packet evidence, and saved-run interpretation
-- `wiremap capture creds` can publish `credential_hint` observations
-- `wiremap capture anomalies` can publish `capture_anomaly` observations
-- `vector` consumes those hints to keep credential and validation lanes relevant
-- `vector` still stays the action console instead of becoming a packet tool
-
-That gives the toolkit a full operator loop:
-
-- `wiremap` discovers
-- shared intel remembers
-- `vector` ranks and acts
-- `vector` writes outcomes back into shared intel
-
-Atlas now also exposes the operator-level story and reporting layer:
-
-- `atlas v1 status [--strict] [--json]`: read-only product-pillar readiness
-  view for the core v1 surface and release-gate style checks
-- `atlas production status [--strict] [--json]`: read-only production
-  readiness gate that is stricter than v1 status and requires
-  signing/provenance, retained production dry-run evidence, and a current
-  verified release trust packet before reporting `production-ready`
-- `atlas release packet [packet-name] [--json] [--operation name]`:
-  metadata-only release trust packet in Markdown or JSON schema form with
-  commit, tags, v1 readiness JSON, optional operation trust-chain status, QA
-  status, retention notes, repo sync state, and known limitations; normal packet
-  generation requires a clean, synced, v1-ready repository, and `--operation`
-  also requires a current operation trust chain unless an explicit override flag
-  is used
-- `atlas release verify [packet-name]`: release trust packet verification for
-  clean/synced state, passing QA status, required retention notes, known
-  limitations, embedded v1 readiness JSON, and any recorded operation trust
-  chain; when an operation chain is recorded, verification replays the current
-  local operation trust-chain, ledger, and archive packet results instead of
-  trusting the packet fields alone
-- `atlas web assess <url> [assessment-name]`: bounded public web assessment
-  packetization that creates an Atlas operation, stores route/header and
-  API/CORS results as evidence, records posture findings, bundles evidence,
-  and writes report and handoff packets; URLs with a path keep that base path
-  for mounted apps such as `/bWAPP` or path-scoped training targets
-- `atlas web validation-plan [--all]`: queue approval-gated posture validation
-  plans for open web assessment findings without re-probing the target
-- `atlas web validation-approve [--all] --reason <text>`: approve planned web
-  validation items as a separate governance step before execution
-- [Atlas Trust Lifecycle](docs/atlas/TRUST_LIFECYCLE.md): the end-to-end
-  proof path from scoped operation through evidence, validation, retention,
-  archive, v1 readiness, and release trust JSON
-- `atlas target update <name>`: target registry metadata for scope status,
-  criticality, owner, and tags
-- `atlas target brief <target>`: concise surface, operation-state, validation,
-  and next-step readout
-- `atlas cycle [target]`: read-only exposure-cycle view that ties discovery,
-  findings, validation queue, report readiness, and ranked candidate lanes
-  together
-- `atlas target story <target>`: target record, surface, outcomes, findings,
-  recent evidence, and ranked next actions
-- `atlas op show [name]`: operation scope, allowed actions, out-of-scope
-  actions, and tracked artifacts
-- `atlas evidence add <path>`: operation-owned artifact copy with SHA-256 index
-- `atlas evidence redact <id> <redacted-path>`: attach a redacted derivative
-  while preserving original evidence hashes
-- `atlas evidence bundle [bundle-name]`: create a redacted/public evidence
-  handoff bundle with manifest hashes
-- `atlas finding add <title>`: observed, inferred, or validated finding record
-- `atlas finding update <id>` / `atlas finding resolve <id>`: append lifecycle
-  updates with validation links and notes while preserving finding history
-- `atlas finding accept <id> --reason <text>`: record accepted-risk ownership,
-  reason, optional expiry, and evidence links while making readiness treat the
-  finding as non-blocking until any recorded expiry date has passed
-- `atlas finding review <id> --reason <text>`: re-review an accepted risk,
-  renew owner/expiry metadata, and record a dedicated finding review ledger event
-- `atlas finding review-queue [--within days]`: list accepted risks by
-  expired, due-soon, no-expiry, or current review state for the active operation
-- `atlas finding review-packet [packet-name]`: write a metadata-only accepted
-  risk review packet with queue counts, finding-index hash, and ledger anchor
-- `atlas finding review-verify [packet]`: verify an accepted-risk review packet
-  still matches the retained finding index and allowed ledger history
-- `atlas validation plan <lane>`: plan, approve, run, retest, and supersede
-  bounded validation when an executed run is replaced by a successful rerun
-- `atlas validation retest <id>`: promotes confirmed findings to validated
-  while keeping unresolved retests open instead of marking them remediated
-- `atlas op brief`: operation summary with evidence, findings, and validation counts
-- `atlas op cycle [name]`: operation-owned exposure-cycle view for the active
-  or named operation
-- `atlas op report [name] [report-name]`: Markdown assessment brief with
-  executive summary, grouped findings, remediation priorities, and validation status
-- `atlas op readiness [name]`: closure readiness check for unresolved findings,
-  expired accepted risks, pending validation, evidence, report, bundle,
-  handoff, closeout, accepted-risk review packet, audit packet, and archive
-  packet freshness
-- `atlas op handoff [name] [handoff-name]`: metadata-only handoff packet with
-  readiness, freshness state, report, bundle, findings, validation, and ledger pointers
-- `atlas op closeout [name] [manifest-name]`: metadata-only audit manifest with
-  closeout freshness states and SHA-256 anchors
-- `atlas op verify [name] [closeout-manifest]`: read-only closeout manifest
-  verification for recorded hashes and ledger event counts
-- `atlas op audit [name]`: read-only operation ledger timeline with event
-  counts, freshness flags, accepted-risk review packet flags, forced-close
-  flags, and closeout verification status
-- `atlas op audit-packet [name] [packet-name]`: metadata-only audit packet with
-  event counts, audit flags, timeline, ledger and closeout hashes, and freshness state
-- `atlas op audit-verify [name] [audit-packet]`: read-only audit packet
-  verification for recorded ledger event count, ledger hash, and closeout hash
-- `atlas op archive [name]`: read-only final archive snapshot with readiness,
-  freshness, accepted-risk review packet verification, and artifact pointers
-- `atlas op archive-packet [name] [packet-name]`: metadata-only archive packet
-  with final archive status, freshness state, verification state, hashes, and
-  artifact pointers
-- `atlas op archive-verify [name] [archive-packet]`: read-only archive packet
-  verification for recorded artifact hashes and ledger event count
-- `atlas op trust-chain [name] [--strict] [--json]`: read-only operation
-  trust-chain closeout check across readiness, accepted-risk review packets,
-  closeout, audit, archive, archive-packet verification, and v1 readiness; JSON
-  emits schema `atlas.operation_trust_chain.v1`
-- `atlas op close [name] [--force]`: close only when readiness passes unless an
-  explicit forced closure is recorded
-- `atlas advisor brief`: state-only AI advisor readout with redaction guardrails
-- `atlas advisor prompt [name] [packet-name]`: metadata-only advisor packet for
-  AI-assisted summarization and report drafting
-- `atlas story demo-web-app`: canned anonymized demo story with no live target
-
-## Why This Fits Better
-
-Instead of installing or copying full offensive tool repositories, this gives
-you a native control plane:
-
-- target metadata stays yours
-- session structure stays consistent
-- tool modules are authored locally and intentionally
-- later deployment to the USB is just a tree sync, not an install event
-
-## Runtime Deployment
-
-Build a lean release:
-
-```bash
-./bin/labctl release build usb-runtime atlas wiremap vector egress-check
-```
-
-Activate it on an unlocked local USB vault:
-
-```bash
-./bin/labctl deploy activate usb-runtime /run/media/ao/labvault/runtime
-```
-
-Activation syncs the selected release, migrates old release-local mutable state
-into the runtime `shared/` directory, syncs target records, and switches the
-runtime `current` pointer.
+Before treating a change as complete, run the strongest relevant gate and keep
+the repo clean and synced.

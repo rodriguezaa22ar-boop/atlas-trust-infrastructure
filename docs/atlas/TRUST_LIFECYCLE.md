@@ -83,5 +83,7 @@ trust-chain reading guidance, and sample output shapes.
 ## Boundaries
 
 This lifecycle proves metadata integrity and freshness across the Atlas control
-plane. It does not yet provide cryptographic signing, immutable external
-storage, or third-party provenance attestations.
+plane. Release provenance now verifies a signed Git tag through a retained
+public key, but operation packets are still hash-anchored metadata records, not
+individually signed artifacts. The lifecycle does not provide immutable
+external storage or third-party provenance attestations.
