@@ -766,6 +766,10 @@ EOF
 
 @test "atlas production status reports conservative production blockers" {
   rm -rf "$TEST_ROOT/toolkit/docs/retention/production"
+  rm -f \
+    "$TEST_ROOT/toolkit/docs/retention/releases/"*.provenance.json \
+    "$TEST_ROOT/toolkit/docs/retention/releases/"*release-signing-public-key.asc \
+    "$TEST_ROOT/toolkit/docs/retention/releases/atlas-m67-production-candidate.json"
   make_repo_clean_and_synced
 
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" production status
