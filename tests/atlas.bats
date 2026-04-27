@@ -225,6 +225,85 @@ EOF
     "$TEST_ROOT/toolkit/state/intel/observations.jsonl"
 }
 
+@test "atlas web assess preserves URL base path for mounted applications" {
+  mkdir -p "$TEST_ROOT/fake-bin"
+  export LAB_FAKE_CURL_LOG="$TEST_ROOT/curl-urls.log"
+  cat > "$TEST_ROOT/fake-bin/curl" <<'EOF'
+#!/usr/bin/env bash
+headers=""
+body=""
+url=""
+method="GET"
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+  -D)
+    headers="$2"
+    shift 2
+    ;;
+  -o)
+    body="$2"
+    shift 2
+    ;;
+  --max-time)
+    shift 2
+    ;;
+  -X)
+    method="$2"
+    shift 2
+    ;;
+  -H)
+    shift 2
+    ;;
+  -sS)
+    shift
+    ;;
+  *)
+    url="$1"
+    shift
+    ;;
+  esac
+done
+
+printf '%s %s\n' "$method" "$url" >> "$LAB_FAKE_CURL_LOG"
+
+{
+  printf 'HTTP/1.1 200 OK\r\n'
+  printf 'Content-Type: text/html; charset=utf-8\r\n'
+  printf 'Server: fake-edge\r\n'
+  printf '\r\n'
+} > "$headers"
+
+cat > "$body" <<'HTML'
+<!doctype html><html><head><title>Mounted App</title></head><body><div id="root"></div></body></html>
+HTML
+EOF
+  chmod +x "$TEST_ROOT/fake-bin/curl"
+
+  run env LAB_ATLAS_CURL_BIN="$TEST_ROOT/fake-bin/curl" \
+    LAB_FAKE_CURL_LOG="$LAB_FAKE_CURL_LOG" \
+    "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" web assess https://example.test/app/ mounted-web \
+    --scope-status in-scope \
+    --criticality medium \
+    --owner platform \
+    --skip-api
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"web assessment packetized"* ]]
+  [[ "$output" == *"target: example.test/app"* ]]
+  [[ "$output" == *"base_path: /app"* ]]
+
+  summary_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "summary" { print $2; exit }')"
+  routes_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "routes" { print $2; exit }')"
+
+  grep -q 'Base Path: /app' "$summary_path"
+  grep -q 'HTTP Origin Checked: http://example.test/app/' "$summary_path"
+  grep -q 'https://example.test/app/robots.txt' "$routes_path"
+  grep -q '^ADDRESS=https://example.test/app/$' "$TEST_ROOT/toolkit/targets/example.test-app.env"
+  grep -q 'GET http://example.test/app/' "$LAB_FAKE_CURL_LOG"
+  grep -q 'GET https://example.test/app/admin' "$LAB_FAKE_CURL_LOG"
+  ! grep -q 'GET https://example.test/admin' "$LAB_FAKE_CURL_LOG"
+}
+
 @test "atlas web assess flags credentialed CORS probe origin" {
   mkdir -p "$TEST_ROOT/fake-bin"
   cat > "$TEST_ROOT/fake-bin/curl" <<'EOF'

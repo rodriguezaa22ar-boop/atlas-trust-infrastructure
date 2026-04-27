@@ -42,6 +42,30 @@ atlas_web_url_origin() {
   printf '%s://%s\n' "$scheme" "$hostport"
 }
 
+atlas_web_url_base_path() {
+  local rest
+  local path
+
+  rest="${1#*://}"
+  case "$rest" in
+  */*)
+    path="/${rest#*/}"
+    ;;
+  *)
+    printf '\n'
+    return 0
+    ;;
+  esac
+
+  path="${path%%\#*}"
+  path="${path%%\?*}"
+  while [ "$path" != "/" ] && [ "${path%/}" != "$path" ]; do
+    path="${path%/}"
+  done
+  [ "$path" = "/" ] && path=""
+  printf '%s\n' "$path"
+}
+
 atlas_web_http_origin() {
   local hostport
 
@@ -379,11 +403,12 @@ atlas_web_write_summary() {
   local file="$1"
   local url="$2"
   local origin="$3"
-  local http_origin="$4"
-  local routes_file="$5"
-  local api_file="$6"
-  local cors_origin="$7"
-  local finding_count="$8"
+  local base_path="$4"
+  local http_checked_url="$5"
+  local routes_file="$6"
+  local api_file="$7"
+  local cors_origin="$8"
+  local finding_count="$9"
 
   {
     printf '# Atlas Web Assessment Packet\n\n'
@@ -393,7 +418,8 @@ atlas_web_write_summary() {
     printf 'Target: %s\n' "$ATLAS_OP_TARGET"
     printf 'URL: %s\n' "$url"
     printf 'Origin: %s\n' "$origin"
-    printf 'HTTP Origin Checked: %s\n' "$http_origin"
+    printf 'Base Path: %s\n' "${base_path:-/}"
+    printf 'HTTP Origin Checked: %s\n' "$http_checked_url"
     printf 'CORS Probe Origin: %s\n' "$cors_origin"
     printf 'Finding Count: %s\n' "$finding_count"
     printf '\nNo raw response bodies are embedded in this packet. Route/API bodies and headers are retained as local operation artifacts.\n'
@@ -776,6 +802,9 @@ cmd_web_assess() {
   local host
   local origin
   local http_origin
+  local base_path
+  local route_base_url
+  local http_probe_url
   local target_file
   local operation_output
   local op_slug
@@ -871,7 +900,13 @@ cmd_web_assess() {
   host="$(atlas_web_url_host "$url")"
   origin="$(atlas_web_url_origin "$url")"
   http_origin="$(atlas_web_http_origin "$url")"
-  [ -n "$target_name" ] || target_name="$host"
+  base_path="$(atlas_web_url_base_path "$url")"
+  route_base_url="$origin$base_path"
+  http_probe_url="$(atlas_web_append_path "$http_origin$base_path" "/")"
+  if [ -z "$target_name" ]; then
+    target_name="$host"
+    [ -z "$base_path" ] || target_name="$host$base_path"
+  fi
   [ -n "$assessment_name" ] || assessment_name="web-assessment-$host"
   atlas_web_validate_scope_status "$scope_status"
   atlas_web_validate_criticality "$criticality"
@@ -882,8 +917,8 @@ cmd_web_assess() {
     done < <(atlas_web_default_api_paths)
   fi
 
-  target_file="$(atlas_web_ensure_target "$target_name" "$origin" "$scope_status" "$criticality" "$owner")"
-  operation_output="$(cmd_op_start "$assessment_name" "$target_name" "web assessment packetization for $origin")"
+  target_file="$(atlas_web_ensure_target "$target_name" "$url" "$scope_status" "$criticality" "$owner")"
+  operation_output="$(cmd_op_start "$assessment_name" "$target_name" "web assessment packetization for $route_base_url")"
   op_slug="$(printf '%s\n' "$operation_output" | awk -F': ' '$1 == "active_operation" { print $2; exit }')"
   [ -n "$op_slug" ] || fail "unable to determine web assessment operation id"
   load_atlas_operation "$op_slug"
@@ -903,18 +938,18 @@ cmd_web_assess() {
   : >"$http_routes_file"
   http_headers="$assess_dir/http-origin.headers"
   http_body="$assess_dir/http-origin.body"
-  atlas_web_fetch_url "$http_origin/" "http-origin" "$assess_dir" "$timeout" "$http_routes_file"
+  atlas_web_fetch_url "$http_probe_url" "http-origin" "$assess_dir" "$timeout" "$http_routes_file"
 
   while IFS= read -r route_path; do
     [ -n "$route_path" ] || continue
-    route_url="$(atlas_web_append_path "$origin" "$route_path")"
+    route_url="$(atlas_web_append_path "$route_base_url" "$route_path")"
     atlas_web_fetch_url "$route_url" "$route_path" "$assess_dir" "$timeout" "$routes_file"
   done < <(atlas_web_routes)
 
   if [ "$skip_api" != "1" ]; then
     for api_path in "${api_paths[@]}"; do
       atlas_web_validate_api_path "$api_path"
-      api_url="$(atlas_web_append_path "$origin" "$api_path")"
+      api_url="$(atlas_web_append_path "$route_base_url" "$api_path")"
       atlas_web_fetch_api_url "$api_url" "$api_path" "GET" "$assess_dir" "$timeout" "$cors_origin" "$api_file"
       atlas_web_fetch_api_url "$api_url" "$api_path" "OPTIONS" "$assess_dir" "$timeout" "$cors_origin" "$api_file"
     done
@@ -978,7 +1013,7 @@ cmd_web_assess() {
       "$api_evidence_id")")
   fi
 
-  atlas_web_write_summary "$summary_file" "$url" "$origin" "$http_origin" "$routes_file" "$api_file" "$cors_origin" "${#finding_ids[@]}"
+  atlas_web_write_summary "$summary_file" "$url" "$origin" "$base_path" "$http_probe_url" "$routes_file" "$api_file" "$cors_origin" "${#finding_ids[@]}"
   summary_evidence_output="$(cmd_evidence_add "$summary_file" --kind web-assessment-summary --classification public)"
   summary_evidence_id="$(printf '%s\n' "$summary_evidence_output" | awk -F': ' '$1 == "id" { print $2; exit }')"
   [ -n "$summary_evidence_id" ] || fail "unable to record web assessment summary evidence"
@@ -1003,6 +1038,7 @@ cmd_web_assess() {
   printf 'target_file: %s\n' "$target_file"
   printf 'url: %s\n' "$url"
   printf 'origin: %s\n' "$origin"
+  printf 'base_path: %s\n' "${base_path:-/}"
   printf 'summary: %s\n' "$summary_file"
   printf 'routes: %s\n' "$routes_file"
   printf 'api: %s\n' "$api_file"

@@ -229,7 +229,8 @@ Atlas now also exposes the operator-level story and reporting layer:
 - `atlas web assess <url> [assessment-name]`: bounded public web assessment
   packetization that creates an Atlas operation, stores route/header and
   API/CORS results as evidence, records posture findings, bundles evidence,
-  and writes report and handoff packets
+  and writes report and handoff packets; URLs with a path keep that base path
+  for mounted apps such as `/bWAPP` or path-scoped training targets
 - `atlas web validation-plan [--all]`: queue approval-gated posture validation
   plans for open web assessment findings without re-probing the target
 - `atlas web validation-approve [--all] --reason <text>`: approve planned web

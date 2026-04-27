@@ -247,6 +247,10 @@ The near-term roadmap is:
 40. Add web validation bulk approval. `atlas web validation-approve` now
     records approval for planned web validation items with an explicit reason
     and keeps validation execution as a separate gate.
+41. Add mounted web target support. `atlas web assess` now preserves the input
+    URL base path when probing route, HTTP redirect, and API/CORS checks so
+    path-scoped applications such as local bWAPP labs and Gruyere instances are
+    assessed at their real mounted path rather than the host root.
 
 ## First Serious Version
 
