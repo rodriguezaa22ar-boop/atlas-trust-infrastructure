@@ -65,6 +65,7 @@ changes, verification output, repo state, and boundaries for that milestone.
 | [68](milestones/MILESTONE_68.md) | `adc5cf3afcb734f1d106f26de04d9083057a9bbc` | README landing page split | docs-only | no | Turns the root README into a short reviewer landing page and moves heavy command/workflow material into dedicated docs. | README focused test: 1/1; docs focused tests: 3/3; `dev-qa`: 82/82 | `atlas-retention-m68` |
 | [69](milestones/MILESTONE_69.md) | `7c5f302f20902cfd56de0f947fde94388d01ff40` | reviewability navigation | docs-only | no | Adds a documentation index, one-page Atlas summary, and release verify/replay/provenance alignment docs. | docs focused tests: 4/4; `dev-qa`: 82/82 | `atlas-retention-m69` |
 | [70](milestones/MILESTONE_70.md) | `345de45d799e54600f712196578b9e698461415f` | business-flow evidence spec | docs-only | no | Defines optional metadata-only business-process evidence without weakening Atlas' trust boundary. | business-flow focused tests: 3/3; `dev-qa`: 83/83; release verify: pass | `atlas-retention-m70` |
+| [71](milestones/MILESTONE_71.md) | `038c8df117729e8266fd41135159773289ce548d` | business-flow records | release-trust | yes | Adds optional metadata-only business-flow records without storing sensitive flow content. | flow focused tests: 4/4; `dev-qa`: 84/84; release verify: pass | `atlas-retention-m71` |
 
 ## Category Notes
 
