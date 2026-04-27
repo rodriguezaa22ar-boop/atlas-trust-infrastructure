@@ -96,9 +96,10 @@ unless the overall state is `production-ready`.
   a verifiable identity and supply-chain record.
 - Current state: ready only when the latest release provenance packet verifies
   a signed annotated Git tag, a matching release commit, a retained release
-  packet SHA-256 hash, and successful release packet replay for the current
-  commit or retained release commit immediately before the provenance-retention
-  commit.
+  packet SHA-256 hash, a retained public key SHA-256 hash, signature
+  verification through that retained public key, and successful release packet
+  replay for the current commit or retained release commit immediately before
+  the provenance-retention commit.
 - Limitation: local signing is not an external audit, SLSA certification, or
   deployment certification.
 
@@ -111,6 +112,8 @@ Required provenance fields:
 - `signed_tag.target`
 - `signed_tag.verification: verified`
 - `signed_tag.signer_fingerprint`
+- `signed_tag.public_key_path`
+- `signed_tag.public_key_sha256`
 - `release_packet.path`
 - `release_packet.sha256`
 - `qa.status: pass`

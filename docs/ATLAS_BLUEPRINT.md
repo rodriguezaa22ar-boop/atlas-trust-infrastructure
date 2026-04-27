@@ -380,7 +380,8 @@ The near-term roadmap is:
     latest `docs/retention/releases/*.provenance.json` packet for a
     schema-versioned metadata-only record binding a retained release packet to
     a verified signed Git tag. The gate verifies packet SHA-256, release packet
-    replay, signed tag target, `git tag -v`, QA status, known limitations, and
+    replay, signed tag target, retained public key SHA-256, `git tag -v`
+    through the retained public key, QA status, known limitations, and
     no-overclaim metadata for the current commit or retained release commit.
     Release packet discovery now ignores `*.provenance.json` so provenance
     evidence does not masquerade as a release trust packet.

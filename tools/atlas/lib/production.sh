@@ -296,6 +296,29 @@ atlas_production_file_sha256() {
   sha256sum "$path" | awk '{ print $1 }'
 }
 
+atlas_production_verify_signed_tag() {
+  local tag_name="$1"
+  local public_key_file="$2"
+  local gpg_bin
+  local temp_home
+  local verify_status=1
+
+  [ -n "$tag_name" ] || return 1
+  [ -f "$public_key_file" ] || return 1
+
+  gpg_bin="$(command -v gpg 2>/dev/null || true)"
+  [ -n "$gpg_bin" ] || return 1
+
+  temp_home="$(mktemp -d)"
+  chmod 700 "$temp_home"
+  if GNUPGHOME="$temp_home" "$gpg_bin" --batch --import "$public_key_file" >/dev/null 2>&1 &&
+    GNUPGHOME="$temp_home" git -C "$LAB_ROOT" -c gpg.program="$gpg_bin" tag -v "$tag_name" >/dev/null 2>&1; then
+    verify_status=0
+  fi
+  rm -rf "$temp_home"
+  return "$verify_status"
+}
+
 atlas_production_release_provenance_valid() {
   local provenance_file="$1"
   local expected_commit="$2"
@@ -303,6 +326,10 @@ atlas_production_release_provenance_valid() {
   local packet_file
   local expected_packet_sha
   local actual_packet_sha
+  local public_key_path
+  local public_key_file
+  local expected_public_key_sha
+  local actual_public_key_sha
   local provenance_commit
   local tag_name
   local tag_target
@@ -318,6 +345,8 @@ atlas_production_release_provenance_valid() {
     .qa.status == "pass" and
     .signed_tag.verification == "verified" and
     (.signed_tag.signer_fingerprint // "" | length > 0) and
+    (.signed_tag.public_key_path // "" | length > 0) and
+    (.signed_tag.public_key_sha256 // "" | test("^[a-f0-9]{64}$")) and
     (.release_packet.path // "" | length > 0) and
     (.release_packet.sha256 // "" | test("^[a-f0-9]{64}$")) and
     (.production_status.observed // "" | length > 0) and
@@ -351,7 +380,13 @@ atlas_production_release_provenance_valid() {
 
   recorded_tag_target="$(jq -r '.signed_tag.target // ""' "$provenance_file")"
   atlas_release_commit_matches "$recorded_tag_target" "$expected_commit" || return 1
-  git -C "$LAB_ROOT" tag -v "$tag_name" >/dev/null 2>&1 || return 1
+
+  public_key_path="$(jq -r '.signed_tag.public_key_path // ""' "$provenance_file")"
+  public_key_file="$(atlas_production_resolve_release_path "$public_key_path")" || return 1
+  expected_public_key_sha="$(jq -r '.signed_tag.public_key_sha256 // ""' "$provenance_file")"
+  actual_public_key_sha="$(atlas_production_file_sha256 "$public_key_file")"
+  [ "$actual_public_key_sha" = "$expected_public_key_sha" ] || return 1
+  atlas_production_verify_signed_tag "$tag_name" "$public_key_file" || return 1
 }
 
 atlas_production_check_signing_provenance() {

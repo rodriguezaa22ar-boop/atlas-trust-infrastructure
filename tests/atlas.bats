@@ -155,6 +155,8 @@ make_repo_clean_and_synced() {
   grep -Fq 'docs/retention/releases/*.provenance.json' "$provenance_schema"
   grep -q '`schema_version`: must be `atlas.release_provenance.v1`' "$provenance_schema"
   grep -q '`metadata_only`: must be `true`' "$provenance_schema"
+  grep -q '`signed_tag.public_key_path`' "$provenance_schema"
+  grep -q '`signed_tag.public_key_sha256`' "$provenance_schema"
   grep -q '`git tag -v <tag>` verifies successfully' "$provenance_schema"
   grep -q 'private signing material' "$provenance_schema"
 
@@ -889,6 +891,10 @@ EOF
   tag_name="atlas-production-test-signed"
   git -C "$TEST_ROOT/toolkit" tag -s "$tag_name" "$signed_commit" -m "Atlas production test signed tag" >/dev/null
   git -C "$TEST_ROOT/toolkit" tag -v "$tag_name" >/dev/null 2>&1
+  public_key_path="$TEST_ROOT/toolkit/docs/retention/releases/production-signing-public-key.asc"
+  gpg --armor --export "$signing_fingerprint" > "$public_key_path"
+  public_key_rel="${public_key_path#"$TEST_ROOT/toolkit"/}"
+  public_key_sha="$(sha256sum "$public_key_path" | awk '{ print $1 }')"
 
   signed_dry_run_note="$dry_run_dir/PRODUCTION_DRY_RUN_2026-04-27_SIGNED.md"
   cat > "$signed_dry_run_note" <<EOF
@@ -912,6 +918,8 @@ EOF
     --arg tag_name "$tag_name" \
     --arg tag_target "$signed_commit" \
     --arg fingerprint "$signing_fingerprint" \
+    --arg public_key_path "$public_key_rel" \
+    --arg public_key_sha "$public_key_sha" \
     --arg packet_path "$signed_packet_rel" \
     --arg packet_sha "$signed_packet_sha" \
     --arg qa_command "nix-shell --run './bin/dev-qa'" \
@@ -923,7 +931,9 @@ EOF
         name: $tag_name,
         target: $tag_target,
         verification: "verified",
-        signer_fingerprint: $fingerprint
+        signer_fingerprint: $fingerprint,
+        public_key_path: $public_key_path,
+        public_key_sha256: $public_key_sha
       },
       release_packet: {
         path: $packet_path,
@@ -944,7 +954,7 @@ EOF
       no_production_overclaim: true
     }' > "$provenance_path"
 
-  git -C "$TEST_ROOT/toolkit" add -f "$signed_packet_path" "$provenance_path"
+  git -C "$TEST_ROOT/toolkit" add -f "$signed_packet_path" "$provenance_path" "$public_key_path"
   git -C "$TEST_ROOT/toolkit" add "$signed_dry_run_note"
   git -C "$TEST_ROOT/toolkit" commit -m "retain signed production provenance" >/dev/null
   git -C "$TEST_ROOT/toolkit" update-ref refs/remotes/origin/main HEAD

@@ -24,6 +24,9 @@ attestation and does not embed runtime artifacts.
 - `signed_tag.verification`: must be `verified`.
 - `signed_tag.signer_fingerprint`: signing key fingerprint observed when the
   packet was retained.
+- `signed_tag.public_key_path`: repository-relative path to the retained public
+  key used for tag verification.
+- `signed_tag.public_key_sha256`: SHA-256 hash of the retained public key.
 - `release_packet.path`: repository-relative path to the retained release
   trust packet.
 - `release_packet.sha256`: SHA-256 hash of the retained release trust packet.
@@ -47,7 +50,9 @@ attestation and does not embed runtime artifacts.
 - `atlas release verify` succeeds for the referenced release packet and commit
 - the signed tag exists as an annotated tag
 - the signed tag resolves to the expected commit
-- `git tag -v <tag>` verifies successfully with the available public key
+- the retained public key SHA-256 matches the provenance packet
+- `git tag -v <tag>` verifies successfully in a temporary keyring populated
+  from the retained public key
 
 ## Metadata Boundary
 
@@ -56,6 +61,7 @@ Release provenance packets may include:
 - commit IDs
 - tag names
 - signer fingerprints
+- public key paths and SHA-256 hashes
 - release packet paths
 - SHA-256 hashes
 - QA status
