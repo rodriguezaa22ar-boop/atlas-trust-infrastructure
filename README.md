@@ -225,9 +225,9 @@ Atlas now also exposes the operator-level story and reporting layer:
   clean/synced state, passing QA status, required retention notes, known
   limitations, and embedded v1 readiness JSON in either packet format
 - `atlas web assess <url> [assessment-name]`: bounded public web assessment
-  packetization that creates an Atlas operation, stores route/header results
-  as evidence, records posture findings, bundles evidence, and writes report
-  and handoff packets
+  packetization that creates an Atlas operation, stores route/header and
+  API/CORS results as evidence, records posture findings, bundles evidence,
+  and writes report and handoff packets
 - [Atlas Trust Lifecycle](docs/atlas/TRUST_LIFECYCLE.md): the end-to-end
   proof path from scoped operation through evidence, validation, retention,
   archive, v1 readiness, and release trust JSON

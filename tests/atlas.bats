@@ -4,6 +4,15 @@ setup() {
   export TEST_ROOT
   TEST_ROOT="$(mktemp -d)"
   cp -R "$BATS_TEST_DIRNAME/.." "$TEST_ROOT/toolkit"
+  rm -rf \
+    "$TEST_ROOT/toolkit/.tmp" \
+    "$TEST_ROOT/toolkit/logs" \
+    "$TEST_ROOT/toolkit/releases" \
+    "$TEST_ROOT/toolkit/reports" \
+    "$TEST_ROOT/toolkit/sessions" \
+    "$TEST_ROOT/toolkit/shared" \
+    "$TEST_ROOT/toolkit/state"
+  rm -f "$TEST_ROOT/toolkit/targets/"*.env
   chmod +x \
     "$TEST_ROOT/toolkit/bin/intelctl" \
     "$TEST_ROOT/toolkit/bin/labctl" \
@@ -92,6 +101,7 @@ make_repo_clean_and_synced() {
 headers=""
 body=""
 url=""
+method="GET"
 while [ "$#" -gt 0 ]; do
   case "$1" in
   -D)
@@ -103,6 +113,13 @@ while [ "$#" -gt 0 ]; do
     shift 2
     ;;
   --max-time)
+    shift 2
+    ;;
+  -X)
+    method="$2"
+    shift 2
+    ;;
+  -H)
     shift 2
     ;;
   -sS)
@@ -136,9 +153,13 @@ esac
   printf '\r\n'
 } > "$headers"
 
-cat > "$body" <<'HTML'
+if [ "$method" = "OPTIONS" ]; then
+  : > "$body"
+else
+  cat > "$body" <<'HTML'
 <!doctype html><html><head><title>Execution OS</title></head><body><div id="root"></div></body></html>
 HTML
+fi
 EOF
   chmod +x "$TEST_ROOT/fake-bin/curl"
 
@@ -156,20 +177,26 @@ EOF
 
   summary_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "summary" { print $2; exit }')"
   routes_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "routes" { print $2; exit }')"
+  api_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "api" { print $2; exit }')"
   bundle_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "bundle" { print $2; exit }')"
   report_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "report" { print $2; exit }')"
   handoff_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "handoff" { print $2; exit }')"
 
   [ -f "$summary_path" ]
   [ -f "$routes_path" ]
+  [ -f "$api_path" ]
   [ -d "$bundle_path" ]
   [ -f "$report_path" ]
   [ -f "$handoff_path" ]
 
   grep -q '^# Atlas Web Assessment Packet$' "$summary_path"
   grep -q 'Finding Count: 4' "$summary_path"
+  grep -q 'CORS Probe Origin: https://example.com' "$summary_path"
+  grep -q 'API/CORS Checks' "$summary_path"
   grep -q 'Missing Security Headers' "$summary_path"
   grep -q '/robots.txt' "$routes_path"
+  grep -q '/api/auth/me' "$api_path"
+  grep -q 'OPTIONS' "$api_path"
   grep -q 'Content-Security-Policy' "$routes_path"
   grep -q 'Missing browser hardening headers' "$report_path"
   grep -q 'HTTP origin does not redirect to HTTPS' "$report_path"
@@ -184,13 +211,129 @@ EOF
 
   jq -e 'select(.event == "web.assessment.generated" and (.detail | contains("findings=4")))' \
     "$TEST_ROOT/toolkit/sessions/m37-web/ledger.ndjson"
-  jq -s -e 'map(select(.kind == "web-assessment-summary" or .kind == "web-assessment-routes")) | length == 2' \
+  jq -s -e 'map(select(.kind == "web-assessment-summary" or .kind == "web-assessment-routes" or .kind == "web-assessment-api")) | length == 3' \
     "$TEST_ROOT/toolkit/sessions/m37-web/evidence.ndjson"
   jq -s -e 'map(select(.title == "Missing browser hardening headers" or .title == "HTTP origin does not redirect to HTTPS" or .title == "Metadata routes return application HTML" or .title == "Admin-style routes return successful responses")) | length == 4' \
     "$TEST_ROOT/toolkit/sessions/m37-web/findings.ndjson"
   jq -e 'select(.observation_type == "web_probe" and .target == "example.test")' \
     "$TEST_ROOT/toolkit/state/intel/observations.jsonl"
   jq -e 'select(.observation_type == "http_posture_finding" and .target == "example.test")' \
+    "$TEST_ROOT/toolkit/state/intel/observations.jsonl"
+  jq -e 'select(.observation_type == "api_probe" and .target == "example.test" and .value.path == "/api/auth/me")' \
+    "$TEST_ROOT/toolkit/state/intel/observations.jsonl"
+}
+
+@test "atlas web assess flags credentialed CORS probe origin" {
+  mkdir -p "$TEST_ROOT/fake-bin"
+  cat > "$TEST_ROOT/fake-bin/curl" <<'EOF'
+#!/usr/bin/env bash
+headers=""
+body=""
+url=""
+method="GET"
+origin=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+  -D)
+    headers="$2"
+    shift 2
+    ;;
+  -o)
+    body="$2"
+    shift 2
+    ;;
+  --max-time)
+    shift 2
+    ;;
+  -X)
+    method="$2"
+    shift 2
+    ;;
+  -H)
+    case "$2" in
+    Origin:\ *)
+      origin="${2#Origin: }"
+      ;;
+    esac
+    shift 2
+    ;;
+  -sS)
+    shift
+    ;;
+  *)
+    url="$1"
+    shift
+    ;;
+  esac
+done
+
+status="200 OK"
+content_type="text/html; charset=utf-8"
+server="fake-edge"
+
+case "$url" in
+https://api.example.test/api/auth/me)
+  if [ "$method" = "GET" ]; then
+    status="401 Unauthorized"
+    content_type="application/json"
+  else
+    status="204 No Content"
+    content_type="text/plain"
+  fi
+  ;;
+esac
+
+{
+  printf 'HTTP/1.1 %s\r\n' "$status"
+  printf 'Content-Type: %s\r\n' "$content_type"
+  printf 'Server: %s\r\n' "$server"
+  if [ "$method" = "OPTIONS" ] && [ -n "$origin" ]; then
+    printf 'Access-Control-Allow-Origin: %s\r\n' "$origin"
+    printf 'Access-Control-Allow-Credentials: true\r\n'
+    printf 'Access-Control-Allow-Methods: GET,POST,OPTIONS\r\n'
+    printf 'Vary: Origin\r\n'
+  fi
+  printf '\r\n'
+} > "$headers"
+
+if [ "$method" = "OPTIONS" ]; then
+  : > "$body"
+else
+  cat > "$body" <<'HTML'
+<!doctype html><html><head><title>Execution OS</title></head><body><div id="root"></div></body></html>
+HTML
+fi
+EOF
+  chmod +x "$TEST_ROOT/fake-bin/curl"
+
+  run env LAB_ATLAS_CURL_BIN="$TEST_ROOT/fake-bin/curl" \
+    "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" web assess https://api.example.test m38-cors \
+    --scope-status in-scope \
+    --api-path /api/auth/me \
+    --cors-origin https://untrusted.example
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"web assessment packetized"* ]]
+  [[ "$output" == *"findings: 5"* ]]
+
+  summary_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "summary" { print $2; exit }')"
+  api_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "api" { print $2; exit }')"
+  report_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "report" { print $2; exit }')"
+
+  [ -f "$summary_path" ]
+  [ -f "$api_path" ]
+  [ -f "$report_path" ]
+
+  grep -q 'CORS Probe Origin: https://untrusted.example' "$summary_path"
+  grep -q 'https://untrusted.example' "$api_path"
+  grep -q 'true' "$api_path"
+  grep -q 'Credentialed CORS allows probe origin' "$report_path"
+
+  jq -s -e 'map(select(.kind == "web-assessment-api")) | length == 1' \
+    "$TEST_ROOT/toolkit/sessions/m38-cors/evidence.ndjson"
+  jq -e 'select(.title == "Credentialed CORS allows probe origin" and .severity == "medium")' \
+    "$TEST_ROOT/toolkit/sessions/m38-cors/findings.ndjson"
+  jq -e 'select(.observation_type == "cors_posture_finding" and .target == "api.example.test")' \
     "$TEST_ROOT/toolkit/state/intel/observations.jsonl"
 }
 

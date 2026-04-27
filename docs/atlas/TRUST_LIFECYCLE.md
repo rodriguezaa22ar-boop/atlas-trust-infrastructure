@@ -15,7 +15,7 @@ the chain is still current.
 | Stage | Command Surface | Trust Output |
 | --- | --- | --- |
 | Scope | `atlas op start`, `atlas scope check` | operation scope snapshot and ledger preflights |
-| Web Assessment | `atlas web assess` | retained route/header evidence, findings, report, and handoff packet |
+| Web Assessment | `atlas web assess` | retained route/header and API/CORS evidence, findings, report, and handoff packet |
 | Evidence | `atlas evidence add`, `atlas evidence bundle` | evidence index, hashes, bundle manifest |
 | Findings | `atlas finding add`, `atlas finding update` | finding lifecycle records |
 | Validation | `atlas validation plan`, `atlas validation approve`, `atlas validation run`, `atlas validation retest` | approval record, validation plan, retest state |

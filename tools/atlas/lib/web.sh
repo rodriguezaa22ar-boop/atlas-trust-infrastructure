@@ -201,6 +201,26 @@ atlas_web_routes() {
 EOF
 }
 
+atlas_web_default_api_paths() {
+  cat <<'EOF'
+/api/auth/me
+/api/billing/status
+/api/health
+/api/status
+EOF
+}
+
+atlas_web_validate_api_path() {
+  case "$1" in
+  /*)
+    return 0
+    ;;
+  *)
+    fail "web assess API paths must start with /; got: $1"
+    ;;
+  esac
+}
+
 atlas_web_append_path() {
   local origin="${1%/}"
   local path="$2"
@@ -277,13 +297,93 @@ atlas_web_fetch_url() {
     "$headers_file" >>"$route_file"
 }
 
+atlas_web_fetch_api_url() {
+  local url="$1"
+  local path="$2"
+  local method="$3"
+  local out_dir="$4"
+  local timeout="$5"
+  local cors_origin="$6"
+  local api_file="$7"
+  local curl_bin
+  local route_slug
+  local headers_file
+  local body_file
+  local err_file
+  local status_code="000"
+  local content_type=""
+  local server=""
+  local allow_origin=""
+  local allow_credentials=""
+  local allow_methods=""
+  local vary_header=""
+  local body_sha=""
+  local body_size="0"
+  local curl_status="ok"
+  local curl_args=()
+
+  curl_bin="$(atlas_web_curl_bin)"
+  command -v "$curl_bin" >/dev/null 2>&1 || fail "command not found: $curl_bin"
+
+  route_slug="$(slugify "api-$method-$path")"
+  [ -n "$route_slug" ] || route_slug="api-$method"
+  headers_file="$out_dir/$route_slug.headers"
+  body_file="$out_dir/$route_slug.body"
+  err_file="$out_dir/$route_slug.err"
+
+  curl_args=(-sS --max-time "$timeout" -D "$headers_file" -o "$body_file")
+  if [ "$method" = "OPTIONS" ]; then
+    curl_args+=(
+      -X OPTIONS
+      -H "Origin: $cors_origin"
+      -H "Access-Control-Request-Method: GET"
+    )
+  fi
+  curl_args+=("$url")
+
+  if "$curl_bin" "${curl_args[@]}" 2>"$err_file"; then
+    status_code="$(atlas_web_extract_http_status "$headers_file")"
+    [ -n "$status_code" ] || status_code="000"
+    content_type="$(atlas_web_extract_header_value "$headers_file" "Content-Type")"
+    server="$(atlas_web_extract_header_value "$headers_file" "Server")"
+    allow_origin="$(atlas_web_extract_header_value "$headers_file" "Access-Control-Allow-Origin")"
+    allow_credentials="$(atlas_web_extract_header_value "$headers_file" "Access-Control-Allow-Credentials")"
+    allow_methods="$(atlas_web_extract_header_value "$headers_file" "Access-Control-Allow-Methods")"
+    vary_header="$(atlas_web_extract_header_value "$headers_file" "Vary")"
+    body_sha="$(atlas_evidence_hash_path "$body_file")"
+    body_size="$(wc -c <"$body_file" | tr -d ' ')"
+  else
+    curl_status="failed"
+    : >"$headers_file"
+    : >"$body_file"
+  fi
+
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    "$path" \
+    "$method" \
+    "$url" \
+    "$status_code" \
+    "$content_type" \
+    "$server" \
+    "$allow_origin" \
+    "$allow_credentials" \
+    "$allow_methods" \
+    "$vary_header" \
+    "$body_size" \
+    "$body_sha" \
+    "$curl_status" \
+    "$headers_file" >>"$api_file"
+}
+
 atlas_web_write_summary() {
   local file="$1"
   local url="$2"
   local origin="$3"
   local http_origin="$4"
   local routes_file="$5"
-  local finding_count="$6"
+  local api_file="$6"
+  local cors_origin="$7"
+  local finding_count="$8"
 
   {
     printf '# Atlas Web Assessment Packet\n\n'
@@ -294,8 +394,9 @@ atlas_web_write_summary() {
     printf 'URL: %s\n' "$url"
     printf 'Origin: %s\n' "$origin"
     printf 'HTTP Origin Checked: %s\n' "$http_origin"
+    printf 'CORS Probe Origin: %s\n' "$cors_origin"
     printf 'Finding Count: %s\n' "$finding_count"
-    printf '\nNo raw response bodies are embedded in this packet. Route bodies and headers are retained as local operation artifacts.\n'
+    printf '\nNo raw response bodies are embedded in this packet. Route/API bodies and headers are retained as local operation artifacts.\n'
     printf '\n## Route Checks\n\n'
     printf '| Path | URL | Status | Content-Type | Server | Location | Missing Security Headers |\n'
     printf '| --- | --- | --- | --- | --- | --- | --- |\n'
@@ -306,8 +407,19 @@ atlas_web_write_summary() {
       ctype = $4 == "" ? "-" : $4
       printf "| `%s` | `%s` | %s | %s | %s | %s | %s |\n", $1, $2, $3, ctype, server, location, missing
     }' "$routes_file"
+    printf '\n## API/CORS Checks\n\n'
+    printf '| Path | Method | Status | Content-Type | Server | Allow-Origin | Allow-Credentials |\n'
+    printf '| --- | --- | --- | --- | --- | --- | --- |\n'
+    awk -F'\t' '{
+      ctype = $5 == "" ? "-" : $5
+      server = $6 == "" ? "-" : $6
+      allow_origin = $7 == "" ? "-" : $7
+      allow_credentials = $8 == "" ? "-" : $8
+      printf "| `%s` | %s | %s | %s | %s | %s | %s |\n", $1, $2, $4, ctype, server, allow_origin, allow_credentials
+    }' "$api_file"
     printf '\n## Retained Files\n\n'
     printf -- "- Routes TSV: \`%s\`\n" "$routes_file"
+    printf -- "- API/CORS TSV: \`%s\`\n" "$api_file"
     printf -- "- Operation directory: \`%s\`\n" "$ATLAS_OP_DIR"
   } >"$file"
 }
@@ -343,6 +455,22 @@ atlas_web_admin_route_count() {
     }
     END { print count + 0 }
   ' "$routes_file"
+}
+
+atlas_web_credentialed_cors_count() {
+  local api_file="$1"
+  local origin="$2"
+
+  awk -F'\t' -v origin="$origin" '
+    $2 == "OPTIONS" && $4 ~ /^[23]/ {
+      allow_origin = $7
+      allow_credentials = tolower($8)
+      if (allow_credentials == "true" && allow_origin != "" && allow_origin != origin) {
+        count++
+      }
+    }
+    END { print count + 0 }
+  ' "$api_file"
 }
 
 atlas_web_add_finding() {
@@ -434,8 +562,89 @@ atlas_web_publish_intel() {
   done <"$routes_file"
 }
 
+atlas_web_publish_api_intel() {
+  local target="$1"
+  local api_file="$2"
+  local origin="$3"
+  local path
+  local method
+  local url
+  local status_code
+  local content_type
+  local server
+  local allow_origin
+  local allow_credentials
+  local payload
+
+  while IFS=$'\t' read -r path method url status_code content_type server allow_origin allow_credentials _ _ _ _ _ _; do
+    [ -n "$url" ] || continue
+    payload="$(
+      jq -cn \
+        --arg observed_at "$(timestamp)" \
+        --arg target "$target" \
+        --arg endpoint "$url" \
+        --arg path "$path" \
+        --arg method "$method" \
+        --arg status_code "$status_code" \
+        --arg content_type "$content_type" \
+        --arg server "$server" \
+        --arg allow_origin "$allow_origin" \
+        --arg allow_credentials "$allow_credentials" \
+        '{
+          observed_at: $observed_at,
+          source_tool: "atlas",
+          source_kind: "web-assessment",
+          source_name: "web-assess",
+          target: $target,
+          observation_type: "api_probe",
+          confidence: "medium",
+          value: {
+            endpoint: $endpoint,
+            path: $path,
+            method: $method,
+            status_code: $status_code,
+            content_type: $content_type,
+            server: $server,
+            allow_origin: $allow_origin,
+            allow_credentials: $allow_credentials
+          }
+        }'
+    )"
+    intel_append_record observations "$payload"
+
+    if [ "$method" = "OPTIONS" ] &&
+      [ "$(printf '%s\n' "$allow_credentials" | tr '[:upper:]' '[:lower:]')" = "true" ] &&
+      [ -n "$allow_origin" ] &&
+      [ "$allow_origin" != "$origin" ]; then
+      payload="$(
+        jq -cn \
+          --arg observed_at "$(timestamp)" \
+          --arg target "$target" \
+          --arg endpoint "$url" \
+          --arg detail "allow-origin=$allow_origin allow-credentials=$allow_credentials" \
+          '{
+            observed_at: $observed_at,
+            source_tool: "atlas",
+            source_kind: "web-assessment",
+            source_name: "web-assess",
+            target: $target,
+            observation_type: "cors_posture_finding",
+            confidence: "medium",
+            value: {
+              severity: "medium",
+              label: "credentialed-cors-probe-origin",
+              url: $endpoint,
+              detail: $detail
+            }
+          }'
+      )"
+      intel_append_record observations "$payload"
+    fi
+  done <"$api_file"
+}
+
 cmd_web_assess() {
-  need_args 1 "$#" "web assess <url> [assessment-name] [--target name] [--scope-status status] [--criticality level] [--owner owner] [--timeout seconds]"
+  need_args 1 "$#" "web assess <url> [assessment-name] [--target name] [--scope-status status] [--criticality level] [--owner owner] [--timeout seconds] [--api-path path] [--cors-origin origin] [--skip-api]"
   local url="$1"
   local assessment_name=""
   local target_name=""
@@ -443,6 +652,9 @@ cmd_web_assess() {
   local criticality="medium"
   local owner=""
   local timeout="8"
+  local cors_origin="https://example.com"
+  local skip_api="0"
+  local api_paths=()
   local host
   local origin
   local http_origin
@@ -451,12 +663,17 @@ cmd_web_assess() {
   local op_slug
   local assess_dir
   local routes_file
+  local api_file
   local summary_file
   local route_path
   local route_url
+  local api_path
+  local api_url
   local http_headers
   local http_body
   local http_routes_file
+  local api_evidence_output
+  local api_evidence_id
   local summary_evidence_output
   local routes_evidence_output
   local summary_evidence_id
@@ -467,6 +684,7 @@ cmd_web_assess() {
   local http_location
   local metadata_shell_count
   local admin_route_count
+  local credentialed_cors_count
   local bundle_output
   local bundle_dir
   local report_output
@@ -502,12 +720,27 @@ cmd_web_assess() {
       timeout="$2"
       shift 2
       ;;
+    --api-path)
+      need_args 2 "$#" "web assess <url> --api-path <path>"
+      atlas_web_validate_api_path "$2"
+      api_paths+=("$2")
+      shift 2
+      ;;
+    --cors-origin)
+      need_args 2 "$#" "web assess <url> --cors-origin <origin>"
+      cors_origin="$2"
+      shift 2
+      ;;
+    --skip-api)
+      skip_api="1"
+      shift
+      ;;
     -*)
       fail "unknown web assess option: $1"
       ;;
     *)
       if [ -n "$assessment_name" ]; then
-        fail "web assess <url> [assessment-name] [--target name] [--scope-status status] [--criticality level] [--owner owner] [--timeout seconds]"
+        fail "web assess <url> [assessment-name] [--target name] [--scope-status status] [--criticality level] [--owner owner] [--timeout seconds] [--api-path path] [--cors-origin origin] [--skip-api]"
       fi
       assessment_name="$1"
       shift
@@ -516,6 +749,7 @@ cmd_web_assess() {
   done
 
   atlas_web_validate_url "$url"
+  atlas_web_validate_url "$cors_origin"
   host="$(atlas_web_url_host "$url")"
   origin="$(atlas_web_url_origin "$url")"
   http_origin="$(atlas_web_http_origin "$url")"
@@ -523,6 +757,12 @@ cmd_web_assess() {
   [ -n "$assessment_name" ] || assessment_name="web-assessment-$host"
   atlas_web_validate_scope_status "$scope_status"
   atlas_web_validate_criticality "$criticality"
+  if [ "${#api_paths[@]}" -eq 0 ] && [ "$skip_api" != "1" ]; then
+    while IFS= read -r api_path; do
+      [ -n "$api_path" ] || continue
+      api_paths+=("$api_path")
+    done < <(atlas_web_default_api_paths)
+  fi
 
   target_file="$(atlas_web_ensure_target "$target_name" "$origin" "$scope_status" "$criticality" "$owner")"
   operation_output="$(cmd_op_start "$assessment_name" "$target_name" "web assessment packetization for $origin")"
@@ -534,9 +774,12 @@ cmd_web_assess() {
   mkdir -p "$assess_dir"
   chmod 700 "$assess_dir" 2>/dev/null || true
   routes_file="$assess_dir/routes.tsv"
+  api_file="$assess_dir/api.tsv"
   summary_file="$assess_dir/summary.md"
   : >"$routes_file"
+  : >"$api_file"
   chmod 600 "$routes_file" 2>/dev/null || true
+  chmod 600 "$api_file" 2>/dev/null || true
 
   http_routes_file="$assess_dir/http-origin.tsv"
   : >"$http_routes_file"
@@ -550,6 +793,15 @@ cmd_web_assess() {
     atlas_web_fetch_url "$route_url" "$route_path" "$assess_dir" "$timeout" "$routes_file"
   done < <(atlas_web_routes)
 
+  if [ "$skip_api" != "1" ]; then
+    for api_path in "${api_paths[@]}"; do
+      atlas_web_validate_api_path "$api_path"
+      api_url="$(atlas_web_append_path "$origin" "$api_path")"
+      atlas_web_fetch_api_url "$api_url" "$api_path" "GET" "$assess_dir" "$timeout" "$cors_origin" "$api_file"
+      atlas_web_fetch_api_url "$api_url" "$api_path" "OPTIONS" "$assess_dir" "$timeout" "$cors_origin" "$api_file"
+    done
+  fi
+
   # Keep predictable names for the HTTP-origin probe in the retained packet.
   [ -f "$assess_dir/http-origin.headers" ] || : >"$http_headers"
   [ -f "$assess_dir/http-origin.body" ] || : >"$http_body"
@@ -557,6 +809,10 @@ cmd_web_assess() {
   routes_evidence_output="$(cmd_evidence_add "$routes_file" --kind web-assessment-routes --classification public)"
   routes_evidence_id="$(printf '%s\n' "$routes_evidence_output" | awk -F': ' '$1 == "id" { print $2; exit }')"
   [ -n "$routes_evidence_id" ] || fail "unable to record web assessment routes evidence"
+
+  api_evidence_output="$(cmd_evidence_add "$api_file" --kind web-assessment-api --classification public)"
+  api_evidence_id="$(printf '%s\n' "$api_evidence_output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  [ -n "$api_evidence_id" ] || fail "unable to record web assessment API evidence"
 
   missing_headers="$(atlas_web_route_value "$routes_file" "/" 8)"
   if [ -n "$missing_headers" ]; then
@@ -595,7 +851,16 @@ cmd_web_assess() {
       "$routes_evidence_id")")
   fi
 
-  atlas_web_write_summary "$summary_file" "$url" "$origin" "$http_origin" "$routes_file" "${#finding_ids[@]}"
+  credentialed_cors_count="$(atlas_web_credentialed_cors_count "$api_file" "$origin")"
+  if [ "$credentialed_cors_count" -gt 0 ]; then
+    finding_ids+=("$(atlas_web_add_finding \
+      "Credentialed CORS allows probe origin" \
+      "medium" \
+      "Restrict credentialed CORS to explicitly trusted application origins and avoid reflecting arbitrary Origin values." \
+      "$api_evidence_id")")
+  fi
+
+  atlas_web_write_summary "$summary_file" "$url" "$origin" "$http_origin" "$routes_file" "$api_file" "$cors_origin" "${#finding_ids[@]}"
   summary_evidence_output="$(cmd_evidence_add "$summary_file" --kind web-assessment-summary --classification public)"
   summary_evidence_id="$(printf '%s\n' "$summary_evidence_output" | awk -F': ' '$1 == "id" { print $2; exit }')"
   [ -n "$summary_evidence_id" ] || fail "unable to record web assessment summary evidence"
@@ -603,6 +868,7 @@ cmd_web_assess() {
   atlas_ledger_append_current "web.assessment.generated" "read-only" "atlas" "ok" "url=$url findings=${#finding_ids[@]} summary=$summary_file"
   record_operation_history "$ATLAS_OP_DIR" "web-assessment" "$summary_file"
   atlas_web_publish_intel "$ATLAS_OP_TARGET" "$routes_file"
+  atlas_web_publish_api_intel "$ATLAS_OP_TARGET" "$api_file" "$origin"
 
   bundle_output="$(cmd_evidence_bundle "$ATLAS_OP_SLUG-web-assessment")"
   bundle_dir="$(printf '%s\n' "$bundle_output" | awk -F': ' '$1 == "bundle" { print $2; exit }')"
@@ -621,8 +887,10 @@ cmd_web_assess() {
   printf 'origin: %s\n' "$origin"
   printf 'summary: %s\n' "$summary_file"
   printf 'routes: %s\n' "$routes_file"
+  printf 'api: %s\n' "$api_file"
   printf 'summary_evidence: %s\n' "$summary_evidence_id"
   printf 'routes_evidence: %s\n' "$routes_evidence_id"
+  printf 'api_evidence: %s\n' "$api_evidence_id"
   printf 'findings: %s\n' "${#finding_ids[@]}"
   if [ "${#finding_ids[@]}" -gt 0 ]; then
     printf 'finding_ids: %s\n' "${finding_ids[*]}"

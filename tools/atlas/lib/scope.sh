@@ -16,6 +16,7 @@ target-first recon against configured scope
 service validation and non-invasive fingerprint refresh
 HTTP/HTTPS probing of observed web surfaces
 HTTP posture review for headers, redirects, metadata routes, and common login/admin routes
+bounded API status and CORS preflight posture checks
 shared-intel summarization, story views, and report generation
 EOF
 }
@@ -26,7 +27,7 @@ exploitation, payload delivery, or persistence
 brute forcing, password guessing, credential stuffing, or session hijacking
 destructive testing, denial of service, fuzzing, or high-volume crawling
 access to third-party systems beyond the configured target
-data extraction beyond minimal service, route, header, and posture evidence
+data extraction beyond minimal service, route, header, API status, CORS header, and posture evidence
 EOF
 }
 

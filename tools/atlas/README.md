@@ -21,7 +21,7 @@ atlas v1 status --json
 atlas release packet atlas-current --qa-status pass
 atlas release packet atlas-current --json --qa-status pass
 atlas release verify atlas-current
-atlas web assess https://example.com example-web-review --scope-status in-scope
+atlas web assess https://example.com example-web-review --scope-status in-scope --api-path /api/auth/me --cors-origin https://example.net
 atlas menu
 atlas profile list
 atlas profile show htb-starting-point
@@ -144,11 +144,14 @@ retention notes, and known limitations for both Markdown and JSON packets.
 
 `atlas web assess <url> [assessment-name]` packetizes a bounded public web
 posture review as an Atlas operation. It creates or reuses a target record,
-checks the root, HTTP origin, metadata routes, and common admin-style routes,
-stores route/header results as operation evidence, records structured posture
-findings, bundles evidence, writes an operation report, and emits a handoff
-packet. The command is intended for authorized public web review; it does not
-fuzz, brute force, exploit, or crawl arbitrary content.
+checks the root, HTTP origin, metadata routes, common admin-style routes, and
+bounded API/CORS probes, stores route/header and API/CORS results as operation
+evidence, records structured posture findings, bundles evidence, writes an
+operation report, and emits a handoff packet. Operators can add repeated
+`--api-path <path>` values, set the preflight probe with `--cors-origin`, or
+use `--skip-api` for route-only review. The command is intended for authorized
+public web review; it does not fuzz, brute force, exploit, or crawl arbitrary
+content.
 
 The full trust lifecycle is documented in
 [`docs/atlas/TRUST_LIFECYCLE.md`](../../docs/atlas/TRUST_LIFECYCLE.md). It
@@ -353,6 +356,7 @@ Allowed operation actions are:
 - service validation and non-invasive fingerprint refresh
 - HTTP/HTTPS probing of observed web surfaces
 - HTTP posture review for headers, redirects, metadata routes, and common login/admin routes
+- bounded API status and CORS preflight posture checks
 - shared-intel summarization, story views, and report generation
 
 Explicitly out of scope:
@@ -361,7 +365,7 @@ Explicitly out of scope:
 - brute forcing, password guessing, credential stuffing, or session hijacking
 - destructive testing, denial of service, fuzzing, or high-volume crawling
 - access to third-party systems beyond the configured target
-- data extraction beyond minimal service, route, header, and posture evidence
+- data extraction beyond minimal service, route, header, API status, CORS header, and posture evidence
 
 ## Reports
 

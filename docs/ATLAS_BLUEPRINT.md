@@ -236,6 +236,10 @@ The near-term roadmap is:
     bounded public web posture check into an Atlas operation with retained
     route/header evidence, structured findings, an evidence bundle, an
     operation report, and a handoff packet.
+38. Add API/CORS web assessment packetization. `atlas web assess` now records
+    bounded API route and CORS preflight evidence, supports explicit
+    `--api-path` and `--cors-origin` probes, and raises a structured finding
+    when credentialed CORS allows the configured probe origin.
 
 ## First Serious Version
 

@@ -299,7 +299,7 @@ release:
   atlas release verify [packet] [--commit sha]
 
 web:
-  atlas web assess <url> [assessment-name] [--target name] [--scope-status status] [--criticality level] [--owner owner] [--timeout seconds]
+  atlas web assess <url> [assessment-name] [--target name] [--scope-status status] [--criticality level] [--owner owner] [--timeout seconds] [--api-path path] [--cors-origin origin] [--skip-api]
 EOF
 }
 
