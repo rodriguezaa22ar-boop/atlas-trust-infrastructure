@@ -51,6 +51,7 @@ changes, verification output, repo state, and boundaries for that milestone.
 | [54](milestones/MILESTONE_54.md) | `96ff1e53a9af3318d412ee963bff400867ec7f11` | root agent guidance | agent-governance | no | Adds strict repo-root guidance for safe future agent work. | `dev-qa`: 72/72, lint ok, stress ok | `atlas-retention-m54` |
 | [55](milestones/MILESTONE_55.md) | `4bd10fff7439cce1012744eaad9cccce069dedd9` | production readiness gate | release-trust | yes | Makes production readiness measurable and conservative. | production focused test: 1/1; `dev-test`: 73/73; `dev-qa`: 73/73 | `atlas-retention-m55` |
 | [56](milestones/MILESTONE_56.md) | `63773156e376e018ed7de97788b54258e80cf04b` | agent guidance validation | agent-governance | no | Makes the root agent safety contract testable. | agent focused test: 1/1; `dev-qa`: 74/74 | `atlas-retention-m56` |
+| [57](milestones/MILESTONE_57.md) | `b0ebddbcdc3cb9c4caab28973df78c1c36176654` | milestone retention index | retention | no | Makes the milestone trust history externally navigable and self-checking. | index focused test: 1/1; `dev-qa`: 75/75 | `atlas-retention-m57` |
 
 ## Category Notes
 
