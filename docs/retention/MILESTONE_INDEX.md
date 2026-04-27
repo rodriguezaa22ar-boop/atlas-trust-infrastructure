@@ -64,6 +64,7 @@ changes, verification output, repo state, and boundaries for that milestone.
 | [67](milestones/MILESTONE_67.md) | `3e2a8b734fed694b350c4916c242c5e2ffd80e76` | signed release provenance | release-trust | yes | Makes signing/provenance depend on a retained release provenance packet, release packet hash, signed tag, and retained public key. | production focused test: 1/1; schema/parity focused tests: 2/2; `dev-qa`: 81/81; release verify: pass | `atlas-retention-m67` |
 | [68](milestones/MILESTONE_68.md) | `adc5cf3afcb734f1d106f26de04d9083057a9bbc` | README landing page split | docs-only | no | Turns the root README into a short reviewer landing page and moves heavy command/workflow material into dedicated docs. | README focused test: 1/1; docs focused tests: 3/3; `dev-qa`: 82/82 | `atlas-retention-m68` |
 | [69](milestones/MILESTONE_69.md) | `7c5f302f20902cfd56de0f947fde94388d01ff40` | reviewability navigation | docs-only | no | Adds a documentation index, one-page Atlas summary, and release verify/replay/provenance alignment docs. | docs focused tests: 4/4; `dev-qa`: 82/82 | `atlas-retention-m69` |
+| [70](milestones/MILESTONE_70.md) | `345de45d799e54600f712196578b9e698461415f` | business-flow evidence spec | docs-only | no | Defines optional metadata-only business-process evidence without weakening Atlas' trust boundary. | business-flow focused tests: 3/3; `dev-qa`: 83/83; release verify: pass | `atlas-retention-m70` |
 
 ## Category Notes
 
