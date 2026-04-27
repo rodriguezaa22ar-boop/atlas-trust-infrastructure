@@ -70,6 +70,7 @@ changes, verification output, repo state, and boundaries for that milestone.
 | [73](milestones/MILESTONE_73.md) | `b640391a0624816df6bdd6b4d493a7b30d59cdcb` | trust infrastructure direction | docs-only | no | Defines Atlas as metadata-first trust infrastructure for evidence-backed operational proof. | trust-infrastructure focused tests: 3/3; `dev-qa`: 86/86; release verify: pass | `atlas-retention-m73` |
 | [74](milestones/MILESTONE_74.md) | `139797a049e5fea6d37f475b5fa4381465913591` | trust object model | docs-only | no | Defines Atlas actors, objects, packet classes, schemas, freshness, verification, replay, and retention. | trust-object focused tests: 4/4; `dev-qa`: 87/87; release verify: pass | `atlas-retention-m74` |
 | [75](milestones/MILESTONE_75.md) | `94d6dccc9bea016822a30e80a930ab9d35e77e10` | release replay command | release-trust | yes | Implements clean-checkout release replay for retained release packets. | replay focused tests: 6/6; `dev-qa`: 88/88; release verify: pass; release replay: pass | `atlas-retention-m75` |
+| [76](milestones/MILESTONE_76.md) | `0ab2e1addedb3f0aec3565f90a49f85f12d061dd` | business-flow packets | evidence | yes | Implements operation-scoped metadata-only Business Flow Evidence packets linked to evidence references. | business-flow/doc focused tests: 10/10; `dev-qa`: 89/89; release verify: pass; release replay: pass | `atlas-retention-m76` |
 
 ## Category Notes
 
