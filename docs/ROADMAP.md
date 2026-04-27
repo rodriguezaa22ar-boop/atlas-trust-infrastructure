@@ -16,6 +16,7 @@ Atlas is in the trust infrastructure lane:
 - metadata-only business-flow records
 - metadata-only business-flow evidence links
 - metadata-only business-flow packets
+- metadata-only business-flow packet verification
 
 ## Near-Term Milestones
 
@@ -26,7 +27,7 @@ Atlas is in the trust infrastructure lane:
 3. Release replay command. Implemented as `atlas release replay`.
 4. Metadata-only Business Flow Evidence packets. Implemented as
    `atlas flow packet`.
-5. Business Flow Evidence verification.
+5. Business Flow Evidence verification. Implemented as `atlas flow verify`.
 6. Optional Business Flow Evidence readiness integration.
 7. Flow record, flow link, and flow packet schema stabilization.
 8. JSON parity for archive, audit, and business-flow packets where needed.

@@ -176,6 +176,7 @@ atlas flow list
 atlas flow show <flow>
 atlas flow link-evidence <flow> <evidence-id>
 atlas flow packet <flow> [packet-name]
+atlas flow verify <flow> [packet-name]
 ```
 
 Implemented records are written to:
@@ -199,8 +200,13 @@ flow identity, operation metadata, data class labels, system aliases, control
 objective labels, evidence IDs, retained evidence paths, SHA-256 hashes,
 classification, redaction state, freshness metadata, and known limitations.
 
-This slice does not implement flow verification, JSON packet parity, finding or
-validation links, retention links, or readiness integration yet.
+`atlas flow verify` requires an active operation and verifies the current
+metadata-only Markdown packet against the flow record, operation link, evidence
+links, retained evidence records, retained evidence files, hashes, freshness
+timestamps, and forbidden-content guardrails.
+
+This slice does not implement JSON packet parity, finding or validation links,
+retention links, or readiness integration yet.
 
 ## Flow Record Contract
 
@@ -298,19 +304,27 @@ The packet must not include:
 
 ## Flow Verification
 
-`atlas flow verify` should eventually check:
+`atlas flow verify <flow> [packet-name]` checks:
 
 - flow record exists
 - packet exists
+- packet schema marker is present
+- packet is marked metadata-only
+- packet does not claim raw evidence embedding
+- packet operation, target, and flow ID match the current active operation and
+  flow record
 - packet flow ID matches the flow record
 - linked evidence IDs still exist
 - linked evidence hashes still match
-- linked findings still exist
-- linked validations still exist
+- retained evidence files still exist
+- retained evidence file hashes still match evidence records
 - packet freshness is current
 - forbidden raw-content markers are absent
 
-Verification should fail closed on missing or malformed references.
+Verification fails closed on missing packets, missing links, stale packets,
+missing retained files, hash mismatches, and forbidden raw-content markers.
+Finding, validation, approval, retention, and JSON verification can be added
+after those link types exist.
 
 ## Freshness
 
@@ -342,12 +356,14 @@ atlas flow list
 atlas flow show <flow>
 atlas flow link-evidence <flow> <evidence-id>
 atlas flow packet <flow> [packet-name]
+atlas flow verify <flow> [packet-name]
 ```
 
 The next runtime command set should add:
 
 ```bash
-atlas flow verify <flow> [packet-name]
+atlas flow link-finding <flow> <finding-id>
+atlas flow link-validation <flow> <validation-id>
 ```
 
 Later commands may add:

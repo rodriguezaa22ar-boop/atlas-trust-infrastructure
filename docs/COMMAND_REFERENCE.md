@@ -130,6 +130,7 @@ nix-shell --run './bin/dev-qa'
 ./tools/atlas/bin/atlas flow show customer-signup
 ./tools/atlas/bin/atlas flow link-evidence customer-signup ev_...
 ./tools/atlas/bin/atlas flow packet customer-signup customer-signup-flow
+./tools/atlas/bin/atlas flow verify customer-signup customer-signup-flow
 ```
 
 Business-flow records are metadata-only global flow records under
@@ -138,8 +139,9 @@ Business-flow records are metadata-only global flow records under
 copying or embedding raw evidence. Flow packets are metadata-only Markdown
 packets under `sessions/<operation>/flow_packets/` and include flow labels,
 evidence IDs, retained paths, hashes, freshness metadata, and known
-limitations. Flow verification, JSON parity, finding/validation links, and
-readiness integration remain planned.
+limitations. Flow verification checks packet metadata, evidence links, retained
+files, hashes, freshness, and forbidden-content markers. JSON parity,
+finding/validation links, and readiness integration remain planned.
 
 ## Atlas Findings
 

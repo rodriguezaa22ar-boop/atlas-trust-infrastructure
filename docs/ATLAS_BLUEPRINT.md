@@ -462,6 +462,15 @@ The near-term roadmap is:
     bodies, payment data, or credential material. Flow verification, JSON
     parity, finding and validation links, retention references, and readiness
     integration remain planned later steps.
+77. Add business-flow packet verification. `atlas flow verify` now checks the
+    operation-scoped Markdown Business Flow Evidence packet against the active
+    operation, flow record, operation link, evidence links, retained evidence
+    records, retained evidence files, SHA-256 hashes, freshness timestamps, and
+    forbidden-content guardrails. Verification is read-only and fails closed on
+    missing packets, missing links, stale packets, missing retained evidence,
+    hash mismatches, and forbidden raw-content markers. JSON parity, finding
+    and validation links, retention references, and optional readiness
+    integration remain planned later steps.
 
 ## First Serious Version
 

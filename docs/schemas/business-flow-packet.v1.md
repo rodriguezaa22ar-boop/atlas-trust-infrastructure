@@ -10,7 +10,10 @@ Atlas artifacts support the review, what validation or findings exist, and
 whether the packet is current.
 
 The current `atlas flow packet` implementation emits a Markdown packet aligned
-to this contract. A stable JSON companion is still planned.
+to this contract, and `atlas flow verify` verifies that Markdown packet against
+the active operation, flow record, evidence links, retained evidence files,
+hashes, freshness, and metadata-only guardrails. A stable JSON companion is
+still planned.
 
 ## Required Fields
 
@@ -93,7 +96,7 @@ The packet may include hashes and metadata references to redacted artifacts.
 
 ## Verification Rules
 
-`atlas flow verify` should eventually check:
+`atlas flow verify` checks:
 
 - packet exists
 - `schema_version` matches
@@ -102,11 +105,13 @@ The packet may include hashes and metadata references to redacted artifacts.
 - packet flow ID matches flow record
 - linked evidence IDs exist
 - linked evidence hashes still match
-- linked finding IDs exist
-- linked validation IDs exist
-- linked retention references exist when required
-- freshness is current unless non-strict verification allows stale state
+- retained evidence files exist
+- retained evidence file hashes still match evidence records
+- freshness is current
 - forbidden raw-content markers are absent
+
+Future verification can add linked finding IDs, linked validation IDs, linked
+retention references, and JSON packet parity once those surfaces exist.
 
 ## Markdown Parity
 

@@ -555,7 +555,7 @@ EOF
   grep -q 'Classification: public' "$packet_path"
   grep -q 'Redacted: false' "$packet_path"
   grep -q 'Status: current' "$packet_path"
-  grep -q 'Flow verification remains a later command' "$packet_path"
+  grep -q 'Flow verification checks packet metadata' "$packet_path"
   ! grep -q 'source_path' "$packet_path"
   ! grep -q 'raw_evidence' "$packet_path"
   ! grep -q 'evidence_body' "$packet_path"
@@ -570,6 +570,101 @@ EOF
       (.detail | contains("evidence_links=1"))
     )
   ' "$ledger"
+}
+
+@test "atlas flow verify checks packet integrity and fails closed" {
+  mkdir -p "$TEST_ROOT/toolkit/targets"
+  cat > "$TEST_ROOT/toolkit/targets/demo-node.env" <<'EOF'
+NAME=demo-node
+ADDRESS=10.10.10.10
+SCOPE_STATUS=in-scope
+CRITICALITY=high
+CREATED_AT=2026-04-23T20:53:16Z
+EOF
+  artifact="$TEST_ROOT/flow-verify-artifact.txt"
+  second_artifact="$TEST_ROOT/flow-verify-second-artifact.txt"
+  printf 'flow verify proof that must not be copied\n' > "$artifact"
+  printf 'second flow verify proof that must not be copied\n' > "$second_artifact"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow add customer-signup \
+    --type customer_onboarding \
+    --owner product \
+    --criticality high \
+    --environment staging \
+    --scope-status in-scope \
+    --data-class email \
+    --system web_app \
+    --control audit_logging
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op start flow-verify-op demo-node authorized flow verify
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow verify customer-signup missing-packet
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Packet"* ]]
+  [[ "$output" == *"missing"* ]]
+  [[ "$output" == *"Overall: blocked"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence add "$artifact" --kind redacted-report --classification public
+  [ "$status" -eq 0 ]
+  evidence_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  evidence_sha="$(printf '%s\n' "$output" | awk -F': ' '$1 == "sha256" { print $2; exit }')"
+  evidence_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "path" { print $2; exit }')"
+  [ -n "$evidence_id" ]
+  [ -n "$evidence_sha" ]
+  [ -n "$evidence_path" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow link-evidence customer-signup "$evidence_id"
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow packet customer-signup customer-signup-flow
+  [ "$status" -eq 0 ]
+
+  packet_path="$TEST_ROOT/toolkit/sessions/flow-verify-op/flow_packets/customer-signup-flow.md"
+  ledger="$TEST_ROOT/toolkit/sessions/flow-verify-op/ledger.ndjson"
+  ledger_before="$(sha256sum "$ledger" | awk '{ print $1 }')"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow verify customer-signup customer-signup-flow
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"business flow packet verified"* ]]
+  [[ "$output" == *"Evidence $evidence_id"* ]]
+  [[ "$output" == *"Overall: current"* ]]
+  ledger_after="$(sha256sum "$ledger" | awk '{ print $1 }')"
+  [ "$ledger_before" = "$ledger_after" ]
+
+  cp "$packet_path" "$packet_path.valid"
+  printf '\npassword=bad\n' >> "$packet_path"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow verify customer-signup customer-signup-flow
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Forbidden Content"* ]]
+  [[ "$output" == *"forbidden raw-content marker"* ]]
+  [[ "$output" == *"Overall: blocked"* ]]
+  cp "$packet_path.valid" "$packet_path"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence add "$second_artifact" --kind redacted-report --classification public
+  [ "$status" -eq 0 ]
+  second_evidence_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  [ -n "$second_evidence_id" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow link-evidence customer-signup "$second_evidence_id"
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow verify customer-signup customer-signup-flow
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Evidence Count"* ]]
+  [[ "$output" == *"Freshness"* ]]
+  [[ "$output" == *"Overall: stale"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow packet customer-signup customer-signup-flow
+  [ "$status" -eq 0 ]
+
+  printf 'tampered retained evidence\n' >> "$evidence_path"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow verify customer-signup customer-signup-flow
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Evidence File"* ]]
+  [[ "$output" == *"actual hash mismatch"* ]]
+  [[ "$output" == *"Overall: blocked"* ]]
 }
 
 @test "release replay verification runbook preserves clean-checkout procedure" {
@@ -799,6 +894,7 @@ EOF
   [[ "$output" == *"atlas flow show <flow>"* ]]
   [[ "$output" == *"atlas flow link-evidence <flow> <evidence-id>"* ]]
   [[ "$output" == *"atlas flow packet <flow> [packet-name]"* ]]
+  [[ "$output" == *"atlas flow verify <flow> [packet-name]"* ]]
   [[ "$output" == *"atlas web assess <url> [assessment-name]"* ]]
   [[ "$output" == *"atlas web validation-plan [--all]"* ]]
   [[ "$output" == *"atlas web validation-approve [--all] --reason text"* ]]

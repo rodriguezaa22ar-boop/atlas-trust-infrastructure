@@ -83,14 +83,23 @@ atlas_flow_slug_for_input() {
 
 atlas_flow_forbidden_content_check() {
   local value="$1"
+
+  if atlas_flow_forbidden_content_present "$value"; then
+    fail "business-flow metadata contains a forbidden raw-content marker"
+  fi
+}
+
+atlas_flow_forbidden_content_present() {
+  local value="$1"
   local lowered
 
   lowered="$(printf '%s' "$value" | tr '[:upper:]' '[:lower:]')"
   case "$lowered" in
   *password=* | *passwd=* | *api_key=* | *secret=* | *token=* | *authorization:* | *bearer* | *set-cookie:* | *private\ key* | *begin\ rsa* | *begin\ openssh* | *session=* | *cookie=*)
-    fail "business-flow metadata contains a forbidden raw-content marker"
+    return 0
     ;;
   esac
+  return 1
 }
 
 atlas_flow_validate_metadata_value() {
@@ -296,11 +305,85 @@ atlas_flow_packet_evidence_refs() {
 
 atlas_flow_validate_packet_file() {
   local packet_file="$1"
+
+  if atlas_flow_packet_forbidden_content_present "$packet_file"; then
+    fail "business-flow metadata contains a forbidden raw-content marker"
+  fi
+}
+
+atlas_flow_packet_forbidden_content_present() {
+  local packet_file="$1"
   local line
 
   while IFS= read -r line; do
-    atlas_flow_forbidden_content_check "$line"
+    if atlas_flow_forbidden_content_present "$line"; then
+      return 0
+    fi
   done <"$packet_file"
+  return 1
+}
+
+atlas_flow_packet_field() {
+  local packet_file="$1"
+  local label="$2"
+
+  awk -F': ' -v wanted="- $label" '$1 == wanted { print substr($0, length(wanted) + 3); exit }' "$packet_file"
+}
+
+atlas_flow_packet_contains_value() {
+  local packet_file="$1"
+  local label="$2"
+  local value="$3"
+
+  grep -Fq -- "- $label: $value" "$packet_file"
+}
+
+atlas_flow_timestamp_after() {
+  local left="$1"
+  local right="$2"
+
+  [ -n "$left" ] && [ -n "$right" ] && [[ "$left" > "$right" ]]
+}
+
+atlas_flow_verify_reset() {
+  ATLAS_FLOW_VERIFY_FAILURES=0
+  ATLAS_FLOW_VERIFY_OVERALL="current"
+}
+
+atlas_flow_verify_row() {
+  local check="$1"
+  local status="$2"
+  local detail="$3"
+
+  printf '%-28s %-10s %s\n' "$check" "$status" "$detail"
+  case "$status" in
+  ok)
+    ;;
+  stale)
+    ATLAS_FLOW_VERIFY_FAILURES=$((ATLAS_FLOW_VERIFY_FAILURES + 1))
+    if [ "$ATLAS_FLOW_VERIFY_OVERALL" != "blocked" ]; then
+      ATLAS_FLOW_VERIFY_OVERALL="stale"
+    fi
+    ;;
+  *)
+    ATLAS_FLOW_VERIFY_FAILURES=$((ATLAS_FLOW_VERIFY_FAILURES + 1))
+    ATLAS_FLOW_VERIFY_OVERALL="blocked"
+    ;;
+  esac
+}
+
+atlas_flow_verify_packet_field_equals() {
+  local packet_file="$1"
+  local label="$2"
+  local expected="$3"
+  local actual
+
+  actual="$(atlas_flow_packet_field "$packet_file" "$label")"
+  if [ "$actual" = "$expected" ]; then
+    atlas_flow_verify_row "$label" "ok" "$actual"
+  else
+    atlas_flow_verify_row "$label" "blocked" "expected=${expected:-missing} actual=${actual:-missing}"
+  fi
 }
 
 atlas_flow_append_operation_link() {
@@ -695,7 +778,7 @@ cmd_flow_packet() {
     printf -- '- Evidence Link Count: %s\n' "$evidence_link_count"
     printf '\n## Known Limitations\n\n'
     printf -- '- This packet is metadata-only and does not embed raw evidence content.\n'
-    printf -- '- Flow verification remains a later command and is not claimed by this packet.\n'
+    printf -- '- Flow verification checks packet metadata, evidence links, hashes, freshness, and forbidden-content guardrails.\n'
     printf -- '- Finding, validation, approval, retention, and JSON packet parity links are not included in this first packet slice.\n'
     printf -- '- This packet is not production certification, payment verification, legal compliance evidence, or a third-party audit.\n'
   } >"$packet_file"
@@ -712,6 +795,228 @@ cmd_flow_packet() {
   printf 'flow_id: %s\n' "$ATLAS_FLOW_ID"
   printf 'operation: %s\n' "$ATLAS_OP_SLUG"
   printf 'packet: %s\n' "$packet_file"
+}
+
+cmd_flow_verify() {
+  need_args 1 "$#" "flow verify <flow> [packet-name]"
+  [ "$#" -le 2 ] || fail "flow verify <flow> [packet-name]"
+
+  local flow="$1"
+  local packet_name="${2:-}"
+  local packet_file
+  local flow_file
+  local flow_sha
+  local packet_flow_sha
+  local flow_links_file
+  local evidence_links_file
+  local expected_count
+  local packet_count
+  local evidence_count_stale=0
+  local generated_at
+  local latest_evidence_link
+  local link_json
+  local evidence_id
+  local link_path
+  local link_sha
+  local link_classification
+  local link_redacted
+  local link_linked_at
+  local record
+  local record_path
+  local record_sha
+  local record_classification
+  local record_redacted
+  local evidence_file
+  local actual_sha
+
+  atlas_flow_load "$flow"
+  load_active_operation
+  intel_require_jq
+
+  if [ -z "$packet_name" ]; then
+    packet_name="$ATLAS_FLOW_SLUG-flow-packet"
+  fi
+
+  packet_file="$(atlas_flow_packet_path_for_name "$packet_name")"
+  flow_file="$(atlas_flow_file_for_slug "$ATLAS_FLOW_SLUG")"
+  flow_sha="$(atlas_evidence_hash_path "$flow_file")"
+  flow_links_file="$(atlas_flow_operation_links_file "$ATLAS_OP_DIR")"
+  evidence_links_file="$(atlas_flow_evidence_links_file "$ATLAS_OP_DIR")"
+
+  ui_heading "Atlas Business Flow Packet Verification"
+  ui_rule
+  ui_kv "Flow" "$ATLAS_FLOW_ID"
+  ui_kv "Operation" "$ATLAS_OP_SLUG"
+  ui_kv "Packet" "$packet_file"
+  ui_rule
+  printf '%-28s %-10s %s\n' "CHECK" "STATUS" "DETAIL"
+
+  atlas_flow_verify_reset
+
+  if [ -f "$packet_file" ]; then
+    atlas_flow_verify_row "Packet" "ok" "$packet_file"
+  else
+    atlas_flow_verify_row "Packet" "blocked" "missing"
+    ui_rule
+    ui_kv "Overall" "$ATLAS_FLOW_VERIFY_OVERALL"
+    return 1
+  fi
+
+  if atlas_flow_packet_forbidden_content_present "$packet_file"; then
+    atlas_flow_verify_row "Forbidden Content" "blocked" "forbidden raw-content marker detected"
+  else
+    atlas_flow_verify_row "Forbidden Content" "ok" "absent"
+  fi
+
+  atlas_flow_verify_packet_field_equals "$packet_file" "Schema" "atlas.business_flow_packet.v1"
+  atlas_flow_verify_packet_field_equals "$packet_file" "Metadata Only" "true"
+  atlas_flow_verify_packet_field_equals "$packet_file" "Raw Evidence Embedded" "false"
+  atlas_flow_verify_packet_field_equals "$packet_file" "Operation" "$ATLAS_OP_SLUG"
+  atlas_flow_verify_packet_field_equals "$packet_file" "Target" "$ATLAS_OP_TARGET"
+  atlas_flow_verify_packet_field_equals "$packet_file" "Flow ID" "$ATLAS_FLOW_ID"
+
+  packet_flow_sha="$(atlas_flow_packet_field "$packet_file" "Flow Record SHA-256")"
+  if [ "$packet_flow_sha" = "$flow_sha" ]; then
+    atlas_flow_verify_row "Flow Record Hash" "ok" "$flow_sha"
+  else
+    atlas_flow_verify_row "Flow Record Hash" "stale" "expected=$flow_sha actual=${packet_flow_sha:-missing}"
+  fi
+
+  generated_at="$(atlas_flow_packet_field "$packet_file" "Packet Generated At")"
+  if [ -z "$generated_at" ]; then
+    generated_at="$(atlas_flow_packet_field "$packet_file" "Generated At")"
+  fi
+  if [ -n "$generated_at" ]; then
+    atlas_flow_verify_row "Generated At" "ok" "$generated_at"
+  else
+    atlas_flow_verify_row "Generated At" "blocked" "missing"
+  fi
+
+  if atlas_flow_operation_link_exists "$flow_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG"; then
+    atlas_flow_verify_row "Operation Link" "ok" "$flow_links_file"
+  else
+    atlas_flow_verify_row "Operation Link" "blocked" "missing flow link in active operation"
+  fi
+
+  expected_count="$(atlas_flow_evidence_link_count "$evidence_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  packet_count="$(atlas_flow_packet_field "$packet_file" "Evidence Link Count")"
+  if [ "$expected_count" -gt 0 ]; then
+    atlas_flow_verify_row "Evidence Links" "ok" "$expected_count"
+  else
+    atlas_flow_verify_row "Evidence Links" "blocked" "none linked"
+  fi
+
+  if [ "$packet_count" = "$expected_count" ]; then
+    atlas_flow_verify_row "Evidence Count" "ok" "$packet_count"
+  else
+    evidence_count_stale=1
+    atlas_flow_verify_row "Evidence Count" "stale" "expected=$expected_count actual=${packet_count:-missing}"
+  fi
+
+  latest_evidence_link="$(atlas_flow_latest_evidence_linked_at "$evidence_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  if atlas_flow_timestamp_after "$latest_evidence_link" "$generated_at"; then
+    atlas_flow_verify_row "Freshness" "stale" "latest_evidence_link=$latest_evidence_link packet_generated=$generated_at"
+  else
+    atlas_flow_verify_row "Freshness" "ok" "latest_evidence_link=${latest_evidence_link:-none} packet_generated=${generated_at:-missing}"
+  fi
+
+  if atlas_flow_timestamp_after "$ATLAS_FLOW_UPDATED_AT" "$generated_at"; then
+    atlas_flow_verify_row "Flow Freshness" "stale" "flow_updated=$ATLAS_FLOW_UPDATED_AT packet_generated=$generated_at"
+  else
+    atlas_flow_verify_row "Flow Freshness" "ok" "flow_updated=${ATLAS_FLOW_UPDATED_AT:-unknown}"
+  fi
+
+  while IFS= read -r link_json; do
+    [ -n "$link_json" ] || continue
+    evidence_id="$(printf '%s\n' "$link_json" | jq -r '.evidence_id // ""')"
+    link_path="$(printf '%s\n' "$link_json" | jq -r '.evidence_path // ""')"
+    link_sha="$(printf '%s\n' "$link_json" | jq -r '.evidence_sha256 // ""')"
+    link_classification="$(printf '%s\n' "$link_json" | jq -r '.evidence_classification // ""')"
+    link_redacted="$(printf '%s\n' "$link_json" | jq -r '(.evidence_redacted // false) | tostring')"
+    link_linked_at="$(printf '%s\n' "$link_json" | jq -r '.linked_at // ""')"
+
+    if [ -z "$evidence_id" ]; then
+      atlas_flow_verify_row "Evidence Record" "blocked" "link missing evidence id"
+      continue
+    fi
+
+    if atlas_flow_packet_contains_value "$packet_file" "Evidence ID" "$evidence_id"; then
+      atlas_flow_verify_row "Evidence $evidence_id" "ok" "packet reference present"
+    elif [ "$evidence_count_stale" -eq 1 ] || atlas_flow_timestamp_after "$link_linked_at" "$generated_at"; then
+      atlas_flow_verify_row "Evidence $evidence_id" "stale" "link newer than packet or count mismatch"
+    else
+      atlas_flow_verify_row "Evidence $evidence_id" "blocked" "packet reference missing"
+    fi
+
+    record="$(atlas_evidence_latest_record "$evidence_id" || true)"
+    if [ -z "$record" ]; then
+      atlas_flow_verify_row "Evidence Record" "blocked" "missing current record for $evidence_id"
+      continue
+    fi
+
+    record_path="$(printf '%s\n' "$record" | jq -r '.path // ""')"
+    record_sha="$(printf '%s\n' "$record" | jq -r '.sha256 // ""')"
+    record_classification="$(printf '%s\n' "$record" | jq -r '.classification // ""')"
+    record_redacted="$(printf '%s\n' "$record" | jq -r '(.redacted // false) | tostring')"
+
+    if [ "$record_path" = "$link_path" ]; then
+      atlas_flow_verify_row "Evidence Path" "ok" "$evidence_id $record_path"
+    else
+      atlas_flow_verify_row "Evidence Path" "blocked" "evidence=$evidence_id expected=$record_path actual=${link_path:-missing}"
+    fi
+
+    if [ "$record_sha" = "$link_sha" ] && [ -n "$record_sha" ]; then
+      atlas_flow_verify_row "Evidence Hash" "ok" "$evidence_id $record_sha"
+    else
+      atlas_flow_verify_row "Evidence Hash" "blocked" "evidence=$evidence_id expected=$record_sha actual=${link_sha:-missing}"
+    fi
+
+    if atlas_flow_packet_contains_value "$packet_file" "Retained Path" "$link_path" &&
+      atlas_flow_packet_contains_value "$packet_file" "SHA-256" "$link_sha" &&
+      atlas_flow_packet_contains_value "$packet_file" "Classification" "$link_classification" &&
+      atlas_flow_packet_contains_value "$packet_file" "Redacted" "$link_redacted"; then
+      atlas_flow_verify_row "Packet Evidence" "ok" "$evidence_id metadata matches"
+    elif [ "$evidence_count_stale" -eq 1 ] || atlas_flow_timestamp_after "$link_linked_at" "$generated_at"; then
+      atlas_flow_verify_row "Packet Evidence" "stale" "$evidence_id link newer than packet or count mismatch"
+    else
+      atlas_flow_verify_row "Packet Evidence" "blocked" "$evidence_id metadata missing or mismatched"
+    fi
+
+    if [ "$record_classification" != "$link_classification" ] || [ "$record_redacted" != "$link_redacted" ]; then
+      atlas_flow_verify_row "Evidence Metadata" "blocked" "evidence=$evidence_id classification/redaction mismatch"
+    else
+      atlas_flow_verify_row "Evidence Metadata" "ok" "$evidence_id classification=$record_classification redacted=$record_redacted"
+    fi
+
+    evidence_file="$ATLAS_OP_DIR/$record_path"
+    if [ -f "$evidence_file" ]; then
+      actual_sha="$(atlas_evidence_hash_path "$evidence_file")"
+      if [ "$actual_sha" = "$record_sha" ]; then
+        atlas_flow_verify_row "Evidence File" "ok" "$evidence_id actual hash matches"
+      else
+        atlas_flow_verify_row "Evidence File" "blocked" "evidence=$evidence_id actual hash mismatch expected=$record_sha actual=$actual_sha"
+      fi
+    else
+      atlas_flow_verify_row "Evidence File" "blocked" "missing retained file for $evidence_id: $record_path"
+    fi
+  done < <(
+    if [ -s "$evidence_links_file" ]; then
+      jq -c \
+        --arg flow_id "$ATLAS_FLOW_ID" \
+        --arg operation "$ATLAS_OP_SLUG" \
+        'select(.flow_id == $flow_id and .operation == $operation)' \
+        "$evidence_links_file"
+    fi
+  )
+
+  ui_rule
+  ui_kv "Overall" "$ATLAS_FLOW_VERIFY_OVERALL"
+  if [ "$ATLAS_FLOW_VERIFY_FAILURES" -eq 0 ]; then
+    ui_ok "business flow packet verified"
+    return 0
+  fi
+
+  return 1
 }
 
 dispatch_flow_command() {
@@ -735,6 +1040,10 @@ dispatch_flow_command() {
   packet)
     shift
     cmd_flow_packet "$@"
+    ;;
+  verify)
+    shift
+    cmd_flow_verify "$@"
     ;;
   *)
     usage

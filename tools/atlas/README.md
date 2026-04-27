@@ -224,18 +224,20 @@ validation item, and `--plan <id>` approves one explicit plan. Approval is
 metadata-only: it records the reason and operator, then leaves validation
 execution and retest as separate commands.
 
-`atlas flow add/list/show/link-evidence/packet` manages optional metadata-only
-Business Flow Evidence records. Global flow records live under
+`atlas flow add/list/show/link-evidence/packet/verify` manages optional
+metadata-only Business Flow Evidence records. Global flow records live under
 `state/atlas/flows/`; operation evidence links live under
 `sessions/<operation>/flow_evidence.ndjson`; flow packets live under
 `sessions/<operation>/flow_packets/`. Flow records describe business-critical
 processes with labels such as owner, criticality, systems, data classes, and
 control objectives. Evidence links reference existing Atlas evidence IDs,
 hashes, and retained paths without copying raw evidence. Flow packets preserve
-that same metadata-only boundary and include known limitations. Flow records,
-links, and packets must not contain secrets, customer records, request or
-response bodies, payment data, tokens, or raw evidence. Flow verification, JSON
-parity, and readiness integration remain planned later steps.
+that same metadata-only boundary and include known limitations. Flow
+verification checks packet metadata, linked evidence records, retained evidence
+files, hashes, freshness, and forbidden-content markers. Flow records, links,
+and packets must not contain secrets, customer records, request or response
+bodies, payment data, tokens, or raw evidence. JSON parity, finding/validation
+links, and readiness integration remain planned later steps.
 
 The full trust lifecycle is documented in
 [`docs/TRUST_LIFECYCLE.md`](../../docs/TRUST_LIFECYCLE.md). It
