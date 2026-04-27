@@ -137,6 +137,7 @@ make_repo_clean_and_synced() {
   grep -q '^# Command Reference$' "$command_ref"
   grep -q './tools/atlas/bin/atlas release packet atlas-current --json' "$command_ref"
   grep -q './tools/atlas/bin/atlas web assess <url>' "$command_ref"
+  grep -q './tools/atlas/bin/atlas flow add customer-signup' "$command_ref"
 
   grep -q '^# Trust Lifecycle$' "$trust_lifecycle"
   grep -q 'signed release provenance' "$trust_lifecycle"
@@ -163,7 +164,10 @@ make_repo_clean_and_synced() {
   grep -q 'referential evidence' "$flow_doc"
   grep -q 'must not include raw business data' "$flow_doc"
   grep -q 'Business Flow Evidence is optional' "$flow_doc"
+  grep -q 'Current Runtime Slice' "$flow_doc"
   grep -q 'atlas flow add <flow-name>' "$flow_doc"
+  grep -q 'atlas flow list' "$flow_doc"
+  grep -q 'atlas flow show <flow>' "$flow_doc"
   grep -q 'atlas flow packet <flow>' "$flow_doc"
   grep -q 'atlas flow verify <flow>' "$flow_doc"
   grep -q 'state/atlas/flows/<flow-slug>.env' "$flow_doc"
@@ -193,6 +197,64 @@ make_repo_clean_and_synced() {
 
   grep -q 'business-flow evidence packets' "$agents_file"
   grep -q 'Business-flow evidence is referential evidence' "$agents_file"
+}
+
+@test "atlas flow add list and show preserve metadata-only business records" {
+  flow_file="$TEST_ROOT/toolkit/state/atlas/flows/customer-signup.env"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow add customer-signup \
+    --type customer_onboarding \
+    --owner product \
+    --criticality high \
+    --environment staging \
+    --scope-status in-scope \
+    --data-class email \
+    --data-class account_metadata \
+    --system web_app \
+    --system auth_service \
+    --control authentication_required \
+    --control audit_logging
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"business flow added"* ]]
+  [[ "$output" == *"flow_id: flow_customer_signup"* ]]
+  [[ "$output" == *"flow_slug: customer-signup"* ]]
+  [ -f "$flow_file" ]
+  grep -q '^SCHEMA_VERSION=atlas\.business_flow\.v1$' "$flow_file"
+  grep -q '^FLOW_ID=flow_customer_signup$' "$flow_file"
+  grep -q '^FLOW_SLUG=customer-signup$' "$flow_file"
+  grep -q '^METADATA_ONLY=true$' "$flow_file"
+  grep -q '^DATA_CLASSES=email\\,account_metadata$' "$flow_file"
+  ! grep -qi 'password=' "$flow_file"
+  ! grep -qi 'token=' "$flow_file"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow list
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"FLOW"* ]]
+  [[ "$output" == *"customer-signup"* ]]
+  [[ "$output" == *"product"* ]]
+  [[ "$output" == *"high"* ]]
+  [[ "$output" == *"staging"* ]]
+  [[ "$output" == *"in-scope"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow show flow_customer_signup
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Atlas Business Flow"* ]]
+  [[ "$output" == *"Flow ID: flow_customer_signup"* ]]
+  [[ "$output" == *"Metadata Only: true"* ]]
+  [[ "$output" == *"Data Classes"* ]]
+  [[ "$output" == *"account_metadata"* ]]
+  [[ "$output" == *"auth_service"* ]]
+  [[ "$output" == *"audit_logging"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow add bad-flow \
+    --system 'api_key=abc123'
+
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"forbidden raw-content marker"* ]]
+  [ ! -f "$TEST_ROOT/toolkit/state/atlas/flows/bad-flow.env" ]
 }
 
 @test "release replay verification runbook preserves clean-checkout procedure" {
@@ -411,6 +473,9 @@ make_repo_clean_and_synced() {
   [[ "$output" == *"atlas release packet [packet-name]"* ]]
   [[ "$output" == *"atlas release packet [packet-name] [--json]"* ]]
   [[ "$output" == *"atlas release verify [packet]"* ]]
+  [[ "$output" == *"atlas flow add <flow-name>"* ]]
+  [[ "$output" == *"atlas flow list"* ]]
+  [[ "$output" == *"atlas flow show <flow>"* ]]
   [[ "$output" == *"atlas web assess <url> [assessment-name]"* ]]
   [[ "$output" == *"atlas web validation-plan [--all]"* ]]
   [[ "$output" == *"atlas web validation-approve [--all] --reason text"* ]]

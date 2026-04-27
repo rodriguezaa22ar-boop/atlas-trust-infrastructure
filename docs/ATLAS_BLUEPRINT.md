@@ -407,6 +407,13 @@ The near-term roadmap is:
     bodies, response bodies, customer records, or payment data. The schema docs
     define planned `atlas.business_flow_evidence.v1` and
     `atlas.business_flow_packet.v1` contracts before runtime commands are added.
+71. Add metadata-only business-flow records. `atlas flow add/list/show` now
+    manages optional global Business Flow Evidence records under
+    `state/atlas/flows/` using file-backed env records. The first runtime slice
+    records flow identity, owner, criticality, environment, scope status, data
+    class labels, system aliases, and control objective labels while rejecting
+    obvious secret-bearing markers. Evidence links, flow packets, verification,
+    and readiness integration remain planned later steps.
 
 ## First Serious Version
 

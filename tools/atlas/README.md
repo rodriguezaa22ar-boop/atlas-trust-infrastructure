@@ -36,6 +36,9 @@ atlas evidence redact ev_... ./artifact-redacted.txt
 atlas evidence bundle review-bundle
 atlas evidence list
 atlas evidence show ev_...
+atlas flow add customer-signup --type customer_onboarding --owner product --criticality high --environment staging --scope-status in-scope --data-class email --system web_app --control audit_logging
+atlas flow list
+atlas flow show customer-signup
 atlas finding add "SSH reachable" --level observed --severity low --evidence ev_...
 atlas finding update finding_... --level validated --validation vp_... --note "confirmed by validation run"
 atlas finding accept finding_... --reason "owner accepts residual exposure" --owner Alta --expires 2026-12-31
@@ -209,6 +212,14 @@ the first planned web validation item, `--all` approves every planned web
 validation item, and `--plan <id>` approves one explicit plan. Approval is
 metadata-only: it records the reason and operator, then leaves validation
 execution and retest as separate commands.
+
+`atlas flow add/list/show` manages optional metadata-only Business Flow Evidence
+records under `state/atlas/flows/`. These records describe business-critical
+processes with labels such as owner, criticality, systems, data classes, and
+control objectives. They are referential records only: they must not contain
+secrets, customer records, request or response bodies, payment data, tokens, or
+raw evidence. Evidence links, flow packets, flow verification, and readiness
+integration remain planned later steps.
 
 The full trust lifecycle is documented in
 [`docs/TRUST_LIFECYCLE.md`](../../docs/TRUST_LIFECYCLE.md). It

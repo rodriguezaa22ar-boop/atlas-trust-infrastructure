@@ -121,6 +121,18 @@ nix-shell --run './bin/dev-qa'
 ./tools/atlas/bin/atlas evidence show ev_...
 ```
 
+## Atlas Business Flows
+
+```bash
+./tools/atlas/bin/atlas flow add customer-signup --type customer_onboarding --owner product --criticality high --environment staging --scope-status in-scope --data-class email --system web_app --control audit_logging
+./tools/atlas/bin/atlas flow list
+./tools/atlas/bin/atlas flow show customer-signup
+```
+
+Business-flow records are metadata-only global flow records under
+`state/atlas/flows/`. The current runtime slice supports add/list/show only;
+evidence links, packets, verification, and readiness integration remain planned.
+
 ## Atlas Findings
 
 ```bash

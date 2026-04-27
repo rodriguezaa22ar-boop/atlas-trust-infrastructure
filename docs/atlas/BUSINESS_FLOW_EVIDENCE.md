@@ -166,6 +166,25 @@ sessions/<operation>/flow_packets_json/<packet-name>.json
 Atlas should not introduce SQLite, hidden caches, remote state, or a web-backed
 business-flow store for the first version.
 
+## Current Runtime Slice
+
+The first runtime slice implements global metadata-only flow records:
+
+```bash
+atlas flow add <flow-name>
+atlas flow list
+atlas flow show <flow>
+```
+
+Implemented records are written to:
+
+```text
+state/atlas/flows/<flow-slug>.env
+```
+
+This slice does not implement operation-specific flow links, evidence links,
+flow packets, flow verification, or readiness integration yet.
+
 ## Flow Record Contract
 
 A minimal flow record should describe the flow without storing raw flow content.
@@ -295,6 +314,11 @@ The first runtime command set should stay small:
 atlas flow add <flow-name>
 atlas flow list
 atlas flow show <flow>
+```
+
+The next runtime command set should add:
+
+```bash
 atlas flow link-evidence <flow> <evidence-id>
 atlas flow packet <flow> [packet-name]
 atlas flow verify <flow> [packet-name]
@@ -366,4 +390,3 @@ primitives:
 ```text
 scope + evidence + findings + validation + retention + verification
 ```
-
