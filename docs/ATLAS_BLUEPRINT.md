@@ -368,6 +368,14 @@ The near-term roadmap is:
     note with required fields, passing QA, v1 readiness, known blockers, and an
     explicit no-production-ready claim. The gate accepts the current commit or
     the retained release commit immediately before the dry-run retention commit.
+66. Retain a current release trust packet. `docs/retention/releases/` now has
+    `atlas-m66-current.json`, a verified JSON release trust packet for the M65
+    release commit, paired with a matching production dry-run note for the same
+    commit. Release verification now compares short/full commit IDs safely and
+    checks retention notes from the expected packet commit, so later milestone
+    notes do not invalidate historical packet replay. Production readiness
+    remains blocked only by signing/provenance after the packet-retention commit
+    is pushed and synced.
 
 ## First Serious Version
 

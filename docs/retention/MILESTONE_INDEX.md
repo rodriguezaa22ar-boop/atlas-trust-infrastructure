@@ -60,6 +60,7 @@ changes, verification output, repo state, and boundaries for that milestone.
 | [63](milestones/MILESTONE_63.md) | `3210b0b2e6f5378761e6d56e882892db3868be10` | external legibility docs | docs-only | no | Documents Atlas' trust model, security model, responsible use, known limitations, and roadmap. | external legibility focused test: 1/1; `dev-qa`: 80/80 | `atlas-retention-m63` |
 | [64](milestones/MILESTONE_64.md) | `d282cae99723bce1d3a51eb7cc0d8f902a763cd0` | CI QA gate | release-trust | yes | Moves the local QA gate into GitHub Actions with strict v1 readiness. | CI focused test: 1/1; `dev-qa`: 81/81 | `atlas-retention-m64` |
 | [65](milestones/MILESTONE_65.md) | `cd257b18692b20410a271469caedce16e845d764` | retained production dry-run gate | release-trust | yes | Makes production dry-run readiness depend on retained evidence instead of a hard-coded blocker. | production focused test: 1/1; `dev-qa`: 81/81 | `atlas-retention-m65` |
+| [66](milestones/MILESTONE_66.md) | `fb3017b200bc7ce9b636105308dfcaa21d26e3b1` | current release trust packet | release-trust | no | Retains a verified JSON release packet and matching production dry-run note for the same release commit. | `dev-qa`: 81/81; release verify: pass | `atlas-retention-m66` |
 
 ## Category Notes
 

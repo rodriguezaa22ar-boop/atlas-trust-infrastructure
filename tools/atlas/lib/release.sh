@@ -80,6 +80,39 @@ atlas_release_retention_notes() {
   fi
 }
 
+atlas_release_retention_notes_for_commit() {
+  local expected_commit="$1"
+  local path
+
+  if [ -n "$expected_commit" ] &&
+    atlas_release_git_available &&
+    git -C "$LAB_ROOT" rev-parse --verify "$expected_commit^{commit}" >/dev/null 2>&1; then
+    git -C "$LAB_ROOT" ls-tree -r --name-only "$expected_commit" -- \
+      docs/retention/MILESTONE_30.md \
+      docs/retention/milestones 2>/dev/null |
+      sort |
+      while IFS= read -r path; do
+        [ -n "$path" ] || continue
+        printf '%s/%s\n' "$LAB_ROOT" "$path"
+      done
+    return 0
+  fi
+
+  atlas_release_retention_notes
+}
+
+atlas_release_commit_matches() {
+  local actual="$1"
+  local expected="$2"
+
+  [ -n "$actual" ] || return 1
+  [ -n "$expected" ] || return 1
+
+  [ "$actual" = "$expected" ] ||
+    [[ "$actual" == "$expected"* ]] ||
+    [[ "$expected" == "$actual"* ]]
+}
+
 atlas_release_display_path() {
   local path="$1"
 
@@ -739,7 +772,7 @@ atlas_release_verify_json_packet() {
   fi
 
   packet_commit="$(jq -r '.commit // ""' "$packet_file")"
-  if [ "$packet_commit" = "$expected_commit" ]; then
+  if atlas_release_commit_matches "$packet_commit" "$expected_commit"; then
     atlas_release_verify_row "Commit" "ok" "$packet_commit"
   else
     atlas_release_verify_row "Commit" "fail" "expected=$expected_commit actual=${packet_commit:-missing}"
@@ -784,7 +817,7 @@ atlas_release_verify_json_packet() {
     else
       atlas_release_verify_row "Retention Note" "fail" "missing $note_path"
     fi
-  done <<<"$(atlas_release_retention_notes)"
+  done <<<"$(atlas_release_retention_notes_for_commit "$expected_commit")"
 
   if jq -e '(.known_limitations // []) | length > 0 and any(.[]; .pillar == "Core CLI" and (.limitation // "" | length > 0))' "$packet_file" >/dev/null 2>&1; then
     atlas_release_verify_row "Known Limitations" "ok" "present"
@@ -840,7 +873,7 @@ atlas_release_verify_packet() {
   fi
 
   packet_commit="$(atlas_release_packet_field "$packet_file" "Commit")"
-  if [ "$packet_commit" = "$expected_commit" ]; then
+  if atlas_release_commit_matches "$packet_commit" "$expected_commit"; then
     atlas_release_verify_row "Commit" "ok" "$packet_commit"
   else
     atlas_release_verify_row "Commit" "fail" "expected=$expected_commit actual=${packet_commit:-missing}"
@@ -890,7 +923,7 @@ atlas_release_verify_packet() {
     else
       atlas_release_verify_row "Retention Note" "fail" "missing $note_path"
     fi
-  done <<<"$(atlas_release_retention_notes)"
+  done <<<"$(atlas_release_retention_notes_for_commit "$expected_commit")"
 
   if grep -q '^## Known Limitations$' "$packet_file" && grep -q 'Core CLI:' "$packet_file"; then
     atlas_release_verify_row "Known Limitations" "ok" "present"

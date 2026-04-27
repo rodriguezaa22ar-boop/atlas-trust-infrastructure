@@ -919,6 +919,17 @@ EOF
   [ "$status" -eq 0 ]
   [[ "$output" == *"Schema: ok atlas.release_trust.v1"* ]]
 
+  historical_commit="$(jq -r '.commit' "$json_packet_path")"
+  future_note="$TEST_ROOT/toolkit/docs/retention/milestones/MILESTONE_999.md"
+  printf '# Milestone 999: Future Note\n' > "$future_note"
+  git -C "$TEST_ROOT/toolkit" add "$future_note"
+  git -C "$TEST_ROOT/toolkit" commit -m "add future retention note" >/dev/null
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release verify "$json_packet_path" --commit "$historical_commit"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"release trust packet verified"* ]]
+  [[ "$output" != *"MILESTONE_999.md"* ]]
+
   jq '.qa.status = "fail"' "$json_packet_path" > "$TEST_ROOT/bad-json-qa.json"
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release verify "$TEST_ROOT/bad-json-qa.json"
   [ "$status" -ne 0 ]
