@@ -56,6 +56,7 @@ changes, verification output, repo state, and boundaries for that milestone.
 | [59](milestones/MILESTONE_59.md) | `fed8dcc8b16f3fa943c1a630ffa7c46751b27112` | operation trust-chain JSON | release-trust | yes | Makes operation trust-chain state machine-readable for gates and future dashboards. | archive focused test: 1/1; trust lifecycle focused test: 1/1; `dev-qa`: 76/76 | `atlas-retention-m59` |
 | [60](milestones/MILESTONE_60.md) | `11e714521ac69444b2c7014d9658a6899f35fab2` | packet format parity tracking | release-trust | no | Records implemented JSON contracts and planned Markdown-only packet gaps. | parity focused test: 1/1; `dev-qa`: 77/77 | `atlas-retention-m60` |
 | [61](milestones/MILESTONE_61.md) | `d036759f266f00daa31989ebacdb02ed35f56d1c` | trust schema contracts | release-trust | yes | Documents implemented JSON schema contracts and hardens same-second freshness ordering. | schema/parity/accepted-risk focused tests: 3/3; `dev-qa`: 78/78 | `atlas-retention-m61` |
+| [62](milestones/MILESTONE_62.md) | `e585451fe2c72e148f6d22cc86846c47c1251987` | operator demo walkthrough | docs-only | no | Makes the end-to-end operation trust lifecycle legible to another operator. | demo focused test: 1/1; `dev-qa`: 79/79 | `atlas-retention-m62` |
 
 ## Category Notes
 
@@ -65,6 +66,7 @@ changes, verification output, repo state, and boundaries for that milestone.
 - `validation`: approval-gated validation planning, execution state, and retest governance.
 - `findings`: finding lifecycle, accepted risk, and review governance.
 - `agent-governance`: repository guidance that constrains future agent work.
+- `docs-only`: operator-facing documentation with no runtime behavior change.
 
 ## Update Rule
 
