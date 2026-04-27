@@ -100,12 +100,25 @@ unless the overall state is `production-ready`.
 ### Production Dry Run
 
 - Required: yes
-- Evidence: future retained production dry-run or external validation note
-- Command: future production dry-run checklist
+- Evidence: `docs/retention/production/PRODUCTION_DRY_RUN_*.md`
+- Command: `atlas production status`
 - Production meaning: Atlas has been exercised in retained, realistic operator
   dry runs or independent review before public production claims.
-- Current state: blocked. Internal QA does not replace repeated operator dry
-  runs or independent review.
+- Current state: ready only when the latest dry-run note has the required
+  production dry-run fields and matches the current commit or the retained
+  release commit immediately before the dry-run retention commit. Internal QA
+  does not replace repeated operator dry runs or independent review.
+
+Required dry-run note fields:
+
+- `# Atlas Production Dry Run`
+- `Commit: <commit>`
+- `Result: retained`
+- `QA status: pass`
+- `V1 readiness: pass`
+- `Production status observed: not-ready`
+- `Known blockers:`
+- `No production-ready claim is made`
 
 ## Current Interpretation
 
@@ -115,7 +128,7 @@ testing and refinement. It should not be called production-ready.
 The current blockers are intentional:
 
 - no cryptographic signing or provenance
-- no retained production dry-run or independent validation packet
+- no retained current production dry-run or independent validation packet
 - release trust packets must be regenerated and verified after the final release
   commit
 

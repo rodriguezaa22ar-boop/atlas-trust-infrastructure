@@ -19,7 +19,7 @@ Atlas is in the trust consolidation lane:
 2. CI / GitHub Actions QA gate. Implemented as the current repository QA gate.
 3. Release packet verification hardening where gaps remain.
 4. JSON parity for archive and audit packets.
-5. Production dry-run retention notes.
+5. Production dry-run retention notes. Implemented as a retained-evidence gate.
 6. Signing and provenance preparation.
 
 ## Later Control-Plane Work

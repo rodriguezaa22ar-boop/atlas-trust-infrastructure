@@ -751,6 +751,7 @@ EOF
 }
 
 @test "atlas production status reports conservative production blockers" {
+  rm -rf "$TEST_ROOT/toolkit/docs/retention/production"
   make_repo_clean_and_synced
 
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" production status
@@ -808,6 +809,42 @@ EOF
       .gates.release_trust_packet.status == "ready" and
       .gates.signing_provenance.status == "blocked" and
       .gates.production_dry_run.status == "blocked" and
+      .counts.required_not_ready >= 2
+    '
+
+  dry_run_commit="$(git -C "$TEST_ROOT/toolkit" rev-parse HEAD)"
+  dry_run_dir="$TEST_ROOT/toolkit/docs/retention/production"
+  dry_run_note="$dry_run_dir/PRODUCTION_DRY_RUN_2026-04-27.md"
+  mkdir -p "$dry_run_dir"
+  cat > "$dry_run_note" <<EOF
+# Atlas Production Dry Run
+
+Commit: $dry_run_commit
+Result: retained
+QA status: pass
+V1 readiness: pass
+Production status observed: not-ready
+
+Known blockers:
+- signing/provenance is still blocked
+
+No production-ready claim is made.
+EOF
+  git -C "$TEST_ROOT/toolkit" add "$dry_run_note"
+  git -C "$TEST_ROOT/toolkit" commit -m "retain production dry run" >/dev/null
+  git -C "$TEST_ROOT/toolkit" update-ref refs/remotes/origin/main HEAD
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" production status --json
+
+  [ "$status" -ne 0 ]
+  printf '%s\n' "$output" |
+    jq -e '
+      .overall == "not-ready" and
+      .gates.repository_clean.status == "ready" and
+      .gates.upstream_sync.status == "ready" and
+      .gates.release_trust_packet.status == "blocked" and
+      .gates.signing_provenance.status == "blocked" and
+      .gates.production_dry_run.status == "ready" and
       .counts.required_not_ready >= 2
     '
 

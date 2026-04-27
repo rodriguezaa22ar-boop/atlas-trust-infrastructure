@@ -363,6 +363,11 @@ The near-term roadmap is:
     `nix-shell --run './bin/dev-qa'`, and `atlas v1 status --strict` on pushes,
     pull requests, and manual dispatch. `docs/CI.md` records local parity,
     current checks, non-goals, and future CI hardening.
+65. Add retained production dry-run gate. `atlas production status` now checks
+    `docs/retention/production/PRODUCTION_DRY_RUN_*.md` for a retained dry-run
+    note with required fields, passing QA, v1 readiness, known blockers, and an
+    explicit no-production-ready claim. The gate accepts the current commit or
+    the retained release commit immediately before the dry-run retention commit.
 
 ## First Serious Version
 

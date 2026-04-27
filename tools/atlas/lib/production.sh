@@ -223,7 +223,33 @@ atlas_production_check_docs() {
   fi
 }
 
-atlas_production_check_future_hardening() {
+atlas_production_latest_dry_run_note() {
+  local production_dir="$LAB_DOCS_DIR/retention/production"
+
+  [ -d "$production_dir" ] || return 0
+
+  find "$production_dir" -maxdepth 1 -type f -name 'PRODUCTION_DRY_RUN_*.md' | sort | tail -n 1
+}
+
+atlas_production_dry_run_note_valid() {
+  local note="$1"
+  local expected_commit="$2"
+
+  [ -n "$note" ] || return 1
+  [ -f "$note" ] || return 1
+  [ -n "$expected_commit" ] || return 1
+
+  grep -q '^# Atlas Production Dry Run$' "$note" &&
+    grep -q "^Commit: $expected_commit$" "$note" &&
+    grep -q '^Result: retained$' "$note" &&
+    grep -q '^QA status: pass$' "$note" &&
+    grep -q '^V1 readiness: pass$' "$note" &&
+    grep -q '^Production status observed: not-ready$' "$note" &&
+    grep -q '^Known blockers:$' "$note" &&
+    grep -q 'No production-ready claim is made' "$note"
+}
+
+atlas_production_check_signing_provenance() {
   atlas_production_add_gate \
     "signing_provenance" \
     "Signing And Provenance" \
@@ -233,16 +259,69 @@ atlas_production_check_future_hardening() {
     "docs/retention/releases/" \
     "atlas release packet; future signing/provenance command" \
     "SHA-256 anchors are present, but they are not signatures or SLSA-style provenance"
+}
+
+atlas_production_check_dry_run() {
+  local latest_note
+  local commit
+  local parent_commit
+
+  latest_note="$(atlas_production_latest_dry_run_note)"
+  if [ -z "$latest_note" ]; then
+    atlas_production_add_gate \
+      "production_dry_run" \
+      "Production Dry Run" \
+      1 \
+      "blocked" \
+      "no retained production dry-run or external validation note is present" \
+      "docs/retention/production/" \
+      "future production dry-run checklist" \
+      "internal QA does not replace repeated operator dry runs or independent review"
+    return 0
+  fi
+
+  commit="$(atlas_release_commit)"
+  if atlas_production_dry_run_note_valid "$latest_note" "$commit"; then
+    atlas_production_add_gate \
+      "production_dry_run" \
+      "Production Dry Run" \
+      1 \
+      "ready" \
+      "latest production dry-run note verifies against the current commit" \
+      "$latest_note" \
+      "docs/retention/production/" \
+      "dry-run evidence is retained locally and does not replace external audit"
+    return 0
+  fi
+
+  parent_commit="$(git -C "$LAB_ROOT" rev-parse HEAD^ 2>/dev/null || true)"
+  if [ -n "$parent_commit" ] && atlas_production_dry_run_note_valid "$latest_note" "$parent_commit"; then
+    atlas_production_add_gate \
+      "production_dry_run" \
+      "Production Dry Run" \
+      1 \
+      "ready" \
+      "latest production dry-run note verifies against the retained release commit before the dry-run retention commit" \
+      "$latest_note" \
+      "docs/retention/production/" \
+      "dry-run evidence is retained locally and does not replace external audit"
+    return 0
+  fi
 
   atlas_production_add_gate \
     "production_dry_run" \
     "Production Dry Run" \
     1 \
     "blocked" \
-    "no retained production dry-run or external validation note is present" \
+    "latest production dry-run note is missing required fields or does not match the release commit" \
+    "$latest_note" \
     "docs/retention/production/" \
-    "future production dry-run checklist" \
-    "internal QA does not replace repeated operator dry runs or independent review"
+    "dry-run evidence must be regenerated after release commits change"
+}
+
+atlas_production_check_future_hardening() {
+  atlas_production_check_signing_provenance
+  atlas_production_check_dry_run
 }
 
 atlas_production_collect() {
