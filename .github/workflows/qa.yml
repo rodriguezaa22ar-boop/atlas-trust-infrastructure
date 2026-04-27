@@ -1,0 +1,40 @@
+name: QA
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qa-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qa:
+    name: Nix QA
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - name: Check whitespace
+        run: git diff --check
+
+      - name: Run local QA gate
+        run: nix-shell --run './bin/dev-qa'
+
+      - name: Check Atlas v1 readiness
+        run: nix-shell --run './tools/atlas/bin/atlas v1 status --strict'

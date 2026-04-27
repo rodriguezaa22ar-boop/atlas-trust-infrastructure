@@ -16,7 +16,7 @@ Atlas is in the trust consolidation lane:
 ## Near-Term Milestones
 
 1. External legibility pass.
-2. CI / GitHub Actions QA gate.
+2. CI / GitHub Actions QA gate. Implemented as the current repository QA gate.
 3. Release packet verification hardening where gaps remain.
 4. JSON parity for archive and audit packets.
 5. Production dry-run retention notes.

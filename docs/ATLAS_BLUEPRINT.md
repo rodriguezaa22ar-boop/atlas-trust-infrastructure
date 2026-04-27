@@ -359,6 +359,10 @@ The near-term roadmap is:
     security model, responsible use, known limitations, and roadmap documents
     so Atlas can be explained without overclaiming production readiness or
     offensive autonomy.
+64. Add CI QA gate. `.github/workflows/qa.yml` now runs whitespace checks,
+    `nix-shell --run './bin/dev-qa'`, and `atlas v1 status --strict` on pushes,
+    pull requests, and manual dispatch. `docs/CI.md` records local parity,
+    current checks, non-goals, and future CI hardening.
 
 ## First Serious Version
 

@@ -242,6 +242,32 @@ make_repo_clean_and_synced() {
   grep -q 'Do not jump to Atlas' "$roadmap_doc"
 }
 
+@test "ci workflow mirrors local Atlas QA gate" {
+  workflow="$TEST_ROOT/toolkit/.github/workflows/qa.yml"
+  ci_doc="$TEST_ROOT/toolkit/docs/CI.md"
+
+  [ -f "$workflow" ]
+  [ -f "$ci_doc" ]
+
+  grep -q '^name: QA$' "$workflow"
+  grep -q 'pull_request:' "$workflow"
+  grep -q 'workflow_dispatch:' "$workflow"
+  grep -q 'actions/checkout@v4' "$workflow"
+  grep -q 'cachix/install-nix-action@v31' "$workflow"
+  grep -q 'nix_path: nixpkgs=channel:nixos-unstable' "$workflow"
+  grep -q 'git diff --check' "$workflow"
+  grep -q "nix-shell --run './bin/dev-qa'" "$workflow"
+  grep -q "nix-shell --run './tools/atlas/bin/atlas v1 status --strict'" "$workflow"
+  ! grep -q 'atlas production status' "$workflow"
+
+  grep -q '.github/workflows/qa.yml' "$ci_doc"
+  grep -q "nix-shell --run './bin/dev-qa'" "$ci_doc"
+  grep -q "nix-shell --run './tools/atlas/bin/atlas v1 status --strict'" "$ci_doc"
+  grep -q 'does not claim production readiness' "$ci_doc"
+  grep -q 'does not run live target assessments' "$ci_doc"
+  grep -q 'replay verification from a clean checkout' "$ci_doc"
+}
+
 @test "atlas help groups target-first workflow and story commands" {
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" help
 

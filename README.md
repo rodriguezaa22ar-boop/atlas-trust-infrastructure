@@ -187,6 +187,8 @@ External positioning and safety docs are captured in [docs/TRUST_MODEL.md](./doc
 [docs/RESPONSIBLE_USE.md](./docs/RESPONSIBLE_USE.md),
 [docs/KNOWN_LIMITATIONS.md](./docs/KNOWN_LIMITATIONS.md), and
 [docs/ROADMAP.md](./docs/ROADMAP.md).
+The repository CI gate is documented in [docs/CI.md](./docs/CI.md) and mirrors
+the local `nix-shell --run './bin/dev-qa'` workflow.
 
 ## Safety Boundary
 
