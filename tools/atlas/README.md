@@ -356,11 +356,12 @@ records the validation status, linked action session, ledger events, and report
 entries. Profiles can restrict validation lanes with `VALIDATION_LANES`, as the
 `htb-starting-point` profile does.
 
-After remediation, `atlas validation retest <id>` records whether the linked
-finding is `resolved` or `still-open`, merges any new retest evidence into the
-validation record, and appends a finding lifecycle update. Reports, briefs, and
-`validation show` surface the latest retest result without rewriting the
-original validation run.
+`atlas validation retest <id>` records whether the linked finding is `resolved`
+or `still-open`, merges any new retest evidence into the validation record, and
+appends a finding lifecycle update. Retested findings are promoted to
+`validated`: resolved retests become `validated/resolved`, while still-open
+retests become `validated/open`. Reports, briefs, and `validation show` surface
+the latest retest result without rewriting the original validation run.
 
 If an executed validation run is obsolete because a later bounded run replaces
 it, `atlas validation supersede <id> --by <replacement-id> --reason <text>`

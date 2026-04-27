@@ -255,6 +255,10 @@ The near-term roadmap is:
     executed validation plan as superseded by an executed successful replacement
     plan in the same operation, target, lane, and finding, preserving failed or
     obsolete run history while making the current replacement explicit.
+43. Promote retested findings to validated state. `atlas validation retest` now
+    updates the linked finding to `validated/resolved` for resolved retests or
+    `validated/open` for still-open retests, so reports reflect that a finding
+    has been confirmed even when remediation is still outstanding.
 
 ## First Serious Version
 

@@ -659,7 +659,7 @@ cmd_validation_retest() {
     "$(atlas_approval_operator)" \
     "${merged_evidence_ids[@]}"
 
-  finding_args=("$ATLAS_VALIDATION_FINDING" --status "$finding_status" --validation "$plan_id")
+  finding_args=("$ATLAS_VALIDATION_FINDING" --level validated --status "$finding_status" --validation "$plan_id")
   for evidence_id in "${evidence_ids[@]}"; do
     finding_args+=(--evidence "$evidence_id")
   done

@@ -259,6 +259,8 @@ Atlas now also exposes the operator-level story and reporting layer:
   updates with validation links and notes while preserving finding history
 - `atlas validation plan <lane>`: plan, approve, run, retest, and supersede
   bounded validation when an executed run is replaced by a successful rerun
+- `atlas validation retest <id>`: promotes confirmed findings to validated
+  while keeping unresolved retests open instead of marking them remediated
 - `atlas op brief`: operation summary with evidence, findings, and validation counts
 - `atlas op cycle [name]`: operation-owned exposure-cycle view for the active
   or named operation
