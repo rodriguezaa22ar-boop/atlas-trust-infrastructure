@@ -55,6 +55,7 @@ changes, verification output, repo state, and boundaries for that milestone.
 | [58](milestones/MILESTONE_58.md) | `cc8e97616fc917b74434d7404fa1a9bab53aeb6e` | release replay verification guidance | release-trust | no | Defines clean-checkout replay for retained release packets. | replay focused test: 1/1; `dev-qa`: 76/76 | `atlas-retention-m58` |
 | [59](milestones/MILESTONE_59.md) | `fed8dcc8b16f3fa943c1a630ffa7c46751b27112` | operation trust-chain JSON | release-trust | yes | Makes operation trust-chain state machine-readable for gates and future dashboards. | archive focused test: 1/1; trust lifecycle focused test: 1/1; `dev-qa`: 76/76 | `atlas-retention-m59` |
 | [60](milestones/MILESTONE_60.md) | `11e714521ac69444b2c7014d9658a6899f35fab2` | packet format parity tracking | release-trust | no | Records implemented JSON contracts and planned Markdown-only packet gaps. | parity focused test: 1/1; `dev-qa`: 77/77 | `atlas-retention-m60` |
+| [61](milestones/MILESTONE_61.md) | `d036759f266f00daa31989ebacdb02ed35f56d1c` | trust schema contracts | release-trust | yes | Documents implemented JSON schema contracts and hardens same-second freshness ordering. | schema/parity/accepted-risk focused tests: 3/3; `dev-qa`: 78/78 | `atlas-retention-m61` |
 
 ## Category Notes
 
