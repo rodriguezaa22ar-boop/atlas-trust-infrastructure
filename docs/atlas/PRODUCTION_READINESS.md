@@ -90,12 +90,33 @@ unless the overall state is `production-ready`.
 ### Signing And Provenance
 
 - Required: yes
-- Evidence: future release signing and provenance artifacts
-- Commands: future signing/provenance gate
+- Evidence: `docs/retention/releases/*.provenance.json` and signed Git tag
+- Commands: `git tag -v`, `atlas release verify`, `atlas production status`
 - Production meaning: release trust packets and release artifacts can be tied to
   a verifiable identity and supply-chain record.
-- Current state: blocked. Atlas has SHA-256 anchors, but no cryptographic
-  release signing or SLSA-style provenance yet.
+- Current state: ready only when the latest release provenance packet verifies
+  a signed annotated Git tag, a matching release commit, a retained release
+  packet SHA-256 hash, and successful release packet replay for the current
+  commit or retained release commit immediately before the provenance-retention
+  commit.
+- Limitation: local signing is not an external audit, SLSA certification, or
+  deployment certification.
+
+Required provenance fields:
+
+- `schema_version: atlas.release_provenance.v1`
+- `metadata_only: true`
+- `commit: <commit>`
+- `signed_tag.name`
+- `signed_tag.target`
+- `signed_tag.verification: verified`
+- `signed_tag.signer_fingerprint`
+- `release_packet.path`
+- `release_packet.sha256`
+- `qa.status: pass`
+- `production_status.observed`
+- `known_limitations`
+- `no_production_overclaim: true`
 
 ### Production Dry Run
 
@@ -122,15 +143,11 @@ Required dry-run note fields:
 
 ## Current Interpretation
 
-As of Milestone 55, Atlas can be called a release-trust candidate for internal
-testing and refinement. It should not be called production-ready.
-
-The current blockers are intentional:
-
-- no cryptographic signing or provenance
-- no retained current production dry-run or independent validation packet
-- release trust packets must be regenerated and verified after the final release
-  commit
+Atlas should be described using the exact state reported by
+`atlas production status`. When the command reports `not-ready`, do not claim
+production readiness. When it reports `production-ready`, that means the local
+contract gates pass for the retained release evidence; it still does not imply
+external audit, enterprise certification, or deployment certification.
 
 This is the correct state for a security control plane that values evidence
 over marketing language.

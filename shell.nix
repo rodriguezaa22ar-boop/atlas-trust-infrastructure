@@ -6,6 +6,7 @@ pkgs.mkShell {
     bats
     fd
     git
+    gnupg
     jq
     ripgrep
     rsync

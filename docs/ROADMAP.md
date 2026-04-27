@@ -12,6 +12,7 @@ Atlas is in the trust consolidation lane:
 - schema contracts
 - operator walkthroughs
 - external legibility
+- signed release provenance
 
 ## Near-Term Milestones
 
@@ -20,7 +21,8 @@ Atlas is in the trust consolidation lane:
 3. Release packet verification hardening where gaps remain.
 4. JSON parity for archive and audit packets.
 5. Production dry-run retention notes. Implemented as a retained-evidence gate.
-6. Signing and provenance preparation.
+6. Signing and provenance preparation. Implemented as a local signed-tag
+   provenance gate for production status.
 
 ## Later Control-Plane Work
 

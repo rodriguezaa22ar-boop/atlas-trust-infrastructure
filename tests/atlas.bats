@@ -108,6 +108,7 @@ make_repo_clean_and_synced() {
   grep -q 'future Atlas OS consumers' "$parity_doc"
   grep -q '## Current Matrix' "$parity_doc"
   grep -q 'atlas.release_trust.v1' "$parity_doc"
+  grep -q 'atlas.release_provenance.v1' "$parity_doc"
   grep -q 'atlas.production_readiness.v1' "$parity_doc"
   grep -q 'atlas.operation_trust_chain.v1' "$parity_doc"
   grep -q '`atlas op archive-packet`' "$parity_doc"
@@ -126,15 +127,18 @@ make_repo_clean_and_synced() {
   schemas_dir="$TEST_ROOT/toolkit/docs/schemas"
   index_file="$schemas_dir/README.md"
   release_schema="$schemas_dir/release-trust.v1.md"
+  provenance_schema="$schemas_dir/release-provenance.v1.md"
   production_schema="$schemas_dir/production-readiness.v1.md"
   trust_chain_schema="$schemas_dir/operation-trust-chain.v1.md"
 
   [ -f "$index_file" ]
   [ -f "$release_schema" ]
+  [ -f "$provenance_schema" ]
   [ -f "$production_schema" ]
   [ -f "$trust_chain_schema" ]
 
   grep -q 'atlas.release_trust.v1' "$index_file"
+  grep -q 'atlas.release_provenance.v1' "$index_file"
   grep -q 'atlas.production_readiness.v1' "$index_file"
   grep -q 'atlas.operation_trust_chain.v1' "$index_file"
   grep -q 'metadata-only' "$index_file"
@@ -146,6 +150,13 @@ make_repo_clean_and_synced() {
   grep -q 'operation trust-chain replay' "$release_schema"
   grep -q 'raw runtime artifacts' "$release_schema"
   grep -q 'Cryptographic signing' "$release_schema"
+
+  grep -q '^# `atlas.release_provenance.v1`$' "$provenance_schema"
+  grep -Fq 'docs/retention/releases/*.provenance.json' "$provenance_schema"
+  grep -q '`schema_version`: must be `atlas.release_provenance.v1`' "$provenance_schema"
+  grep -q '`metadata_only`: must be `true`' "$provenance_schema"
+  grep -q '`git tag -v <tag>` verifies successfully' "$provenance_schema"
+  grep -q 'private signing material' "$provenance_schema"
 
   grep -q '^# `atlas.production_readiness.v1`$' "$production_schema"
   grep -q 'atlas production status --json' "$production_schema"
@@ -217,7 +228,7 @@ make_repo_clean_and_synced() {
   grep -q 'not production-certified' "$trust_doc"
   grep -q 'release signing/provenance' "$trust_doc"
   grep -q 'retained' "$trust_doc"
-  grep -q 'production dry-run' "$trust_doc"
+  grep -q 'dry-run evidence' "$trust_doc"
 
   grep -q 'Authorized Use' "$security_doc"
   grep -q 'Tier 5: destructive, blocked by default' "$security_doc"
@@ -232,12 +243,13 @@ make_repo_clean_and_synced() {
   grep -q 'treated as an execution engine' "$responsible_doc"
 
   grep -q 'ready-to-refine, not production-certified' "$limitations_doc"
-  grep -q 'Release trust packets are not cryptographically signed' "$limitations_doc"
-  grep -q 'Production readiness is blocked' "$limitations_doc"
-  grep -q 'Avoid describing Atlas as production-ready' "$limitations_doc"
+  grep -q 'Release trust packets are hash-bound by release provenance' "$limitations_doc"
+  grep -q 'Production readiness is limited to the local contract' "$limitations_doc"
+  grep -q 'local Atlas production contract' "$limitations_doc"
 
   grep -q 'trust consolidation lane' "$roadmap_doc"
   grep -q 'CI / GitHub Actions QA gate' "$roadmap_doc"
+  grep -q 'signed release provenance' "$roadmap_doc"
   grep -q 'Atlas OS' "$roadmap_doc"
   grep -q 'Do not jump to Atlas' "$roadmap_doc"
 }
@@ -852,6 +864,109 @@ EOF
 
   [ "$status" -ne 0 ]
   [[ "$output" == *"Overall: not-ready"* ]]
+
+  export GNUPGHOME="$TEST_ROOT/gnupg"
+  mkdir -m 700 "$GNUPGHOME"
+  gpg --batch --pinentry-mode loopback --passphrase '' \
+    --quick-generate-key "Atlas Production Test <atlas-production@example.invalid>" ed25519 sign 1d >/dev/null 2>&1
+  signing_fingerprint="$(gpg --list-secret-keys --with-colons "Atlas Production Test <atlas-production@example.invalid>" |
+    awk -F: '$1 == "fpr" { print $10; exit }')"
+  [ -n "$signing_fingerprint" ]
+  git -C "$TEST_ROOT/toolkit" config user.signingkey "$signing_fingerprint"
+  git -C "$TEST_ROOT/toolkit" config gpg.program "$(command -v gpg)"
+
+  signed_commit="$(git -C "$TEST_ROOT/toolkit" rev-parse HEAD)"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release packet production-signed \
+    --json \
+    --qa-status pass \
+    --qa-note "production status signed release packet proof"
+  [ "$status" -eq 0 ]
+  signed_packet_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "release_packet_json" { print $2; exit }')"
+  [ -f "$signed_packet_path" ]
+  signed_packet_rel="${signed_packet_path#"$TEST_ROOT/toolkit"/}"
+  signed_packet_sha="$(sha256sum "$signed_packet_path" | awk '{ print $1 }')"
+
+  tag_name="atlas-production-test-signed"
+  git -C "$TEST_ROOT/toolkit" tag -s "$tag_name" "$signed_commit" -m "Atlas production test signed tag" >/dev/null
+  git -C "$TEST_ROOT/toolkit" tag -v "$tag_name" >/dev/null 2>&1
+
+  signed_dry_run_note="$dry_run_dir/PRODUCTION_DRY_RUN_2026-04-27_SIGNED.md"
+  cat > "$signed_dry_run_note" <<EOF
+# Atlas Production Dry Run
+
+Commit: $signed_commit
+Result: retained
+QA status: pass
+V1 readiness: pass
+Production status observed: not-ready
+
+Known blockers:
+- signing/provenance was pending before this retained provenance packet
+
+No production-ready claim is made.
+EOF
+
+  provenance_path="$TEST_ROOT/toolkit/docs/retention/releases/production-signed.provenance.json"
+  jq -n \
+    --arg commit "$signed_commit" \
+    --arg tag_name "$tag_name" \
+    --arg tag_target "$signed_commit" \
+    --arg fingerprint "$signing_fingerprint" \
+    --arg packet_path "$signed_packet_rel" \
+    --arg packet_sha "$signed_packet_sha" \
+    --arg qa_command "nix-shell --run './bin/dev-qa'" \
+    '{
+      schema_version: "atlas.release_provenance.v1",
+      metadata_only: true,
+      commit: $commit,
+      signed_tag: {
+        name: $tag_name,
+        target: $tag_target,
+        verification: "verified",
+        signer_fingerprint: $fingerprint
+      },
+      release_packet: {
+        path: $packet_path,
+        sha256: $packet_sha
+      },
+      qa: {
+        status: "pass",
+        command: $qa_command,
+        note: "test provenance covers a signed release packet"
+      },
+      production_status: {
+        observed: "not-ready",
+        note: "production status was not-ready before retaining provenance"
+      },
+      known_limitations: [
+        "local GPG test key is not an external audit identity"
+      ],
+      no_production_overclaim: true
+    }' > "$provenance_path"
+
+  git -C "$TEST_ROOT/toolkit" add -f "$signed_packet_path" "$provenance_path"
+  git -C "$TEST_ROOT/toolkit" add "$signed_dry_run_note"
+  git -C "$TEST_ROOT/toolkit" commit -m "retain signed production provenance" >/dev/null
+  git -C "$TEST_ROOT/toolkit" update-ref refs/remotes/origin/main HEAD
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" production status --json
+
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" |
+    jq -e '
+      .overall == "production-ready" and
+      .gates.repository_clean.status == "ready" and
+      .gates.upstream_sync.status == "ready" and
+      .gates.release_trust_packet.status == "ready" and
+      .gates.signing_provenance.status == "ready" and
+      .gates.production_dry_run.status == "ready" and
+      .counts.required_not_ready == 0
+    '
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" production status --strict
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Overall: production-ready"* ]]
 }
 
 @test "atlas release packet writes and verifies metadata-only release trust packet" {

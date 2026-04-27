@@ -249,16 +249,167 @@ atlas_production_dry_run_note_valid() {
     grep -q 'No production-ready claim is made' "$note"
 }
 
+atlas_production_latest_provenance_packet() {
+  local release_dir="$LAB_DOCS_DIR/retention/releases"
+
+  [ -d "$release_dir" ] || return 0
+
+  find "$release_dir" -maxdepth 1 -type f -name '*.provenance.json' | sort | tail -n 1
+}
+
+atlas_production_resolve_release_path() {
+  local path="$1"
+  local candidate
+  local resolved
+  local release_dir
+
+  [ -n "$path" ] || return 1
+
+  case "$path" in
+  /*)
+    candidate="$path"
+    ;;
+  *)
+    candidate="$LAB_ROOT/$path"
+    ;;
+  esac
+
+  [ -f "$candidate" ] || return 1
+  resolved="$(readlink -f "$candidate" 2>/dev/null || true)"
+  release_dir="$(readlink -f "$LAB_DOCS_DIR/retention/releases" 2>/dev/null || true)"
+  [ -n "$resolved" ] || return 1
+  [ -n "$release_dir" ] || return 1
+
+  case "$resolved" in
+  "$release_dir"/*)
+    printf '%s\n' "$resolved"
+    ;;
+  *)
+    return 1
+    ;;
+  esac
+}
+
+atlas_production_file_sha256() {
+  local path="$1"
+
+  sha256sum "$path" | awk '{ print $1 }'
+}
+
+atlas_production_release_provenance_valid() {
+  local provenance_file="$1"
+  local expected_commit="$2"
+  local packet_path
+  local packet_file
+  local expected_packet_sha
+  local actual_packet_sha
+  local provenance_commit
+  local tag_name
+  local tag_target
+  local recorded_tag_target
+
+  [ -n "$provenance_file" ] || return 1
+  [ -f "$provenance_file" ] || return 1
+  [ -n "$expected_commit" ] || return 1
+
+  jq -e '
+    .schema_version == "atlas.release_provenance.v1" and
+    .metadata_only == true and
+    .qa.status == "pass" and
+    .signed_tag.verification == "verified" and
+    (.signed_tag.signer_fingerprint // "" | length > 0) and
+    (.release_packet.path // "" | length > 0) and
+    (.release_packet.sha256 // "" | test("^[a-f0-9]{64}$")) and
+    (.production_status.observed // "" | length > 0) and
+    (.known_limitations // [] | length > 0) and
+    .no_production_overclaim == true and
+    (has("raw_runtime_artifacts") | not) and
+    (has("target_secrets") | not) and
+    (has("session_contents") | not) and
+    (has("packet_captures") | not) and
+    (has("credential_material") | not) and
+    (has("private_keys") | not) and
+    (has("tokens") | not) and
+    (has("evidence_bodies") | not)
+  ' "$provenance_file" >/dev/null 2>&1 || return 1
+
+  provenance_commit="$(jq -r '.commit // ""' "$provenance_file")"
+  atlas_release_commit_matches "$provenance_commit" "$expected_commit" || return 1
+
+  packet_path="$(jq -r '.release_packet.path // ""' "$provenance_file")"
+  packet_file="$(atlas_production_resolve_release_path "$packet_path")" || return 1
+  expected_packet_sha="$(jq -r '.release_packet.sha256 // ""' "$provenance_file")"
+  actual_packet_sha="$(atlas_production_file_sha256 "$packet_file")"
+  [ "$actual_packet_sha" = "$expected_packet_sha" ] || return 1
+  atlas_release_verify_packet "$packet_file" "$expected_commit" >/dev/null 2>&1 || return 1
+
+  tag_name="$(jq -r '.signed_tag.name // ""' "$provenance_file")"
+  [ -n "$tag_name" ] || return 1
+  git -C "$LAB_ROOT" rev-parse --verify --quiet "refs/tags/$tag_name^{tag}" >/dev/null || return 1
+  tag_target="$(git -C "$LAB_ROOT" rev-parse "$tag_name^{}" 2>/dev/null || true)"
+  atlas_release_commit_matches "$tag_target" "$expected_commit" || return 1
+
+  recorded_tag_target="$(jq -r '.signed_tag.target // ""' "$provenance_file")"
+  atlas_release_commit_matches "$recorded_tag_target" "$expected_commit" || return 1
+  git -C "$LAB_ROOT" tag -v "$tag_name" >/dev/null 2>&1 || return 1
+}
+
 atlas_production_check_signing_provenance() {
+  local latest_provenance
+  local commit
+  local parent_commit
+
+  latest_provenance="$(atlas_production_latest_provenance_packet)"
+  if [ -z "$latest_provenance" ]; then
+    atlas_production_add_gate \
+      "signing_provenance" \
+      "Signing And Provenance" \
+      1 \
+      "blocked" \
+      "no signed release provenance packet is retained" \
+      "docs/retention/releases/" \
+      "git tag -v; atlas release verify; atlas production status" \
+      "local signature verification depends on the relevant public key being available"
+    return 0
+  fi
+
+  commit="$(git -C "$LAB_ROOT" rev-parse HEAD 2>/dev/null || atlas_release_commit)"
+  if atlas_production_release_provenance_valid "$latest_provenance" "$commit"; then
+    atlas_production_add_gate \
+      "signing_provenance" \
+      "Signing And Provenance" \
+      1 \
+      "ready" \
+      "latest release provenance verifies a signed tag and release packet for the current commit" \
+      "$latest_provenance" \
+      "git tag -v; atlas release verify; atlas production status" \
+      "local signing is not an external audit or deployment certification"
+    return 0
+  fi
+
+  parent_commit="$(git -C "$LAB_ROOT" rev-parse HEAD^ 2>/dev/null || true)"
+  if [ -n "$parent_commit" ] && atlas_production_release_provenance_valid "$latest_provenance" "$parent_commit"; then
+    atlas_production_add_gate \
+      "signing_provenance" \
+      "Signing And Provenance" \
+      1 \
+      "ready" \
+      "latest release provenance verifies the retained signed release commit before the provenance-retention commit" \
+      "$latest_provenance" \
+      "git tag -v; atlas release verify --commit $parent_commit; atlas production status" \
+      "local signing is not an external audit or deployment certification"
+    return 0
+  fi
+
   atlas_production_add_gate \
     "signing_provenance" \
     "Signing And Provenance" \
     1 \
     "blocked" \
-    "release trust packets are not cryptographically signed and no provenance packet is retained" \
-    "docs/retention/releases/" \
-    "atlas release packet; future signing/provenance command" \
-    "SHA-256 anchors are present, but they are not signatures or SLSA-style provenance"
+    "latest release provenance is missing required fields, has a stale packet hash, lacks a verifiable signed tag, or does not match the release commit" \
+    "$latest_provenance" \
+    "git tag -v; atlas release verify; atlas production status" \
+    "regenerate provenance after release commits, packets, or signing keys change"
 }
 
 atlas_production_check_dry_run() {

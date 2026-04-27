@@ -14,6 +14,7 @@ metadata-only boundaries, and non-goals.
 | Schema | Surface | Contract |
 | --- | --- | --- |
 | `atlas.release_trust.v1` | `atlas release packet --json` | [release-trust.v1.md](release-trust.v1.md) |
+| `atlas.release_provenance.v1` | `docs/retention/releases/*.provenance.json` | [release-provenance.v1.md](release-provenance.v1.md) |
 | `atlas.production_readiness.v1` | `atlas production status --json` | [production-readiness.v1.md](production-readiness.v1.md) |
 | `atlas.operation_trust_chain.v1` | `atlas op trust-chain --json` | [operation-trust-chain.v1.md](operation-trust-chain.v1.md) |
 

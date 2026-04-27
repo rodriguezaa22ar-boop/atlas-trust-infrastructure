@@ -7,9 +7,12 @@ means ready-to-refine, not production-certified.
 
 ## Trust Limitations
 
-- Release trust packets are not cryptographically signed.
-- No SLSA-style provenance packet is retained yet.
-- Production dry-run or external validation evidence is not retained yet.
+- Release trust packets are hash-bound by release provenance; packet files are
+  not individually signed.
+- Release provenance currently uses local signed Git tags, not external
+  SLSA-certified provenance.
+- Production dry-run evidence is retained locally; it is not an independent
+  external validation.
 - Replay verification is local-first and repository-backed.
 - Metadata-only packets point to artifacts; they do not preserve raw evidence.
 - Tamper evidence depends on Git history, hashes, and retained local files.
@@ -27,10 +30,13 @@ means ready-to-refine, not production-certified.
 - Authorization is not inferred by Atlas.
 - Scope must be maintained by accurate target records and operation context.
 - Validation must remain approval-gated.
-- Production readiness is blocked until the production gate reports ready.
+- Production readiness is limited to the local contract reported by
+  `atlas production status`.
 
 ## Language Boundary
 
-Avoid describing Atlas as production-ready, autonomous, unbreakable, fully
-secure, enterprise-ready, or externally audited unless future evidence actually
-supports those claims.
+Avoid describing Atlas as autonomous, unbreakable, fully secure,
+enterprise-ready, externally audited, or deployment-certified unless future
+evidence actually supports those claims. If `atlas production status` reports
+`production-ready`, describe that as the local Atlas production contract
+passing for retained release evidence.

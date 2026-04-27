@@ -20,6 +20,7 @@ hashes, ledger events, tests, and known limitations.
 - approval-gated validation records
 - operation reports
 - metadata-only handoff, closeout, audit, archive, and release packets
+- signed release provenance packets
 - v1 readiness and production readiness gates
 - milestone retention notes and tags
 
@@ -33,6 +34,7 @@ Trust artifacts should support at least one of these:
 - schema/version check
 - metadata-only guardrail
 - replay verification from retained local state
+- signed tag verification
 - known limitation disclosure
 
 ## Current Boundaries
@@ -41,6 +43,7 @@ Atlas is internally ready for testing, refinement, and release-trust hardening.
 It is not production-certified, externally audited, cryptographically
 immutable, tamper-proof, or enterprise-ready.
 
-Production readiness remains blocked until release signing/provenance, retained
-production dry-run or external validation evidence, and a current verified
-release trust packet exist together.
+Production readiness requires release signing/provenance, retained production
+dry-run evidence or external validation evidence, and a current verified
+release trust packet to exist together. Passing that local contract is not an
+external audit or deployment certification.

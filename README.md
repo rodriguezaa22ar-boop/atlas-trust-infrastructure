@@ -155,9 +155,11 @@ checks. The current v1 pillar contract is captured in
 [docs/atlas/V1_PILLAR_READINESS.md](./docs/atlas/V1_PILLAR_READINESS.md).
 The stricter production-readiness contract is captured in
 [docs/atlas/PRODUCTION_READINESS.md](./docs/atlas/PRODUCTION_READINESS.md);
-`atlas production status` currently reports Atlas as not production-ready until
-release signing/provenance, retained production dry runs, and a current
-verified release packet are in place.
+`atlas production status` reports Atlas as not-ready until release
+signing/provenance, retained production dry runs, and a current verified
+release packet are in place. A `production-ready` result means the local Atlas
+contract gates pass for retained release evidence; it is not an external audit
+or deployment certification.
 
 Agent work is guided by the root [AGENTS.md](./AGENTS.md), with validation and
 workflow notes in [docs/agents/](./docs/agents/). Those docs keep future agent
@@ -174,9 +176,10 @@ recorded commit.
 Packet format parity is tracked in
 [docs/atlas/PACKET_FORMAT_PARITY.md](./docs/atlas/PACKET_FORMAT_PARITY.md) so
 Markdown packet surfaces and JSON contract support stay explicit. Current JSON
-support covers v1 readiness, production readiness, release trust packets, and
-operation trust-chain status; audit, archive, closeout, handoff, accepted-risk
-review, and advisor prompt packets remain documented gaps until implemented.
+support covers v1 readiness, production readiness, release trust packets,
+release provenance packets, and operation trust-chain status; audit, archive,
+closeout, handoff, accepted-risk review, and advisor prompt packets remain
+documented gaps until implemented.
 Implemented schema-versioned JSON contracts are documented in
 [docs/schemas/](./docs/schemas/).
 An end-to-end local operator walkthrough is available in
@@ -258,9 +261,9 @@ Atlas now also exposes the operator-level story and reporting layer:
 - `atlas v1 status [--strict] [--json]`: read-only product-pillar readiness
   view for the core v1 surface and release-gate style checks
 - `atlas production status [--strict] [--json]`: read-only production
-  readiness gate that is stricter than v1 status and currently blocks
-  production claims until signing/provenance, retained production dry-run
-  evidence, and a current verified release trust packet exist
+  readiness gate that is stricter than v1 status and requires
+  signing/provenance, retained production dry-run evidence, and a current
+  verified release trust packet before reporting `production-ready`
 - `atlas release packet [packet-name] [--json] [--operation name]`:
   metadata-only release trust packet in Markdown or JSON schema form with
   commit, tags, v1 readiness JSON, optional operation trust-chain status, QA

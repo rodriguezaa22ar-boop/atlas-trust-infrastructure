@@ -27,6 +27,7 @@ A packet or status surface has JSON parity only when:
 | `atlas v1 status` | text | yes | implicit v1 readiness JSON | implemented | `--json` and `--strict` are tested. |
 | `atlas production status` | text | yes | `atlas.production_readiness.v1` | implemented | Reports current production blockers without production overclaims. |
 | `atlas release packet` | Markdown | yes | `atlas.release_trust.v1` | implemented | `atlas release verify` validates Markdown and JSON packets. |
+| release provenance packet | JSON | yes | `atlas.release_provenance.v1` | implemented | Binds a retained release packet to a verified signed Git tag for production status. |
 | `atlas op trust-chain` | text | yes | `atlas.operation_trust_chain.v1` | implemented | JSON includes readiness, freshness, verification, artifacts, and ledger anchors. |
 | `atlas op handoff` | Markdown | no | planned | gap | Needs metadata-only JSON handoff packet. |
 | `atlas op closeout` | Markdown | no | planned | gap | Needs JSON closeout manifest with the same anchors as Markdown. |
@@ -38,6 +39,7 @@ A packet or status surface has JSON parity only when:
 ## Implemented JSON Schemas
 
 - [`atlas.release_trust.v1`](../schemas/release-trust.v1.md)
+- [`atlas.release_provenance.v1`](../schemas/release-provenance.v1.md)
 - [`atlas.production_readiness.v1`](../schemas/production-readiness.v1.md)
 - [`atlas.operation_trust_chain.v1`](../schemas/operation-trust-chain.v1.md)
 

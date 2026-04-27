@@ -14,7 +14,7 @@ production-ready before the required trust artifacts exist.
 ## Required Fields
 
 - `schema_version`: must be `atlas.production_readiness.v1`.
-- `overall`: `ready` or `not-ready`.
+- `overall`: `production-ready`, `warning`, or `not-ready`.
 - `commit`: current Git commit.
 - `root`: repository root.
 - `runtime_target`: runtime target label.
@@ -43,7 +43,8 @@ valid only when:
 - `counts.required_not_ready` is `0`
 - release trust packet verification is current
 - production contract documentation exists
-- signing/provenance evidence exists
+- signing/provenance evidence verifies a signed tag, release packet hash, and
+  release packet replay
 - retained production dry-run or external validation evidence exists
 
 ## Metadata Boundary

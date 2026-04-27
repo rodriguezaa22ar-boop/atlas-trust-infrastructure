@@ -376,6 +376,14 @@ The near-term roadmap is:
     notes do not invalidate historical packet replay. Production readiness
     remains blocked only by signing/provenance after the packet-retention commit
     is pushed and synced.
+67. Add signed release provenance. `atlas production status` now checks the
+    latest `docs/retention/releases/*.provenance.json` packet for a
+    schema-versioned metadata-only record binding a retained release packet to
+    a verified signed Git tag. The gate verifies packet SHA-256, release packet
+    replay, signed tag target, `git tag -v`, QA status, known limitations, and
+    no-overclaim metadata for the current commit or retained release commit.
+    Release packet discovery now ignores `*.provenance.json` so provenance
+    evidence does not masquerade as a release trust packet.
 
 ## First Serious Version
 

@@ -544,7 +544,7 @@ atlas_release_latest_packet() {
   local packet_dir="$LAB_DOCS_DIR/retention/releases"
 
   [ -d "$packet_dir" ] || return 0
-  find "$packet_dir" -maxdepth 1 -type f \( -name '*.md' -o -name '*.json' \) -printf '%T@\t%p\n' 2>/dev/null |
+  find "$packet_dir" -maxdepth 1 -type f \( -name '*.md' -o -name '*.json' \) ! -name '*.provenance.json' -printf '%T@\t%p\n' 2>/dev/null |
     sort -nr |
     awk -F'\t' 'NR == 1 { print $2 }'
 }

@@ -129,6 +129,7 @@ The dev shell is expected to provide tools such as:
 - `shfmt`
 - `bats`
 - `git`
+- `gpg`
 - `jq`
 - `fd`
 - `rg`
