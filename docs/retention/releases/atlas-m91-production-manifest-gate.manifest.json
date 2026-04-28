@@ -1,0 +1,106 @@
+{
+  "schema_version": "atlas.release_artifact_manifest.v1",
+  "generated": "2026-04-28T07:44:58Z",
+  "manifest": "atlas-m91-production-manifest-gate",
+  "metadata_only": true,
+  "raw_artifacts_embedded": false,
+  "release": {
+    "commit": "b5b5c97e9d2dd3aabe5cb28bc03bc8494ab74a4e",
+    "retained_by_commit": "b5b5c97e9d2dd3aabe5cb28bc03bc8494ab74a4e",
+    "branch_at_manifest": "main"
+  },
+  "repository": {
+    "state_before_manifest": "dirty",
+    "upstream_sync_before_manifest": "synced"
+  },
+  "signed_tag": {
+    "name": "atlas-production-candidate-m91",
+    "target": "b5b5c97e9d2dd3aabe5cb28bc03bc8494ab74a4e",
+    "tag_object": "0b7e290a46145a7486fd886fb3c06cd4e9828f55",
+    "verification": "verified"
+  },
+  "release_packet": {
+    "path": "docs/retention/releases/atlas-m91-production-manifest-gate.json",
+    "sha256": "d18ceb8937dfa5806cd87f8802eb86cfe1ffd4c8a1738c9b05c43cd84bbf6960",
+    "verified": true
+  },
+  "provenance": {
+    "path": "docs/retention/releases/atlas-m91-production-manifest-gate.provenance.json",
+    "sha256": "5f7c488d41bc0bfd83cdd4f369f9ab36c618ebb51576796ef179cdd75826b3d0",
+    "verified": true
+  },
+  "production_dry_run": {
+    "path": "docs/retention/production/PRODUCTION_DRY_RUN_2026-04-28_M91.md",
+    "sha256": "0a4f8e826a53aa5763f2f5da0f7d49f549e24ea0736e3568048374e552e92e96",
+    "verified": true
+  },
+  "signing_public_key": {
+    "path": "docs/retention/releases/atlas-m67-release-signing-public-key.asc",
+    "sha256": "c08e7454ee3ab72a39286f61efd4deca8fbe0ef3fe20844771ff5735da6a79d5",
+    "verified": true
+  },
+  "milestone_note": {
+    "path": "docs/retention/milestones/MILESTONE_90.md",
+    "sha256": "ec0dc6967a4a83bc837fc06ee8c20d2f98de9cc8ab0e14fd4ed7115945821666",
+    "retained": true
+  },
+  "artifacts": [
+    {
+      "kind": "release_packet",
+      "path": "docs/retention/releases/atlas-m91-production-manifest-gate.json",
+      "sha256": "d18ceb8937dfa5806cd87f8802eb86cfe1ffd4c8a1738c9b05c43cd84bbf6960",
+      "required": true
+    },
+    {
+      "kind": "release_provenance",
+      "path": "docs/retention/releases/atlas-m91-production-manifest-gate.provenance.json",
+      "sha256": "5f7c488d41bc0bfd83cdd4f369f9ab36c618ebb51576796ef179cdd75826b3d0",
+      "required": true
+    },
+    {
+      "kind": "production_dry_run",
+      "path": "docs/retention/production/PRODUCTION_DRY_RUN_2026-04-28_M91.md",
+      "sha256": "0a4f8e826a53aa5763f2f5da0f7d49f549e24ea0736e3568048374e552e92e96",
+      "required": true
+    },
+    {
+      "kind": "signing_public_key",
+      "path": "docs/retention/releases/atlas-m67-release-signing-public-key.asc",
+      "sha256": "c08e7454ee3ab72a39286f61efd4deca8fbe0ef3fe20844771ff5735da6a79d5",
+      "required": true
+    },
+    {
+      "kind": "milestone_note",
+      "path": "docs/retention/milestones/MILESTONE_90.md",
+      "sha256": "ec0dc6967a4a83bc837fc06ee8c20d2f98de9cc8ab0e14fd4ed7115945821666",
+      "required": false
+    }
+  ],
+  "metadata_boundary": {
+    "stores": [
+      "paths",
+      "sha256 hashes",
+      "commit ids",
+      "tag ids",
+      "verification states",
+      "known limitations"
+    ],
+    "excludes": [
+      "raw runtime artifacts",
+      "target secrets",
+      "session contents",
+      "packet captures",
+      "credential material",
+      "private keys",
+      "tokens",
+      "evidence bodies"
+    ]
+  },
+  "known_limitations": [
+    "Release artifact manifests are metadata-only local release indexes, not external audit attestations.",
+    "Artifact files are hash-bound by this manifest but are not individually signed.",
+    "Signed tag verification depends on the retained public key and local Git object availability.",
+    "This manifest does not claim deployment certification, enterprise certification, or legal compliance."
+  ],
+  "no_production_overclaim": true
+}
