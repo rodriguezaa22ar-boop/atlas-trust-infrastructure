@@ -379,7 +379,13 @@ Do not add automatic business-flow discovery in the first implementation.
 
 Business Flow Evidence is optional at the current maturity stage.
 
-It should not become required for:
+`atlas v1 status` and `atlas production status` now include Business Flow
+Evidence as an optional non-blocking pillar/gate. The integration is
+intentionally conservative: it reports command, packet, verification, record,
+and active-operation link visibility, but it does not fail strict readiness
+while the model is still being refined.
+
+It must not become required for:
 
 ```bash
 atlas v1 status --strict
@@ -389,14 +395,19 @@ atlas production status --strict
 until flow records, flow packets, verification, negative tests, and metadata-only
 guardrails are stable.
 
-Future readiness states:
+Current readiness states:
 
-- `planned`: docs or schemas exist but runtime commands are not enabled.
-- `ready`: flow commands exist and packet verification tests pass.
-- `warning`: active operation has flow links but stale or missing flow packet.
-- `blocked`: linked evidence is missing, hash mismatches, or packet contains
-  forbidden content.
+- `ready`: flow commands, packet generation, and packet verification are
+  available and covered by tests.
+- `planned`: the optional pillar is explicitly marked planned or not fully
+  enabled.
 - `disabled`: explicitly disabled by configuration.
+
+Future promoted states may add `warning` or `blocked` for active operations with
+stale/missing flow packets, missing linked evidence, hash mismatches, or
+forbidden-content markers. Those states should not become blocking until the
+Business Flow Evidence pillar is intentionally promoted from optional to
+required.
 
 ## Known Limitations
 

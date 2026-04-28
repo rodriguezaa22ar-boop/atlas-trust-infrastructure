@@ -1334,13 +1334,35 @@ EOF
   [[ "$output" == *"Validation"* ]]
   [[ "$output" == *"Reports"* ]]
   [[ "$output" == *"Retention"* ]]
+  [[ "$output" == *"Business Flow Evidence"* ]]
   [[ "$output" == *"AI Advisor"* ]]
   [[ "$output" == *"Overall: ready"* ]]
 
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" v1 status --json
   [ "$status" -eq 0 ]
   printf '%s\n' "$output" |
-    jq -e '.overall == "ready" and .strict == false and .pillars.core_cli.status == "ready" and .pillars.ai_advisor.required == false'
+    jq -e '
+      .overall == "ready" and
+      .strict == false and
+      .pillars.core_cli.status == "ready" and
+      .pillars.business_flow_evidence.required == false and
+      .pillars.business_flow_evidence.status == "ready" and
+      .pillars.ai_advisor.required == false
+    '
+
+  run env LAB_ATLAS_BUSINESS_FLOWS=disabled \
+    "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" v1 status --strict
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Business Flow Evidence"* ]]
+  [[ "$output" == *"disabled"* ]]
+  [[ "$output" == *"Overall: ready"* ]]
+
+  run env LAB_ATLAS_BUSINESS_FLOWS=planned \
+    "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" v1 status --strict
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Business Flow Evidence"* ]]
+  [[ "$output" == *"planned"* ]]
+  [[ "$output" == *"Overall: ready"* ]]
 
   run env LAB_ATLAS_AI_ADVISOR=disabled \
     "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" v1 status --strict
@@ -1366,6 +1388,63 @@ EOF
     jq -e '.overall == "blocked" and .pillars.action_planner.status == "blocked"'
 }
 
+@test "business-flow evidence readiness is optional and non-blocking" {
+  mkdir -p "$TEST_ROOT/toolkit/targets"
+  cat > "$TEST_ROOT/toolkit/targets/demo-node.env" <<'EOF'
+NAME=demo-node
+ADDRESS=10.10.10.10
+SCOPE_STATUS=in-scope
+CRITICALITY=high
+CREATED_AT=2026-04-23T20:53:16Z
+EOF
+  artifact="$TEST_ROOT/flow-readiness-artifact.txt"
+  printf 'business-flow readiness proof that must not be copied\n' > "$artifact"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow add customer-signup \
+    --type customer_onboarding \
+    --owner product \
+    --criticality high \
+    --environment staging \
+    --scope-status in-scope \
+    --data-class email \
+    --system web_app \
+    --control audit_logging
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op start flow-readiness-op demo-node authorized flow readiness
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence add "$artifact" --kind redacted-report --classification public
+  [ "$status" -eq 0 ]
+  evidence_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  [ -n "$evidence_id" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow link-evidence customer-signup "$evidence_id"
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op report flow-readiness-op
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" v1 status flow-readiness-op --strict
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Business Flow Evidence"* ]]
+  [[ "$output" == *"ready"* ]]
+  [[ "$output" == *"active_operation_links=1"* ]]
+  [[ "$output" == *"active_operation_packets=0"* ]]
+  [[ "$output" == *"Overall: ready"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" v1 status flow-readiness-op --json --strict
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" |
+    jq -e '
+      .overall == "ready" and
+      .pillars.business_flow_evidence.required == false and
+      .pillars.business_flow_evidence.status == "ready" and
+      (.pillars.business_flow_evidence.reason | contains("active_operation_links=1")) and
+      (.pillars.business_flow_evidence.reason | contains("active_operation_packets=0"))
+    '
+}
+
 @test "atlas production status reports conservative production blockers" {
   rm -rf "$TEST_ROOT/toolkit/docs/retention/production"
   rm -f \
@@ -1384,6 +1463,7 @@ EOF
   [[ "$output" == *"Upstream Sync"* ]]
   [[ "$output" == *"Release Trust Packet"* ]]
   [[ "$output" == *"Production Contract"* ]]
+  [[ "$output" == *"Business Flow Evidence"* ]]
   [[ "$output" == *"Signing And Provenance"* ]]
   [[ "$output" == *"Production Dry Run"* ]]
   [[ "$output" == *"Overall: not-ready"* ]]
@@ -1401,6 +1481,8 @@ EOF
       .gates.repository_clean.status == "ready" and
       .gates.upstream_sync.status == "ready" and
       .gates.production_contract.status == "ready" and
+      .gates.business_flow_evidence.required == false and
+      .gates.business_flow_evidence.status == "ready" and
       .gates.release_trust_packet.status == "blocked" and
       .gates.signing_provenance.status == "blocked" and
       .gates.production_dry_run.status == "blocked" and
@@ -1427,6 +1509,7 @@ EOF
       .gates.repository_clean.status == "ready" and
       .gates.upstream_sync.status == "ready" and
       .gates.release_trust_packet.status == "ready" and
+      .gates.business_flow_evidence.status == "ready" and
       .gates.signing_provenance.status == "blocked" and
       .gates.production_dry_run.status == "blocked" and
       .counts.required_not_ready >= 2
@@ -1463,6 +1546,7 @@ EOF
       .gates.repository_clean.status == "ready" and
       .gates.upstream_sync.status == "ready" and
       .gates.release_trust_packet.status == "blocked" and
+      .gates.business_flow_evidence.status == "ready" and
       .gates.signing_provenance.status == "blocked" and
       .gates.production_dry_run.status == "ready" and
       .counts.required_not_ready >= 2
@@ -1574,6 +1658,7 @@ EOF
       .gates.repository_clean.status == "ready" and
       .gates.upstream_sync.status == "ready" and
       .gates.release_trust_packet.status == "ready" and
+      .gates.business_flow_evidence.status == "ready" and
       .gates.signing_provenance.status == "ready" and
       .gates.production_dry_run.status == "ready" and
       .counts.required_not_ready == 0

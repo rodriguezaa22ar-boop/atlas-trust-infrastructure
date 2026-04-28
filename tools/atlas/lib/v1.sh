@@ -568,6 +568,84 @@ atlas_v1_collect_advisor() {
   esac
 }
 
+atlas_v1_collect_business_flow_evidence() {
+  local policy="${LAB_ATLAS_BUSINESS_FLOWS:-${LAB_ATLAS_BUSINESS_FLOWS_STATUS:-enabled}}"
+  local flow_records="0"
+  local operation_links="0"
+  local operation_packets="0"
+  local reason
+  local artifacts
+
+  case "$policy" in
+  disabled)
+    atlas_v1_add_pillar \
+      "business_flow_evidence" \
+      "Business Flow Evidence" \
+      0 \
+      "disabled" \
+      "Business Flow Evidence is explicitly disabled by environment policy" \
+      "tests/atlas.bats business-flow readiness tests" \
+      "atlas flow add; atlas flow packet; atlas flow verify" \
+      "state/atlas/flows" \
+      "optional pillar; disabled state is non-blocking"
+    return 0
+    ;;
+  planned)
+    atlas_v1_add_pillar \
+      "business_flow_evidence" \
+      "Business Flow Evidence" \
+      0 \
+      "planned" \
+      "Business Flow Evidence is marked planned and non-blocking" \
+      "tests/atlas.bats business-flow readiness tests" \
+      "atlas flow add; atlas flow packet; atlas flow verify" \
+      "state/atlas/flows" \
+      "optional pillar; planned state is non-blocking"
+    return 0
+    ;;
+  esac
+
+  if ! declare -F cmd_flow_add >/dev/null 2>&1 ||
+    ! declare -F cmd_flow_packet >/dev/null 2>&1 ||
+    ! declare -F cmd_flow_verify >/dev/null 2>&1; then
+    atlas_v1_add_pillar \
+      "business_flow_evidence" \
+      "Business Flow Evidence" \
+      0 \
+      "planned" \
+      "Business Flow Evidence commands are not fully enabled yet" \
+      "tests/atlas.bats business-flow readiness tests" \
+      "atlas flow add; atlas flow packet; atlas flow verify" \
+      "state/atlas/flows" \
+      "optional pillar; command availability must be proven before promotion"
+    return 0
+  fi
+
+  if declare -F atlas_flow_record_count >/dev/null 2>&1; then
+    flow_records="$(atlas_flow_record_count)"
+  fi
+
+  artifacts="state/atlas/flows"
+  reason="optional metadata-only flow commands, packet generation, and verification are available; flow_records=$flow_records"
+  if atlas_v1_operation_loaded && declare -F atlas_flow_operation_link_count >/dev/null 2>&1; then
+    operation_links="$(atlas_flow_operation_link_count "$ATLAS_OP_DIR")"
+    operation_packets="$(atlas_flow_operation_packet_count "$ATLAS_OP_DIR")"
+    reason="$reason active_operation_links=$operation_links active_operation_packets=$operation_packets"
+    artifacts="$artifacts; ${ATLAS_OP_DIR}/business_flows.ndjson; ${ATLAS_OP_DIR}/flow_packets"
+  fi
+
+  atlas_v1_add_pillar \
+    "business_flow_evidence" \
+    "Business Flow Evidence" \
+    0 \
+    "ready" \
+    "$reason" \
+    "tests/atlas.bats business-flow records, links, packets, verify, and readiness tests" \
+    "atlas flow add; atlas flow list; atlas flow show; atlas flow link-evidence; atlas flow packet; atlas flow verify" \
+    "$artifacts" \
+    "optional non-blocking pillar; no automatic flow discovery, finding/validation links, or JSON packet parity yet"
+}
+
 atlas_v1_collect() {
   atlas_v1_blocked=0
   atlas_v1_warnings=0
@@ -576,6 +654,7 @@ atlas_v1_collect() {
   atlas_v1_collect_core
   atlas_v1_collect_operation_core
   atlas_v1_collect_operation_readiness
+  atlas_v1_collect_business_flow_evidence
   atlas_v1_collect_advisor
 }
 

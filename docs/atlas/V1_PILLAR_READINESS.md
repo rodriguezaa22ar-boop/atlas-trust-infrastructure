@@ -183,6 +183,23 @@ Each pillar status must include:
 - Limitations: release provenance uses signed Git tags, but operation
   retention packets are not individually signed.
 
+### Business Flow Evidence
+
+- Status: `ready`, `planned`, or `disabled`
+- Reason: optional metadata-only flow records, evidence links, packets, and
+  packet verification are available, or the optional pillar is explicitly
+  disabled/planned.
+- Tests: `tests/atlas.bats` business-flow records, links, packets, verify, and
+  readiness tests.
+- Commands: `atlas flow add`, `atlas flow list`, `atlas flow show`,
+  `atlas flow link-evidence`, `atlas flow packet`, `atlas flow verify`
+- Artifacts: `state/atlas/flows/`,
+  `sessions/<operation>/business_flows.ndjson`,
+  `sessions/<operation>/flow_evidence.ndjson`,
+  `sessions/<operation>/flow_packets/`
+- Limitations: optional non-blocking pillar; no automatic business-flow
+  discovery, finding/validation links, or JSON packet parity yet.
+
 ### AI Advisor
 
 - Status: `ready`, `planned`, or `disabled`

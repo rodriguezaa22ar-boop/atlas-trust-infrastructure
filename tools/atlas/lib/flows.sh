@@ -237,6 +237,43 @@ atlas_flow_files() {
   done
 }
 
+atlas_flow_record_count() {
+  local count=0
+  local file
+
+  while IFS= read -r file; do
+    [ -n "$file" ] || continue
+    count=$((count + 1))
+  done < <(atlas_flow_files)
+
+  printf '%s\n' "$count"
+}
+
+atlas_flow_operation_link_count() {
+  local op_dir="$1"
+  local file
+
+  file="$(atlas_flow_operation_links_file "$op_dir")"
+  if [ ! -s "$file" ]; then
+    printf '0\n'
+    return 0
+  fi
+
+  jq -sr 'length' "$file" 2>/dev/null || printf '0\n'
+}
+
+atlas_flow_operation_packet_count() {
+  local op_dir="$1"
+  local packet_dir="$op_dir/flow_packets"
+
+  if [ ! -d "$packet_dir" ]; then
+    printf '0\n'
+    return 0
+  fi
+
+  find "$packet_dir" -maxdepth 1 -type f -name '*.md' 2>/dev/null | wc -l | tr -d ' '
+}
+
 atlas_flow_operation_link_exists() {
   local file="$1"
   local flow_id="$2"

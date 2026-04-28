@@ -223,6 +223,67 @@ atlas_production_check_docs() {
   fi
 }
 
+atlas_production_check_business_flow_evidence() {
+  local policy="${LAB_ATLAS_BUSINESS_FLOWS:-${LAB_ATLAS_BUSINESS_FLOWS_STATUS:-enabled}}"
+  local flow_records="0"
+
+  case "$policy" in
+  disabled)
+    atlas_production_add_gate \
+      "business_flow_evidence" \
+      "Business Flow Evidence" \
+      0 \
+      "disabled" \
+      "optional Business Flow Evidence is explicitly disabled by environment policy" \
+      "docs/atlas/BUSINESS_FLOW_EVIDENCE.md" \
+      "atlas flow add; atlas flow packet; atlas flow verify" \
+      "business-flow evidence is optional and does not block production readiness yet"
+    return 0
+    ;;
+  planned)
+    atlas_production_add_gate \
+      "business_flow_evidence" \
+      "Business Flow Evidence" \
+      0 \
+      "planned" \
+      "optional Business Flow Evidence is marked planned" \
+      "docs/atlas/BUSINESS_FLOW_EVIDENCE.md" \
+      "atlas flow add; atlas flow packet; atlas flow verify" \
+      "business-flow evidence is optional and does not block production readiness yet"
+    return 0
+    ;;
+  esac
+
+  if ! declare -F cmd_flow_add >/dev/null 2>&1 ||
+    ! declare -F cmd_flow_packet >/dev/null 2>&1 ||
+    ! declare -F cmd_flow_verify >/dev/null 2>&1; then
+    atlas_production_add_gate \
+      "business_flow_evidence" \
+      "Business Flow Evidence" \
+      0 \
+      "planned" \
+      "optional Business Flow Evidence commands are not fully enabled yet" \
+      "docs/atlas/BUSINESS_FLOW_EVIDENCE.md" \
+      "atlas flow add; atlas flow packet; atlas flow verify" \
+      "business-flow evidence is optional and does not block production readiness yet"
+    return 0
+  fi
+
+  if declare -F atlas_flow_record_count >/dev/null 2>&1; then
+    flow_records="$(atlas_flow_record_count)"
+  fi
+
+  atlas_production_add_gate \
+    "business_flow_evidence" \
+    "Business Flow Evidence" \
+    0 \
+    "ready" \
+    "optional metadata-only Business Flow Evidence commands, packets, and verification are available; flow_records=$flow_records" \
+    "docs/atlas/BUSINESS_FLOW_EVIDENCE.md" \
+    "atlas flow add; atlas flow packet; atlas flow verify" \
+    "optional gate; not required for local production readiness until schemas and flow trust-chain integration are stable"
+}
+
 atlas_production_latest_dry_run_note() {
   local production_dir="$LAB_DOCS_DIR/retention/production"
 
@@ -519,6 +580,7 @@ atlas_production_collect() {
   atlas_production_check_repository
   atlas_production_check_release_packet
   atlas_production_check_docs
+  atlas_production_check_business_flow_evidence
   atlas_production_check_future_hardening
 }
 

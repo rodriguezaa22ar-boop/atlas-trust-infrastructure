@@ -471,6 +471,15 @@ The near-term roadmap is:
     hash mismatches, and forbidden raw-content markers. JSON parity, finding
     and validation links, retention references, and optional readiness
     integration remain planned later steps.
+78. Add optional Business Flow Evidence readiness integration. `atlas v1 status`
+    now reports Business Flow Evidence as an optional non-blocking pillar, and
+    `atlas production status` now reports it as an optional non-blocking gate.
+    The status records command availability, flow record counts, and
+    operation-scoped flow link/packet counts when an operation is loaded. This
+    makes the flow module visible in readiness and production views without
+    making business-flow packets required for strict v1 or production readiness.
+    Finding/validation links, JSON packet parity, and promotion to a required
+    pillar remain later steps.
 
 ## First Serious Version
 

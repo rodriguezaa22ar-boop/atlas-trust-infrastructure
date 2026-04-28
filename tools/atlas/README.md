@@ -236,8 +236,10 @@ that same metadata-only boundary and include known limitations. Flow
 verification checks packet metadata, linked evidence records, retained evidence
 files, hashes, freshness, and forbidden-content markers. Flow records, links,
 and packets must not contain secrets, customer records, request or response
-bodies, payment data, tokens, or raw evidence. JSON parity, finding/validation
-links, and readiness integration remain planned later steps.
+bodies, payment data, tokens, or raw evidence. `atlas v1 status` and
+`atlas production status` surface Business Flow Evidence as an optional
+non-blocking pillar/gate. JSON parity and finding/validation links remain
+planned later steps.
 
 The full trust lifecycle is documented in
 [`docs/TRUST_LIFECYCLE.md`](../../docs/TRUST_LIFECYCLE.md). It

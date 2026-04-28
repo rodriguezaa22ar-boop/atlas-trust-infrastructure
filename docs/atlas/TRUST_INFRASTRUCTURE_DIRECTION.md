@@ -210,7 +210,8 @@ verification, negative tests, and readiness integration are stable.
    contract map.
 3. Keep `atlas flow verify` aligned with Business Flow Evidence packet and link
    contracts.
-4. Continue Business Flow Evidence with optional readiness integration.
+4. Keep optional Business Flow Evidence readiness integration non-blocking in
+   `atlas v1 status` and `atlas production status`.
 5. Add flow finding and validation links when the metadata model is stable.
 6. Stabilize flow, packet, audit, archive, release, and trust-chain schemas.
 7. Add packet/replay parity where retained proof needs machine-readable gates.
