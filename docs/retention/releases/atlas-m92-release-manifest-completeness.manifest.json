@@ -1,0 +1,111 @@
+{
+  "schema_version": "atlas.release_artifact_manifest.v1",
+  "generated": "2026-04-28T08:18:52Z",
+  "manifest": "atlas-m92-release-manifest-completeness",
+  "metadata_only": true,
+  "raw_artifacts_embedded": false,
+  "release": {
+    "commit": "fad01270eb507c5021c0cf95a97b0be6a019fee0",
+    "retained_by_commit": "fad01270eb507c5021c0cf95a97b0be6a019fee0",
+    "branch_at_manifest": "main"
+  },
+  "repository": {
+    "state_before_manifest": "dirty",
+    "upstream_sync_before_manifest": "synced"
+  },
+  "signed_tag": {
+    "name": "atlas-production-candidate-m92",
+    "target": "fad01270eb507c5021c0cf95a97b0be6a019fee0",
+    "tag_object": "6859f204693f8d6fc8524a9961fae715502546de",
+    "verification": "verified"
+  },
+  "release_packet": {
+    "path": "docs/retention/releases/atlas-m92-release-manifest-completeness.json",
+    "sha256": "1105dead646b8e5ffcfc22b09741b2f6435201254f405a28fa0dc18f68e333c7",
+    "verified": true
+  },
+  "provenance": {
+    "path": "docs/retention/releases/atlas-m92-release-manifest-completeness.provenance.json",
+    "sha256": "7dab60e5be329b49c22243c5ac01ea63a5c42238797ac7b6d74af6fb4d427333",
+    "verified": true
+  },
+  "production_dry_run": {
+    "path": "docs/retention/production/PRODUCTION_DRY_RUN_2026-04-28_M92.md",
+    "sha256": "b4ad5cdfef14678d9bcf00abb3bfae3a7bfe0645c217d544fbca6f0e046c0878",
+    "verified": true
+  },
+  "signing_public_key": {
+    "path": "docs/retention/releases/atlas-m67-release-signing-public-key.asc",
+    "sha256": "c08e7454ee3ab72a39286f61efd4deca8fbe0ef3fe20844771ff5735da6a79d5",
+    "verified": true
+  },
+  "milestone_note": {
+    "path": "docs/retention/milestones/MILESTONE_91.md",
+    "sha256": "2d0b55e8e2a0d6c829113dca1e94a657b40b87468531ee33886fd69349ede85e",
+    "retained": true
+  },
+  "artifacts": [
+    {
+      "kind": "release_packet",
+      "path": "docs/retention/releases/atlas-m92-release-manifest-completeness.json",
+      "sha256": "1105dead646b8e5ffcfc22b09741b2f6435201254f405a28fa0dc18f68e333c7",
+      "required": true
+    },
+    {
+      "kind": "release_provenance",
+      "path": "docs/retention/releases/atlas-m92-release-manifest-completeness.provenance.json",
+      "sha256": "7dab60e5be329b49c22243c5ac01ea63a5c42238797ac7b6d74af6fb4d427333",
+      "required": true
+    },
+    {
+      "kind": "production_dry_run",
+      "path": "docs/retention/production/PRODUCTION_DRY_RUN_2026-04-28_M92.md",
+      "sha256": "b4ad5cdfef14678d9bcf00abb3bfae3a7bfe0645c217d544fbca6f0e046c0878",
+      "required": true
+    },
+    {
+      "kind": "signing_public_key",
+      "path": "docs/retention/releases/atlas-m67-release-signing-public-key.asc",
+      "sha256": "c08e7454ee3ab72a39286f61efd4deca8fbe0ef3fe20844771ff5735da6a79d5",
+      "required": true
+    },
+    {
+      "kind": "milestone_note",
+      "path": "docs/retention/milestones/MILESTONE_91.md",
+      "sha256": "2d0b55e8e2a0d6c829113dca1e94a657b40b87468531ee33886fd69349ede85e",
+      "required": false
+    }
+  ],
+  "metadata_boundary": {
+    "stores": [
+      "paths",
+      "sha256 hashes",
+      "commit ids",
+      "tag ids",
+      "verification states",
+      "known limitations"
+    ],
+    "excludes": [
+      "raw runtime artifacts",
+      "target secrets",
+      "session contents",
+      "packet captures",
+      "credential material",
+      "private keys",
+      "tokens",
+      "evidence bodies"
+    ]
+  },
+  "contract": {
+    "schema_document": "docs/schemas/release-artifact-manifest.v1.md",
+    "guidance_document": "docs/atlas/RELEASE_ARTIFACT_MANIFEST.md",
+    "known_limitations_reference": "known_limitations"
+  },
+  "known_limitations": [
+    "Release artifact manifests are metadata-only local release indexes, not external audit attestations.",
+    "Artifact files are hash-bound by this manifest but are not individually signed.",
+    "Signed tag verification depends on the retained public key and local Git object availability.",
+    "This manifest does not claim deployment certification, enterprise certification, or legal compliance."
+  ],
+  "no_production_overclaim": true
+}
