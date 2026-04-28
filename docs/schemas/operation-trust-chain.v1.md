@@ -42,6 +42,7 @@ preserving the read-only behavior of the text trust-chain command.
 - `finding_links`: count of `flow_findings.ndjson` records.
 - `validation_links`: count of `flow_validation.ndjson` records.
 - `approval_links`: count of `flow_approvals.ndjson` records.
+- `retention_links`: count of `flow_retention.ndjson` records.
 - `markdown_packets`: count of retained Markdown flow packets.
 - `json_packets`: count of retained JSON flow packets.
 - `artifacts`: paths to the flow link files and packet directories.

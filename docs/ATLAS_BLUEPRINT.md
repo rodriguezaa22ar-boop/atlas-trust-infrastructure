@@ -460,17 +460,17 @@ The near-term roadmap is:
     state, freshness metadata, and known limitations without embedding raw
     evidence, source paths, customer records, secrets, request or response
     bodies, payment data, or credential material. Flow verification, JSON
-    parity, finding and validation links, retention references, and readiness
-    integration remain planned later steps.
+    parity, finding/validation/approval/retention links, and readiness
+    integration are now implemented in later retained milestones.
 77. Add business-flow packet verification. `atlas flow verify` now checks the
     operation-scoped Markdown Business Flow Evidence packet against the active
     operation, flow record, operation link, evidence links, retained evidence
     records, retained evidence files, SHA-256 hashes, freshness timestamps, and
     forbidden-content guardrails. Verification is read-only and fails closed on
     missing packets, missing links, stale packets, missing retained evidence,
-    hash mismatches, and forbidden raw-content markers. JSON parity, finding
-    and validation links, retention references, and optional readiness
-    integration remain planned later steps.
+    hash mismatches, and forbidden raw-content markers. JSON parity,
+    finding/validation/approval/retention links, and optional readiness
+    integration are now implemented in later retained milestones.
 78. Add optional Business Flow Evidence readiness integration. `atlas v1 status`
     now reports Business Flow Evidence as an optional non-blocking pillar, and
     `atlas production status` now reports it as an optional non-blocking gate.
@@ -520,6 +520,14 @@ The near-term roadmap is:
     validation links, approval links, Markdown packet counts, and JSON packet
     counts. This keeps Business Flow Evidence visible in the operation trust
     chain without making it required, mutating state, or embedding raw evidence,
+    approval reasons, operator notes, or sensitive business data.
+84. Add Business Flow Evidence retention links. `atlas flow link-retention`
+    now links a business flow to retained operation or release artifacts by
+    kind and writes `atlas.flow_retention_link.v1` metadata-only records under
+    `sessions/<operation>/flow_retention.ndjson`. Flow packets and
+    Markdown/JSON verification now include retention references, retention
+    freshness counts, retained artifact hash checks, and stale/blocking
+    outcomes without embedding report bodies, packet bodies, raw evidence,
     approval reasons, operator notes, or sensitive business data.
 
 ## First Serious Version

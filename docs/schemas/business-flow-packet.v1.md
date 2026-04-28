@@ -14,8 +14,8 @@ default. `atlas flow packet --json` emits a machine-readable JSON packet under
 `sessions/<operation>/flow_packets_json/`. `atlas flow verify` verifies the
 Markdown packet, and `atlas flow verify --json` verifies the JSON packet against
 the active operation, flow record, evidence links, retained evidence files,
-finding links, validation links, approval links, hashes, freshness, and metadata-only
-guardrails.
+finding links, validation links, approval links, retention links, retained
+artifact files, hashes, freshness, and metadata-only guardrails.
 
 This packet depends on the stabilized record and link contracts:
 
@@ -25,6 +25,7 @@ This packet depends on the stabilized record and link contracts:
 - `atlas.flow_finding_link.v1`
 - `atlas.flow_validation_link.v1`
 - `atlas.flow_approval_link.v1`
+- `atlas.flow_retention_link.v1`
 
 ## Required Fields
 
@@ -44,7 +45,7 @@ This packet depends on the stabilized record and link contracts:
 | `findings_refs` | array of objects | Linked finding IDs and metadata snapshots. |
 | `validation_refs` | array of objects | Linked validation IDs and metadata snapshots. |
 | `approval_refs` | array of objects | Linked approval references and metadata snapshots. |
-| `retention_refs` | object | Linked handoff, closeout, audit, archive, or release packet paths. |
+| `retention_refs` | object | Linked retained artifact references grouped by retention kind. |
 | `freshness` | object | Current packet freshness state. |
 | `known_limitations` | array of strings | Explicit limitations. |
 | `metadata_only` | boolean | Must be `true`. |
@@ -65,16 +66,18 @@ The `flow` object should contain:
 
 ## Retention References
 
-`retention_refs` may include:
+`retention_refs` may include arrays keyed by:
 
 - `report`
-- `handoff_packet`
-- `closeout_manifest`
-- `audit_packet`
-- `archive_packet`
-- `release_packet`
+- `handoff`
+- `closeout`
+- `audit`
+- `archive`
+- `release`
+- `review-packet`
 
-Values should be paths or packet names, not embedded packet bodies.
+Values include artifact path, basename, SHA-256, link timestamp, and
+`metadata_only: true`. They must not embed retained artifact contents.
 
 ## Freshness
 
@@ -125,13 +128,13 @@ The packet may include hashes and metadata references to redacted artifacts.
 - linked validation metadata still matches
 - linked approval records still exist
 - linked approval metadata still matches
+- linked retention references are present in the packet
+- linked retention artifact files still exist
+- linked retention artifact hashes still match
 - retained evidence files exist
 - retained evidence file hashes still match evidence records
 - freshness is current
 - forbidden raw-content markers are absent
-
-Future verification can add linked retention references once those surfaces
-exist.
 
 ## Markdown Parity
 
@@ -144,7 +147,6 @@ The Markdown packet should include the same core sections:
 - Evidence References
 - Findings
 - Validation
-- Approvals
 - Approvals
 - Retention References
 - Freshness

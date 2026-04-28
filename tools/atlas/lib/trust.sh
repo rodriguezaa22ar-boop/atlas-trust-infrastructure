@@ -115,6 +115,7 @@ atlas_trust_chain_collect_business_flows() {
   local finding_links_file="$op_dir/flow_findings.ndjson"
   local validation_links_file="$op_dir/flow_validation.ndjson"
   local approval_links_file="$op_dir/flow_approvals.ndjson"
+  local retention_links_file="$op_dir/flow_retention.ndjson"
   local packet_dir="$op_dir/flow_packets"
   local packet_json_dir="$op_dir/flow_packets_json"
 
@@ -123,6 +124,7 @@ atlas_trust_chain_collect_business_flows() {
   ATLAS_TRUST_FLOW_FINDING_LINKS_FILE="$finding_links_file"
   ATLAS_TRUST_FLOW_VALIDATION_LINKS_FILE="$validation_links_file"
   ATLAS_TRUST_FLOW_APPROVAL_LINKS_FILE="$approval_links_file"
+  ATLAS_TRUST_FLOW_RETENTION_LINKS_FILE="$retention_links_file"
   ATLAS_TRUST_FLOW_PACKET_DIR="$packet_dir"
   ATLAS_TRUST_FLOW_PACKET_JSON_DIR="$packet_json_dir"
   ATLAS_TRUST_FLOW_OPERATION_LINKS="$(atlas_trust_chain_ndjson_count "$flow_links_file")"
@@ -130,6 +132,7 @@ atlas_trust_chain_collect_business_flows() {
   ATLAS_TRUST_FLOW_FINDING_LINKS="$(atlas_trust_chain_ndjson_count "$finding_links_file")"
   ATLAS_TRUST_FLOW_VALIDATION_LINKS="$(atlas_trust_chain_ndjson_count "$validation_links_file")"
   ATLAS_TRUST_FLOW_APPROVAL_LINKS="$(atlas_trust_chain_ndjson_count "$approval_links_file")"
+  ATLAS_TRUST_FLOW_RETENTION_LINKS="$(atlas_trust_chain_ndjson_count "$retention_links_file")"
   ATLAS_TRUST_FLOW_PACKET_COUNT="$(atlas_trust_chain_file_count "$packet_dir" '*.md')"
   ATLAS_TRUST_FLOW_PACKET_JSON_COUNT="$(atlas_trust_chain_file_count "$packet_json_dir" '*.json')"
   ATLAS_TRUST_FLOW_STATUS="$(atlas_trust_chain_business_flow_status "$ATLAS_TRUST_FLOW_OPERATION_LINKS" "$ATLAS_TRUST_FLOW_PACKET_COUNT" "$ATLAS_TRUST_FLOW_PACKET_JSON_COUNT")"
@@ -206,6 +209,7 @@ atlas_trust_chain_print() {
   ui_kv "Finding Links" "$ATLAS_TRUST_FLOW_FINDING_LINKS path=$ATLAS_TRUST_FLOW_FINDING_LINKS_FILE"
   ui_kv "Validation Links" "$ATLAS_TRUST_FLOW_VALIDATION_LINKS path=$ATLAS_TRUST_FLOW_VALIDATION_LINKS_FILE"
   ui_kv "Approval Links" "$ATLAS_TRUST_FLOW_APPROVAL_LINKS path=$ATLAS_TRUST_FLOW_APPROVAL_LINKS_FILE"
+  ui_kv "Retention Links" "$ATLAS_TRUST_FLOW_RETENTION_LINKS path=$ATLAS_TRUST_FLOW_RETENTION_LINKS_FILE"
   ui_kv "Markdown Packets" "$ATLAS_TRUST_FLOW_PACKET_COUNT path=$ATLAS_TRUST_FLOW_PACKET_DIR"
   ui_kv "JSON Packets" "$ATLAS_TRUST_FLOW_PACKET_JSON_COUNT path=$ATLAS_TRUST_FLOW_PACKET_JSON_DIR"
   ui_rule
@@ -265,6 +269,7 @@ atlas_trust_chain_print_json() {
     --arg flow_finding_links_file "$ATLAS_TRUST_FLOW_FINDING_LINKS_FILE" \
     --arg flow_validation_links_file "$ATLAS_TRUST_FLOW_VALIDATION_LINKS_FILE" \
     --arg flow_approval_links_file "$ATLAS_TRUST_FLOW_APPROVAL_LINKS_FILE" \
+    --arg flow_retention_links_file "$ATLAS_TRUST_FLOW_RETENTION_LINKS_FILE" \
     --arg flow_packet_dir "$ATLAS_TRUST_FLOW_PACKET_DIR" \
     --arg flow_packet_json_dir "$ATLAS_TRUST_FLOW_PACKET_JSON_DIR" \
     --argjson flow_operation_links "${ATLAS_TRUST_FLOW_OPERATION_LINKS:-0}" \
@@ -272,6 +277,7 @@ atlas_trust_chain_print_json() {
     --argjson flow_finding_links "${ATLAS_TRUST_FLOW_FINDING_LINKS:-0}" \
     --argjson flow_validation_links "${ATLAS_TRUST_FLOW_VALIDATION_LINKS:-0}" \
     --argjson flow_approval_links "${ATLAS_TRUST_FLOW_APPROVAL_LINKS:-0}" \
+    --argjson flow_retention_links "${ATLAS_TRUST_FLOW_RETENTION_LINKS:-0}" \
     --argjson flow_packets "${ATLAS_TRUST_FLOW_PACKET_COUNT:-0}" \
     --argjson flow_json_packets "${ATLAS_TRUST_FLOW_PACKET_JSON_COUNT:-0}" \
     --arg ledger_file "$ATLAS_ARCHIVE_LEDGER_FILE" \
@@ -348,6 +354,7 @@ atlas_trust_chain_print_json() {
         finding_links: $flow_finding_links,
         validation_links: $flow_validation_links,
         approval_links: $flow_approval_links,
+        retention_links: $flow_retention_links,
         markdown_packets: $flow_packets,
         json_packets: $flow_json_packets,
         artifacts: {
@@ -356,6 +363,7 @@ atlas_trust_chain_print_json() {
           finding_links: $flow_finding_links_file,
           validation_links: $flow_validation_links_file,
           approval_links: $flow_approval_links_file,
+          retention_links: $flow_retention_links_file,
           markdown_packets: $flow_packet_dir,
           json_packets: $flow_packet_json_dir
         },

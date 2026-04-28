@@ -162,6 +162,7 @@ sessions/<operation>/flow_evidence.ndjson
 sessions/<operation>/flow_findings.ndjson
 sessions/<operation>/flow_validation.ndjson
 sessions/<operation>/flow_approvals.ndjson
+sessions/<operation>/flow_retention.ndjson
 sessions/<operation>/flow_packets/<packet-name>.md
 sessions/<operation>/flow_packets_json/<packet-name>.json
 ```
@@ -181,6 +182,7 @@ atlas flow link-evidence <flow> <evidence-id>
 atlas flow link-finding <flow> <finding-id>
 atlas flow link-validation <flow> <validation-id>
 atlas flow link-approval <flow> <capability>
+atlas flow link-retention <flow> <kind> <path>
 atlas flow packet [--json] <flow> [packet-name]
 atlas flow verify [--json] <flow> [packet-name]
 ```
@@ -194,6 +196,7 @@ sessions/<operation>/flow_evidence.ndjson
 sessions/<operation>/flow_findings.ndjson
 sessions/<operation>/flow_validation.ndjson
 sessions/<operation>/flow_approvals.ndjson
+sessions/<operation>/flow_retention.ndjson
 sessions/<operation>/flow_packets/<packet-name>.md
 sessions/<operation>/flow_packets_json/<packet-name>.json
 ```
@@ -206,6 +209,7 @@ Implemented schema contracts:
 - [`atlas.flow_finding_link.v1`](../schemas/flow-finding-link.v1.md)
 - [`atlas.flow_validation_link.v1`](../schemas/flow-validation-link.v1.md)
 - [`atlas.flow_approval_link.v1`](../schemas/flow-approval-link.v1.md)
+- [`atlas.flow_retention_link.v1`](../schemas/flow-retention-link.v1.md)
 - [`atlas.business_flow_packet.v1`](../schemas/business-flow-packet.v1.md)
 - [`atlas.business_flow_verify.v1`](../schemas/business-flow-verify.v1.md)
 
@@ -234,24 +238,31 @@ status, approved-by value, approval timestamp, and link metadata. It does not
 copy approval reasons, reviewer rationale, operator notes, command output, or
 raw evidence.
 
+`atlas flow link-retention` requires an active operation, an existing flow, an
+allowed retention kind, and an existing retained artifact under the Atlas
+repository root. The link stores only the retention kind, relative artifact
+path, artifact basename, SHA-256 hash, timestamps, and metadata-only boundary
+note. It does not copy report bodies, packet bodies, raw evidence, approval
+reasons, operator notes, or sensitive business records.
+
 `atlas flow packet` requires an active operation and an existing business-flow
 evidence link in that operation. By default it writes a metadata-only Markdown
 packet with flow identity, operation metadata, data class labels, system
 aliases, control objective labels, evidence IDs, retained evidence paths,
 SHA-256 hashes, classification, redaction state, finding references, validation
-references, approval references, freshness metadata, and known limitations. With
-`--json`, it writes the same metadata-only contract as machine-readable JSON under
-`flow_packets_json/`.
+references, approval references, retention references, freshness metadata, and
+known limitations. With `--json`, it writes the same metadata-only contract as
+machine-readable JSON under `flow_packets_json/`.
 
 `atlas flow verify` requires an active operation and verifies the current
 metadata-only Markdown packet against the flow record, operation link, evidence
-links, finding links, validation links, approval links, retained evidence
-records, retained evidence files, hashes, freshness timestamps, and
-forbidden-content guardrails. With `--json`, it verifies the JSON packet and emits
-`atlas.business_flow_verify.v1`.
+links, finding links, validation links, approval links, retention links,
+retained evidence records, retained evidence files, retained artifact files,
+hashes, freshness timestamps, and forbidden-content guardrails. With `--json`,
+it verifies the JSON packet and emits `atlas.business_flow_verify.v1`.
 
-This slice does not implement retention links or a flow-specific trust-chain
-command yet. Operation trust-chain output can summarize flow link and packet
+This slice does not implement a flow-specific trust-chain command yet.
+Operation trust-chain output can summarize flow link, retention link, and packet
 counts, and readiness integration remains optional and non-blocking.
 
 ## Flow Record Contract
@@ -420,12 +431,13 @@ The packet includes:
 - finding references
 - validation references
 - approval references
+- retention references
 - freshness state
 - known limitations
 - SHA-256 anchors where available
 
-Retention references remain empty metadata structures or known limitations until
-those link types exist.
+Retention references include metadata-only retained artifact kind, path,
+basename, SHA-256 hash, link timestamp, and metadata-only flag.
 
 The packet must not include:
 
@@ -459,6 +471,8 @@ The packet must not include:
 - linked validation metadata is current
 - linked approval records still exist
 - linked approval metadata still matches the linked snapshot
+- linked retention artifact references still exist
+- linked retention artifact hashes still match
 - retained evidence files still exist
 - retained evidence file hashes still match evidence records
 - packet freshness is current
@@ -466,7 +480,6 @@ The packet must not include:
 
 Verification fails closed on missing packets, missing links, stale packets,
 missing retained files, hash mismatches, and forbidden raw-content markers.
-Retention verification can be added after those link types exist.
 
 ## Freshness
 
@@ -474,16 +487,16 @@ Initial freshness states:
 
 - `missing`: no packet exists for the flow.
 - `current`: packet is newer than linked material events.
-- `stale`: linked evidence, findings, validation, or approvals changed after
-  packet generation.
+- `stale`: linked evidence, findings, validation, approvals, or retention
+  references changed after packet generation.
 - `blocked`: linked artifacts are missing, hashes mismatch, or forbidden
   content is detected.
 
 First implementation rule:
 
 ```text
-If any linked evidence, finding, validation, or approval event is newer than the
-flow packet generation time, the flow packet is stale.
+If any linked evidence, finding, validation, approval, or retention event is
+newer than the flow packet generation time, the flow packet is stale.
 ```
 
 More complex graph freshness can come later.
@@ -500,6 +513,7 @@ atlas flow link-evidence <flow> <evidence-id>
 atlas flow link-finding <flow> <finding-id>
 atlas flow link-validation <flow> <validation-id>
 atlas flow link-approval <flow> <capability>
+atlas flow link-retention <flow> <kind> <path>
 atlas flow packet [--json] <flow> [packet-name]
 atlas flow verify [--json] <flow> [packet-name]
 ```

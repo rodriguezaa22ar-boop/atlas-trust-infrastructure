@@ -186,15 +186,15 @@ Each pillar status must include:
 ### Business Flow Evidence
 
 - Status: `ready`, `planned`, or `disabled`
-- Reason: optional metadata-only flow records, evidence links, packets, and
-  packet verification are available, or the optional pillar is explicitly
+- Reason: optional metadata-only flow records, evidence links, retention links,
+  packets, and packet verification are available, or the optional pillar is explicitly
   disabled/planned.
 - Tests: `tests/atlas.bats` business-flow records, links, packets, verify, and
   readiness tests.
 - Commands: `atlas flow add`, `atlas flow list`, `atlas flow show`,
   `atlas flow link-evidence`, `atlas flow link-finding`,
-  `atlas flow link-validation`, `atlas flow link-approval`, `atlas flow packet`,
-  `atlas flow packet --json`, `atlas flow verify`,
+  `atlas flow link-validation`, `atlas flow link-approval`,
+  `atlas flow link-retention`, `atlas flow packet`, `atlas flow packet --json`, `atlas flow verify`,
   `atlas flow verify --json`
 - Artifacts: `state/atlas/flows/`,
   `sessions/<operation>/business_flows.ndjson`,
@@ -202,10 +202,11 @@ Each pillar status must include:
   `sessions/<operation>/flow_findings.ndjson`,
   `sessions/<operation>/flow_validation.ndjson`,
   `sessions/<operation>/flow_approvals.ndjson`,
+  `sessions/<operation>/flow_retention.ndjson`,
   `sessions/<operation>/flow_packets/`,
   `sessions/<operation>/flow_packets_json/`
 - Limitations: optional non-blocking pillar; no automatic business-flow
-  discovery, retention references, or flow-specific trust-chain command yet.
+  discovery or flow-specific trust-chain command yet.
 
 ### AI Advisor
 

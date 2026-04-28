@@ -109,6 +109,7 @@ usage:
   atlas flow link-finding <flow> <finding-id>
   atlas flow link-validation <flow> <validation-id>
   atlas flow link-approval <flow> <capability>
+  atlas flow link-retention <flow> <kind> <path>
   atlas flow packet [--json] <flow> [packet-name]
   atlas flow verify [--json] <flow> [packet-name]
   atlas web assess <url> [assessment-name]
@@ -342,6 +343,7 @@ business flows:
   atlas flow link-finding <flow> <finding-id>
   atlas flow link-validation <flow> <validation-id>
   atlas flow link-approval <flow> <capability>
+  atlas flow link-retention <flow> <kind> <path>
   atlas flow packet [--json] <flow> [packet-name]
   atlas flow verify [--json] <flow> [packet-name]
 

@@ -17,6 +17,7 @@ file-backed surfaces are documented separately:
 - `atlas.flow_finding_link.v1`
 - `atlas.flow_validation_link.v1`
 - `atlas.flow_approval_link.v1`
+- `atlas.flow_retention_link.v1`
 - `atlas.business_flow_packet.v1`
 - `atlas.business_flow_verify.v1`
 
@@ -39,6 +40,7 @@ file-backed surfaces are documented separately:
 | `findings_refs` | array of objects | Linked Atlas finding IDs and metadata snapshots. |
 | `validation_refs` | array of objects | Linked Atlas validation IDs and metadata snapshots. |
 | `approval_refs` | array of objects | Linked approval references and metadata snapshots. |
+| `retention_refs` | object | Metadata-only retained artifact references grouped by kind. |
 | `freshness` | object | Packet or evidence freshness state. |
 | `known_limitations` | array of strings | Explicit limitations of the flow evidence. |
 | `created_at` | string | UTC timestamp. |
@@ -72,6 +74,21 @@ Each `approval_refs` item should contain:
 
 Approval references must not embed approval reasons, reviewer rationale, or
 operator notes.
+
+## Retention Reference Fields
+
+Each `retention_refs.<kind>[]` item should contain:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `path` | string | Retained artifact path, relative to the Atlas repository root when possible. |
+| `basename` | string | Filename-only metadata for reviewer display. |
+| `sha256` | string | SHA-256 of the retained artifact at link time. |
+| `linked_at` | string | UTC link timestamp. |
+| `metadata_only` | boolean | Must be `true`. |
+
+Retention references must not embed retained artifact contents, report bodies,
+packet bodies, approval reasons, or operator notes.
 
 ## Freshness Fields
 

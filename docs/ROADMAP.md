@@ -23,6 +23,7 @@ Atlas is in the trust infrastructure lane:
 - Business Flow Evidence finding and validation links
 - Business Flow Evidence approval links
 - Business Flow Evidence operation trust-chain visibility
+- Business Flow Evidence retention links
 
 ## Near-Term Milestones
 
@@ -49,8 +50,11 @@ Atlas is in the trust infrastructure lane:
 11. Flow operation trust-chain visibility. Implemented in
     `atlas op trust-chain` and `atlas op trust-chain --json` as non-blocking
     Business Flow Evidence link and packet counts.
-12. Flow retention links and a flow-specific trust-chain command.
-13. JSON parity for archive and audit packets where needed.
+12. Flow retention links. Implemented as `atlas flow link-retention`, with
+    `atlas.flow_retention_link.v1` records and Markdown/JSON packet
+    verification.
+13. Flow-specific trust-chain command.
+14. JSON parity for archive and audit packets where needed.
 
 ## Later Control-Plane Work
 

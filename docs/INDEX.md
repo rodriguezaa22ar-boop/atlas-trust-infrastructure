@@ -72,6 +72,8 @@ repository in filesystem order.
   metadata-only business-flow validation link contract.
 - [schemas/flow-approval-link.v1.md](schemas/flow-approval-link.v1.md):
   metadata-only business-flow approval link contract.
+- [schemas/flow-retention-link.v1.md](schemas/flow-retention-link.v1.md):
+  metadata-only business-flow retention link contract.
 - [atlas/PACKET_FORMAT_PARITY.md](atlas/PACKET_FORMAT_PARITY.md): Markdown and
   JSON parity matrix.
 

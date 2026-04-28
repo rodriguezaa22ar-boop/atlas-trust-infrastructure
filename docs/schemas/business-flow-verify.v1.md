@@ -11,8 +11,9 @@ atlas flow verify --json <flow> [packet-name]
 
 The result verifies a metadata-only Business Flow Evidence JSON packet against
 the active operation, global flow record, operation flow link, evidence links,
-finding links, validation links, approval links, retained evidence records, retained evidence
-files, hashes, freshness, and forbidden-content guardrails.
+finding links, validation links, approval links, retention links, retained
+evidence records, retained evidence files, retained artifact files, hashes,
+freshness, and forbidden-content guardrails.
 
 ## Required Fields
 
@@ -75,6 +76,9 @@ The JSON verifier checks:
 - linked approval references are present in the packet
 - linked approval records still exist
 - linked approval metadata still matches the linked snapshot
+- linked retention references are present in the packet
+- linked retention artifact files still exist
+- linked retention artifact hashes still match the linked snapshot
 
 ## Forbidden Content
 
@@ -86,5 +90,4 @@ cookies, authorization headers, payment data, or packet captures.
 
 - This result is not a raw evidence bundle.
 - This result is not a compliance certification.
-- This result does not verify retention links until those Business Flow
-  Evidence link types exist.
+- This result does not embed retained artifact contents.

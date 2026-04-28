@@ -57,6 +57,12 @@ atlas_flow_approval_links_file() {
   printf '%s/flow_approvals.ndjson\n' "$op_dir"
 }
 
+atlas_flow_retention_links_file() {
+  local op_dir="$1"
+
+  printf '%s/flow_retention.ndjson\n' "$op_dir"
+}
+
 atlas_flow_packet_dir() {
   printf '%s/flow_packets\n' "$ATLAS_OP_DIR"
 }
@@ -387,6 +393,23 @@ atlas_flow_approval_link_count() {
     "$file"
 }
 
+atlas_flow_retention_link_count() {
+  local file="$1"
+  local flow_id="$2"
+  local operation="$3"
+
+  if [ ! -s "$file" ]; then
+    printf '0\n'
+    return 0
+  fi
+
+  jq -sr \
+    --arg flow_id "$flow_id" \
+    --arg operation "$operation" \
+    '[.[] | select(.flow_id == $flow_id and .operation == $operation)] | length' \
+    "$file"
+}
+
 atlas_flow_latest_evidence_linked_at() {
   local file="$1"
   local flow_id="$2"
@@ -436,6 +459,22 @@ atlas_flow_latest_validation_linked_at() {
 }
 
 atlas_flow_latest_approval_linked_at() {
+  local file="$1"
+  local flow_id="$2"
+  local operation="$3"
+
+  if [ ! -s "$file" ]; then
+    return 0
+  fi
+
+  jq -sr \
+    --arg flow_id "$flow_id" \
+    --arg operation "$operation" \
+    '[.[] | select(.flow_id == $flow_id and .operation == $operation) | .linked_at // empty] | max // ""' \
+    "$file"
+}
+
+atlas_flow_latest_retention_linked_at() {
   local file="$1"
   local flow_id="$2"
   local operation="$3"
@@ -550,6 +589,30 @@ atlas_flow_packet_approval_refs() {
       "  - Status: " + (.status // "unknown") + "\n" +
       "  - Approved By: " + (.approved_by // "unknown") + "\n" +
       "  - Approval Timestamp: " + (.approval_ts // "unknown") + "\n" +
+      "  - Linked At: " + (.linked_at // "unknown") + "\n" +
+      "  - Metadata Only: " + ((.metadata_only // false) | tostring)' \
+    "$file"
+}
+
+atlas_flow_packet_retention_refs() {
+  local file="$1"
+  local flow_id="$2"
+  local operation="$3"
+
+  if [ ! -s "$file" ] ||
+    ! jq -e --arg flow_id "$flow_id" --arg operation "$operation" 'select(.flow_id == $flow_id and .operation == $operation)' "$file" >/dev/null 2>&1; then
+    printf -- '- none linked\n'
+    return 0
+  fi
+
+  jq -r \
+    --arg flow_id "$flow_id" \
+    --arg operation "$operation" \
+    'select(.flow_id == $flow_id and .operation == $operation) |
+      "- Retention Kind: " + (.retention_kind // "unknown") + "\n" +
+      "  - Artifact Path: " + (.artifact_path // "unknown") + "\n" +
+      "  - Artifact Basename: " + (.artifact_basename // "unknown") + "\n" +
+      "  - SHA-256: " + (.artifact_sha256 // "unknown") + "\n" +
       "  - Linked At: " + (.linked_at // "unknown") + "\n" +
       "  - Metadata Only: " + ((.metadata_only // false) | tostring)' \
     "$file"
@@ -671,6 +734,101 @@ atlas_flow_approval_refs_json() {
       metadata_only: (.metadata_only // false)
     }]' \
     "$file"
+}
+
+atlas_flow_retention_refs_json() {
+  local file="$1"
+  local flow_id="$2"
+  local operation="$3"
+
+  if [ ! -s "$file" ]; then
+    printf '{}\n'
+    return 0
+  fi
+
+  jq -s \
+    --arg flow_id "$flow_id" \
+    --arg operation "$operation" \
+    '[.[] | select(.flow_id == $flow_id and .operation == $operation) | {
+      retention_kind: (.retention_kind // "unknown"),
+      path: (.artifact_path // ""),
+      basename: (.artifact_basename // ""),
+      sha256: (.artifact_sha256 // ""),
+      linked_at: (.linked_at // ""),
+      metadata_only: (.metadata_only // false)
+    }]
+    | group_by(.retention_kind)
+    | map({key: .[0].retention_kind, value: map(del(.retention_kind))})
+    | from_entries' \
+    "$file"
+}
+
+atlas_flow_retention_kind_validate() {
+  local kind="$1"
+
+  atlas_flow_validate_choice "retention kind" "$kind" "report handoff closeout audit archive release review-packet"
+}
+
+atlas_flow_retention_resolve_path() {
+  local input="$1"
+  local candidate
+  local resolved
+  local root_resolved
+
+  case "$input" in
+  /*)
+    candidate="$input"
+    ;;
+  *)
+    if [ -f "$LAB_ROOT/$input" ]; then
+      candidate="$LAB_ROOT/$input"
+    else
+      candidate="$ATLAS_OP_DIR/$input"
+    fi
+    ;;
+  esac
+
+  [ -f "$candidate" ] || fail "retention artifact not found: $input"
+
+  resolved="$(readlink -f "$candidate" 2>/dev/null || true)"
+  root_resolved="$(readlink -f "$LAB_ROOT" 2>/dev/null || true)"
+  [ -n "$resolved" ] || fail "could not resolve retention artifact: $input"
+  [ -n "$root_resolved" ] || fail "could not resolve Atlas repository root"
+
+  case "$resolved" in
+  "$root_resolved"/*)
+    printf '%s\n' "$resolved"
+    ;;
+  *)
+    fail "retention artifact must live under Atlas repository root: $input"
+    ;;
+  esac
+}
+
+atlas_flow_retention_store_path() {
+  local path="$1"
+
+  case "$path" in
+  "$LAB_ROOT"/*)
+    printf '%s\n' "${path#"$LAB_ROOT"/}"
+    ;;
+  *)
+    printf '%s\n' "$path"
+    ;;
+  esac
+}
+
+atlas_flow_retention_resolve_stored_path() {
+  local stored_path="$1"
+
+  case "$stored_path" in
+  /*)
+    printf '%s\n' "$stored_path"
+    ;;
+  *)
+    printf '%s/%s\n' "$LAB_ROOT" "$stored_path"
+    ;;
+  esac
 }
 
 atlas_flow_validate_packet_file() {
@@ -1143,6 +1301,55 @@ atlas_flow_append_approval_link() {
     }' >>"$file"
 }
 
+atlas_flow_append_retention_link() {
+  local file="$1"
+  local retention_kind="$2"
+  local artifact_path="$3"
+  local artifact_sha="$4"
+  local linked_at="$5"
+  local artifact_basename
+
+  intel_require_jq
+
+  artifact_basename="$(basename "$artifact_path")"
+  atlas_flow_retention_kind_validate "$retention_kind"
+  atlas_flow_validate_metadata_value "retention artifact path" "$artifact_path"
+  atlas_flow_validate_metadata_value "retention artifact basename" "$artifact_basename"
+  atlas_flow_validate_metadata_value "retention artifact sha256" "$artifact_sha"
+
+  : >>"$file"
+  chmod 600 "$file" 2>/dev/null || true
+
+  jq -cn \
+    --arg schema_version "atlas.flow_retention_link.v1" \
+    --arg flow_id "$ATLAS_FLOW_ID" \
+    --arg flow_slug "$ATLAS_FLOW_SLUG" \
+    --arg operation "$ATLAS_OP_SLUG" \
+    --arg target "$ATLAS_OP_TARGET" \
+    --arg retention_kind "$retention_kind" \
+    --arg artifact_path "$artifact_path" \
+    --arg artifact_basename "$artifact_basename" \
+    --arg artifact_sha256 "$artifact_sha" \
+    --arg linked_at "$linked_at" \
+    --arg linked_by "atlas" \
+    --arg notes "Metadata-only reference. Retained artifact contents are not embedded." \
+    '{
+      schema_version: $schema_version,
+      flow_id: $flow_id,
+      flow_slug: $flow_slug,
+      operation: $operation,
+      target: $target,
+      retention_kind: $retention_kind,
+      artifact_path: $artifact_path,
+      artifact_basename: $artifact_basename,
+      artifact_sha256: $artifact_sha256,
+      linked_at: $linked_at,
+      linked_by: $linked_by,
+      notes: $notes,
+      metadata_only: true
+    }' >>"$file"
+}
+
 cmd_flow_add() {
   need_args 1 "$#" "flow add <flow-name> [--type type] [--owner owner] [--criticality low|medium|high|critical] [--environment label] [--scope-status status] [--data-class label] [--system alias] [--control objective]"
   local name="$1"
@@ -1472,6 +1679,43 @@ cmd_flow_link_approval() {
   printf 'link_path: %s\n' "$approval_links_file"
 }
 
+cmd_flow_link_retention() {
+  need_args 3 "$#" "flow link-retention <flow> <kind> <path>"
+  local flow="$1"
+  local retention_kind="$2"
+  local artifact_arg="$3"
+  local artifact_abs
+  local artifact_path
+  local artifact_sha
+  local linked_at
+  local flow_links_file
+  local retention_links_file
+
+  atlas_flow_load "$flow"
+  load_active_operation
+  atlas_flow_retention_kind_validate "$retention_kind"
+
+  artifact_abs="$(atlas_flow_retention_resolve_path "$artifact_arg")"
+  artifact_path="$(atlas_flow_retention_store_path "$artifact_abs")"
+  artifact_sha="$(atlas_evidence_hash_path "$artifact_abs")"
+  linked_at="$(timestamp)"
+  flow_links_file="$(atlas_flow_operation_links_file "$ATLAS_OP_DIR")"
+  retention_links_file="$(atlas_flow_retention_links_file "$ATLAS_OP_DIR")"
+
+  atlas_flow_append_operation_link "$flow_links_file" "$linked_at"
+  atlas_flow_append_retention_link "$retention_links_file" "$retention_kind" "$artifact_path" "$artifact_sha" "$linked_at"
+
+  atlas_ledger_append_current "flow.retention_linked" "read-only" "atlas" "ok" "flow_id=$ATLAS_FLOW_ID kind=$retention_kind sha256=$artifact_sha path=$artifact_path"
+
+  ui_ok "business flow retention linked"
+  printf 'flow_id: %s\n' "$ATLAS_FLOW_ID"
+  printf 'operation: %s\n' "$ATLAS_OP_SLUG"
+  printf 'kind: %s\n' "$retention_kind"
+  printf 'artifact_path: %s\n' "$artifact_path"
+  printf 'artifact_sha256: %s\n' "$artifact_sha"
+  printf 'link_path: %s\n' "$retention_links_file"
+}
+
 atlas_flow_write_json_packet() {
   local packet_file="$1"
   local packet_name="$2"
@@ -1490,6 +1734,9 @@ atlas_flow_write_json_packet() {
   local approval_links_file="${15}"
   local approval_link_count="${16}"
   local latest_approval_link="${17}"
+  local retention_links_file="${18}"
+  local retention_link_count="${19}"
+  local latest_retention_link="${20}"
   local packet_slug
   local systems_json
   local data_classes_json
@@ -1498,6 +1745,7 @@ atlas_flow_write_json_packet() {
   local finding_refs_json
   local validation_refs_json
   local approval_refs_json
+  local retention_refs_json
 
   packet_slug="$(atlas_flow_packet_slug_for "$packet_name")"
   systems_json="$(atlas_flow_csv_json_array "$ATLAS_FLOW_SYSTEMS")"
@@ -1507,6 +1755,7 @@ atlas_flow_write_json_packet() {
   finding_refs_json="$(atlas_flow_finding_refs_json "$finding_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
   validation_refs_json="$(atlas_flow_validation_refs_json "$validation_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
   approval_refs_json="$(atlas_flow_approval_refs_json "$approval_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  retention_refs_json="$(atlas_flow_retention_refs_json "$retention_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
 
   jq -n \
     --arg schema_version "atlas.business_flow_packet.v1" \
@@ -1532,10 +1781,12 @@ atlas_flow_write_json_packet() {
     --arg latest_finding_link "${latest_finding_link:-}" \
     --arg latest_validation_link "${latest_validation_link:-}" \
     --arg latest_approval_link "${latest_approval_link:-}" \
+    --arg latest_retention_link "${latest_retention_link:-}" \
     --argjson evidence_link_count "$evidence_link_count" \
     --argjson finding_link_count "$finding_link_count" \
     --argjson validation_link_count "$validation_link_count" \
     --argjson approval_link_count "$approval_link_count" \
+    --argjson retention_link_count "$retention_link_count" \
     --argjson systems "$systems_json" \
     --argjson data_classes "$data_classes_json" \
     --argjson control_objectives "$controls_json" \
@@ -1543,6 +1794,7 @@ atlas_flow_write_json_packet() {
     --argjson findings_refs "$finding_refs_json" \
     --argjson validation_refs "$validation_refs_json" \
     --argjson approval_refs "$approval_refs_json" \
+    --argjson retention_refs "$retention_refs_json" \
     '{
       schema_version: $schema_version,
       packet_id: $packet_id,
@@ -1561,6 +1813,7 @@ atlas_flow_write_json_packet() {
           "retained paths",
           "classifications",
           "approval metadata",
+          "retention artifact references",
           "timestamps",
           "known limitations"
         ],
@@ -1598,7 +1851,7 @@ atlas_flow_write_json_packet() {
       findings_refs: $findings_refs,
       validation_refs: $validation_refs,
       approval_refs: $approval_refs,
-      retention_refs: {},
+      retention_refs: $retention_refs,
       freshness: {
         status: "current",
         packet_generated_at: $generated_at,
@@ -1606,16 +1859,19 @@ atlas_flow_write_json_packet() {
         latest_finding_link: (if $latest_finding_link == "" then null else $latest_finding_link end),
         latest_validation_link: (if $latest_validation_link == "" then null else $latest_validation_link end),
         latest_approval_link: (if $latest_approval_link == "" then null else $latest_approval_link end),
+        latest_retention_link: (if $latest_retention_link == "" then null else $latest_retention_link end),
         evidence_link_count: $evidence_link_count,
         finding_link_count: $finding_link_count,
         validation_link_count: $validation_link_count,
-        approval_link_count: $approval_link_count
+        approval_link_count: $approval_link_count,
+        retention_link_count: $retention_link_count
       },
       known_limitations: [
         "This packet is metadata-only and does not embed raw evidence content.",
-        "Flow verification checks packet metadata, evidence, finding, validation, and approval links, hashes, freshness, and forbidden-content guardrails.",
+        "Flow verification checks packet metadata, evidence, finding, validation, approval, and retention links, hashes, freshness, and forbidden-content guardrails.",
         "Approval reasons and operator notes are intentionally excluded from flow packets.",
-        "Retention links are not included in this packet slice.",
+        "Retained artifact contents are intentionally excluded from flow packets.",
+        "Flow-specific trust-chain command is not included in this packet slice.",
         "This packet is not production certification, payment verification, legal compliance evidence, or a third-party audit."
       ]
     }' >"$packet_file"
@@ -1637,14 +1893,17 @@ cmd_flow_packet_markdown() {
   local finding_links_file
   local validation_links_file
   local approval_links_file
+  local retention_links_file
   local evidence_link_count
   local finding_link_count
   local validation_link_count
   local approval_link_count
+  local retention_link_count
   local latest_evidence_link
   local latest_finding_link
   local latest_validation_link
   local latest_approval_link
+  local latest_retention_link
 
   atlas_flow_load "$flow"
   load_active_operation
@@ -1661,6 +1920,7 @@ cmd_flow_packet_markdown() {
   finding_links_file="$(atlas_flow_finding_links_file "$ATLAS_OP_DIR")"
   validation_links_file="$(atlas_flow_validation_links_file "$ATLAS_OP_DIR")"
   approval_links_file="$(atlas_flow_approval_links_file "$ATLAS_OP_DIR")"
+  retention_links_file="$(atlas_flow_retention_links_file "$ATLAS_OP_DIR")"
 
   if ! atlas_flow_operation_link_exists "$flow_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG"; then
     fail "business flow has no links in active operation; run 'atlas flow link-evidence' first"
@@ -1670,6 +1930,7 @@ cmd_flow_packet_markdown() {
   finding_link_count="$(atlas_flow_finding_link_count "$finding_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
   validation_link_count="$(atlas_flow_validation_link_count "$validation_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
   approval_link_count="$(atlas_flow_approval_link_count "$approval_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  retention_link_count="$(atlas_flow_retention_link_count "$retention_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
   [ "$evidence_link_count" -gt 0 ] || fail "business flow has no evidence links in active operation"
 
   generated_at="$(timestamp)"
@@ -1679,6 +1940,7 @@ cmd_flow_packet_markdown() {
   latest_finding_link="$(atlas_flow_latest_finding_linked_at "$finding_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
   latest_validation_link="$(atlas_flow_latest_validation_linked_at "$validation_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
   latest_approval_link="$(atlas_flow_latest_approval_linked_at "$approval_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  latest_retention_link="$(atlas_flow_latest_retention_linked_at "$retention_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
 
   mkdir -p "$packet_dir"
   chmod 700 "$packet_dir" 2>/dev/null || true
@@ -1694,7 +1956,7 @@ cmd_flow_packet_markdown() {
     printf -- '- Metadata Only: true\n'
     printf -- '- Raw Evidence Embedded: false\n'
     printf '\n## Metadata Boundary\n\n'
-    printf -- '- Stores flow labels, operation labels, evidence IDs, hashes, retained paths, classifications, approval metadata, timestamps, and known limitations.\n'
+    printf -- '- Stores flow labels, operation labels, evidence IDs, hashes, retained paths, classifications, approval metadata, retention artifact references, timestamps, and known limitations.\n'
     printf -- '- Does not store raw evidence bodies, customer records, request bodies, response bodies, payment data, credentials, token-bearing values, key material, or authorization headers.\n'
     printf '\n## Flow\n\n'
     printf -- '- Flow ID: %s\n' "$ATLAS_FLOW_ID"
@@ -1718,6 +1980,8 @@ cmd_flow_packet_markdown() {
     atlas_flow_packet_validation_refs "$validation_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG"
     printf '\n## Approvals\n\n'
     atlas_flow_packet_approval_refs "$approval_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG"
+    printf '\n## Retention References\n\n'
+    atlas_flow_packet_retention_refs "$retention_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG"
     printf '\n## Freshness\n\n'
     printf -- '- Status: current\n'
     printf -- '- Packet Generated At: %s\n' "$generated_at"
@@ -1741,15 +2005,22 @@ cmd_flow_packet_markdown() {
     else
       printf -- '- Latest Approval Link: none recorded\n'
     fi
+    if [ -n "$latest_retention_link" ]; then
+      printf -- '- Latest Retention Link: %s\n' "$latest_retention_link"
+    else
+      printf -- '- Latest Retention Link: none recorded\n'
+    fi
     printf -- '- Evidence Link Count: %s\n' "$evidence_link_count"
     printf -- '- Finding Link Count: %s\n' "$finding_link_count"
     printf -- '- Validation Link Count: %s\n' "$validation_link_count"
     printf -- '- Approval Link Count: %s\n' "$approval_link_count"
+    printf -- '- Retention Link Count: %s\n' "$retention_link_count"
     printf '\n## Known Limitations\n\n'
     printf -- '- This packet is metadata-only and does not embed raw evidence content.\n'
-    printf -- '- Flow verification checks packet metadata, evidence, finding, validation, and approval links, hashes, freshness, and forbidden-content guardrails.\n'
+    printf -- '- Flow verification checks packet metadata, evidence, finding, validation, approval, and retention links, hashes, freshness, and forbidden-content guardrails.\n'
     printf -- '- Approval reasons and operator notes are intentionally excluded from flow packets.\n'
-    printf -- '- Retention links are not included in this packet slice.\n'
+    printf -- '- Retained artifact contents are intentionally excluded from flow packets.\n'
+    printf -- '- Flow-specific trust-chain command is not included in this packet slice.\n'
     printf -- '- This packet is not production certification, payment verification, legal compliance evidence, or a third-party audit.\n'
   } >"$packet_file"
 
@@ -1759,7 +2030,7 @@ cmd_flow_packet_markdown() {
     fail "business-flow packet failed metadata-only validation"
   fi
 
-  atlas_ledger_append_current "flow.packet.generated" "read-only" "atlas" "ok" "flow_id=$ATLAS_FLOW_ID packet=$packet_file evidence_links=$evidence_link_count finding_links=$finding_link_count validation_links=$validation_link_count approval_links=$approval_link_count"
+  atlas_ledger_append_current "flow.packet.generated" "read-only" "atlas" "ok" "flow_id=$ATLAS_FLOW_ID packet=$packet_file evidence_links=$evidence_link_count finding_links=$finding_link_count validation_links=$validation_link_count approval_links=$approval_link_count retention_links=$retention_link_count"
 
   ui_ok "business flow packet written"
   printf 'flow_id: %s\n' "$ATLAS_FLOW_ID"
@@ -1783,14 +2054,17 @@ cmd_flow_packet_json() {
   local finding_links_file
   local validation_links_file
   local approval_links_file
+  local retention_links_file
   local evidence_link_count
   local finding_link_count
   local validation_link_count
   local approval_link_count
+  local retention_link_count
   local latest_evidence_link
   local latest_finding_link
   local latest_validation_link
   local latest_approval_link
+  local latest_retention_link
 
   atlas_flow_load "$flow"
   load_active_operation
@@ -1807,6 +2081,7 @@ cmd_flow_packet_json() {
   finding_links_file="$(atlas_flow_finding_links_file "$ATLAS_OP_DIR")"
   validation_links_file="$(atlas_flow_validation_links_file "$ATLAS_OP_DIR")"
   approval_links_file="$(atlas_flow_approval_links_file "$ATLAS_OP_DIR")"
+  retention_links_file="$(atlas_flow_retention_links_file "$ATLAS_OP_DIR")"
 
   if ! atlas_flow_operation_link_exists "$flow_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG"; then
     fail "business flow has no links in active operation; run 'atlas flow link-evidence' first"
@@ -1816,6 +2091,7 @@ cmd_flow_packet_json() {
   finding_link_count="$(atlas_flow_finding_link_count "$finding_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
   validation_link_count="$(atlas_flow_validation_link_count "$validation_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
   approval_link_count="$(atlas_flow_approval_link_count "$approval_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  retention_link_count="$(atlas_flow_retention_link_count "$retention_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
   [ "$evidence_link_count" -gt 0 ] || fail "business flow has no evidence links in active operation"
 
   generated_at="$(timestamp)"
@@ -1825,10 +2101,11 @@ cmd_flow_packet_json() {
   latest_finding_link="$(atlas_flow_latest_finding_linked_at "$finding_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
   latest_validation_link="$(atlas_flow_latest_validation_linked_at "$validation_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
   latest_approval_link="$(atlas_flow_latest_approval_linked_at "$approval_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  latest_retention_link="$(atlas_flow_latest_retention_linked_at "$retention_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
 
   mkdir -p "$packet_dir"
   chmod 700 "$packet_dir" 2>/dev/null || true
-  atlas_flow_write_json_packet "$packet_file" "$packet_name" "$generated_at" "$flow_file" "$flow_sha" "$evidence_links_file" "$evidence_link_count" "$latest_evidence_link" "$finding_links_file" "$finding_link_count" "$latest_finding_link" "$validation_links_file" "$validation_link_count" "$latest_validation_link" "$approval_links_file" "$approval_link_count" "$latest_approval_link"
+  atlas_flow_write_json_packet "$packet_file" "$packet_name" "$generated_at" "$flow_file" "$flow_sha" "$evidence_links_file" "$evidence_link_count" "$latest_evidence_link" "$finding_links_file" "$finding_link_count" "$latest_finding_link" "$validation_links_file" "$validation_link_count" "$latest_validation_link" "$approval_links_file" "$approval_link_count" "$latest_approval_link" "$retention_links_file" "$retention_link_count" "$latest_retention_link"
 
   chmod 600 "$packet_file" 2>/dev/null || true
   if ! atlas_flow_validate_json_packet_file "$packet_file"; then
@@ -1836,7 +2113,7 @@ cmd_flow_packet_json() {
     fail "business-flow JSON packet failed metadata-only validation"
   fi
 
-  atlas_ledger_append_current "flow.packet.generated" "read-only" "atlas" "ok" "flow_id=$ATLAS_FLOW_ID packet=$packet_file format=json evidence_links=$evidence_link_count finding_links=$finding_link_count validation_links=$validation_link_count approval_links=$approval_link_count"
+  atlas_ledger_append_current "flow.packet.generated" "read-only" "atlas" "ok" "flow_id=$ATLAS_FLOW_ID packet=$packet_file format=json evidence_links=$evidence_link_count finding_links=$finding_link_count validation_links=$validation_link_count approval_links=$approval_link_count retention_links=$retention_link_count"
 
   ui_ok "business flow JSON packet written"
   printf 'flow_id: %s\n' "$ATLAS_FLOW_ID"
@@ -1899,6 +2176,7 @@ cmd_flow_verify_markdown() {
   local finding_links_file
   local validation_links_file
   local approval_links_file
+  local retention_links_file
   local expected_count
   local packet_count
   local evidence_count_stale=0
@@ -1911,18 +2189,24 @@ cmd_flow_verify_markdown() {
   local expected_approval_count
   local packet_approval_count
   local approval_count_stale=0
+  local expected_retention_count
+  local packet_retention_count
+  local retention_count_stale=0
   local generated_at
   local latest_evidence_link
   local latest_finding_link
   local latest_validation_link
   local latest_approval_link
+  local latest_retention_link
   local link_json
   local evidence_id
   local finding_id
   local validation_id
   local approval_ref
+  local retention_kind
   local link_path
   local link_sha
+  local link_basename
   local link_classification
   local link_redacted
   local link_linked_at
@@ -1956,6 +2240,7 @@ cmd_flow_verify_markdown() {
   local record_approved_by
   local record_approval_ts
   local evidence_file
+  local retention_file
   local actual_sha
 
   atlas_flow_load "$flow"
@@ -1974,6 +2259,7 @@ cmd_flow_verify_markdown() {
   finding_links_file="$(atlas_flow_finding_links_file "$ATLAS_OP_DIR")"
   validation_links_file="$(atlas_flow_validation_links_file "$ATLAS_OP_DIR")"
   approval_links_file="$(atlas_flow_approval_links_file "$ATLAS_OP_DIR")"
+  retention_links_file="$(atlas_flow_retention_links_file "$ATLAS_OP_DIR")"
 
   ui_heading "Atlas Business Flow Packet Verification"
   ui_rule
@@ -2107,6 +2393,25 @@ cmd_flow_verify_markdown() {
     atlas_flow_verify_row "Approval Freshness" "stale" "latest_approval_link=$latest_approval_link packet_generated=$generated_at"
   else
     atlas_flow_verify_row "Approval Freshness" "ok" "latest_approval_link=${latest_approval_link:-none} packet_generated=${generated_at:-missing}"
+  fi
+
+  expected_retention_count="$(atlas_flow_retention_link_count "$retention_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  packet_retention_count="$(atlas_flow_packet_field "$packet_file" "Retention Link Count")"
+  if [ -z "$packet_retention_count" ] && [ "$expected_retention_count" = "0" ]; then
+    packet_retention_count="0"
+  fi
+  if [ "$packet_retention_count" = "$expected_retention_count" ]; then
+    atlas_flow_verify_row "Retention Count" "ok" "$packet_retention_count"
+  else
+    retention_count_stale=1
+    atlas_flow_verify_row "Retention Count" "stale" "expected=$expected_retention_count actual=${packet_retention_count:-missing}"
+  fi
+
+  latest_retention_link="$(atlas_flow_latest_retention_linked_at "$retention_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  if atlas_flow_timestamp_after "$latest_retention_link" "$generated_at"; then
+    atlas_flow_verify_row "Retention Freshness" "stale" "latest_retention_link=$latest_retention_link packet_generated=$generated_at"
+  else
+    atlas_flow_verify_row "Retention Freshness" "ok" "latest_retention_link=${latest_retention_link:-none} packet_generated=${generated_at:-missing}"
   fi
 
   if atlas_flow_timestamp_after "$ATLAS_FLOW_UPDATED_AT" "$generated_at"; then
@@ -2370,6 +2675,51 @@ cmd_flow_verify_markdown() {
     fi
   )
 
+  while IFS= read -r link_json; do
+    [ -n "$link_json" ] || continue
+    retention_kind="$(printf '%s\n' "$link_json" | jq -r '.retention_kind // ""')"
+    link_path="$(printf '%s\n' "$link_json" | jq -r '.artifact_path // ""')"
+    link_basename="$(printf '%s\n' "$link_json" | jq -r '.artifact_basename // ""')"
+    link_sha="$(printf '%s\n' "$link_json" | jq -r '.artifact_sha256 // ""')"
+    link_linked_at="$(printf '%s\n' "$link_json" | jq -r '.linked_at // ""')"
+
+    if [ -z "$retention_kind" ] || [ -z "$link_path" ] || [ -z "$link_sha" ]; then
+      atlas_flow_verify_row "Retention Record" "blocked" "link missing kind, path, or sha256"
+      continue
+    fi
+
+    if atlas_flow_packet_contains_value "$packet_file" "Retention Kind" "$retention_kind" &&
+      atlas_flow_packet_contains_value "$packet_file" "Artifact Path" "$link_path" &&
+      atlas_flow_packet_contains_value "$packet_file" "Artifact Basename" "$link_basename" &&
+      atlas_flow_packet_contains_value "$packet_file" "SHA-256" "$link_sha"; then
+      atlas_flow_verify_row "Retention $retention_kind" "ok" "$link_path metadata matches"
+    elif [ "$retention_count_stale" -eq 1 ] || atlas_flow_timestamp_after "$link_linked_at" "$generated_at"; then
+      atlas_flow_verify_row "Retention $retention_kind" "stale" "link newer than packet or count mismatch"
+    else
+      atlas_flow_verify_row "Retention $retention_kind" "blocked" "$link_path metadata missing or mismatched"
+    fi
+
+    retention_file="$(atlas_flow_retention_resolve_stored_path "$link_path")"
+    if [ -f "$retention_file" ]; then
+      actual_sha="$(atlas_evidence_hash_path "$retention_file")"
+      if [ "$actual_sha" = "$link_sha" ]; then
+        atlas_flow_verify_row "Retention File" "ok" "$retention_kind actual hash matches"
+      else
+        atlas_flow_verify_row "Retention File" "blocked" "kind=$retention_kind actual hash mismatch expected=$link_sha actual=$actual_sha"
+      fi
+    else
+      atlas_flow_verify_row "Retention File" "blocked" "missing retained artifact for $retention_kind: $link_path"
+    fi
+  done < <(
+    if [ -s "$retention_links_file" ]; then
+      jq -c \
+        --arg flow_id "$ATLAS_FLOW_ID" \
+        --arg operation "$ATLAS_OP_SLUG" \
+        'select(.flow_id == $flow_id and .operation == $operation)' \
+        "$retention_links_file"
+    fi
+  )
+
   ui_rule
   ui_kv "Overall" "$ATLAS_FLOW_VERIFY_OVERALL"
   if [ "$ATLAS_FLOW_VERIFY_FAILURES" -eq 0 ]; then
@@ -2458,6 +2808,7 @@ cmd_flow_verify_json() {
   local finding_links_file
   local validation_links_file
   local approval_links_file
+  local retention_links_file
   local expected_count
   local packet_count
   local evidence_count_stale=0
@@ -2470,18 +2821,24 @@ cmd_flow_verify_json() {
   local expected_approval_count
   local packet_approval_count
   local approval_count_stale=0
+  local expected_retention_count
+  local packet_retention_count
+  local retention_count_stale=0
   local generated_at
   local latest_evidence_link
   local latest_finding_link
   local latest_validation_link
   local latest_approval_link
+  local latest_retention_link
   local link_json
   local evidence_id
   local finding_id
   local validation_id
   local approval_ref
+  local retention_kind
   local link_path
   local link_sha
+  local link_basename
   local link_classification
   local link_redacted
   local link_linked_at
@@ -2514,6 +2871,8 @@ cmd_flow_verify_json() {
   local packet_ref_tier
   local packet_ref_approved_by
   local packet_ref_approval_ts
+  local packet_ref_basename
+  local packet_ref_metadata_only
   local record
   local record_path
   local record_sha
@@ -2532,6 +2891,7 @@ cmd_flow_verify_json() {
   local record_approved_by
   local record_approval_ts
   local evidence_file
+  local retention_file
   local actual_sha
   local rows_file
   local exit_status=0
@@ -2552,6 +2912,7 @@ cmd_flow_verify_json() {
   finding_links_file="$(atlas_flow_finding_links_file "$ATLAS_OP_DIR")"
   validation_links_file="$(atlas_flow_validation_links_file "$ATLAS_OP_DIR")"
   approval_links_file="$(atlas_flow_approval_links_file "$ATLAS_OP_DIR")"
+  retention_links_file="$(atlas_flow_retention_links_file "$ATLAS_OP_DIR")"
   rows_file="$(mktemp)"
 
   atlas_flow_verify_reset
@@ -2716,6 +3077,25 @@ cmd_flow_verify_json() {
     atlas_flow_verify_json_row "$rows_file" "Approval Freshness" "stale" "latest_approval_link=$latest_approval_link packet_generated=$generated_at"
   else
     atlas_flow_verify_json_row "$rows_file" "Approval Freshness" "ok" "latest_approval_link=${latest_approval_link:-none} packet_generated=${generated_at:-missing}"
+  fi
+
+  expected_retention_count="$(atlas_flow_retention_link_count "$retention_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  packet_retention_count="$(jq -r '.freshness.retention_link_count // ""' "$packet_file" 2>/dev/null || true)"
+  if [ -z "$packet_retention_count" ] && [ "$expected_retention_count" = "0" ]; then
+    packet_retention_count="0"
+  fi
+  if [ "$packet_retention_count" = "$expected_retention_count" ]; then
+    atlas_flow_verify_json_row "$rows_file" "Retention Count" "ok" "$packet_retention_count"
+  else
+    retention_count_stale=1
+    atlas_flow_verify_json_row "$rows_file" "Retention Count" "stale" "expected=$expected_retention_count actual=${packet_retention_count:-missing}"
+  fi
+
+  latest_retention_link="$(atlas_flow_latest_retention_linked_at "$retention_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  if atlas_flow_timestamp_after "$latest_retention_link" "$generated_at"; then
+    atlas_flow_verify_json_row "$rows_file" "Retention Freshness" "stale" "latest_retention_link=$latest_retention_link packet_generated=$generated_at"
+  else
+    atlas_flow_verify_json_row "$rows_file" "Retention Freshness" "ok" "latest_retention_link=${latest_retention_link:-none} packet_generated=${generated_at:-missing}"
   fi
 
   if atlas_flow_timestamp_after "$ATLAS_FLOW_UPDATED_AT" "$generated_at"; then
@@ -3064,6 +3444,72 @@ cmd_flow_verify_json() {
     fi
   )
 
+  while IFS= read -r link_json; do
+    [ -n "$link_json" ] || continue
+    retention_kind="$(printf '%s\n' "$link_json" | jq -r '.retention_kind // ""')"
+    link_path="$(printf '%s\n' "$link_json" | jq -r '.artifact_path // ""')"
+    link_basename="$(printf '%s\n' "$link_json" | jq -r '.artifact_basename // ""')"
+    link_sha="$(printf '%s\n' "$link_json" | jq -r '.artifact_sha256 // ""')"
+    link_linked_at="$(printf '%s\n' "$link_json" | jq -r '.linked_at // ""')"
+
+    if [ -z "$retention_kind" ] || [ -z "$link_path" ] || [ -z "$link_sha" ]; then
+      atlas_flow_verify_json_row "$rows_file" "Retention Record" "blocked" "link missing kind, path, or sha256"
+      continue
+    fi
+
+    packet_ref="$(jq -c --arg kind "$retention_kind" --arg path "$link_path" '[.retention_refs[$kind][]? | select(.path == $path)] | first // empty' "$packet_file" 2>/dev/null || true)"
+    if [ -n "$packet_ref" ]; then
+      atlas_flow_verify_json_row "$rows_file" "Retention $retention_kind" "ok" "packet reference present"
+      packet_ref_path="$(printf '%s\n' "$packet_ref" | jq -r '.path // ""')"
+      packet_ref_sha="$(printf '%s\n' "$packet_ref" | jq -r '.sha256 // ""')"
+      packet_ref_basename="$(printf '%s\n' "$packet_ref" | jq -r '.basename // ""')"
+      packet_ref_metadata_only="$(printf '%s\n' "$packet_ref" | jq -r '(.metadata_only // false) | tostring')"
+    elif [ "$retention_count_stale" -eq 1 ] || atlas_flow_timestamp_after "$link_linked_at" "$generated_at"; then
+      atlas_flow_verify_json_row "$rows_file" "Retention $retention_kind" "stale" "link newer than packet or count mismatch"
+      packet_ref_path=""
+      packet_ref_sha=""
+      packet_ref_basename=""
+      packet_ref_metadata_only=""
+    else
+      atlas_flow_verify_json_row "$rows_file" "Retention $retention_kind" "blocked" "packet reference missing"
+      packet_ref_path=""
+      packet_ref_sha=""
+      packet_ref_basename=""
+      packet_ref_metadata_only=""
+    fi
+
+    if [ "$packet_ref_path" = "$link_path" ] &&
+      [ "$packet_ref_sha" = "$link_sha" ] &&
+      [ "$packet_ref_basename" = "$link_basename" ] &&
+      [ "$packet_ref_metadata_only" = "true" ]; then
+      atlas_flow_verify_json_row "$rows_file" "Packet Retention" "ok" "$retention_kind metadata matches"
+    elif [ "$retention_count_stale" -eq 1 ] || atlas_flow_timestamp_after "$link_linked_at" "$generated_at"; then
+      atlas_flow_verify_json_row "$rows_file" "Packet Retention" "stale" "$retention_kind link newer than packet or count mismatch"
+    else
+      atlas_flow_verify_json_row "$rows_file" "Packet Retention" "blocked" "$retention_kind metadata missing or mismatched"
+    fi
+
+    retention_file="$(atlas_flow_retention_resolve_stored_path "$link_path")"
+    if [ -f "$retention_file" ]; then
+      actual_sha="$(atlas_evidence_hash_path "$retention_file")"
+      if [ "$actual_sha" = "$link_sha" ]; then
+        atlas_flow_verify_json_row "$rows_file" "Retention File" "ok" "$retention_kind actual hash matches"
+      else
+        atlas_flow_verify_json_row "$rows_file" "Retention File" "blocked" "kind=$retention_kind actual hash mismatch expected=$link_sha actual=$actual_sha"
+      fi
+    else
+      atlas_flow_verify_json_row "$rows_file" "Retention File" "blocked" "missing retained artifact for $retention_kind: $link_path"
+    fi
+  done < <(
+    if [ -s "$retention_links_file" ]; then
+      jq -c \
+        --arg flow_id "$ATLAS_FLOW_ID" \
+        --arg operation "$ATLAS_OP_SLUG" \
+        'select(.flow_id == $flow_id and .operation == $operation)' \
+        "$retention_links_file"
+    fi
+  )
+
   atlas_flow_verify_json_print "$rows_file" "$packet_file"
   if [ "$ATLAS_FLOW_VERIFY_FAILURES" -ne 0 ]; then
     exit_status=1
@@ -3141,6 +3587,10 @@ dispatch_flow_command() {
   link-approval)
     shift
     cmd_flow_link_approval "$@"
+    ;;
+  link-retention)
+    shift
+    cmd_flow_link_retention "$@"
     ;;
   packet)
     shift

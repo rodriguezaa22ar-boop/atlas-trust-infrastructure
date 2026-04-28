@@ -213,9 +213,9 @@ verification, negative tests, and readiness integration are stable.
 4. Keep optional Business Flow Evidence readiness integration non-blocking in
    `atlas v1 status` and `atlas production status`.
 5. Keep flow finding and validation links metadata-only and referential.
-6. Add flow approval and retention links when the metadata model is stable.
-7. Keep flow record, flow link, evidence/finding/validation link, and packet
-   schemas stable before deeper flow trust-chain integration.
+6. Keep flow approval and retention links metadata-only and referential.
+7. Keep flow record, flow link, evidence/finding/validation/approval/retention
+   link, and packet schemas stable before deeper flow trust-chain integration.
 8. Keep Business Flow Evidence JSON packet and verification parity aligned with
    the Markdown packet contract.
 9. Add packet/replay parity where retained proof needs machine-readable gates.
