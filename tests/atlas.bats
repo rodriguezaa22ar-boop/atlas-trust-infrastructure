@@ -282,6 +282,7 @@ make_repo_clean_and_synced() {
   evidence_link_schema="$TEST_ROOT/toolkit/docs/schemas/flow-evidence-link.v1.md"
   finding_link_schema="$TEST_ROOT/toolkit/docs/schemas/flow-finding-link.v1.md"
   validation_link_schema="$TEST_ROOT/toolkit/docs/schemas/flow-validation-link.v1.md"
+  approval_link_schema="$TEST_ROOT/toolkit/docs/schemas/flow-approval-link.v1.md"
   evidence_schema="$TEST_ROOT/toolkit/docs/schemas/business-flow-evidence.v1.md"
   packet_schema="$TEST_ROOT/toolkit/docs/schemas/business-flow-packet.v1.md"
   verify_schema="$TEST_ROOT/toolkit/docs/schemas/business-flow-verify.v1.md"
@@ -294,6 +295,7 @@ make_repo_clean_and_synced() {
   [ -f "$evidence_link_schema" ]
   [ -f "$finding_link_schema" ]
   [ -f "$validation_link_schema" ]
+  [ -f "$approval_link_schema" ]
   [ -f "$evidence_schema" ]
   [ -f "$packet_schema" ]
   [ -f "$verify_schema" ]
@@ -310,17 +312,20 @@ make_repo_clean_and_synced() {
   grep -q 'atlas flow link-evidence <flow> <evidence-id>' "$flow_doc"
   grep -q 'atlas flow link-finding <flow> <finding-id>' "$flow_doc"
   grep -q 'atlas flow link-validation <flow> <validation-id>' "$flow_doc"
+  grep -q 'atlas flow link-approval <flow> <capability>' "$flow_doc"
   grep -Fq 'atlas flow packet [--json] <flow> [packet-name]' "$flow_doc"
   grep -Fq 'atlas flow verify [--json] <flow> [packet-name]' "$flow_doc"
   grep -q 'state/atlas/flows/<flow-slug>.env' "$flow_doc"
   grep -q 'sessions/<operation>/flow_evidence.ndjson' "$flow_doc"
   grep -q 'sessions/<operation>/flow_findings.ndjson' "$flow_doc"
   grep -q 'sessions/<operation>/flow_validation.ndjson' "$flow_doc"
+  grep -q 'sessions/<operation>/flow_approvals.ndjson' "$flow_doc"
   grep -q 'atlas.business_flow.v1' "$flow_doc"
   grep -q 'atlas.business_flow_link.v1' "$flow_doc"
   grep -q 'atlas.flow_evidence_link.v1' "$flow_doc"
   grep -q 'atlas.flow_finding_link.v1' "$flow_doc"
   grep -q 'atlas.flow_validation_link.v1' "$flow_doc"
+  grep -q 'atlas.flow_approval_link.v1' "$flow_doc"
   grep -q 'atlas.business_flow_packet.v1' "$flow_doc"
   grep -q 'atlas.business_flow_verify.v1' "$flow_doc"
   grep -q 'password=' "$flow_doc"
@@ -362,12 +367,19 @@ make_repo_clean_and_synced() {
   grep -q 'validation reasons' "$validation_link_schema"
   grep -q 'session contents' "$validation_link_schema"
 
+  grep -q '^# Schema Contract: atlas.flow_approval_link.v1$' "$approval_link_schema"
+  grep -q 'sessions/<operation>/flow_approvals.ndjson' "$approval_link_schema"
+  grep -q '`approval_ref`' "$approval_link_schema"
+  grep -q 'approval reasons' "$approval_link_schema"
+  grep -q 'operator notes' "$approval_link_schema"
+
   grep -q '^# Schema Contract: atlas.business_flow_evidence.v1$' "$evidence_schema"
   grep -q 'This is a design contract' "$evidence_schema"
   grep -q 'atlas.business_flow.v1' "$evidence_schema"
   grep -q 'atlas.flow_evidence_link.v1' "$evidence_schema"
   grep -q 'atlas.flow_finding_link.v1' "$evidence_schema"
   grep -q 'atlas.flow_validation_link.v1' "$evidence_schema"
+  grep -q 'atlas.flow_approval_link.v1' "$evidence_schema"
   grep -q 'Required Fields' "$evidence_schema"
   grep -q 'Forbidden Content' "$evidence_schema"
   grep -q 'Verification Rules' "$evidence_schema"
@@ -378,6 +390,7 @@ make_repo_clean_and_synced() {
   grep -q 'atlas.business_flow_link.v1' "$packet_schema"
   grep -q 'atlas.flow_finding_link.v1' "$packet_schema"
   grep -q 'atlas.flow_validation_link.v1' "$packet_schema"
+  grep -q 'atlas.flow_approval_link.v1' "$packet_schema"
   grep -q 'metadata_only' "$packet_schema"
   grep -q 'Markdown Parity' "$packet_schema"
   grep -q 'forbidden raw-content markers are absent' "$packet_schema"
@@ -394,6 +407,7 @@ make_repo_clean_and_synced() {
   grep -q 'atlas.flow_evidence_link.v1' "$schema_index"
   grep -q 'atlas.flow_finding_link.v1' "$schema_index"
   grep -q 'atlas.flow_validation_link.v1' "$schema_index"
+  grep -q 'atlas.flow_approval_link.v1' "$schema_index"
   grep -q 'atlas.business_flow_evidence.v1' "$schema_index"
   grep -q 'atlas.business_flow_packet.v1' "$schema_index"
   grep -q 'atlas.business_flow_verify.v1' "$schema_index"
@@ -715,6 +729,132 @@ EOF
   [ "$status" -ne 0 ]
   printf '%s\n' "$output" |
     jq -e '.overall == "stale" and any(.checks[]; .check == "Validation Metadata" and .status == "stale")'
+}
+
+@test "atlas flow link-approval stores metadata-only operation approval links" {
+  mkdir -p "$TEST_ROOT/toolkit/targets"
+  cat > "$TEST_ROOT/toolkit/targets/demo-node.env" <<'EOF'
+NAME=demo-node
+ADDRESS=10.10.10.10
+SCOPE_STATUS=in-scope
+CRITICALITY=high
+CREATED_AT=2026-04-23T20:53:16Z
+EOF
+  artifact="$TEST_ROOT/flow-approval-artifact.txt"
+  approval_reason="operator rationale should stay out of flow packets"
+  printf 'business flow approval proof that must not be copied\n' > "$artifact"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow add customer-signup \
+    --type customer_onboarding \
+    --owner product \
+    --criticality high \
+    --environment staging \
+    --scope-status in-scope \
+    --data-class email \
+    --system web_app \
+    --control approval_gated_validation
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op start --profile htb-starting-point flow-approval-op demo-node authorized flow approval links
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow link-approval customer-signup safe-validation
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"unknown approved capability in active operation"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" approval grant safe-validation "$approval_reason"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"approval recorded"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow link-approval customer-signup safe-validation
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"business flow approval linked"* ]]
+  [[ "$output" == *"flow_id: flow_customer_signup"* ]]
+  [[ "$output" == *"operation: flow-approval-op"* ]]
+  [[ "$output" == *"capability: safe-validation"* ]]
+
+  approval_links="$TEST_ROOT/toolkit/sessions/flow-approval-op/flow_approvals.ndjson"
+  ledger="$TEST_ROOT/toolkit/sessions/flow-approval-op/ledger.ndjson"
+  [ -s "$approval_links" ]
+  [ -s "$ledger" ]
+
+  approval_ts="$(jq -r '.approval_ts' "$approval_links")"
+  [ -n "$approval_ts" ]
+
+  jq -e --arg approval_ts "$approval_ts" '
+    .schema_version == "atlas.flow_approval_link.v1" and
+    .flow_id == "flow_customer_signup" and
+    .operation == "flow-approval-op" and
+    .target == "demo-node" and
+    .approval_ref == ("approval:safe-validation:" + $approval_ts) and
+    .capability == "safe-validation" and
+    .tier != "" and
+    .status == "approved" and
+    .approved_by != "" and
+    .approval_ts == $approval_ts and
+    .metadata_only == true and
+    (has("reason") | not) and
+    (has("operator_notes") | not) and
+    (has("raw_approval") | not)
+  ' "$approval_links"
+  ! grep -q "$approval_reason" "$approval_links"
+
+  jq -e '
+    select(.event == "flow.approval_linked" and (.detail | contains("capability=safe-validation")))
+  ' "$ledger"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence add "$artifact" --kind redacted-report --classification public
+  [ "$status" -eq 0 ]
+  evidence_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  [ -n "$evidence_id" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow link-evidence customer-signup "$evidence_id"
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow packet customer-signup customer-signup-flow
+  [ "$status" -eq 0 ]
+  packet_path="$TEST_ROOT/toolkit/sessions/flow-approval-op/flow_packets/customer-signup-flow.md"
+  grep -q 'Approval Ref: approval:safe-validation:' "$packet_path"
+  grep -q 'Capability: safe-validation' "$packet_path"
+  grep -q 'Status: approved' "$packet_path"
+  grep -q 'Approval Link Count: 1' "$packet_path"
+  ! grep -q "$approval_reason" "$packet_path"
+  ! grep -q 'business flow approval proof that must not be copied' "$packet_path"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow packet --json customer-signup customer-signup-flow
+  [ "$status" -eq 0 ]
+  packet_json_path="$TEST_ROOT/toolkit/sessions/flow-approval-op/flow_packets_json/customer-signup-flow.json"
+  jq -e --arg approval_ts "$approval_ts" '
+    .freshness.approval_link_count == 1 and
+    (.approval_refs | length == 1) and
+    .approval_refs[0].approval_ref == ("approval:safe-validation:" + $approval_ts) and
+    .approval_refs[0].capability == "safe-validation" and
+    .approval_refs[0].status == "approved" and
+    .approval_refs[0].metadata_only == true
+  ' "$packet_json_path"
+  ! grep -q "$approval_reason" "$packet_json_path"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow verify customer-signup customer-signup-flow
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Approval Metadata"* ]]
+  [[ "$output" == *"Overall: current"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow verify --json customer-signup customer-signup-flow
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" |
+    jq -e '
+      .overall == "current" and
+      any(.checks[]; .check == "Approval Metadata" and .status == "ok") and
+      any(.checks[]; .check == "Packet Approval" and .status == "ok")
+    '
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow link-approval customer-signup safe-validation
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow verify --json customer-signup customer-signup-flow
+  [ "$status" -ne 0 ]
+  printf '%s\n' "$output" |
+    jq -e '.overall == "stale" and any(.checks[]; .check == "Approval Count" and .status == "stale")'
 }
 
 @test "atlas flow packet writes metadata-only business flow packet" {
@@ -1280,6 +1420,7 @@ EOF
   [[ "$output" == *"atlas flow link-evidence <flow> <evidence-id>"* ]]
   [[ "$output" == *"atlas flow link-finding <flow> <finding-id>"* ]]
   [[ "$output" == *"atlas flow link-validation <flow> <validation-id>"* ]]
+  [[ "$output" == *"atlas flow link-approval <flow> <capability>"* ]]
   [[ "$output" == *"atlas flow packet [--json] <flow> [packet-name]"* ]]
   [[ "$output" == *"atlas flow verify [--json] <flow> [packet-name]"* ]]
   [[ "$output" == *"atlas web assess <url> [assessment-name]"* ]]
@@ -1736,6 +1877,7 @@ EOF
       .pillars.business_flow_evidence.status == "ready" and
       (.pillars.business_flow_evidence.commands | contains("atlas flow link-finding")) and
       (.pillars.business_flow_evidence.commands | contains("atlas flow link-validation")) and
+      (.pillars.business_flow_evidence.commands | contains("atlas flow link-approval")) and
       (.pillars.business_flow_evidence.commands | contains("atlas flow packet --json")) and
       (.pillars.business_flow_evidence.commands | contains("atlas flow verify --json")) and
       (.pillars.business_flow_evidence.limitations | contains("JSON packet parity") | not) and
@@ -1836,6 +1978,7 @@ EOF
       (.pillars.business_flow_evidence.reason | contains("active_operation_links=1")) and
       (.pillars.business_flow_evidence.reason | contains("active_operation_packets=0")) and
       (.pillars.business_flow_evidence.commands | contains("atlas flow link-finding")) and
+      (.pillars.business_flow_evidence.commands | contains("atlas flow link-approval")) and
       (.pillars.business_flow_evidence.commands | contains("atlas flow verify --json")) and
       (.pillars.business_flow_evidence.limitations | contains("JSON packet parity") | not)
     '
@@ -1881,6 +2024,7 @@ EOF
       .gates.business_flow_evidence.status == "ready" and
       (.gates.business_flow_evidence.commands | contains("atlas flow link-finding")) and
       (.gates.business_flow_evidence.commands | contains("atlas flow link-validation")) and
+      (.gates.business_flow_evidence.commands | contains("atlas flow link-approval")) and
       (.gates.business_flow_evidence.commands | contains("atlas flow packet --json")) and
       (.gates.business_flow_evidence.commands | contains("atlas flow verify --json")) and
       .gates.release_trust_packet.status == "blocked" and

@@ -193,7 +193,7 @@ Each pillar status must include:
   readiness tests.
 - Commands: `atlas flow add`, `atlas flow list`, `atlas flow show`,
   `atlas flow link-evidence`, `atlas flow link-finding`,
-  `atlas flow link-validation`, `atlas flow packet`,
+  `atlas flow link-validation`, `atlas flow link-approval`, `atlas flow packet`,
   `atlas flow packet --json`, `atlas flow verify`,
   `atlas flow verify --json`
 - Artifacts: `state/atlas/flows/`,
@@ -201,10 +201,11 @@ Each pillar status must include:
   `sessions/<operation>/flow_evidence.ndjson`,
   `sessions/<operation>/flow_findings.ndjson`,
   `sessions/<operation>/flow_validation.ndjson`,
+  `sessions/<operation>/flow_approvals.ndjson`,
   `sessions/<operation>/flow_packets/`,
   `sessions/<operation>/flow_packets_json/`
 - Limitations: optional non-blocking pillar; no automatic business-flow
-  discovery, approval links, or retention references yet.
+  discovery, retention references, or flow trust-chain integration yet.
 
 ### AI Advisor
 

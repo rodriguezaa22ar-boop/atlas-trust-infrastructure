@@ -131,6 +131,7 @@ nix-shell --run './bin/dev-qa'
 ./tools/atlas/bin/atlas flow link-evidence customer-signup ev_...
 ./tools/atlas/bin/atlas flow link-finding customer-signup finding_...
 ./tools/atlas/bin/atlas flow link-validation customer-signup vp_...
+./tools/atlas/bin/atlas flow link-approval customer-signup safe-validation
 ./tools/atlas/bin/atlas flow packet customer-signup customer-signup-flow
 ./tools/atlas/bin/atlas flow packet --json customer-signup customer-signup-flow
 ./tools/atlas/bin/atlas flow verify customer-signup customer-signup-flow
@@ -141,15 +142,18 @@ Business-flow records are metadata-only global flow records under
 `state/atlas/flows/`. Operation links live under
 `sessions/<operation>/flow_evidence.ndjson`,
 `sessions/<operation>/flow_findings.ndjson`, and
-`sessions/<operation>/flow_validation.ndjson`; they reference existing Atlas
-IDs without copying raw evidence, finding bodies, validation reasons, plan
-bodies, or session contents. Flow packets are metadata-only Markdown packets
+`sessions/<operation>/flow_validation.ndjson`, and
+`sessions/<operation>/flow_approvals.ndjson`; they reference existing Atlas IDs
+without copying raw evidence, finding bodies, validation reasons, plan bodies,
+session contents, approval reasons, or operator notes. Flow packets are
+metadata-only Markdown packets
 under `sessions/<operation>/flow_packets/` and metadata-only JSON packets under
 `sessions/<operation>/flow_packets_json/`. They include flow labels, evidence
 IDs, retained paths, hashes, finding references, validation references,
+approval metadata references,
 freshness metadata, and known limitations. Flow verification checks packet
-metadata, evidence links, finding links, validation links, retained files,
-hashes, freshness, and forbidden-content markers.
+metadata, evidence links, finding links, validation links, approval links,
+retained files, hashes, freshness, and forbidden-content markers.
 
 ## Atlas Findings
 

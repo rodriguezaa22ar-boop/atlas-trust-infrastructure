@@ -506,6 +506,14 @@ The near-term roadmap is:
     references, freshness counts, current-record checks, and stale-state
     detection without embedding finding bodies, validation reasons, plan
     contents, session contents, or raw evidence.
+82. Add Business Flow Evidence approval links. `atlas flow link-approval` now
+    links a business flow to the latest approved operation capability for the
+    active target and writes `atlas.flow_approval_link.v1` metadata-only records
+    under `sessions/<operation>/flow_approvals.ndjson`. Flow packets and
+    Markdown/JSON verification now include approval references, approval
+    freshness counts, current approval-record checks, and stale-state detection
+    without embedding approval reasons, reviewer rationale, operator notes, or
+    raw evidence.
 
 ## First Serious Version
 

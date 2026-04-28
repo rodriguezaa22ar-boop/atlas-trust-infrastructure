@@ -16,6 +16,7 @@ file-backed surfaces are documented separately:
 - `atlas.flow_evidence_link.v1`
 - `atlas.flow_finding_link.v1`
 - `atlas.flow_validation_link.v1`
+- `atlas.flow_approval_link.v1`
 - `atlas.business_flow_packet.v1`
 - `atlas.business_flow_verify.v1`
 
@@ -37,7 +38,7 @@ file-backed surfaces are documented separately:
 | `evidence_refs` | array of objects | Metadata references to Atlas evidence. |
 | `findings_refs` | array of objects | Linked Atlas finding IDs and metadata snapshots. |
 | `validation_refs` | array of objects | Linked Atlas validation IDs and metadata snapshots. |
-| `approval_refs` | array of strings | Linked approval IDs or approval record references. |
+| `approval_refs` | array of objects | Linked approval references and metadata snapshots. |
 | `freshness` | object | Packet or evidence freshness state. |
 | `known_limitations` | array of strings | Explicit limitations of the flow evidence. |
 | `created_at` | string | UTC timestamp. |
@@ -54,6 +55,23 @@ Each `evidence_refs` item should contain:
 | `path` | string | Path to retained metadata or redacted artifact. |
 
 Evidence references must not embed the artifact body.
+
+## Approval Reference Fields
+
+Each `approval_refs` item should contain:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `approval_ref` | string | Metadata reference for the linked operation approval. |
+| `capability` | string | Approved capability. |
+| `tier` | string | Capability tier at approval time. |
+| `status` | string | Approval status, expected to be `approved`. |
+| `approved_by` | string | Approving actor metadata. |
+| `approval_ts` | string | Timestamp of the linked approval record. |
+| `metadata_only` | boolean | Must be `true`. |
+
+Approval references must not embed approval reasons, reviewer rationale, or
+operator notes.
 
 ## Freshness Fields
 
@@ -116,7 +134,15 @@ Evidence references must not embed the artifact body.
     }
   ],
   "approval_refs": [
-    "approval_20260427_001"
+    {
+      "approval_ref": "approval:safe-validation:2026-04-27T12:02:00Z",
+      "capability": "safe-validation",
+      "tier": "3",
+      "status": "approved",
+      "approved_by": "operator",
+      "approval_ts": "2026-04-27T12:02:00Z",
+      "metadata_only": true
+    }
   ],
   "freshness": {
     "status": "current",

@@ -35,6 +35,7 @@ are not stable command outputs yet for JSON.
 | `atlas.flow_evidence_link.v1` | `sessions/<operation>/flow_evidence.ndjson` | [flow-evidence-link.v1.md](flow-evidence-link.v1.md) |
 | `atlas.flow_finding_link.v1` | `sessions/<operation>/flow_findings.ndjson` | [flow-finding-link.v1.md](flow-finding-link.v1.md) |
 | `atlas.flow_validation_link.v1` | `sessions/<operation>/flow_validation.ndjson` | [flow-validation-link.v1.md](flow-validation-link.v1.md) |
+| `atlas.flow_approval_link.v1` | `sessions/<operation>/flow_approvals.ndjson` | [flow-approval-link.v1.md](flow-approval-link.v1.md) |
 | `atlas.business_flow_evidence.v1` | optional flow evidence object, JSON planned | [business-flow-evidence.v1.md](business-flow-evidence.v1.md) |
 
 ## Rules

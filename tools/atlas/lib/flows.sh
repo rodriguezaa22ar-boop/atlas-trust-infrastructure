@@ -51,6 +51,12 @@ atlas_flow_validation_links_file() {
   printf '%s/flow_validation.ndjson\n' "$op_dir"
 }
 
+atlas_flow_approval_links_file() {
+  local op_dir="$1"
+
+  printf '%s/flow_approvals.ndjson\n' "$op_dir"
+}
+
 atlas_flow_packet_dir() {
   printf '%s/flow_packets\n' "$ATLAS_OP_DIR"
 }
@@ -364,6 +370,23 @@ atlas_flow_validation_link_count() {
     "$file"
 }
 
+atlas_flow_approval_link_count() {
+  local file="$1"
+  local flow_id="$2"
+  local operation="$3"
+
+  if [ ! -s "$file" ]; then
+    printf '0\n'
+    return 0
+  fi
+
+  jq -sr \
+    --arg flow_id "$flow_id" \
+    --arg operation "$operation" \
+    '[.[] | select(.flow_id == $flow_id and .operation == $operation)] | length' \
+    "$file"
+}
+
 atlas_flow_latest_evidence_linked_at() {
   local file="$1"
   local flow_id="$2"
@@ -397,6 +420,22 @@ atlas_flow_latest_finding_linked_at() {
 }
 
 atlas_flow_latest_validation_linked_at() {
+  local file="$1"
+  local flow_id="$2"
+  local operation="$3"
+
+  if [ ! -s "$file" ]; then
+    return 0
+  fi
+
+  jq -sr \
+    --arg flow_id "$flow_id" \
+    --arg operation "$operation" \
+    '[.[] | select(.flow_id == $flow_id and .operation == $operation) | .linked_at // empty] | max // ""' \
+    "$file"
+}
+
+atlas_flow_latest_approval_linked_at() {
   local file="$1"
   local flow_id="$2"
   local operation="$3"
@@ -490,6 +529,32 @@ atlas_flow_packet_validation_refs() {
     "$file"
 }
 
+atlas_flow_packet_approval_refs() {
+  local file="$1"
+  local flow_id="$2"
+  local operation="$3"
+
+  if [ ! -s "$file" ] ||
+    ! jq -e --arg flow_id "$flow_id" --arg operation "$operation" 'select(.flow_id == $flow_id and .operation == $operation)' "$file" >/dev/null 2>&1; then
+    printf -- '- none linked\n'
+    return 0
+  fi
+
+  jq -r \
+    --arg flow_id "$flow_id" \
+    --arg operation "$operation" \
+    'select(.flow_id == $flow_id and .operation == $operation) |
+      "- Approval Ref: " + (.approval_ref // "unknown") + "\n" +
+      "  - Capability: " + (.capability // "unknown") + "\n" +
+      "  - Tier: " + (.tier // "unknown") + "\n" +
+      "  - Status: " + (.status // "unknown") + "\n" +
+      "  - Approved By: " + (.approved_by // "unknown") + "\n" +
+      "  - Approval Timestamp: " + (.approval_ts // "unknown") + "\n" +
+      "  - Linked At: " + (.linked_at // "unknown") + "\n" +
+      "  - Metadata Only: " + ((.metadata_only // false) | tostring)' \
+    "$file"
+}
+
 atlas_flow_csv_json_array() {
   local value="$1"
 
@@ -576,6 +641,32 @@ atlas_flow_validation_refs_json() {
       status: (.status // "unknown"),
       finding_id: (.finding_id // null),
       result_status: (.result_status // null),
+      linked_at: (.linked_at // ""),
+      metadata_only: (.metadata_only // false)
+    }]' \
+    "$file"
+}
+
+atlas_flow_approval_refs_json() {
+  local file="$1"
+  local flow_id="$2"
+  local operation="$3"
+
+  if [ ! -s "$file" ]; then
+    printf '[]\n'
+    return 0
+  fi
+
+  jq -s \
+    --arg flow_id "$flow_id" \
+    --arg operation "$operation" \
+    '[.[] | select(.flow_id == $flow_id and .operation == $operation) | {
+      approval_ref: (.approval_ref // ""),
+      capability: (.capability // "unknown"),
+      tier: (.tier // "unknown"),
+      status: (.status // "unknown"),
+      approved_by: (.approved_by // "unknown"),
+      approval_ts: (.approval_ts // ""),
       linked_at: (.linked_at // ""),
       metadata_only: (.metadata_only // false)
     }]' \
@@ -927,6 +1018,131 @@ atlas_flow_append_validation_link() {
     }' >>"$file"
 }
 
+atlas_flow_latest_approval_record() {
+  local capability="$1"
+  local file
+
+  file="$(atlas_approval_file "$ATLAS_OP_DIR")"
+  [ -s "$file" ] || return 0
+
+  jq -cs \
+    --arg capability "$capability" \
+    --arg target "$ATLAS_OP_TARGET" '
+      [.[] | select(
+        .capability == $capability
+        and .target == $target
+        and .status == "approved"
+      )]
+      | sort_by(.ts // "")
+      | last // empty
+    ' "$file"
+}
+
+atlas_flow_approval_record_exists() {
+  local capability="$1"
+  local approval_ts="$2"
+  local file
+
+  file="$(atlas_approval_file "$ATLAS_OP_DIR")"
+  [ -s "$file" ] || return 1
+
+  jq -e \
+    --arg capability "$capability" \
+    --arg target "$ATLAS_OP_TARGET" \
+    --arg approval_ts "$approval_ts" '
+      select(
+        .capability == $capability
+        and .target == $target
+        and .ts == $approval_ts
+        and .status == "approved"
+      )
+    ' "$file" >/dev/null
+}
+
+atlas_flow_approval_record_for_link() {
+  local capability="$1"
+  local approval_ts="$2"
+  local file
+
+  file="$(atlas_approval_file "$ATLAS_OP_DIR")"
+  [ -s "$file" ] || return 0
+
+  jq -c \
+    --arg capability "$capability" \
+    --arg target "$ATLAS_OP_TARGET" \
+    --arg approval_ts "$approval_ts" '
+      select(
+        .capability == $capability
+        and .target == $target
+        and .ts == $approval_ts
+        and .status == "approved"
+      )
+    ' "$file" | head -n 1
+}
+
+atlas_flow_append_approval_link() {
+  local file="$1"
+  local approval_record="$2"
+  local capability="$3"
+  local linked_at="$4"
+  local approval_ts
+  local tier
+  local status
+  local approved_by
+  local approval_ref
+
+  intel_require_jq
+
+  approval_ts="$(printf '%s\n' "$approval_record" | jq -r '.ts // ""')"
+  tier="$(printf '%s\n' "$approval_record" | jq -r '.tier // "unknown"')"
+  status="$(printf '%s\n' "$approval_record" | jq -r '.status // "unknown"')"
+  approved_by="$(printf '%s\n' "$approval_record" | jq -r '.approved_by // "unknown"')"
+  approval_ref="approval:${capability}:${approval_ts}"
+
+  [ -n "$approval_ts" ] || fail "approval record missing timestamp: $capability"
+  atlas_flow_validate_metadata_value "approval capability" "$capability"
+  atlas_flow_validate_metadata_value "approval tier" "$tier"
+  atlas_flow_validate_metadata_value "approval status" "$status"
+  atlas_flow_validate_metadata_value "approved by" "$approved_by"
+  atlas_flow_validate_metadata_value "approval ref" "$approval_ref"
+
+  : >>"$file"
+  chmod 600 "$file" 2>/dev/null || true
+
+  jq -cn \
+    --arg schema_version "atlas.flow_approval_link.v1" \
+    --arg flow_id "$ATLAS_FLOW_ID" \
+    --arg flow_slug "$ATLAS_FLOW_SLUG" \
+    --arg operation "$ATLAS_OP_SLUG" \
+    --arg target "$ATLAS_OP_TARGET" \
+    --arg approval_ref "$approval_ref" \
+    --arg capability "$capability" \
+    --arg tier "$tier" \
+    --arg status "$status" \
+    --arg approved_by "$approved_by" \
+    --arg approval_ts "$approval_ts" \
+    --arg linked_at "$linked_at" \
+    --arg linked_by "atlas" \
+    --arg notes "Metadata-only reference. Approval reason and operator notes are not embedded." \
+    '{
+      schema_version: $schema_version,
+      flow_id: $flow_id,
+      flow_slug: $flow_slug,
+      operation: $operation,
+      target: $target,
+      approval_ref: $approval_ref,
+      capability: $capability,
+      tier: $tier,
+      status: $status,
+      approved_by: $approved_by,
+      approval_ts: $approval_ts,
+      linked_at: $linked_at,
+      linked_by: $linked_by,
+      notes: $notes,
+      metadata_only: true
+    }' >>"$file"
+}
+
 cmd_flow_add() {
   need_args 1 "$#" "flow add <flow-name> [--type type] [--owner owner] [--criticality low|medium|high|critical] [--environment label] [--scope-status status] [--data-class label] [--system alias] [--control objective]"
   local name="$1"
@@ -1214,6 +1430,48 @@ cmd_flow_link_validation() {
   printf 'link_path: %s\n' "$validation_links_file"
 }
 
+cmd_flow_link_approval() {
+  need_args 2 "$#" "flow link-approval <flow> <capability>"
+  local flow="$1"
+  local capability="$2"
+  local approval_record
+  local linked_at
+  local flow_links_file
+  local approval_links_file
+  local approval_ts
+  local tier
+  local approved_by
+
+  atlas_flow_load "$flow"
+  load_active_operation
+  atlas_flow_validate_metadata_value "approval capability" "$capability"
+
+  approval_record="$(atlas_flow_latest_approval_record "$capability" || true)"
+  [ -n "$approval_record" ] || fail "unknown approved capability in active operation: $capability"
+
+  linked_at="$(timestamp)"
+  flow_links_file="$(atlas_flow_operation_links_file "$ATLAS_OP_DIR")"
+  approval_links_file="$(atlas_flow_approval_links_file "$ATLAS_OP_DIR")"
+
+  atlas_flow_append_operation_link "$flow_links_file" "$linked_at"
+  atlas_flow_append_approval_link "$approval_links_file" "$approval_record" "$capability" "$linked_at"
+
+  approval_ts="$(printf '%s\n' "$approval_record" | jq -r '.ts // ""')"
+  tier="$(printf '%s\n' "$approval_record" | jq -r '.tier // "unknown"')"
+  approved_by="$(printf '%s\n' "$approval_record" | jq -r '.approved_by // "unknown"')"
+
+  atlas_ledger_append_current "flow.approval_linked" "read-only" "atlas" "ok" "flow_id=$ATLAS_FLOW_ID capability=$capability tier=$tier approval_ts=$approval_ts"
+
+  ui_ok "business flow approval linked"
+  printf 'flow_id: %s\n' "$ATLAS_FLOW_ID"
+  printf 'operation: %s\n' "$ATLAS_OP_SLUG"
+  printf 'capability: %s\n' "$capability"
+  printf 'tier: %s\n' "$tier"
+  printf 'approval_ts: %s\n' "$approval_ts"
+  printf 'approved_by: %s\n' "$approved_by"
+  printf 'link_path: %s\n' "$approval_links_file"
+}
+
 atlas_flow_write_json_packet() {
   local packet_file="$1"
   local packet_name="$2"
@@ -1229,6 +1487,9 @@ atlas_flow_write_json_packet() {
   local validation_links_file="${12}"
   local validation_link_count="${13}"
   local latest_validation_link="${14}"
+  local approval_links_file="${15}"
+  local approval_link_count="${16}"
+  local latest_approval_link="${17}"
   local packet_slug
   local systems_json
   local data_classes_json
@@ -1236,6 +1497,7 @@ atlas_flow_write_json_packet() {
   local evidence_refs_json
   local finding_refs_json
   local validation_refs_json
+  local approval_refs_json
 
   packet_slug="$(atlas_flow_packet_slug_for "$packet_name")"
   systems_json="$(atlas_flow_csv_json_array "$ATLAS_FLOW_SYSTEMS")"
@@ -1244,6 +1506,7 @@ atlas_flow_write_json_packet() {
   evidence_refs_json="$(atlas_flow_evidence_refs_json "$evidence_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
   finding_refs_json="$(atlas_flow_finding_refs_json "$finding_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
   validation_refs_json="$(atlas_flow_validation_refs_json "$validation_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  approval_refs_json="$(atlas_flow_approval_refs_json "$approval_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
 
   jq -n \
     --arg schema_version "atlas.business_flow_packet.v1" \
@@ -1268,15 +1531,18 @@ atlas_flow_write_json_packet() {
     --arg latest_evidence_link "${latest_evidence_link:-}" \
     --arg latest_finding_link "${latest_finding_link:-}" \
     --arg latest_validation_link "${latest_validation_link:-}" \
+    --arg latest_approval_link "${latest_approval_link:-}" \
     --argjson evidence_link_count "$evidence_link_count" \
     --argjson finding_link_count "$finding_link_count" \
     --argjson validation_link_count "$validation_link_count" \
+    --argjson approval_link_count "$approval_link_count" \
     --argjson systems "$systems_json" \
     --argjson data_classes "$data_classes_json" \
     --argjson control_objectives "$controls_json" \
     --argjson evidence_refs "$evidence_refs_json" \
     --argjson findings_refs "$finding_refs_json" \
     --argjson validation_refs "$validation_refs_json" \
+    --argjson approval_refs "$approval_refs_json" \
     '{
       schema_version: $schema_version,
       packet_id: $packet_id,
@@ -1294,6 +1560,7 @@ atlas_flow_write_json_packet() {
           "hashes",
           "retained paths",
           "classifications",
+          "approval metadata",
           "timestamps",
           "known limitations"
         ],
@@ -1330,7 +1597,7 @@ atlas_flow_write_json_packet() {
       evidence_refs: $evidence_refs,
       findings_refs: $findings_refs,
       validation_refs: $validation_refs,
-      approval_refs: [],
+      approval_refs: $approval_refs,
       retention_refs: {},
       freshness: {
         status: "current",
@@ -1338,14 +1605,17 @@ atlas_flow_write_json_packet() {
         latest_evidence_link: (if $latest_evidence_link == "" then null else $latest_evidence_link end),
         latest_finding_link: (if $latest_finding_link == "" then null else $latest_finding_link end),
         latest_validation_link: (if $latest_validation_link == "" then null else $latest_validation_link end),
+        latest_approval_link: (if $latest_approval_link == "" then null else $latest_approval_link end),
         evidence_link_count: $evidence_link_count,
         finding_link_count: $finding_link_count,
-        validation_link_count: $validation_link_count
+        validation_link_count: $validation_link_count,
+        approval_link_count: $approval_link_count
       },
       known_limitations: [
         "This packet is metadata-only and does not embed raw evidence content.",
-        "Flow verification checks packet metadata, evidence, finding, and validation links, hashes, freshness, and forbidden-content guardrails.",
-        "Approval and retention links are not included in this packet slice.",
+        "Flow verification checks packet metadata, evidence, finding, validation, and approval links, hashes, freshness, and forbidden-content guardrails.",
+        "Approval reasons and operator notes are intentionally excluded from flow packets.",
+        "Retention links are not included in this packet slice.",
         "This packet is not production certification, payment verification, legal compliance evidence, or a third-party audit."
       ]
     }' >"$packet_file"
@@ -1366,12 +1636,15 @@ cmd_flow_packet_markdown() {
   local evidence_links_file
   local finding_links_file
   local validation_links_file
+  local approval_links_file
   local evidence_link_count
   local finding_link_count
   local validation_link_count
+  local approval_link_count
   local latest_evidence_link
   local latest_finding_link
   local latest_validation_link
+  local latest_approval_link
 
   atlas_flow_load "$flow"
   load_active_operation
@@ -1387,6 +1660,7 @@ cmd_flow_packet_markdown() {
   evidence_links_file="$(atlas_flow_evidence_links_file "$ATLAS_OP_DIR")"
   finding_links_file="$(atlas_flow_finding_links_file "$ATLAS_OP_DIR")"
   validation_links_file="$(atlas_flow_validation_links_file "$ATLAS_OP_DIR")"
+  approval_links_file="$(atlas_flow_approval_links_file "$ATLAS_OP_DIR")"
 
   if ! atlas_flow_operation_link_exists "$flow_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG"; then
     fail "business flow has no links in active operation; run 'atlas flow link-evidence' first"
@@ -1395,6 +1669,7 @@ cmd_flow_packet_markdown() {
   evidence_link_count="$(atlas_flow_evidence_link_count "$evidence_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
   finding_link_count="$(atlas_flow_finding_link_count "$finding_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
   validation_link_count="$(atlas_flow_validation_link_count "$validation_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  approval_link_count="$(atlas_flow_approval_link_count "$approval_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
   [ "$evidence_link_count" -gt 0 ] || fail "business flow has no evidence links in active operation"
 
   generated_at="$(timestamp)"
@@ -1403,6 +1678,7 @@ cmd_flow_packet_markdown() {
   latest_evidence_link="$(atlas_flow_latest_evidence_linked_at "$evidence_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
   latest_finding_link="$(atlas_flow_latest_finding_linked_at "$finding_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
   latest_validation_link="$(atlas_flow_latest_validation_linked_at "$validation_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  latest_approval_link="$(atlas_flow_latest_approval_linked_at "$approval_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
 
   mkdir -p "$packet_dir"
   chmod 700 "$packet_dir" 2>/dev/null || true
@@ -1418,7 +1694,7 @@ cmd_flow_packet_markdown() {
     printf -- '- Metadata Only: true\n'
     printf -- '- Raw Evidence Embedded: false\n'
     printf '\n## Metadata Boundary\n\n'
-    printf -- '- Stores flow labels, operation labels, evidence IDs, hashes, retained paths, classifications, timestamps, and known limitations.\n'
+    printf -- '- Stores flow labels, operation labels, evidence IDs, hashes, retained paths, classifications, approval metadata, timestamps, and known limitations.\n'
     printf -- '- Does not store raw evidence bodies, customer records, request bodies, response bodies, payment data, credentials, token-bearing values, key material, or authorization headers.\n'
     printf '\n## Flow\n\n'
     printf -- '- Flow ID: %s\n' "$ATLAS_FLOW_ID"
@@ -1441,7 +1717,7 @@ cmd_flow_packet_markdown() {
     printf '\n## Validation\n\n'
     atlas_flow_packet_validation_refs "$validation_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG"
     printf '\n## Approvals\n\n'
-    printf -- '- none linked in this packet version\n'
+    atlas_flow_packet_approval_refs "$approval_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG"
     printf '\n## Freshness\n\n'
     printf -- '- Status: current\n'
     printf -- '- Packet Generated At: %s\n' "$generated_at"
@@ -1460,13 +1736,20 @@ cmd_flow_packet_markdown() {
     else
       printf -- '- Latest Validation Link: none recorded\n'
     fi
+    if [ -n "$latest_approval_link" ]; then
+      printf -- '- Latest Approval Link: %s\n' "$latest_approval_link"
+    else
+      printf -- '- Latest Approval Link: none recorded\n'
+    fi
     printf -- '- Evidence Link Count: %s\n' "$evidence_link_count"
     printf -- '- Finding Link Count: %s\n' "$finding_link_count"
     printf -- '- Validation Link Count: %s\n' "$validation_link_count"
+    printf -- '- Approval Link Count: %s\n' "$approval_link_count"
     printf '\n## Known Limitations\n\n'
     printf -- '- This packet is metadata-only and does not embed raw evidence content.\n'
-    printf -- '- Flow verification checks packet metadata, evidence, finding, and validation links, hashes, freshness, and forbidden-content guardrails.\n'
-    printf -- '- Approval and retention links are not included in this packet slice.\n'
+    printf -- '- Flow verification checks packet metadata, evidence, finding, validation, and approval links, hashes, freshness, and forbidden-content guardrails.\n'
+    printf -- '- Approval reasons and operator notes are intentionally excluded from flow packets.\n'
+    printf -- '- Retention links are not included in this packet slice.\n'
     printf -- '- This packet is not production certification, payment verification, legal compliance evidence, or a third-party audit.\n'
   } >"$packet_file"
 
@@ -1476,7 +1759,7 @@ cmd_flow_packet_markdown() {
     fail "business-flow packet failed metadata-only validation"
   fi
 
-  atlas_ledger_append_current "flow.packet.generated" "read-only" "atlas" "ok" "flow_id=$ATLAS_FLOW_ID packet=$packet_file evidence_links=$evidence_link_count finding_links=$finding_link_count validation_links=$validation_link_count"
+  atlas_ledger_append_current "flow.packet.generated" "read-only" "atlas" "ok" "flow_id=$ATLAS_FLOW_ID packet=$packet_file evidence_links=$evidence_link_count finding_links=$finding_link_count validation_links=$validation_link_count approval_links=$approval_link_count"
 
   ui_ok "business flow packet written"
   printf 'flow_id: %s\n' "$ATLAS_FLOW_ID"
@@ -1499,12 +1782,15 @@ cmd_flow_packet_json() {
   local evidence_links_file
   local finding_links_file
   local validation_links_file
+  local approval_links_file
   local evidence_link_count
   local finding_link_count
   local validation_link_count
+  local approval_link_count
   local latest_evidence_link
   local latest_finding_link
   local latest_validation_link
+  local latest_approval_link
 
   atlas_flow_load "$flow"
   load_active_operation
@@ -1520,6 +1806,7 @@ cmd_flow_packet_json() {
   evidence_links_file="$(atlas_flow_evidence_links_file "$ATLAS_OP_DIR")"
   finding_links_file="$(atlas_flow_finding_links_file "$ATLAS_OP_DIR")"
   validation_links_file="$(atlas_flow_validation_links_file "$ATLAS_OP_DIR")"
+  approval_links_file="$(atlas_flow_approval_links_file "$ATLAS_OP_DIR")"
 
   if ! atlas_flow_operation_link_exists "$flow_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG"; then
     fail "business flow has no links in active operation; run 'atlas flow link-evidence' first"
@@ -1528,6 +1815,7 @@ cmd_flow_packet_json() {
   evidence_link_count="$(atlas_flow_evidence_link_count "$evidence_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
   finding_link_count="$(atlas_flow_finding_link_count "$finding_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
   validation_link_count="$(atlas_flow_validation_link_count "$validation_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  approval_link_count="$(atlas_flow_approval_link_count "$approval_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
   [ "$evidence_link_count" -gt 0 ] || fail "business flow has no evidence links in active operation"
 
   generated_at="$(timestamp)"
@@ -1536,10 +1824,11 @@ cmd_flow_packet_json() {
   latest_evidence_link="$(atlas_flow_latest_evidence_linked_at "$evidence_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
   latest_finding_link="$(atlas_flow_latest_finding_linked_at "$finding_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
   latest_validation_link="$(atlas_flow_latest_validation_linked_at "$validation_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  latest_approval_link="$(atlas_flow_latest_approval_linked_at "$approval_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
 
   mkdir -p "$packet_dir"
   chmod 700 "$packet_dir" 2>/dev/null || true
-  atlas_flow_write_json_packet "$packet_file" "$packet_name" "$generated_at" "$flow_file" "$flow_sha" "$evidence_links_file" "$evidence_link_count" "$latest_evidence_link" "$finding_links_file" "$finding_link_count" "$latest_finding_link" "$validation_links_file" "$validation_link_count" "$latest_validation_link"
+  atlas_flow_write_json_packet "$packet_file" "$packet_name" "$generated_at" "$flow_file" "$flow_sha" "$evidence_links_file" "$evidence_link_count" "$latest_evidence_link" "$finding_links_file" "$finding_link_count" "$latest_finding_link" "$validation_links_file" "$validation_link_count" "$latest_validation_link" "$approval_links_file" "$approval_link_count" "$latest_approval_link"
 
   chmod 600 "$packet_file" 2>/dev/null || true
   if ! atlas_flow_validate_json_packet_file "$packet_file"; then
@@ -1547,7 +1836,7 @@ cmd_flow_packet_json() {
     fail "business-flow JSON packet failed metadata-only validation"
   fi
 
-  atlas_ledger_append_current "flow.packet.generated" "read-only" "atlas" "ok" "flow_id=$ATLAS_FLOW_ID packet=$packet_file format=json evidence_links=$evidence_link_count finding_links=$finding_link_count validation_links=$validation_link_count"
+  atlas_ledger_append_current "flow.packet.generated" "read-only" "atlas" "ok" "flow_id=$ATLAS_FLOW_ID packet=$packet_file format=json evidence_links=$evidence_link_count finding_links=$finding_link_count validation_links=$validation_link_count approval_links=$approval_link_count"
 
   ui_ok "business flow JSON packet written"
   printf 'flow_id: %s\n' "$ATLAS_FLOW_ID"
@@ -1609,6 +1898,7 @@ cmd_flow_verify_markdown() {
   local evidence_links_file
   local finding_links_file
   local validation_links_file
+  local approval_links_file
   local expected_count
   local packet_count
   local evidence_count_stale=0
@@ -1618,14 +1908,19 @@ cmd_flow_verify_markdown() {
   local expected_validation_count
   local packet_validation_count
   local validation_count_stale=0
+  local expected_approval_count
+  local packet_approval_count
+  local approval_count_stale=0
   local generated_at
   local latest_evidence_link
   local latest_finding_link
   local latest_validation_link
+  local latest_approval_link
   local link_json
   local evidence_id
   local finding_id
   local validation_id
+  local approval_ref
   local link_path
   local link_sha
   local link_classification
@@ -1640,6 +1935,9 @@ cmd_flow_verify_markdown() {
   local link_capability
   local link_finding_id
   local link_result_status
+  local link_tier
+  local link_approved_by
+  local link_approval_ts
   local record
   local record_path
   local record_sha
@@ -1654,6 +1952,9 @@ cmd_flow_verify_markdown() {
   local record_capability
   local record_finding_id
   local record_result_status
+  local record_tier
+  local record_approved_by
+  local record_approval_ts
   local evidence_file
   local actual_sha
 
@@ -1672,6 +1973,7 @@ cmd_flow_verify_markdown() {
   evidence_links_file="$(atlas_flow_evidence_links_file "$ATLAS_OP_DIR")"
   finding_links_file="$(atlas_flow_finding_links_file "$ATLAS_OP_DIR")"
   validation_links_file="$(atlas_flow_validation_links_file "$ATLAS_OP_DIR")"
+  approval_links_file="$(atlas_flow_approval_links_file "$ATLAS_OP_DIR")"
 
   ui_heading "Atlas Business Flow Packet Verification"
   ui_rule
@@ -1786,6 +2088,25 @@ cmd_flow_verify_markdown() {
     atlas_flow_verify_row "Validation Freshness" "stale" "latest_validation_link=$latest_validation_link packet_generated=$generated_at"
   else
     atlas_flow_verify_row "Validation Freshness" "ok" "latest_validation_link=${latest_validation_link:-none} packet_generated=${generated_at:-missing}"
+  fi
+
+  expected_approval_count="$(atlas_flow_approval_link_count "$approval_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  packet_approval_count="$(atlas_flow_packet_field "$packet_file" "Approval Link Count")"
+  if [ -z "$packet_approval_count" ] && [ "$expected_approval_count" = "0" ]; then
+    packet_approval_count="0"
+  fi
+  if [ "$packet_approval_count" = "$expected_approval_count" ]; then
+    atlas_flow_verify_row "Approval Count" "ok" "$packet_approval_count"
+  else
+    approval_count_stale=1
+    atlas_flow_verify_row "Approval Count" "stale" "expected=$expected_approval_count actual=${packet_approval_count:-missing}"
+  fi
+
+  latest_approval_link="$(atlas_flow_latest_approval_linked_at "$approval_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  if atlas_flow_timestamp_after "$latest_approval_link" "$generated_at"; then
+    atlas_flow_verify_row "Approval Freshness" "stale" "latest_approval_link=$latest_approval_link packet_generated=$generated_at"
+  else
+    atlas_flow_verify_row "Approval Freshness" "ok" "latest_approval_link=${latest_approval_link:-none} packet_generated=${generated_at:-missing}"
   fi
 
   if atlas_flow_timestamp_after "$ATLAS_FLOW_UPDATED_AT" "$generated_at"; then
@@ -1985,6 +2306,70 @@ cmd_flow_verify_markdown() {
     fi
   )
 
+  while IFS= read -r link_json; do
+    [ -n "$link_json" ] || continue
+    approval_ref="$(printf '%s\n' "$link_json" | jq -r '.approval_ref // ""')"
+    link_capability="$(printf '%s\n' "$link_json" | jq -r '.capability // ""')"
+    link_tier="$(printf '%s\n' "$link_json" | jq -r '.tier // ""')"
+    link_status="$(printf '%s\n' "$link_json" | jq -r '.status // ""')"
+    link_approved_by="$(printf '%s\n' "$link_json" | jq -r '.approved_by // ""')"
+    link_approval_ts="$(printf '%s\n' "$link_json" | jq -r '.approval_ts // ""')"
+    link_linked_at="$(printf '%s\n' "$link_json" | jq -r '.linked_at // ""')"
+
+    if [ -z "$approval_ref" ]; then
+      atlas_flow_verify_row "Approval Record" "blocked" "link missing approval ref"
+      continue
+    fi
+
+    if atlas_flow_packet_contains_value "$packet_file" "Approval Ref" "$approval_ref"; then
+      atlas_flow_verify_row "Approval $link_capability" "ok" "packet reference present"
+    elif [ "$approval_count_stale" -eq 1 ] || atlas_flow_timestamp_after "$link_linked_at" "$generated_at"; then
+      atlas_flow_verify_row "Approval $link_capability" "stale" "link newer than packet or count mismatch"
+    else
+      atlas_flow_verify_row "Approval $link_capability" "blocked" "packet reference missing"
+    fi
+
+    if ! atlas_flow_approval_record_exists "$link_capability" "$link_approval_ts"; then
+      atlas_flow_verify_row "Approval Record" "blocked" "missing current approved record for $link_capability at $link_approval_ts"
+      continue
+    fi
+
+    record="$(atlas_flow_approval_record_for_link "$link_capability" "$link_approval_ts" || true)"
+    record_tier="$(printf '%s\n' "$record" | jq -r '.tier // ""')"
+    record_status="$(printf '%s\n' "$record" | jq -r '.status // ""')"
+    record_approved_by="$(printf '%s\n' "$record" | jq -r '.approved_by // ""')"
+    record_approval_ts="$(printf '%s\n' "$record" | jq -r '.ts // ""')"
+
+    if atlas_flow_packet_contains_value "$packet_file" "Capability" "$link_capability" &&
+      atlas_flow_packet_contains_value "$packet_file" "Tier" "$link_tier" &&
+      atlas_flow_packet_contains_value "$packet_file" "Status" "$link_status" &&
+      atlas_flow_packet_contains_value "$packet_file" "Approved By" "$link_approved_by" &&
+      atlas_flow_packet_contains_value "$packet_file" "Approval Timestamp" "$link_approval_ts"; then
+      atlas_flow_verify_row "Packet Approval" "ok" "$link_capability metadata matches"
+    elif [ "$approval_count_stale" -eq 1 ] || atlas_flow_timestamp_after "$link_linked_at" "$generated_at"; then
+      atlas_flow_verify_row "Packet Approval" "stale" "$link_capability link newer than packet or count mismatch"
+    else
+      atlas_flow_verify_row "Packet Approval" "blocked" "$link_capability metadata missing or mismatched"
+    fi
+
+    if [ "$record_tier" = "$link_tier" ] &&
+      [ "$record_status" = "$link_status" ] &&
+      [ "$record_approved_by" = "$link_approved_by" ] &&
+      [ "$record_approval_ts" = "$link_approval_ts" ]; then
+      atlas_flow_verify_row "Approval Metadata" "ok" "$link_capability status=$record_status tier=$record_tier"
+    else
+      atlas_flow_verify_row "Approval Metadata" "stale" "approval=$link_capability current metadata differs from linked snapshot"
+    fi
+  done < <(
+    if [ -s "$approval_links_file" ]; then
+      jq -c \
+        --arg flow_id "$ATLAS_FLOW_ID" \
+        --arg operation "$ATLAS_OP_SLUG" \
+        'select(.flow_id == $flow_id and .operation == $operation)' \
+        "$approval_links_file"
+    fi
+  )
+
   ui_rule
   ui_kv "Overall" "$ATLAS_FLOW_VERIFY_OVERALL"
   if [ "$ATLAS_FLOW_VERIFY_FAILURES" -eq 0 ]; then
@@ -2072,6 +2457,7 @@ cmd_flow_verify_json() {
   local evidence_links_file
   local finding_links_file
   local validation_links_file
+  local approval_links_file
   local expected_count
   local packet_count
   local evidence_count_stale=0
@@ -2081,14 +2467,19 @@ cmd_flow_verify_json() {
   local expected_validation_count
   local packet_validation_count
   local validation_count_stale=0
+  local expected_approval_count
+  local packet_approval_count
+  local approval_count_stale=0
   local generated_at
   local latest_evidence_link
   local latest_finding_link
   local latest_validation_link
+  local latest_approval_link
   local link_json
   local evidence_id
   local finding_id
   local validation_id
+  local approval_ref
   local link_path
   local link_sha
   local link_classification
@@ -2103,6 +2494,9 @@ cmd_flow_verify_json() {
   local link_capability
   local link_finding_id
   local link_result_status
+  local link_tier
+  local link_approved_by
+  local link_approval_ts
   local packet_ref
   local packet_ref_path
   local packet_ref_sha
@@ -2117,6 +2511,9 @@ cmd_flow_verify_json() {
   local packet_ref_capability
   local packet_ref_finding_id
   local packet_ref_result_status
+  local packet_ref_tier
+  local packet_ref_approved_by
+  local packet_ref_approval_ts
   local record
   local record_path
   local record_sha
@@ -2131,6 +2528,9 @@ cmd_flow_verify_json() {
   local record_capability
   local record_finding_id
   local record_result_status
+  local record_tier
+  local record_approved_by
+  local record_approval_ts
   local evidence_file
   local actual_sha
   local rows_file
@@ -2151,6 +2551,7 @@ cmd_flow_verify_json() {
   evidence_links_file="$(atlas_flow_evidence_links_file "$ATLAS_OP_DIR")"
   finding_links_file="$(atlas_flow_finding_links_file "$ATLAS_OP_DIR")"
   validation_links_file="$(atlas_flow_validation_links_file "$ATLAS_OP_DIR")"
+  approval_links_file="$(atlas_flow_approval_links_file "$ATLAS_OP_DIR")"
   rows_file="$(mktemp)"
 
   atlas_flow_verify_reset
@@ -2296,6 +2697,25 @@ cmd_flow_verify_json() {
     atlas_flow_verify_json_row "$rows_file" "Validation Freshness" "stale" "latest_validation_link=$latest_validation_link packet_generated=$generated_at"
   else
     atlas_flow_verify_json_row "$rows_file" "Validation Freshness" "ok" "latest_validation_link=${latest_validation_link:-none} packet_generated=${generated_at:-missing}"
+  fi
+
+  expected_approval_count="$(atlas_flow_approval_link_count "$approval_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  packet_approval_count="$(jq -r '.freshness.approval_link_count // ""' "$packet_file" 2>/dev/null || true)"
+  if [ -z "$packet_approval_count" ] && [ "$expected_approval_count" = "0" ]; then
+    packet_approval_count="0"
+  fi
+  if [ "$packet_approval_count" = "$expected_approval_count" ]; then
+    atlas_flow_verify_json_row "$rows_file" "Approval Count" "ok" "$packet_approval_count"
+  else
+    approval_count_stale=1
+    atlas_flow_verify_json_row "$rows_file" "Approval Count" "stale" "expected=$expected_approval_count actual=${packet_approval_count:-missing}"
+  fi
+
+  latest_approval_link="$(atlas_flow_latest_approval_linked_at "$approval_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  if atlas_flow_timestamp_after "$latest_approval_link" "$generated_at"; then
+    atlas_flow_verify_json_row "$rows_file" "Approval Freshness" "stale" "latest_approval_link=$latest_approval_link packet_generated=$generated_at"
+  else
+    atlas_flow_verify_json_row "$rows_file" "Approval Freshness" "ok" "latest_approval_link=${latest_approval_link:-none} packet_generated=${generated_at:-missing}"
   fi
 
   if atlas_flow_timestamp_after "$ATLAS_FLOW_UPDATED_AT" "$generated_at"; then
@@ -2564,6 +2984,86 @@ cmd_flow_verify_json() {
     fi
   )
 
+  while IFS= read -r link_json; do
+    [ -n "$link_json" ] || continue
+    approval_ref="$(printf '%s\n' "$link_json" | jq -r '.approval_ref // ""')"
+    link_capability="$(printf '%s\n' "$link_json" | jq -r '.capability // ""')"
+    link_tier="$(printf '%s\n' "$link_json" | jq -r '.tier // ""')"
+    link_status="$(printf '%s\n' "$link_json" | jq -r '.status // ""')"
+    link_approved_by="$(printf '%s\n' "$link_json" | jq -r '.approved_by // ""')"
+    link_approval_ts="$(printf '%s\n' "$link_json" | jq -r '.approval_ts // ""')"
+    link_linked_at="$(printf '%s\n' "$link_json" | jq -r '.linked_at // ""')"
+
+    if [ -z "$approval_ref" ]; then
+      atlas_flow_verify_json_row "$rows_file" "Approval Record" "blocked" "link missing approval ref"
+      continue
+    fi
+
+    packet_ref="$(jq -c --arg approval_ref "$approval_ref" '[.approval_refs[]? | select(.approval_ref == $approval_ref)] | first // empty' "$packet_file" 2>/dev/null || true)"
+    if [ -n "$packet_ref" ]; then
+      atlas_flow_verify_json_row "$rows_file" "Approval $link_capability" "ok" "packet reference present"
+      packet_ref_capability="$(printf '%s\n' "$packet_ref" | jq -r '.capability // ""')"
+      packet_ref_tier="$(printf '%s\n' "$packet_ref" | jq -r '.tier // ""')"
+      packet_ref_status="$(printf '%s\n' "$packet_ref" | jq -r '.status // ""')"
+      packet_ref_approved_by="$(printf '%s\n' "$packet_ref" | jq -r '.approved_by // ""')"
+      packet_ref_approval_ts="$(printf '%s\n' "$packet_ref" | jq -r '.approval_ts // ""')"
+    elif [ "$approval_count_stale" -eq 1 ] || atlas_flow_timestamp_after "$link_linked_at" "$generated_at"; then
+      atlas_flow_verify_json_row "$rows_file" "Approval $link_capability" "stale" "link newer than packet or count mismatch"
+      packet_ref_capability=""
+      packet_ref_tier=""
+      packet_ref_status=""
+      packet_ref_approved_by=""
+      packet_ref_approval_ts=""
+    else
+      atlas_flow_verify_json_row "$rows_file" "Approval $link_capability" "blocked" "packet reference missing"
+      packet_ref_capability=""
+      packet_ref_tier=""
+      packet_ref_status=""
+      packet_ref_approved_by=""
+      packet_ref_approval_ts=""
+    fi
+
+    record="$(atlas_flow_approval_record_for_link "$link_capability" "$link_approval_ts" || true)"
+    if [ -z "$record" ]; then
+      atlas_flow_verify_json_row "$rows_file" "Approval Record" "blocked" "missing current approved record for $link_capability at $link_approval_ts"
+      continue
+    fi
+
+    record_tier="$(printf '%s\n' "$record" | jq -r '.tier // ""')"
+    record_status="$(printf '%s\n' "$record" | jq -r '.status // ""')"
+    record_approved_by="$(printf '%s\n' "$record" | jq -r '.approved_by // ""')"
+    record_approval_ts="$(printf '%s\n' "$record" | jq -r '.ts // ""')"
+
+    if [ "$packet_ref_capability" = "$link_capability" ] &&
+      [ "$packet_ref_tier" = "$link_tier" ] &&
+      [ "$packet_ref_status" = "$link_status" ] &&
+      [ "$packet_ref_approved_by" = "$link_approved_by" ] &&
+      [ "$packet_ref_approval_ts" = "$link_approval_ts" ]; then
+      atlas_flow_verify_json_row "$rows_file" "Packet Approval" "ok" "$link_capability metadata matches"
+    elif [ "$approval_count_stale" -eq 1 ] || atlas_flow_timestamp_after "$link_linked_at" "$generated_at"; then
+      atlas_flow_verify_json_row "$rows_file" "Packet Approval" "stale" "$link_capability link newer than packet or count mismatch"
+    else
+      atlas_flow_verify_json_row "$rows_file" "Packet Approval" "blocked" "$link_capability metadata missing or mismatched"
+    fi
+
+    if [ "$record_tier" = "$link_tier" ] &&
+      [ "$record_status" = "$link_status" ] &&
+      [ "$record_approved_by" = "$link_approved_by" ] &&
+      [ "$record_approval_ts" = "$link_approval_ts" ]; then
+      atlas_flow_verify_json_row "$rows_file" "Approval Metadata" "ok" "$link_capability status=$record_status tier=$record_tier"
+    else
+      atlas_flow_verify_json_row "$rows_file" "Approval Metadata" "stale" "approval=$link_capability current metadata differs from linked snapshot"
+    fi
+  done < <(
+    if [ -s "$approval_links_file" ]; then
+      jq -c \
+        --arg flow_id "$ATLAS_FLOW_ID" \
+        --arg operation "$ATLAS_OP_SLUG" \
+        'select(.flow_id == $flow_id and .operation == $operation)' \
+        "$approval_links_file"
+    fi
+  )
+
   atlas_flow_verify_json_print "$rows_file" "$packet_file"
   if [ "$ATLAS_FLOW_VERIFY_FAILURES" -ne 0 ]; then
     exit_status=1
@@ -2637,6 +3137,10 @@ dispatch_flow_command() {
   link-validation)
     shift
     cmd_flow_link_validation "$@"
+    ;;
+  link-approval)
+    shift
+    cmd_flow_link_approval "$@"
     ;;
   packet)
     shift

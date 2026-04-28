@@ -90,6 +90,7 @@ NDJSON, and Markdown surfaces:
 - `atlas.flow_evidence_link.v1`
 - `atlas.flow_finding_link.v1`
 - `atlas.flow_validation_link.v1`
+- `atlas.flow_approval_link.v1`
 - `atlas.business_flow_packet.v1`
 - `atlas.business_flow_verify.v1`
 
@@ -211,5 +212,5 @@ Readiness language remains layered:
 - external production certification: not claimed unless independently proven
 
 Business Flow Evidence remains optional. It is visible as a non-blocking
-readiness pillar/gate until approval/retention links and flow trust-chain
-integration are stable.
+readiness pillar/gate until retention links and flow trust-chain integration are
+stable.
