@@ -161,6 +161,7 @@ sessions/<operation>/business_flows.ndjson
 sessions/<operation>/flow_evidence.ndjson
 sessions/<operation>/flow_findings.ndjson
 sessions/<operation>/flow_validation.ndjson
+sessions/<operation>/flow_approvals.ndjson
 sessions/<operation>/flow_packets/<packet-name>.md
 sessions/<operation>/flow_packets_json/<packet-name>.json
 ```
@@ -249,8 +250,9 @@ records, retained evidence files, hashes, freshness timestamps, and
 forbidden-content guardrails. With `--json`, it verifies the JSON packet and emits
 `atlas.business_flow_verify.v1`.
 
-This slice does not implement retention links or flow trust-chain integration
-yet. Readiness integration is implemented as optional and non-blocking.
+This slice does not implement retention links or a flow-specific trust-chain
+command yet. Operation trust-chain output can summarize flow link and packet
+counts, and readiness integration remains optional and non-blocking.
 
 ## Flow Record Contract
 

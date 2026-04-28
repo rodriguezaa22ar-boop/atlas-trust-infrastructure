@@ -205,7 +205,7 @@ Each pillar status must include:
   `sessions/<operation>/flow_packets/`,
   `sessions/<operation>/flow_packets_json/`
 - Limitations: optional non-blocking pillar; no automatic business-flow
-  discovery, retention references, or flow trust-chain integration yet.
+  discovery, retention references, or flow-specific trust-chain command yet.
 
 ### AI Advisor
 

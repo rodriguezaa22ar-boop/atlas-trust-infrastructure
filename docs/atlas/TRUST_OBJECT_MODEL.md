@@ -212,5 +212,6 @@ Readiness language remains layered:
 - external production certification: not claimed unless independently proven
 
 Business Flow Evidence remains optional. It is visible as a non-blocking
-readiness pillar/gate until retention links and flow trust-chain integration are
-stable.
+readiness pillar/gate, and operation trust-chain output can summarize flow link
+and packet counts. Retention links, a flow-specific trust-chain command, and
+required-pillar promotion remain planned until the model is stable.

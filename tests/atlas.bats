@@ -1175,6 +1175,84 @@ EOF
   [[ "$output" == *"Overall: blocked"* ]]
 }
 
+@test "atlas op trust-chain surfaces business-flow evidence context read-only" {
+  mkdir -p "$TEST_ROOT/toolkit/targets"
+  cat > "$TEST_ROOT/toolkit/targets/demo-node.env" <<'EOF'
+NAME=demo-node
+ADDRESS=10.10.10.10
+SCOPE_STATUS=in-scope
+CRITICALITY=high
+CREATED_AT=2026-04-23T20:53:16Z
+EOF
+  artifact="$TEST_ROOT/flow-trust-chain-artifact.txt"
+  printf 'flow trust-chain proof that must not be copied\n' > "$artifact"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow add customer-signup \
+    --type customer_onboarding \
+    --owner product \
+    --criticality high \
+    --environment staging \
+    --scope-status in-scope \
+    --data-class email \
+    --system web_app \
+    --control audit_logging
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op start flow-trust-op demo-node authorized flow trust-chain
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence add "$artifact" --kind redacted-report --classification public
+  [ "$status" -eq 0 ]
+  evidence_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  [ -n "$evidence_id" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow link-evidence customer-signup "$evidence_id"
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow packet customer-signup customer-signup-flow
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow packet --json customer-signup customer-signup-flow
+  [ "$status" -eq 0 ]
+
+  ledger="$TEST_ROOT/toolkit/sessions/flow-trust-op/ledger.ndjson"
+  ledger_before="$(sha256sum "$ledger" | awk '{ print $1 }')"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op trust-chain flow-trust-op
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Business Flow Evidence"* ]]
+  [[ "$output" == *"Status: packetized"* ]]
+  [[ "$output" == *"Operation Links: 1"* ]]
+  [[ "$output" == *"Evidence Links: 1"* ]]
+  [[ "$output" == *"Finding Links: 0"* ]]
+  [[ "$output" == *"Validation Links: 0"* ]]
+  [[ "$output" == *"Approval Links: 0"* ]]
+  [[ "$output" == *"Markdown Packets: 1"* ]]
+  [[ "$output" == *"JSON Packets: 1"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op trust-chain flow-trust-op --json
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" |
+    jq -e '
+      .schema_version == "atlas.operation_trust_chain.v1" and
+      .operation.slug == "flow-trust-op" and
+      .business_flow_evidence.required == false and
+      .business_flow_evidence.status == "packetized" and
+      .business_flow_evidence.operation_links == 1 and
+      .business_flow_evidence.evidence_links == 1 and
+      .business_flow_evidence.finding_links == 0 and
+      .business_flow_evidence.validation_links == 0 and
+      .business_flow_evidence.approval_links == 0 and
+      .business_flow_evidence.markdown_packets == 1 and
+      .business_flow_evidence.json_packets == 1 and
+      (.business_flow_evidence.artifacts.operation_links | endswith("business_flows.ndjson")) and
+      (.business_flow_evidence.artifacts.json_packets | endswith("flow_packets_json"))
+    '
+
+  ledger_after="$(sha256sum "$ledger" | awk '{ print $1 }')"
+  [ "$ledger_before" = "$ledger_after" ]
+}
+
 @test "release replay verification runbook preserves clean-checkout procedure" {
   replay_doc="$TEST_ROOT/toolkit/docs/retention/releases/REPLAY_VERIFICATION.md"
 
@@ -1284,6 +1362,9 @@ EOF
   grep -q 'atlas op trust-chain <operation> --json' "$trust_chain_schema"
   grep -q '`schema_version`: must be `atlas.operation_trust_chain.v1`' "$trust_chain_schema"
   grep -q '`ledger`: path, event count, SHA-256 anchor' "$trust_chain_schema"
+  grep -q 'business_flow_evidence' "$trust_chain_schema"
+  grep -q 'flow_approvals.ndjson' "$trust_chain_schema"
+  grep -q '`required`: must be `false`' "$trust_chain_schema"
   grep -q 'must be replayed' "$trust_chain_schema"
   grep -q 'from current retained operation state' "$trust_chain_schema"
   grep -q 'Expanding operation scope' "$trust_chain_schema"

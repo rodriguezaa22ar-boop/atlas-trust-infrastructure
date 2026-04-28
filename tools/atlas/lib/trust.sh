@@ -71,6 +71,70 @@ atlas_trust_chain_next_step() {
   fi
 }
 
+atlas_trust_chain_ndjson_count() {
+  local file="$1"
+
+  if [ ! -s "$file" ]; then
+    printf '0\n'
+    return 0
+  fi
+
+  jq -sr 'length' "$file" 2>/dev/null || printf '0\n'
+}
+
+atlas_trust_chain_file_count() {
+  local dir="$1"
+  local pattern="$2"
+
+  if [ ! -d "$dir" ]; then
+    printf '0\n'
+    return 0
+  fi
+
+  find "$dir" -maxdepth 1 -type f -name "$pattern" 2>/dev/null | wc -l | tr -d ' '
+}
+
+atlas_trust_chain_business_flow_status() {
+  local operation_links="$1"
+  local packet_count="$2"
+  local json_packet_count="$3"
+
+  if [ "$operation_links" -eq 0 ]; then
+    printf 'not-recorded\n'
+  elif [ "$packet_count" -eq 0 ] && [ "$json_packet_count" -eq 0 ]; then
+    printf 'linked\n'
+  else
+    printf 'packetized\n'
+  fi
+}
+
+atlas_trust_chain_collect_business_flows() {
+  local op_dir="$ATLAS_OP_DIR"
+  local flow_links_file="$op_dir/business_flows.ndjson"
+  local evidence_links_file="$op_dir/flow_evidence.ndjson"
+  local finding_links_file="$op_dir/flow_findings.ndjson"
+  local validation_links_file="$op_dir/flow_validation.ndjson"
+  local approval_links_file="$op_dir/flow_approvals.ndjson"
+  local packet_dir="$op_dir/flow_packets"
+  local packet_json_dir="$op_dir/flow_packets_json"
+
+  ATLAS_TRUST_FLOW_LINKS_FILE="$flow_links_file"
+  ATLAS_TRUST_FLOW_EVIDENCE_LINKS_FILE="$evidence_links_file"
+  ATLAS_TRUST_FLOW_FINDING_LINKS_FILE="$finding_links_file"
+  ATLAS_TRUST_FLOW_VALIDATION_LINKS_FILE="$validation_links_file"
+  ATLAS_TRUST_FLOW_APPROVAL_LINKS_FILE="$approval_links_file"
+  ATLAS_TRUST_FLOW_PACKET_DIR="$packet_dir"
+  ATLAS_TRUST_FLOW_PACKET_JSON_DIR="$packet_json_dir"
+  ATLAS_TRUST_FLOW_OPERATION_LINKS="$(atlas_trust_chain_ndjson_count "$flow_links_file")"
+  ATLAS_TRUST_FLOW_EVIDENCE_LINKS="$(atlas_trust_chain_ndjson_count "$evidence_links_file")"
+  ATLAS_TRUST_FLOW_FINDING_LINKS="$(atlas_trust_chain_ndjson_count "$finding_links_file")"
+  ATLAS_TRUST_FLOW_VALIDATION_LINKS="$(atlas_trust_chain_ndjson_count "$validation_links_file")"
+  ATLAS_TRUST_FLOW_APPROVAL_LINKS="$(atlas_trust_chain_ndjson_count "$approval_links_file")"
+  ATLAS_TRUST_FLOW_PACKET_COUNT="$(atlas_trust_chain_file_count "$packet_dir" '*.md')"
+  ATLAS_TRUST_FLOW_PACKET_JSON_COUNT="$(atlas_trust_chain_file_count "$packet_json_dir" '*.json')"
+  ATLAS_TRUST_FLOW_STATUS="$(atlas_trust_chain_business_flow_status "$ATLAS_TRUST_FLOW_OPERATION_LINKS" "$ATLAS_TRUST_FLOW_PACKET_COUNT" "$ATLAS_TRUST_FLOW_PACKET_JSON_COUNT")"
+}
+
 atlas_trust_chain_collect() {
   local archive_packet_verification
   local archive_packet_verification_status
@@ -88,6 +152,7 @@ atlas_trust_chain_collect() {
 
   v1_summary="$(atlas_trust_chain_v1_summary)"
   IFS=$'\t' read -r v1_overall v1_blocked v1_warnings v1_required_not_ready <<<"$v1_summary"
+  atlas_trust_chain_collect_business_flows
 
   ATLAS_TRUST_ARCHIVE_PACKET_VERIFICATION_STATUS="$archive_packet_verification_status"
   ATLAS_TRUST_ARCHIVE_PACKET_VERIFICATION_PATH="$archive_packet_verification_path"
@@ -133,6 +198,16 @@ atlas_trust_chain_print() {
   ui_kv "Accepted Risk Review Packet" "$ATLAS_ARCHIVE_REVIEW_PACKET_VERIFICATION_STATUS packet=$ATLAS_ARCHIVE_REVIEW_PACKET_VERIFICATION_PATH"
   ui_kv "Audit Packet" "$ATLAS_ARCHIVE_AUDIT_PACKET_VERIFICATION_STATUS packet=$ATLAS_ARCHIVE_AUDIT_PACKET_VERIFICATION_PATH"
   ui_kv "Archive Packet" "$ATLAS_TRUST_ARCHIVE_PACKET_VERIFICATION_STATUS packet=$ATLAS_TRUST_ARCHIVE_PACKET_VERIFICATION_PATH"
+  ui_rule
+  ui_subheading "Business Flow Evidence"
+  ui_kv "Status" "$ATLAS_TRUST_FLOW_STATUS"
+  ui_kv "Operation Links" "$ATLAS_TRUST_FLOW_OPERATION_LINKS path=$ATLAS_TRUST_FLOW_LINKS_FILE"
+  ui_kv "Evidence Links" "$ATLAS_TRUST_FLOW_EVIDENCE_LINKS path=$ATLAS_TRUST_FLOW_EVIDENCE_LINKS_FILE"
+  ui_kv "Finding Links" "$ATLAS_TRUST_FLOW_FINDING_LINKS path=$ATLAS_TRUST_FLOW_FINDING_LINKS_FILE"
+  ui_kv "Validation Links" "$ATLAS_TRUST_FLOW_VALIDATION_LINKS path=$ATLAS_TRUST_FLOW_VALIDATION_LINKS_FILE"
+  ui_kv "Approval Links" "$ATLAS_TRUST_FLOW_APPROVAL_LINKS path=$ATLAS_TRUST_FLOW_APPROVAL_LINKS_FILE"
+  ui_kv "Markdown Packets" "$ATLAS_TRUST_FLOW_PACKET_COUNT path=$ATLAS_TRUST_FLOW_PACKET_DIR"
+  ui_kv "JSON Packets" "$ATLAS_TRUST_FLOW_PACKET_JSON_COUNT path=$ATLAS_TRUST_FLOW_PACKET_JSON_DIR"
   ui_rule
   ui_subheading "Ledger"
   ui_kv "Operation Ledger" "$ATLAS_ARCHIVE_LEDGER_FILE events=$ATLAS_ARCHIVE_LEDGER_EVENTS sha256=$ATLAS_ARCHIVE_LEDGER_SHA"
@@ -184,6 +259,21 @@ atlas_trust_chain_print_json() {
     --arg review_packet_verification_path "$ATLAS_ARCHIVE_REVIEW_PACKET_VERIFICATION_PATH" \
     --arg audit_packet_verification_path "$ATLAS_ARCHIVE_AUDIT_PACKET_VERIFICATION_PATH" \
     --arg archive_packet_verification_path "$ATLAS_TRUST_ARCHIVE_PACKET_VERIFICATION_PATH" \
+    --arg business_flow_status "$ATLAS_TRUST_FLOW_STATUS" \
+    --arg flow_links_file "$ATLAS_TRUST_FLOW_LINKS_FILE" \
+    --arg flow_evidence_links_file "$ATLAS_TRUST_FLOW_EVIDENCE_LINKS_FILE" \
+    --arg flow_finding_links_file "$ATLAS_TRUST_FLOW_FINDING_LINKS_FILE" \
+    --arg flow_validation_links_file "$ATLAS_TRUST_FLOW_VALIDATION_LINKS_FILE" \
+    --arg flow_approval_links_file "$ATLAS_TRUST_FLOW_APPROVAL_LINKS_FILE" \
+    --arg flow_packet_dir "$ATLAS_TRUST_FLOW_PACKET_DIR" \
+    --arg flow_packet_json_dir "$ATLAS_TRUST_FLOW_PACKET_JSON_DIR" \
+    --argjson flow_operation_links "${ATLAS_TRUST_FLOW_OPERATION_LINKS:-0}" \
+    --argjson flow_evidence_links "${ATLAS_TRUST_FLOW_EVIDENCE_LINKS:-0}" \
+    --argjson flow_finding_links "${ATLAS_TRUST_FLOW_FINDING_LINKS:-0}" \
+    --argjson flow_validation_links "${ATLAS_TRUST_FLOW_VALIDATION_LINKS:-0}" \
+    --argjson flow_approval_links "${ATLAS_TRUST_FLOW_APPROVAL_LINKS:-0}" \
+    --argjson flow_packets "${ATLAS_TRUST_FLOW_PACKET_COUNT:-0}" \
+    --argjson flow_json_packets "${ATLAS_TRUST_FLOW_PACKET_JSON_COUNT:-0}" \
     --arg ledger_file "$ATLAS_ARCHIVE_LEDGER_FILE" \
     --argjson ledger_events "${ATLAS_ARCHIVE_LEDGER_EVENTS:-0}" \
     --arg ledger_sha "$ATLAS_ARCHIVE_LEDGER_SHA" \
@@ -250,6 +340,26 @@ atlas_trust_chain_print_json() {
         accepted_risk_review_packet: $review_packet_path,
         audit_packet: $audit_packet_path,
         archive_packet: $archive_packet_path
+      },
+      business_flow_evidence: {
+        status: $business_flow_status,
+        operation_links: $flow_operation_links,
+        evidence_links: $flow_evidence_links,
+        finding_links: $flow_finding_links,
+        validation_links: $flow_validation_links,
+        approval_links: $flow_approval_links,
+        markdown_packets: $flow_packets,
+        json_packets: $flow_json_packets,
+        artifacts: {
+          operation_links: $flow_links_file,
+          evidence_links: $flow_evidence_links_file,
+          finding_links: $flow_finding_links_file,
+          validation_links: $flow_validation_links_file,
+          approval_links: $flow_approval_links_file,
+          markdown_packets: $flow_packet_dir,
+          json_packets: $flow_packet_json_dir
+        },
+        required: false
       },
       ledger: {
         path: $ledger_file,

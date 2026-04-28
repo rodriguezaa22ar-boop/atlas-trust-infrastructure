@@ -32,9 +32,9 @@ Each line is one JSON object.
 ## Cardinality
 
 The same `flow_id` should appear at most once for the same `operation` in
-`business_flows.ndjson`. Additional evidence, finding, and validation
+`business_flows.ndjson`. Additional evidence, finding, validation, and approval
 references for the flow belong in `flow_evidence.ndjson`,
-`flow_findings.ndjson`, and `flow_validation.ndjson`.
+`flow_findings.ndjson`, `flow_validation.ndjson`, and `flow_approvals.ndjson`.
 
 ## Forbidden Content
 

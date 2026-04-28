@@ -514,6 +514,13 @@ The near-term roadmap is:
     freshness counts, current approval-record checks, and stale-state detection
     without embedding approval reasons, reviewer rationale, operator notes, or
     raw evidence.
+83. Add Business Flow Evidence operation trust-chain visibility. `atlas op
+    trust-chain` and `atlas op trust-chain --json` now summarize optional
+    Business Flow Evidence operation links, evidence links, finding links,
+    validation links, approval links, Markdown packet counts, and JSON packet
+    counts. This keeps Business Flow Evidence visible in the operation trust
+    chain without making it required, mutating state, or embedding raw evidence,
+    approval reasons, operator notes, or sensitive business data.
 
 ## First Serious Version
 
