@@ -277,12 +277,18 @@ make_repo_clean_and_synced() {
 
 @test "business-flow evidence design stays optional and metadata-only" {
   flow_doc="$TEST_ROOT/toolkit/docs/atlas/BUSINESS_FLOW_EVIDENCE.md"
+  record_schema="$TEST_ROOT/toolkit/docs/schemas/business-flow-record.v1.md"
+  flow_link_schema="$TEST_ROOT/toolkit/docs/schemas/business-flow-link.v1.md"
+  evidence_link_schema="$TEST_ROOT/toolkit/docs/schemas/flow-evidence-link.v1.md"
   evidence_schema="$TEST_ROOT/toolkit/docs/schemas/business-flow-evidence.v1.md"
   packet_schema="$TEST_ROOT/toolkit/docs/schemas/business-flow-packet.v1.md"
   schema_index="$TEST_ROOT/toolkit/docs/schemas/README.md"
   agents_file="$TEST_ROOT/toolkit/AGENTS.md"
 
   [ -f "$flow_doc" ]
+  [ -f "$record_schema" ]
+  [ -f "$flow_link_schema" ]
+  [ -f "$evidence_link_schema" ]
   [ -f "$evidence_schema" ]
   [ -f "$packet_schema" ]
 
@@ -300,13 +306,41 @@ make_repo_clean_and_synced() {
   grep -q 'atlas flow verify <flow>' "$flow_doc"
   grep -q 'state/atlas/flows/<flow-slug>.env' "$flow_doc"
   grep -q 'sessions/<operation>/flow_evidence.ndjson' "$flow_doc"
+  grep -q 'atlas.business_flow.v1' "$flow_doc"
+  grep -q 'atlas.business_flow_link.v1' "$flow_doc"
+  grep -q 'atlas.flow_evidence_link.v1' "$flow_doc"
+  grep -q 'atlas.business_flow_packet.v1' "$flow_doc"
   grep -q 'password=' "$flow_doc"
   grep -q 'authorization:' "$flow_doc"
   grep -q 'set-cookie:' "$flow_doc"
   grep -q 'BEGIN OPENSSH' "$flow_doc"
 
+  grep -q '^# Schema Contract: atlas.business_flow.v1$' "$record_schema"
+  grep -q 'state/atlas/flows/<flow-slug>.env' "$record_schema"
+  grep -q '`FLOW_ID`' "$record_schema"
+  grep -q '`FLOW_SLUG`' "$record_schema"
+  grep -q '`METADATA_ONLY`' "$record_schema"
+  grep -q 'Forbidden Content' "$record_schema"
+  grep -q 'Verification Rules' "$record_schema"
+
+  grep -q '^# Schema Contract: atlas.business_flow_link.v1$' "$flow_link_schema"
+  grep -q 'sessions/<operation>/business_flows.ndjson' "$flow_link_schema"
+  grep -q '`flow_id`' "$flow_link_schema"
+  grep -q '`flow_slug`' "$flow_link_schema"
+  grep -q '`metadata_only`' "$flow_link_schema"
+  grep -q 'at most once' "$flow_link_schema"
+
+  grep -q '^# Schema Contract: atlas.flow_evidence_link.v1$' "$evidence_link_schema"
+  grep -q 'sessions/<operation>/flow_evidence.ndjson' "$evidence_link_schema"
+  grep -q '`evidence_id`' "$evidence_link_schema"
+  grep -q '`evidence_sha256`' "$evidence_link_schema"
+  grep -q '`evidence_path`' "$evidence_link_schema"
+  grep -q 'must not include' "$evidence_link_schema"
+
   grep -q '^# Schema Contract: atlas.business_flow_evidence.v1$' "$evidence_schema"
   grep -q 'This is a design contract' "$evidence_schema"
+  grep -q 'atlas.business_flow.v1' "$evidence_schema"
+  grep -q 'atlas.flow_evidence_link.v1' "$evidence_schema"
   grep -q 'Required Fields' "$evidence_schema"
   grep -q 'Forbidden Content' "$evidence_schema"
   grep -q 'Verification Rules' "$evidence_schema"
@@ -314,11 +348,15 @@ make_repo_clean_and_synced() {
   grep -q 'authorization headers' "$evidence_schema"
 
   grep -q '^# Schema Contract: atlas.business_flow_packet.v1$' "$packet_schema"
+  grep -q 'atlas.business_flow_link.v1' "$packet_schema"
   grep -q 'metadata_only' "$packet_schema"
   grep -q 'Markdown Parity' "$packet_schema"
   grep -q 'forbidden raw-content markers are absent' "$packet_schema"
 
   grep -q '## Design Contracts' "$schema_index"
+  grep -q 'atlas.business_flow.v1' "$schema_index"
+  grep -q 'atlas.business_flow_link.v1' "$schema_index"
+  grep -q 'atlas.flow_evidence_link.v1' "$schema_index"
   grep -q 'atlas.business_flow_evidence.v1' "$schema_index"
   grep -q 'atlas.business_flow_packet.v1' "$schema_index"
   grep -q 'not stable command outputs yet' "$schema_index"

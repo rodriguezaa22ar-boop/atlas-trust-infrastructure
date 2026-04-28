@@ -28,6 +28,9 @@ are not stable command outputs yet for JSON.
 
 | Schema | Surface | Contract |
 | --- | --- | --- |
+| `atlas.business_flow.v1` | `state/atlas/flows/<flow-slug>.env` | [business-flow-record.v1.md](business-flow-record.v1.md) |
+| `atlas.business_flow_link.v1` | `sessions/<operation>/business_flows.ndjson` | [business-flow-link.v1.md](business-flow-link.v1.md) |
+| `atlas.flow_evidence_link.v1` | `sessions/<operation>/flow_evidence.ndjson` | [flow-evidence-link.v1.md](flow-evidence-link.v1.md) |
 | `atlas.business_flow_evidence.v1` | optional flow evidence object, JSON planned | [business-flow-evidence.v1.md](business-flow-evidence.v1.md) |
 | `atlas.business_flow_packet.v1` | `atlas flow packet` Markdown, JSON planned | [business-flow-packet.v1.md](business-flow-packet.v1.md) |
 

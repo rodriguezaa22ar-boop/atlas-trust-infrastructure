@@ -15,6 +15,12 @@ the active operation, flow record, evidence links, retained evidence files,
 hashes, freshness, and metadata-only guardrails. A stable JSON companion is
 still planned.
 
+This packet depends on the stabilized record and link contracts:
+
+- `atlas.business_flow.v1`
+- `atlas.business_flow_link.v1`
+- `atlas.flow_evidence_link.v1`
+
 ## Required Fields
 
 | Field | Type | Meaning |
@@ -101,8 +107,10 @@ The packet may include hashes and metadata references to redacted artifacts.
 - packet exists
 - `schema_version` matches
 - `metadata_only` is `true`
+- `Raw Evidence Embedded` is `false`
 - flow record exists
 - packet flow ID matches flow record
+- packet operation and target match the active operation
 - linked evidence IDs exist
 - linked evidence hashes still match
 - retained evidence files exist

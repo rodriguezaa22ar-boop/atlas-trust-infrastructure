@@ -71,7 +71,7 @@ Packets are metadata-only records that anchor trust state at a point in time.
 | Release provenance packet | Binds a release packet hash to a signed Git tag and retained public key. |
 | Production dry-run note | Records local production-contract dry-run evidence. |
 | Advisor packet | Carries metadata-only AI Advisor context. |
-| Business-flow packet | Metadata-only flow proof linking flows to operation evidence. Markdown verification and optional non-blocking readiness visibility are implemented; finding, validation, retention, and JSON parity are planned. |
+| Business-flow packet | Metadata-only flow proof linking flows to operation evidence. Flow record, operation link, evidence link, Markdown packet, verification, and optional non-blocking readiness visibility are implemented; finding, validation, retention, and JSON parity are planned. |
 
 Packets must not embed raw runtime artifacts, secrets, customer records,
 payloads, session contents, packet captures, private keys, tokens, credentials,
@@ -81,6 +81,14 @@ or unredacted evidence bodies.
 
 Every stable schema-versioned JSON output should have a contract under
 `docs/schemas/`.
+
+Business Flow Evidence also has contracts for implemented file-backed env,
+NDJSON, and Markdown surfaces:
+
+- `atlas.business_flow.v1`
+- `atlas.business_flow_link.v1`
+- `atlas.flow_evidence_link.v1`
+- `atlas.business_flow_packet.v1`
 
 Each schema contract should define:
 

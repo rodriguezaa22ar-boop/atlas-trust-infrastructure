@@ -18,6 +18,7 @@ Atlas is in the trust infrastructure lane:
 - metadata-only business-flow packets
 - metadata-only business-flow packet verification
 - optional Business Flow Evidence readiness integration
+- Business Flow Evidence schema stabilization
 
 ## Near-Term Milestones
 
@@ -31,7 +32,10 @@ Atlas is in the trust infrastructure lane:
 5. Business Flow Evidence verification. Implemented as `atlas flow verify`.
 6. Optional Business Flow Evidence readiness integration. Implemented in
    `atlas v1 status` and `atlas production status` as non-blocking.
-7. Flow record, flow link, and flow packet schema stabilization.
+7. Flow record, flow link, and flow packet schema stabilization. Implemented as
+   `atlas.business_flow.v1`, `atlas.business_flow_link.v1`,
+   `atlas.flow_evidence_link.v1`, and `atlas.business_flow_packet.v1`
+   contracts.
 8. JSON parity for archive, audit, and business-flow packets where needed.
 
 ## Later Control-Plane Work

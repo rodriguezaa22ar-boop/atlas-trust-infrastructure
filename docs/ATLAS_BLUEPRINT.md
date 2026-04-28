@@ -480,6 +480,14 @@ The near-term roadmap is:
     making business-flow packets required for strict v1 or production readiness.
     Finding/validation links, JSON packet parity, and promotion to a required
     pillar remain later steps.
+79. Stabilize Business Flow Evidence schemas. The schema directory now records
+    contracts for implemented Business Flow Evidence state surfaces:
+    `atlas.business_flow.v1` flow env records,
+    `atlas.business_flow_link.v1` operation flow links,
+    `atlas.flow_evidence_link.v1` evidence-reference links, and
+    `atlas.business_flow_packet.v1` Markdown packet parity. The docs clarify
+    required fields, metadata-only boundaries, forbidden content, verification
+    rules, and remaining gaps before JSON parity or required-pillar promotion.
 
 ## First Serious Version
 

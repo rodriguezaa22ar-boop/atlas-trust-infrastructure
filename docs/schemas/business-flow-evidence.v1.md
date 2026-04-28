@@ -7,8 +7,14 @@ evidence object. It links a business-critical process to Atlas artifacts without
 embedding raw business data, secrets, customer records, request bodies, response
 bodies, or credential material.
 
-This is a design contract for the planned optional Business Flow Evidence module.
-It is not yet emitted by a stable Atlas command.
+This is a design contract for the optional Business Flow Evidence aggregate
+object. It is not yet emitted by a stable Atlas command. The implemented
+file-backed surfaces are documented separately:
+
+- `atlas.business_flow.v1`
+- `atlas.business_flow_link.v1`
+- `atlas.flow_evidence_link.v1`
+- `atlas.business_flow_packet.v1`
 
 ## Required Fields
 

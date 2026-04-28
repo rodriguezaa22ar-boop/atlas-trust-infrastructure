@@ -188,6 +188,13 @@ sessions/<operation>/flow_evidence.ndjson
 sessions/<operation>/flow_packets/<packet-name>.md
 ```
 
+Implemented schema contracts:
+
+- [`atlas.business_flow.v1`](../schemas/business-flow-record.v1.md)
+- [`atlas.business_flow_link.v1`](../schemas/business-flow-link.v1.md)
+- [`atlas.flow_evidence_link.v1`](../schemas/flow-evidence-link.v1.md)
+- [`atlas.business_flow_packet.v1`](../schemas/business-flow-packet.v1.md)
+
 `atlas flow link-evidence` requires an active operation and an existing evidence
 ID in that operation. The link records metadata such as evidence ID, kind,
 retained path, SHA-256, classification, and redaction state. It does not copy
@@ -206,7 +213,8 @@ links, retained evidence records, retained evidence files, hashes, freshness
 timestamps, and forbidden-content guardrails.
 
 This slice does not implement JSON packet parity, finding or validation links,
-retention links, or readiness integration yet.
+or retention links yet. Readiness integration is implemented as optional and
+non-blocking.
 
 ## Flow Record Contract
 
@@ -217,6 +225,7 @@ Example:
 ```bash
 SCHEMA_VERSION=atlas.business_flow.v1
 FLOW_ID=flow_customer_signup
+FLOW_SLUG=customer-signup
 FLOW_NAME=customer-signup
 FLOW_TYPE=customer_onboarding
 OWNER=product
@@ -230,6 +239,7 @@ CREATED_AT=2026-04-27T12:00:00Z
 UPDATED_AT=2026-04-27T12:00:00Z
 SOURCE_TOOL=atlas
 MODE=business_flow
+METADATA_ONLY=true
 ```
 
 ## Evidence Links
@@ -242,13 +252,19 @@ Example:
 {
   "schema_version": "atlas.flow_evidence_link.v1",
   "flow_id": "flow_customer_signup",
+  "flow_slug": "customer-signup",
   "operation": "customer-signup-review",
   "target": "demo-web-app",
   "evidence_id": "ev_20260427_001",
   "kind": "redacted_report",
+  "evidence_path": "sessions/customer-signup-review/evidence/ev_20260427_001",
+  "evidence_sha256": "abc123...",
+  "evidence_classification": "public",
+  "evidence_redacted": true,
   "linked_at": "2026-04-27T12:10:00Z",
   "linked_by": "atlas",
-  "notes": "Metadata-only reference. Raw evidence not embedded."
+  "notes": "Metadata-only reference. Raw evidence not embedded.",
+  "metadata_only": true
 }
 ```
 
@@ -369,8 +385,8 @@ atlas flow link-validation <flow> <validation-id>
 Later commands may add:
 
 ```bash
-atlas flow link-finding <flow> <finding-id>
-atlas flow link-validation <flow> <validation-id>
+atlas flow packet --json <flow> [packet-name]
+atlas flow verify --json <flow> [packet-name]
 ```
 
 Do not add automatic business-flow discovery in the first implementation.

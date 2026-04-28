@@ -213,7 +213,8 @@ verification, negative tests, and readiness integration are stable.
 4. Keep optional Business Flow Evidence readiness integration non-blocking in
    `atlas v1 status` and `atlas production status`.
 5. Add flow finding and validation links when the metadata model is stable.
-6. Stabilize flow, packet, audit, archive, release, and trust-chain schemas.
+6. Keep flow record, flow link, evidence link, and packet schemas stable before
+   adding JSON parity or deeper flow trust-chain integration.
 7. Add packet/replay parity where retained proof needs machine-readable gates.
 
 Do not jump to Atlas OS, web UI, kernel work, ISI runtime, fleet control, SQL
