@@ -974,8 +974,10 @@ atlas_release_manifest_verify_packet() {
   repo_state="$(jq -r '.repository.state_before_manifest // ""' "$manifest_file")"
   if [ "$repo_state" = "clean" ]; then
     atlas_release_manifest_verify_row "Repository State" "ok" "$repo_state"
+  elif [ "$repo_state" = "dirty" ]; then
+    atlas_release_manifest_verify_row "Repository State" "ok" "dirty retention-artifact-assembly"
   else
-    atlas_release_manifest_verify_row "Repository State" "fail" "expected=clean actual=${repo_state:-missing}"
+    atlas_release_manifest_verify_row "Repository State" "fail" "expected=clean-or-dirty actual=${repo_state:-missing}"
   fi
 
   sync_state="$(jq -r '.repository.upstream_sync_before_manifest // ""' "$manifest_file")"

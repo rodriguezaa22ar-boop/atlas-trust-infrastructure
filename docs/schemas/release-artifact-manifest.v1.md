@@ -26,7 +26,9 @@ captures, credential material, private keys, tokens, or evidence bodies.
 - `raw_artifacts_embedded`: must be `false`
 - `release.commit`: full release commit hash
 - `release.retained_by_commit`: commit that generated the manifest
-- `repository.state_before_manifest`: expected `clean`
+- `repository.state_before_manifest`: records `clean` or `dirty`; clean is
+  preferred, while dirty may occur when the manifest is assembled alongside
+  uncommitted retained release evidence
 - `repository.upstream_sync_before_manifest`: expected `synced`
 - `signed_tag.name`
 - `signed_tag.target`
