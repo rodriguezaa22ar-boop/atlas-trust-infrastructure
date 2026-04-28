@@ -1,0 +1,35 @@
+{
+  "schema_version": "atlas.release_provenance.v1",
+  "generated": "2026-04-28T10:26:58Z",
+  "metadata_only": true,
+  "commit": "d957c03f53b7907cecf5cfe3817d43cfc6c3293d",
+  "signed_tag": {
+    "name": "atlas-production-candidate-m93",
+    "target": "d957c03f53b7907cecf5cfe3817d43cfc6c3293d",
+    "tag_object": "d3ca91ef95608c6295bc457ba11e852af31e6aa2",
+    "verification": "verified",
+    "signer_fingerprint": "24B1E00EEB286B966F9FCE0C9C6439E15BBFD290",
+    "public_key_path": "docs/retention/releases/atlas-m67-release-signing-public-key.asc",
+    "public_key_sha256": "c08e7454ee3ab72a39286f61efd4deca8fbe0ef3fe20844771ff5735da6a79d5"
+  },
+  "release_packet": {
+    "path": "docs/retention/releases/atlas-m93-business-flow-assurance.json",
+    "sha256": "46da270b3f505d2738c37287439e74d7106483ed9191aaf550e77fef787c9847"
+  },
+  "qa": {
+    "status": "pass",
+    "command": "nix-shell --run './bin/dev-qa'",
+    "note": "dev-qa passed with 100/100 tests, lint ok, and stress ok before M93 business-flow assurance packet"
+  },
+  "production_status": {
+    "observed": "not-ready",
+    "note": "provenance and release artifact manifest were pending before retaining this packet set"
+  },
+  "known_limitations": [
+    "local signed-tag provenance is not an external audit",
+    "release packet files are hash-bound by provenance but are not individually signed",
+    "release artifact manifests are metadata-only local indexes, not immutable transparency logs",
+    "Atlas production status is a local contract, not deployment certification"
+  ],
+  "no_production_overclaim": true
+}
