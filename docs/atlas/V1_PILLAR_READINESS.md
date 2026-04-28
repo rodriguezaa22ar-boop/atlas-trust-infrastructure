@@ -178,12 +178,14 @@ Each pillar status must include:
   end-to-end trust lifecycle test.
 - Commands: `atlas op closeout`, `atlas op audit-packet`,
   `atlas op archive-verify`, `atlas op trust-chain`, `atlas release packet`,
-  `atlas release verify`
+  `atlas release verify`, `atlas release manifest`,
+  `atlas release manifest-verify`
 - Artifacts: closeout manifest, audit packet, archive packet, release trust
   packet, optional operation trust-chain summary, accepted-risk review packet
   references, handoff packet JSON schema `atlas.handoff_packet.v1`, closeout
   manifest JSON schema `atlas.closeout_manifest.v1`, and
-  release trust JSON schema `atlas.release_trust.v1`.
+  release trust JSON schema `atlas.release_trust.v1`, release artifact
+  manifest JSON schema `atlas.release_artifact_manifest.v1`.
 - Limitations: release provenance uses signed Git tags, but operation
   retention packets are not individually signed.
 

@@ -20,6 +20,8 @@ target secrets, private keys, tokens, packet captures, or evidence bodies.
 ./tools/atlas/bin/atlas release packet <name> --json --operation <operation> --qa-status pass
 ./tools/atlas/bin/atlas release verify <name>
 ./tools/atlas/bin/atlas release replay <name>
+./tools/atlas/bin/atlas release manifest <name>
+./tools/atlas/bin/atlas release manifest-verify <name>
 ```
 
 ## Release Packet
@@ -90,6 +92,7 @@ The schema contracts that support those checks are:
 
 - `atlas.release_trust.v1`
 - `atlas.release_provenance.v1`
+- `atlas.release_artifact_manifest.v1`
 - `atlas.production_readiness.v1`
 
 The parity matrix is tracked in
@@ -121,6 +124,23 @@ The provenance gate verifies:
 
 The schema is documented at
 [schemas/release-provenance.v1.md](schemas/release-provenance.v1.md).
+
+## Release Artifact Manifest
+
+`atlas release manifest` writes a metadata-only JSON index of the retained
+release evidence for a release commit:
+
+- release packet path and SHA-256
+- signed provenance packet path and SHA-256
+- retained signing public key path and SHA-256
+- production dry-run note path and SHA-256
+- signed tag name, target, and tag object
+- optional milestone note path and SHA-256
+
+`atlas release manifest-verify` checks artifact hashes, release packet
+verification, signed provenance, production dry-run evidence, and tag
+verification with the retained public key. The schema is documented at
+[schemas/release-artifact-manifest.v1.md](schemas/release-artifact-manifest.v1.md).
 
 ## Production Status
 

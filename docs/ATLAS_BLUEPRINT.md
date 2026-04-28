@@ -572,6 +572,15 @@ The near-term roadmap is:
     forbidden raw-content markers, finding index anchors, and operation ledger
     anchors. The packet parity matrix now reports no missing JSON packet
     surfaces for the current v1 trust-packet pipeline.
+90. Add release artifact manifests. `atlas release manifest` now writes a
+    metadata-only `atlas.release_artifact_manifest.v1` JSON index for the
+    retained release packet, signed provenance packet, retained signing public
+    key, production dry-run note, signed tag metadata, and optional milestone
+    note. `atlas release manifest-verify` checks retained file hashes, release
+    packet verification, signed provenance, production dry-run evidence, and
+    signed tag verification with the retained public key without embedding raw
+    runtime artifacts, secrets, session contents, packet captures, private
+    keys, tokens, or evidence bodies.
 
 ## First Serious Version
 

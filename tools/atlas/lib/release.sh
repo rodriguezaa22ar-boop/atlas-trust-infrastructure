@@ -544,9 +544,98 @@ atlas_release_latest_packet() {
   local packet_dir="$LAB_DOCS_DIR/retention/releases"
 
   [ -d "$packet_dir" ] || return 0
-  find "$packet_dir" -maxdepth 1 -type f \( -name '*.md' -o -name '*.json' \) ! -name '*.provenance.json' -printf '%T@\t%p\n' 2>/dev/null |
+  find "$packet_dir" -maxdepth 1 -type f \( -name '*.md' -o -name '*.json' \) ! -name '*.provenance.json' ! -name '*.manifest.json' 2>/dev/null |
+    sort |
+    tail -n 1
+}
+
+atlas_release_latest_manifest() {
+  local packet_dir="$LAB_DOCS_DIR/retention/releases"
+
+  [ -d "$packet_dir" ] || return 0
+  find "$packet_dir" -maxdepth 1 -type f -name '*.manifest.json' -printf '%T@\t%p\n' 2>/dev/null |
     sort -nr |
     awk -F'\t' 'NR == 1 { print $2 }'
+}
+
+atlas_release_latest_provenance_packet() {
+  local packet_dir="$LAB_DOCS_DIR/retention/releases"
+
+  [ -d "$packet_dir" ] || return 0
+  find "$packet_dir" -maxdepth 1 -type f -name '*.provenance.json' 2>/dev/null |
+    sort |
+    tail -n 1
+}
+
+atlas_release_latest_dry_run_note() {
+  local production_dir="$LAB_DOCS_DIR/retention/production"
+
+  [ -d "$production_dir" ] || return 0
+  find "$production_dir" -maxdepth 1 -type f -name 'PRODUCTION_DRY_RUN_*.md' 2>/dev/null |
+    sort |
+    tail -n 1
+}
+
+atlas_release_latest_milestone_note() {
+  local notes_dir="$LAB_DOCS_DIR/retention/milestones"
+
+  [ -d "$notes_dir" ] || return 0
+  find "$notes_dir" -maxdepth 1 -type f -name 'MILESTONE_*.md' | sort | tail -n 1
+}
+
+atlas_release_resolve_repo_file() {
+  local path="$1"
+  local candidate
+  local resolved
+  local root
+
+  [ -n "$path" ] || return 1
+  case "$path" in
+  /*)
+    candidate="$path"
+    ;;
+  *)
+    candidate="$LAB_ROOT/$path"
+    ;;
+  esac
+
+  [ -f "$candidate" ] || return 1
+  resolved="$(readlink -f "$candidate" 2>/dev/null || true)"
+  root="$(readlink -f "$LAB_ROOT" 2>/dev/null || true)"
+  [ -n "$resolved" ] || return 1
+  [ -n "$root" ] || return 1
+  case "$resolved" in
+  "$root"/*)
+    printf '%s\n' "$resolved"
+    ;;
+  *)
+    return 1
+    ;;
+  esac
+}
+
+atlas_release_file_sha256() {
+  local path="$1"
+
+  sha256sum "$path" | awk '{ print $1 }'
+}
+
+atlas_release_full_commit() {
+  local commit="$1"
+
+  [ -n "$commit" ] || return 1
+  git -C "$LAB_ROOT" rev-parse "$commit^{commit}" 2>/dev/null || return 1
+}
+
+atlas_release_manifest_verify_failures=0
+
+atlas_release_manifest_verify_row() {
+  local label="$1"
+  local status="$2"
+  local detail="$3"
+
+  ui_kv "$label" "$status $detail"
+  [ "$status" = "ok" ] || atlas_release_manifest_verify_failures=$((atlas_release_manifest_verify_failures + 1))
 }
 
 atlas_release_resolve_packet() {
@@ -592,6 +681,43 @@ atlas_release_resolve_packet() {
   fail "unknown release trust packet: $packet_arg"
 }
 
+atlas_release_resolve_manifest() {
+  local manifest_arg="$1"
+  local packet_dir="$LAB_DOCS_DIR/retention/releases"
+  local candidate
+  local manifest_base
+  local manifest_slug
+
+  if [ -z "$manifest_arg" ]; then
+    candidate="$(atlas_release_latest_manifest)"
+    [ -n "$candidate" ] || fail "no release artifact manifest found"
+    printf '%s\n' "$candidate"
+    return 0
+  fi
+
+  if [ -f "$manifest_arg" ]; then
+    readlink -f "$manifest_arg"
+    return 0
+  fi
+
+  candidate="$packet_dir/$manifest_arg"
+  if [ -f "$candidate" ]; then
+    readlink -f "$candidate"
+    return 0
+  fi
+
+  manifest_base="${manifest_arg%.manifest.json}"
+  manifest_base="${manifest_base%.json}"
+  manifest_slug="$(slugify "$manifest_base")"
+  candidate="$packet_dir/$manifest_slug.manifest.json"
+  if [ -f "$candidate" ]; then
+    readlink -f "$candidate"
+    return 0
+  fi
+
+  fail "unknown release artifact manifest: $manifest_arg"
+}
+
 atlas_release_packet_commit() {
   local packet_file="$1"
 
@@ -603,6 +729,311 @@ atlas_release_packet_commit() {
     atlas_release_packet_field "$packet_file" "Commit"
     ;;
   esac
+}
+
+atlas_release_manifest_write() {
+  local file="$1"
+  local manifest_name="$2"
+  local packet_file="$3"
+  local provenance_file="$4"
+  local dry_run_note="$5"
+  local milestone_note="$6"
+  local tag_name="$7"
+  local generated
+  local packet_rel
+  local provenance_rel
+  local dry_run_rel
+  local milestone_rel=""
+  local public_key_path
+  local public_key_file
+  local public_key_rel
+  local packet_sha
+  local provenance_sha
+  local dry_run_sha
+  local milestone_sha=""
+  local public_key_sha
+  local release_commit
+  local release_commit_full
+  local retention_commit
+  local branch
+  local clean_state
+  local sync_state
+  local tag_target
+  local tag_object
+
+  intel_require_jq
+  generated="$(timestamp)"
+  packet_rel="$(atlas_release_display_path "$packet_file")"
+  provenance_rel="$(atlas_release_display_path "$provenance_file")"
+  dry_run_rel="$(atlas_release_display_path "$dry_run_note")"
+  if [ -n "$milestone_note" ]; then
+    milestone_rel="$(atlas_release_display_path "$milestone_note")"
+    milestone_sha="$(atlas_release_file_sha256 "$milestone_note")"
+  fi
+
+  release_commit="$(jq -r '.commit // ""' "$provenance_file")"
+  [ -n "$release_commit" ] || release_commit="$(atlas_release_packet_commit "$packet_file")"
+  release_commit_full="$(atlas_release_full_commit "$release_commit")" || fail "release manifest could not resolve release commit: $release_commit"
+  retention_commit="$(git -C "$LAB_ROOT" rev-parse HEAD 2>/dev/null || atlas_release_commit)"
+  branch="$(atlas_release_branch)"
+  clean_state="$(atlas_release_clean_state)"
+  sync_state="$(atlas_release_sync_state)"
+
+  packet_sha="$(atlas_release_file_sha256 "$packet_file")"
+  provenance_sha="$(atlas_release_file_sha256 "$provenance_file")"
+  dry_run_sha="$(atlas_release_file_sha256 "$dry_run_note")"
+
+  public_key_path="$(jq -r '.signed_tag.public_key_path // ""' "$provenance_file")"
+  public_key_file="$(atlas_release_resolve_repo_file "$public_key_path")" || fail "release manifest could not resolve signing public key: $public_key_path"
+  public_key_rel="$(atlas_release_display_path "$public_key_file")"
+  public_key_sha="$(atlas_release_file_sha256 "$public_key_file")"
+
+  [ -n "$tag_name" ] || tag_name="$(jq -r '.signed_tag.name // ""' "$provenance_file")"
+  [ -n "$tag_name" ] || fail "release manifest requires a signed tag name"
+  tag_target="$(git -C "$LAB_ROOT" rev-parse "$tag_name^{}" 2>/dev/null || true)"
+  tag_object="$(git -C "$LAB_ROOT" rev-parse "$tag_name^{tag}" 2>/dev/null || true)"
+  [ -n "$tag_target" ] || fail "release manifest could not resolve signed tag target: $tag_name"
+  [ -n "$tag_object" ] || fail "release manifest could not resolve signed tag object: $tag_name"
+
+  atlas_release_verify_packet "$packet_file" "$release_commit_full" >/dev/null 2>&1 ||
+    fail "release manifest requires a verifiable release packet: $packet_rel"
+  atlas_production_release_provenance_valid "$provenance_file" "$release_commit_full" ||
+    fail "release manifest requires verifiable signed provenance: $provenance_rel"
+  atlas_production_dry_run_note_valid "$dry_run_note" "$release_commit_full" ||
+    fail "release manifest requires a valid production dry-run note: $dry_run_rel"
+  atlas_production_verify_signed_tag "$tag_name" "$public_key_file" ||
+    fail "release manifest requires signed tag verification with retained public key: $tag_name"
+
+  jq -n \
+    --arg schema_version "atlas.release_artifact_manifest.v1" \
+    --arg generated "$generated" \
+    --arg manifest "$manifest_name" \
+    --arg release_commit "$release_commit_full" \
+    --arg retention_commit "$retention_commit" \
+    --arg branch "${branch:-unknown}" \
+    --arg clean_state "$clean_state" \
+    --arg sync_state "$sync_state" \
+    --arg packet_path "$packet_rel" \
+    --arg packet_sha "$packet_sha" \
+    --arg provenance_path "$provenance_rel" \
+    --arg provenance_sha "$provenance_sha" \
+    --arg dry_run_path "$dry_run_rel" \
+    --arg dry_run_sha "$dry_run_sha" \
+    --arg milestone_path "$milestone_rel" \
+    --arg milestone_sha "$milestone_sha" \
+    --arg public_key_path "$public_key_rel" \
+    --arg public_key_sha "$public_key_sha" \
+    --arg tag_name "$tag_name" \
+    --arg tag_target "$tag_target" \
+    --arg tag_object "$tag_object" '
+      {
+        schema_version: $schema_version,
+        generated: $generated,
+        manifest: $manifest,
+        metadata_only: true,
+        raw_artifacts_embedded: false,
+        release: {
+          commit: $release_commit,
+          retained_by_commit: $retention_commit,
+          branch_at_manifest: $branch
+        },
+        repository: {
+          state_before_manifest: $clean_state,
+          upstream_sync_before_manifest: $sync_state
+        },
+        signed_tag: {
+          name: $tag_name,
+          target: $tag_target,
+          tag_object: $tag_object,
+          verification: "verified"
+        },
+        release_packet: {
+          path: $packet_path,
+          sha256: $packet_sha,
+          verified: true
+        },
+        provenance: {
+          path: $provenance_path,
+          sha256: $provenance_sha,
+          verified: true
+        },
+        production_dry_run: {
+          path: $dry_run_path,
+          sha256: $dry_run_sha,
+          verified: true
+        },
+        signing_public_key: {
+          path: $public_key_path,
+          sha256: $public_key_sha,
+          verified: true
+        },
+        milestone_note: (
+          if $milestone_path == "" then null
+          else {
+            path: $milestone_path,
+            sha256: $milestone_sha,
+            retained: true
+          }
+          end
+        ),
+        artifacts: (
+          [
+            {kind: "release_packet", path: $packet_path, sha256: $packet_sha, required: true},
+            {kind: "release_provenance", path: $provenance_path, sha256: $provenance_sha, required: true},
+            {kind: "production_dry_run", path: $dry_run_path, sha256: $dry_run_sha, required: true},
+            {kind: "signing_public_key", path: $public_key_path, sha256: $public_key_sha, required: true}
+          ] +
+          (if $milestone_path == "" then [] else [{kind: "milestone_note", path: $milestone_path, sha256: $milestone_sha, required: false}] end)
+        ),
+        metadata_boundary: {
+          stores: ["paths", "sha256 hashes", "commit ids", "tag ids", "verification states", "known limitations"],
+          excludes: ["raw runtime artifacts", "target secrets", "session contents", "packet captures", "credential material", "private keys", "tokens", "evidence bodies"]
+        },
+        known_limitations: [
+          "Release artifact manifests are metadata-only local release indexes, not external audit attestations.",
+          "Artifact files are hash-bound by this manifest but are not individually signed.",
+          "Signed tag verification depends on the retained public key and local Git object availability.",
+          "This manifest does not claim deployment certification, enterprise certification, or legal compliance."
+        ],
+        no_production_overclaim: true
+      }
+    ' >"$file"
+}
+
+atlas_release_manifest_verify_artifact_hashes() {
+  local manifest_file="$1"
+  local kind
+  local path
+  local expected_sha
+  local required
+  local file
+  local actual_sha
+
+  while IFS=$'\t' read -r kind path expected_sha required; do
+    [ -n "$kind" ] || continue
+    file="$(atlas_release_resolve_repo_file "$path" 2>/dev/null || true)"
+    if [ -z "$file" ]; then
+      atlas_release_manifest_verify_row "Artifact $kind" "fail" "missing path=$path required=$required"
+      continue
+    fi
+    actual_sha="$(atlas_release_file_sha256 "$file")"
+    if [ "$actual_sha" = "$expected_sha" ]; then
+      atlas_release_manifest_verify_row "Artifact $kind" "ok" "sha256=$actual_sha path=$path"
+    else
+      atlas_release_manifest_verify_row "Artifact $kind" "fail" "expected_sha=$expected_sha actual_sha=$actual_sha path=$path"
+    fi
+  done < <(jq -r '.artifacts[] | [.kind, .path, .sha256, (.required | tostring)] | @tsv' "$manifest_file")
+}
+
+atlas_release_manifest_verify_packet() {
+  local manifest_file="$1"
+  local expected_commit="$2"
+  local release_commit
+  local packet_path
+  local packet_file
+  local provenance_path
+  local provenance_file
+  local dry_run_path
+  local dry_run_note
+  local public_key_path
+  local public_key_file
+  local tag_name
+  local repo_state
+  local sync_state
+
+  [ -f "$manifest_file" ] || fail "release artifact manifest is not a file: $manifest_file"
+  [ -n "$expected_commit" ] || expected_commit="$(jq -r '.release.commit // ""' "$manifest_file" 2>/dev/null || true)"
+  [ -n "$expected_commit" ] || fail "release artifact manifest is missing release.commit: $manifest_file"
+  expected_commit="$(atlas_release_full_commit "$expected_commit")" || fail "release artifact manifest commit is not available locally: $expected_commit"
+  atlas_release_manifest_verify_failures=0
+
+  ui_heading "Atlas Release Artifact Manifest Verification"
+  ui_rule
+  ui_kv "Manifest" "$manifest_file"
+  ui_kv "Commit" "$expected_commit"
+
+  if jq -e '.schema_version == "atlas.release_artifact_manifest.v1"' "$manifest_file" >/dev/null 2>&1; then
+    atlas_release_manifest_verify_row "Schema" "ok" "atlas.release_artifact_manifest.v1"
+  else
+    atlas_release_manifest_verify_row "Schema" "fail" "expected=atlas.release_artifact_manifest.v1"
+  fi
+
+  if jq -e '.metadata_only == true and .raw_artifacts_embedded == false and .no_production_overclaim == true' "$manifest_file" >/dev/null 2>&1; then
+    atlas_release_manifest_verify_row "Metadata Boundary" "ok" "metadata_only=true raw_artifacts_embedded=false"
+  else
+    atlas_release_manifest_verify_row "Metadata Boundary" "fail" "expected metadata_only=true raw_artifacts_embedded=false no_production_overclaim=true"
+  fi
+
+  release_commit="$(jq -r '.release.commit // ""' "$manifest_file")"
+  if atlas_release_commit_matches "$release_commit" "$expected_commit"; then
+    atlas_release_manifest_verify_row "Release Commit" "ok" "$release_commit"
+  else
+    atlas_release_manifest_verify_row "Release Commit" "fail" "expected=$expected_commit actual=${release_commit:-missing}"
+  fi
+
+  repo_state="$(jq -r '.repository.state_before_manifest // ""' "$manifest_file")"
+  if [ "$repo_state" = "clean" ]; then
+    atlas_release_manifest_verify_row "Repository State" "ok" "$repo_state"
+  else
+    atlas_release_manifest_verify_row "Repository State" "fail" "expected=clean actual=${repo_state:-missing}"
+  fi
+
+  sync_state="$(jq -r '.repository.upstream_sync_before_manifest // ""' "$manifest_file")"
+  if [ "$sync_state" = "synced" ]; then
+    atlas_release_manifest_verify_row "Upstream Sync" "ok" "$sync_state"
+  else
+    atlas_release_manifest_verify_row "Upstream Sync" "fail" "expected=synced actual=${sync_state:-missing}"
+  fi
+
+  atlas_release_manifest_verify_artifact_hashes "$manifest_file"
+
+  packet_path="$(jq -r '.release_packet.path // ""' "$manifest_file")"
+  packet_file="$(atlas_release_resolve_repo_file "$packet_path" 2>/dev/null || true)"
+  if [ -n "$packet_file" ] && atlas_release_verify_packet "$packet_file" "$expected_commit" >/dev/null 2>&1; then
+    atlas_release_manifest_verify_row "Release Packet" "ok" "verified path=$packet_path"
+  else
+    atlas_release_manifest_verify_row "Release Packet" "fail" "verification failed path=${packet_path:-missing}"
+  fi
+
+  provenance_path="$(jq -r '.provenance.path // ""' "$manifest_file")"
+  provenance_file="$(atlas_release_resolve_repo_file "$provenance_path" 2>/dev/null || true)"
+  if [ -n "$provenance_file" ] && atlas_production_release_provenance_valid "$provenance_file" "$expected_commit"; then
+    atlas_release_manifest_verify_row "Provenance" "ok" "verified path=$provenance_path"
+  else
+    atlas_release_manifest_verify_row "Provenance" "fail" "verification failed path=${provenance_path:-missing}"
+  fi
+
+  dry_run_path="$(jq -r '.production_dry_run.path // ""' "$manifest_file")"
+  dry_run_note="$(atlas_release_resolve_repo_file "$dry_run_path" 2>/dev/null || true)"
+  if [ -n "$dry_run_note" ] && atlas_production_dry_run_note_valid "$dry_run_note" "$expected_commit"; then
+    atlas_release_manifest_verify_row "Production Dry Run" "ok" "verified path=$dry_run_path"
+  else
+    atlas_release_manifest_verify_row "Production Dry Run" "fail" "verification failed path=${dry_run_path:-missing}"
+  fi
+
+  public_key_path="$(jq -r '.signing_public_key.path // ""' "$manifest_file")"
+  public_key_file="$(atlas_release_resolve_repo_file "$public_key_path" 2>/dev/null || true)"
+  tag_name="$(jq -r '.signed_tag.name // ""' "$manifest_file")"
+  if [ -n "$public_key_file" ] && atlas_production_verify_signed_tag "$tag_name" "$public_key_file"; then
+    atlas_release_manifest_verify_row "Signed Tag" "ok" "verified tag=$tag_name"
+  else
+    atlas_release_manifest_verify_row "Signed Tag" "fail" "verification failed tag=${tag_name:-missing}"
+  fi
+
+  if jq -e '((.known_limitations // []) | length > 0) and (((.metadata_boundary.excludes // []) | index("raw runtime artifacts")) != null)' "$manifest_file" >/dev/null 2>&1; then
+    atlas_release_manifest_verify_row "Known Limitations" "ok" "present"
+  else
+    atlas_release_manifest_verify_row "Known Limitations" "fail" "missing metadata boundary or limitations"
+  fi
+
+  ui_rule
+  if [ "$atlas_release_manifest_verify_failures" -eq 0 ]; then
+    ui_ok "release artifact manifest verified"
+  else
+    ui_alert "release artifact manifest verification failed"
+  fi
+
+  return "$atlas_release_manifest_verify_failures"
 }
 
 atlas_release_replay_run() {
@@ -1124,6 +1555,143 @@ cmd_release_verify() {
 
   packet_file="$(atlas_release_resolve_packet "$packet_arg")"
   atlas_release_verify_packet "$packet_file" "$expected_commit"
+}
+
+cmd_release_manifest() {
+  local manifest_name=""
+  local packet_arg=""
+  local provenance_arg=""
+  local dry_run_arg=""
+  local milestone_arg=""
+  local tag_name=""
+  local allow_dirty=0
+  local allow_unsynced=0
+  local manifest_slug
+  local manifest_dir="$LAB_DOCS_DIR/retention/releases"
+  local manifest_file
+  local packet_file
+  local provenance_file
+  local dry_run_note
+  local milestone_note=""
+  local clean_state
+  local sync_state
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+    --packet)
+      [ "$#" -ge 2 ] || fail "release manifest [manifest-name] [--packet packet] [--provenance provenance] [--dry-run note] [--milestone-note note] [--tag tag]"
+      packet_arg="$2"
+      shift 2
+      ;;
+    --provenance)
+      [ "$#" -ge 2 ] || fail "release manifest [manifest-name] [--packet packet] [--provenance provenance] [--dry-run note] [--milestone-note note] [--tag tag]"
+      provenance_arg="$2"
+      shift 2
+      ;;
+    --dry-run)
+      [ "$#" -ge 2 ] || fail "release manifest [manifest-name] [--packet packet] [--provenance provenance] [--dry-run note] [--milestone-note note] [--tag tag]"
+      dry_run_arg="$2"
+      shift 2
+      ;;
+    --milestone-note)
+      [ "$#" -ge 2 ] || fail "release manifest [manifest-name] [--packet packet] [--provenance provenance] [--dry-run note] [--milestone-note note] [--tag tag]"
+      milestone_arg="$2"
+      shift 2
+      ;;
+    --tag)
+      [ "$#" -ge 2 ] || fail "release manifest [manifest-name] [--packet packet] [--provenance provenance] [--dry-run note] [--milestone-note note] [--tag tag]"
+      tag_name="$2"
+      shift 2
+      ;;
+    --allow-dirty)
+      allow_dirty=1
+      shift
+      ;;
+    --allow-unsynced)
+      allow_unsynced=1
+      shift
+      ;;
+    -*)
+      fail "unknown release manifest option: $1"
+      ;;
+    *)
+      if [ -n "$manifest_name" ]; then
+        fail "release manifest [manifest-name] [--packet packet] [--provenance provenance] [--dry-run note] [--milestone-note note] [--tag tag]"
+      fi
+      manifest_name="$1"
+      shift
+      ;;
+    esac
+  done
+
+  [ -n "$manifest_name" ] || manifest_name="atlas-release-manifest-$(atlas_release_commit)"
+  manifest_slug="$(slugify "$manifest_name")"
+  [ -n "$manifest_slug" ] || fail "release manifest name produced an empty slug"
+
+  clean_state="$(atlas_release_clean_state)"
+  if [ "$clean_state" != "clean" ] && [ "$allow_dirty" != "1" ]; then
+    fail "release manifest requires a clean repository; commit or discard changes, or pass --allow-dirty"
+  fi
+  sync_state="$(atlas_release_sync_state)"
+  if [ "$sync_state" != "synced" ] && [ "$allow_unsynced" != "1" ]; then
+    fail "release manifest requires synced upstream state; push/pull first, or pass --allow-unsynced"
+  fi
+
+  packet_file="$(atlas_release_resolve_packet "$packet_arg")"
+  if [ -n "$provenance_arg" ]; then
+    provenance_file="$(atlas_release_resolve_repo_file "$provenance_arg")" || fail "unknown release provenance packet: $provenance_arg"
+  else
+    provenance_file="$(atlas_release_latest_provenance_packet)"
+    [ -n "$provenance_file" ] || fail "no release provenance packet found"
+  fi
+  if [ -n "$dry_run_arg" ]; then
+    dry_run_note="$(atlas_release_resolve_repo_file "$dry_run_arg")" || fail "unknown production dry-run note: $dry_run_arg"
+  else
+    dry_run_note="$(atlas_release_latest_dry_run_note)"
+    [ -n "$dry_run_note" ] || fail "no production dry-run note found"
+  fi
+  if [ -n "$milestone_arg" ]; then
+    milestone_note="$(atlas_release_resolve_repo_file "$milestone_arg")" || fail "unknown milestone note: $milestone_arg"
+  else
+    milestone_note="$(atlas_release_latest_milestone_note)"
+  fi
+
+  mkdir -p "$manifest_dir"
+  manifest_file="$manifest_dir/$manifest_slug.manifest.json"
+  atlas_release_manifest_write "$manifest_file" "$manifest_name" "$packet_file" "$provenance_file" "$dry_run_note" "$milestone_note" "$tag_name"
+  chmod 600 "$manifest_file" 2>/dev/null || true
+
+  ui_ok "release artifact manifest written"
+  printf 'release_manifest: %s\n' "$manifest_file"
+}
+
+cmd_release_manifest_verify() {
+  local manifest_arg=""
+  local expected_commit=""
+  local manifest_file
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+    --commit)
+      [ "$#" -ge 2 ] || fail "release manifest-verify [manifest] [--commit sha]"
+      expected_commit="$2"
+      shift 2
+      ;;
+    -*)
+      fail "unknown release manifest-verify option: $1"
+      ;;
+    *)
+      if [ -n "$manifest_arg" ]; then
+        fail "release manifest-verify [manifest] [--commit sha]"
+      fi
+      manifest_arg="$1"
+      shift
+      ;;
+    esac
+  done
+
+  manifest_file="$(atlas_release_resolve_manifest "$manifest_arg")"
+  atlas_release_manifest_verify_packet "$manifest_file" "$expected_commit"
 }
 
 cmd_release_replay() {

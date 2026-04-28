@@ -28,6 +28,7 @@ A packet or status surface has JSON parity only when:
 | `atlas production status` | text | yes | `atlas.production_readiness.v1` | implemented | Reports current production blockers without production overclaims. |
 | `atlas release packet` | Markdown | yes | `atlas.release_trust.v1` | implemented | `atlas release verify` validates Markdown and JSON packets. |
 | release provenance packet | JSON | yes | `atlas.release_provenance.v1` | implemented | Binds a retained release packet to a verified signed Git tag for production status. |
+| `atlas release manifest` | JSON | yes | `atlas.release_artifact_manifest.v1` | implemented | Indexes retained release packet, provenance, signing key, dry-run note, signed tag, and optional milestone note hashes. |
 | `atlas op trust-chain` | text | yes | `atlas.operation_trust_chain.v1` | implemented | JSON includes readiness, freshness, verification, artifacts, and ledger anchors. |
 | `atlas op handoff` | Markdown | yes | `atlas.handoff_packet.v1` | implemented | `atlas op handoff --json` writes metadata-only JSON for gates, replay, dashboards, and downstream trust packets. |
 | `atlas op closeout` | Markdown | yes | `atlas.closeout_manifest.v1` | implemented | `atlas op closeout --json` writes metadata-only JSON and `atlas op verify` consumes Markdown or JSON manifests. |
@@ -41,6 +42,7 @@ A packet or status surface has JSON parity only when:
 
 - [`atlas.release_trust.v1`](../schemas/release-trust.v1.md)
 - [`atlas.release_provenance.v1`](../schemas/release-provenance.v1.md)
+- [`atlas.release_artifact_manifest.v1`](../schemas/release-artifact-manifest.v1.md)
 - [`atlas.production_readiness.v1`](../schemas/production-readiness.v1.md)
 - [`atlas.operation_trust_chain.v1`](../schemas/operation-trust-chain.v1.md)
 - [`atlas.handoff_packet.v1`](../schemas/handoff-packet.v1.md)
@@ -91,10 +93,15 @@ Every new JSON packet format should include:
 ## Release Verify / Replay Alignment
 
 Release trust currently has machine-readable coverage for the release packet,
-release provenance packet, and production-readiness status:
+release provenance packet, release artifact manifest, and production-readiness
+status:
 
 - `atlas release verify` consumes `atlas.release_trust.v1` packets and can
   verify against an explicit commit for historical replay.
+- `atlas release manifest-verify` consumes
+  `atlas.release_artifact_manifest.v1` and checks retained artifact hashes,
+  signed provenance, retained public key, production dry-run evidence, and tag
+  metadata.
 - `docs/retention/releases/REPLAY_VERIFICATION.md` defines the clean-checkout
   replay procedure for retained packets.
 - `atlas production status` consumes the latest release packet and

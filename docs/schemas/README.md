@@ -18,6 +18,7 @@ documented at [../atlas/TRUST_OBJECT_MODEL.md](../atlas/TRUST_OBJECT_MODEL.md).
 | --- | --- | --- |
 | `atlas.release_trust.v1` | `atlas release packet --json` | [release-trust.v1.md](release-trust.v1.md) |
 | `atlas.release_provenance.v1` | `docs/retention/releases/*.provenance.json` | [release-provenance.v1.md](release-provenance.v1.md) |
+| `atlas.release_artifact_manifest.v1` | `atlas release manifest` | [release-artifact-manifest.v1.md](release-artifact-manifest.v1.md) |
 | `atlas.production_readiness.v1` | `atlas production status --json` | [production-readiness.v1.md](production-readiness.v1.md) |
 | `atlas.operation_trust_chain.v1` | `atlas op trust-chain --json` | [operation-trust-chain.v1.md](operation-trust-chain.v1.md) |
 | `atlas.handoff_packet.v1` | `atlas op handoff --json` | [handoff-packet.v1.md](handoff-packet.v1.md) |
@@ -63,5 +64,9 @@ are not stable command outputs yet for JSON.
   checkout of the packet commit.
 - Release replay verification checks `atlas.release_trust.v1` against the
   packet's recorded commit from a clean checkout.
+- `atlas release manifest-verify` validates
+  `atlas.release_artifact_manifest.v1` by checking retained artifact hashes,
+  release packet verification, signed provenance, the retained public key, and
+  the production dry-run note.
 - `atlas production status` reports `atlas.production_readiness.v1` and
   verifies `atlas.release_provenance.v1` when signing/provenance is required.

@@ -68,6 +68,8 @@ repository in filesystem order.
   machine-readable business-flow packet verification contract.
 - [schemas/business-flow-trust-chain.v1.md](schemas/business-flow-trust-chain.v1.md):
   machine-readable single-flow trust-chain status contract.
+- [schemas/release-artifact-manifest.v1.md](schemas/release-artifact-manifest.v1.md):
+  metadata-only release artifact manifest contract.
 - [schemas/handoff-packet.v1.md](schemas/handoff-packet.v1.md):
   metadata-only operation handoff packet contract.
 - [schemas/closeout-manifest.v1.md](schemas/closeout-manifest.v1.md):

@@ -31,6 +31,7 @@ Atlas is in the trust infrastructure lane:
 - handoff packet JSON parity
 - accepted-risk review packet JSON parity
 - advisor prompt packet JSON parity
+- release artifact manifest hardening
 
 ## Near-Term Milestones
 
@@ -80,11 +81,12 @@ Atlas is in the trust infrastructure lane:
     support for Markdown or JSON packets.
 19. Advisor prompt packet JSON parity. Implemented as
     `atlas advisor prompt --json`, with `atlas.advisor_prompt_packet.v1`.
+20. Release artifact manifest hardening. Implemented as
+    `atlas release manifest` and `atlas release manifest-verify`, with
+    `atlas.release_artifact_manifest.v1`.
 
 ## Later Control-Plane Work
 
-- broader JSON packet parity
-- stable schema documents for every trust packet
 - signed/provenance hardening beyond local signed tags
 - read-only dashboard planning
 - node runtime planning

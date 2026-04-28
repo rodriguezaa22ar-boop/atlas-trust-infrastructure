@@ -24,6 +24,8 @@ atlas release packet atlas-current --qa-status pass
 atlas release packet atlas-current --json --operation april-review --qa-status pass
 atlas release verify atlas-current
 atlas release replay atlas-current
+atlas release manifest atlas-current
+atlas release manifest-verify atlas-current
 atlas web assess https://example.com example-web-review --scope-status in-scope --api-path /api/auth/me --cors-origin https://example.net
 atlas web validation-plan --all
 atlas web validation-approve --all --reason "approved bounded web validation"
@@ -201,6 +203,16 @@ Release replay from a clean checkout is also documented in
 That procedure checks a retained packet against the commit recorded inside the
 packet, which is necessary when later milestones have advanced the current
 checkout beyond the packet's retained note set.
+
+`atlas release manifest [manifest-name]` writes a metadata-only
+`atlas.release_artifact_manifest.v1` JSON index for retained release evidence.
+It records the release packet, signed provenance packet, retained signing public
+key, production dry-run note, signed tag metadata, and optional milestone note
+with SHA-256 hashes. `atlas release manifest-verify [manifest]` checks those
+hashes, re-verifies the release packet, validates signed provenance with the
+retained public key, checks the production dry-run note, and verifies the signed
+tag. The manifest is local trust evidence, not external audit or deployment
+certification.
 
 Packet format parity is tracked in
 [`docs/atlas/PACKET_FORMAT_PARITY.md`](../../docs/atlas/PACKET_FORMAT_PARITY.md).

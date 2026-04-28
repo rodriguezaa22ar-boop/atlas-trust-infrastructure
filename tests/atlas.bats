@@ -1541,6 +1541,7 @@ EOF
   grep -q '## Release Verify / Replay Alignment' "$parity_doc"
   grep -q 'atlas.release_trust.v1' "$parity_doc"
   grep -q 'atlas.release_provenance.v1' "$parity_doc"
+  grep -q 'atlas.release_artifact_manifest.v1' "$parity_doc"
   grep -q 'atlas.production_readiness.v1' "$parity_doc"
   grep -q 'atlas.operation_trust_chain.v1' "$parity_doc"
   grep -q 'atlas.handoff_packet.v1' "$parity_doc"
@@ -1553,6 +1554,7 @@ EOF
   grep -q 'atlas.business_flow_verify.v1' "$parity_doc"
   grep -q 'atlas.business_flow_trust_chain.v1' "$parity_doc"
   grep -q '`atlas op handoff` | Markdown | yes | `atlas.handoff_packet.v1` | implemented' "$parity_doc"
+  grep -q '`atlas release manifest` | JSON | yes | `atlas.release_artifact_manifest.v1` | implemented' "$parity_doc"
   grep -q '`atlas op closeout` | Markdown | yes | `atlas.closeout_manifest.v1` | implemented' "$parity_doc"
   grep -q '`atlas op audit-packet` | Markdown | yes | `atlas.audit_packet.v1` | implemented' "$parity_doc"
   grep -q '`atlas op archive-packet` | Markdown | yes | `atlas.archive_packet.v1` | implemented' "$parity_doc"
@@ -1581,6 +1583,7 @@ EOF
   index_file="$schemas_dir/README.md"
   release_schema="$schemas_dir/release-trust.v1.md"
   provenance_schema="$schemas_dir/release-provenance.v1.md"
+  release_manifest_schema="$schemas_dir/release-artifact-manifest.v1.md"
   production_schema="$schemas_dir/production-readiness.v1.md"
   trust_chain_schema="$schemas_dir/operation-trust-chain.v1.md"
   handoff_schema="$schemas_dir/handoff-packet.v1.md"
@@ -1596,6 +1599,7 @@ EOF
   [ -f "$index_file" ]
   [ -f "$release_schema" ]
   [ -f "$provenance_schema" ]
+  [ -f "$release_manifest_schema" ]
   [ -f "$production_schema" ]
   [ -f "$trust_chain_schema" ]
   [ -f "$handoff_schema" ]
@@ -1610,6 +1614,7 @@ EOF
 
   grep -q 'atlas.release_trust.v1' "$index_file"
   grep -q 'atlas.release_provenance.v1' "$index_file"
+  grep -q 'atlas.release_artifact_manifest.v1' "$index_file"
   grep -q 'atlas.production_readiness.v1' "$index_file"
   grep -q 'atlas.operation_trust_chain.v1' "$index_file"
   grep -q 'atlas.handoff_packet.v1' "$index_file"
@@ -1643,6 +1648,15 @@ EOF
   grep -q '`signed_tag.public_key_sha256`' "$provenance_schema"
   grep -q '`git tag -v <tag>` verifies successfully' "$provenance_schema"
   grep -q 'private signing material' "$provenance_schema"
+
+  grep -q '^# `atlas.release_artifact_manifest.v1`$' "$release_manifest_schema"
+  grep -q 'atlas release manifest <manifest-name>' "$release_manifest_schema"
+  grep -q 'atlas release manifest-verify <manifest-name>' "$release_manifest_schema"
+  grep -q '`schema_version`: must be `atlas.release_artifact_manifest.v1`' "$release_manifest_schema"
+  grep -q '`metadata_only`: must be `true`' "$release_manifest_schema"
+  grep -q '`raw_artifacts_embedded`: must be `false`' "$release_manifest_schema"
+  grep -q 'raw runtime artifacts' "$release_manifest_schema"
+  grep -q 'SLSA certification' "$release_manifest_schema"
 
   grep -q '^# `atlas.production_readiness.v1`$' "$production_schema"
   grep -q 'atlas production status --json' "$production_schema"
@@ -1842,6 +1856,8 @@ EOF
   [[ "$output" == *"atlas release packet [packet-name] [--json]"* ]]
   [[ "$output" == *"atlas release verify [packet]"* ]]
   [[ "$output" == *"atlas release replay [packet]"* ]]
+  [[ "$output" == *"atlas release manifest [manifest-name]"* ]]
+  [[ "$output" == *"atlas release manifest-verify [manifest]"* ]]
   [[ "$output" == *"atlas flow add <flow-name>"* ]]
   [[ "$output" == *"atlas flow list"* ]]
   [[ "$output" == *"atlas flow show <flow>"* ]]
@@ -1884,6 +1900,8 @@ EOF
   [[ "$output" == *"v1:"* ]]
   [[ "$output" == *"production:"* ]]
   [[ "$output" == *"release:"* ]]
+  [[ "$output" == *"atlas release manifest [manifest-name] [--packet packet]"* ]]
+  [[ "$output" == *"atlas release manifest-verify [manifest] [--commit sha]"* ]]
   [[ "$output" == *"atlas target story <target>"* ]]
   [[ "$output" == *"atlas target cycle <target>"* ]]
   [[ "$output" == *"atlas op cycle [name]"* ]]
@@ -2794,6 +2812,81 @@ EOF
     --qa-status pass
   [ "$status" -ne 0 ]
   [[ "$output" == *"release packet requires operation trust chain status=current"* ]]
+}
+
+@test "atlas release manifest indexes and verifies retained release artifacts" {
+  make_repo_clean_and_synced
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release manifest m90-artifact-manifest
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"release artifact manifest written"* ]]
+  manifest_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "release_manifest" { print $2; exit }')"
+  [ -f "$manifest_path" ]
+  [ "$manifest_path" = "$TEST_ROOT/toolkit/docs/retention/releases/m90-artifact-manifest.manifest.json" ]
+
+  jq -e '
+    .schema_version == "atlas.release_artifact_manifest.v1" and
+    .metadata_only == true and
+    .raw_artifacts_embedded == false and
+    .no_production_overclaim == true and
+    (.release.commit | test("^[a-f0-9]{40}$")) and
+    .repository.state_before_manifest == "clean" and
+    .repository.upstream_sync_before_manifest == "synced" and
+    .release_packet.verified == true and
+    .provenance.verified == true and
+    .production_dry_run.verified == true and
+    .signing_public_key.verified == true and
+    .signed_tag.verification == "verified" and
+    any(.artifacts[]; .kind == "release_packet" and .required == true) and
+    any(.artifacts[]; .kind == "release_provenance" and .required == true) and
+    any(.artifacts[]; .kind == "production_dry_run" and .required == true) and
+    any(.artifacts[]; .kind == "signing_public_key" and .required == true) and
+    (.metadata_boundary.excludes | index("raw runtime artifacts")) and
+    (.known_limitations | length > 0) and
+    (has("raw_runtime_artifacts") | not) and
+    (has("target_secrets") | not) and
+    (has("session_contents") | not) and
+    (has("private_keys") | not) and
+    (has("tokens") | not) and
+    (has("evidence_bodies") | not)
+  ' "$manifest_path"
+
+  release_commit="$(jq -r '.release.commit' "$manifest_path")"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release manifest-verify "$manifest_path" --commit "$release_commit"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Atlas Release Artifact Manifest Verification"* ]]
+  [[ "$output" == *"Schema: ok atlas.release_artifact_manifest.v1"* ]]
+  [[ "$output" == *"Metadata Boundary: ok"* ]]
+  [[ "$output" == *"Artifact release_packet: ok"* ]]
+  [[ "$output" == *"Artifact release_provenance: ok"* ]]
+  [[ "$output" == *"Artifact production_dry_run: ok"* ]]
+  [[ "$output" == *"Artifact signing_public_key: ok"* ]]
+  [[ "$output" == *"Release Packet: ok verified"* ]]
+  [[ "$output" == *"Provenance: ok verified"* ]]
+  [[ "$output" == *"Production Dry Run: ok verified"* ]]
+  [[ "$output" == *"Signed Tag: ok verified"* ]]
+  [[ "$output" == *"release artifact manifest verified"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release manifest-verify m90-artifact-manifest --commit "$release_commit"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"release artifact manifest verified"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release manifest m90-artifact-manifest-second
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"release artifact manifest written"* ]]
+
+  jq '.artifacts[0].sha256 = "0000000000000000000000000000000000000000000000000000000000000000"' \
+    "$manifest_path" > "$TEST_ROOT/bad-manifest-sha.json"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release manifest-verify "$TEST_ROOT/bad-manifest-sha.json" --commit "$release_commit"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Artifact release_packet: fail"* ]]
+  [[ "$output" == *"release artifact manifest verification failed"* ]]
+
+  jq '.metadata_only = false' "$manifest_path" > "$TEST_ROOT/bad-manifest-metadata.json"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release manifest-verify "$TEST_ROOT/bad-manifest-metadata.json" --commit "$release_commit"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Metadata Boundary: fail"* ]]
 }
 
 @test "atlas release replay checks release packet from replay worktree" {

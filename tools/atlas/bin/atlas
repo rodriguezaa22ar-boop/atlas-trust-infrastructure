@@ -102,6 +102,8 @@ usage:
   atlas release packet [packet-name] [--json] [--operation name]
   atlas release verify [packet]
   atlas release replay [packet]
+  atlas release manifest [manifest-name]
+  atlas release manifest-verify [manifest]
   atlas flow add <flow-name>
   atlas flow list
   atlas flow show <flow>
@@ -359,6 +361,8 @@ release:
   atlas release packet [packet-name] [--json] [--operation name] [--qa-status status] [--qa-command command] [--qa-note text] [--allow-dirty] [--allow-unsynced] [--allow-not-ready]
   atlas release verify [packet] [--commit sha]
   atlas release replay [packet] [--skip-qa] [--keep-worktree]
+  atlas release manifest [manifest-name] [--packet packet] [--provenance provenance] [--dry-run note] [--milestone-note note] [--tag tag]
+  atlas release manifest-verify [manifest] [--commit sha]
 
 web:
   atlas web assess <url> [assessment-name] [--target name] [--scope-status status] [--criticality level] [--owner owner] [--timeout seconds] [--api-path path] [--cors-origin origin] [--skip-api]
@@ -2049,6 +2053,14 @@ release)
 	replay)
 		shift
 		cmd_release_replay "$@"
+		;;
+	manifest)
+		shift
+		cmd_release_manifest "$@"
+		;;
+	manifest-verify)
+		shift
+		cmd_release_manifest_verify "$@"
 		;;
 	*)
 		usage
