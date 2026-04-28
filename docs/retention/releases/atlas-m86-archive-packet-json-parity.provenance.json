@@ -1,0 +1,35 @@
+{
+  "schema_version": "atlas.release_provenance.v1",
+  "generated": "2026-04-28T04:52:47Z",
+  "metadata_only": true,
+  "commit": "7ff15baad57543e1d0107a1071409e0e168e5637",
+  "signed_tag": {
+    "name": "atlas-production-candidate-m86",
+    "target": "7ff15baad57543e1d0107a1071409e0e168e5637",
+    "tag_object": "4c9b057c275493fbde503593d8836ff65d8d5ad7",
+    "verification": "verified",
+    "signer_fingerprint": "24B1E00EEB286B966F9FCE0C9C6439E15BBFD290",
+    "public_key_path": "docs/retention/releases/atlas-m67-release-signing-public-key.asc",
+    "public_key_sha256": "c08e7454ee3ab72a39286f61efd4deca8fbe0ef3fe20844771ff5735da6a79d5"
+  },
+  "release_packet": {
+    "path": "docs/retention/releases/atlas-m86-archive-packet-json-parity.json",
+    "sha256": "cdc3659a0712287926a017825c8f7f8158cb932fbb91e4d60ce0d71dbe4aa1f8"
+  },
+  "qa": {
+    "status": "pass",
+    "command": "nix-shell --run './bin/dev-qa'",
+    "note": "dev-qa passed with 97/97 tests, lint ok, and stress ok before M86 archive packet JSON parity release packet"
+  },
+  "production_status": {
+    "observed": "not-ready",
+    "note": "provenance and dry-run evidence were pending before retaining this packet set"
+  },
+  "known_limitations": [
+    "local signed-tag provenance is not an external audit",
+    "release packet files are hash-bound by provenance but are not individually signed",
+    "archive packet JSON parity is implemented; audit packet JSON parity remains planned",
+    "Atlas production status is a local contract, not deployment certification"
+  ],
+  "no_production_overclaim": true
+}
