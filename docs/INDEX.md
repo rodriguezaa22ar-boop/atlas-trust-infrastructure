@@ -68,6 +68,8 @@ repository in filesystem order.
   business-flow packet contract for Markdown and JSON packet parity.
 - [schemas/business-flow-verify.v1.md](schemas/business-flow-verify.v1.md):
   machine-readable business-flow packet verification contract.
+- [schemas/business-flow-assurance.v1.md](schemas/business-flow-assurance.v1.md):
+  read-only business-flow assurance status contract.
 - [schemas/business-flow-trust-chain.v1.md](schemas/business-flow-trust-chain.v1.md):
   machine-readable single-flow trust-chain status contract.
 - [schemas/release-artifact-manifest.v1.md](schemas/release-artifact-manifest.v1.md):

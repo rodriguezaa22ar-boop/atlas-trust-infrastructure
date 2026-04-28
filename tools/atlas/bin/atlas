@@ -114,6 +114,7 @@ usage:
   atlas flow link-retention <flow> <kind> <path>
   atlas flow packet [--json] <flow> [packet-name]
   atlas flow verify [--json] <flow> [packet-name]
+  atlas flow assurance [--json] <flow> [packet-name]
   atlas flow trust-chain [--json] <flow> [packet-name]
   atlas web assess <url> [assessment-name]
   atlas web validation-plan [--all]
@@ -349,6 +350,7 @@ business flows:
   atlas flow link-retention <flow> <kind> <path>
   atlas flow packet [--json] <flow> [packet-name]
   atlas flow verify [--json] <flow> [packet-name]
+  atlas flow assurance [--json] <flow> [packet-name]
   atlas flow trust-chain [--json] <flow> [packet-name]
 
 v1:

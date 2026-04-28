@@ -47,6 +47,7 @@ atlas flow link-finding customer-signup finding_...
 atlas flow link-validation customer-signup vp_...
 atlas flow link-approval customer-signup safe-validation
 atlas flow link-retention customer-signup report reports/customer-signup.md
+atlas flow assurance customer-signup customer-signup-flow
 atlas flow trust-chain customer-signup customer-signup-flow
 atlas finding add "SSH reachable" --level observed --severity low --evidence ev_...
 atlas finding update finding_... --level validated --validation vp_... --note "confirmed by validation run"
@@ -255,7 +256,7 @@ validation item, and `--plan <id>` approves one explicit plan. Approval is
 metadata-only: it records the reason and operator, then leaves validation
 execution and retest as separate commands.
 
-`atlas flow add/list/show/link-evidence/link-finding/link-validation/link-approval/link-retention/packet/verify/trust-chain`
+`atlas flow add/list/show/link-evidence/link-finding/link-validation/link-approval/link-retention/packet/verify/assurance/trust-chain`
 manages optional metadata-only Business Flow Evidence records. Global flow
 records live under `state/atlas/flows/`; operation links live under
 `sessions/<operation>/flow_evidence.ndjson`,
@@ -272,10 +273,13 @@ reference existing Atlas IDs without copying raw evidence, finding bodies,
 validation reasons, plan bodies, session contents, approval reasons, operator
 notes, or retained artifact bodies. Flow packets preserve that same metadata-only boundary and include known limitations. `atlas flow
 packet --json` emits `atlas.business_flow_packet.v1`; `atlas flow verify --json`
-emits `atlas.business_flow_verify.v1`. Flow verification checks packet metadata,
+emits `atlas.business_flow_verify.v1`; `atlas flow assurance --json` emits
+`atlas.business_flow_assurance.v1`. Flow verification checks packet metadata,
 linked evidence records, linked finding records, linked validation records,
 linked approval records, retention references,
 retained evidence and artifact files, hashes, freshness, and forbidden-content markers. Flow
+assurance summarizes open linked findings, validation gaps, retention coverage,
+and packet verification state without mutating operation state. Flow
 trust-chain output summarizes one flow's link counts, packet presence, and
 verification state without mutating operation state.
 records, links, and packets must not contain secrets, customer records, request

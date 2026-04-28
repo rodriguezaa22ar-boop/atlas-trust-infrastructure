@@ -72,7 +72,7 @@ Packets are metadata-only records that anchor trust state at a point in time.
 | Release artifact manifest | Indexes retained release packet, provenance, signing key, dry-run note, signed tag, and optional milestone note hashes. |
 | Production dry-run note | Records local production-contract dry-run evidence. |
 | Advisor packet | Carries metadata-only AI Advisor context. |
-| Business-flow packet | Metadata-only flow proof linking flows to operation evidence, findings, validation, approvals, and retained artifacts. Flow record, operation link, evidence/finding/validation/approval/retention links, Markdown/JSON packets, Markdown/JSON verification, single-flow trust-chain visibility, and optional non-blocking readiness visibility are implemented. |
+| Business-flow packet | Metadata-only flow proof linking flows to operation evidence, findings, validation, approvals, and retained artifacts. Flow record, operation link, evidence/finding/validation/approval/retention links, Markdown/JSON packets, Markdown/JSON verification, read-only flow assurance, single-flow trust-chain visibility, and optional non-blocking readiness visibility are implemented. |
 
 Packets must not embed raw runtime artifacts, secrets, customer records,
 payloads, session contents, packet captures, private keys, tokens, credentials,
@@ -100,6 +100,8 @@ NDJSON, and Markdown surfaces:
 - `atlas.advisor_prompt_packet.v1`
 - `atlas.business_flow_packet.v1`
 - `atlas.business_flow_verify.v1`
+- `atlas.business_flow_assurance.v1`
+- `atlas.business_flow_trust_chain.v1`
 
 Each schema contract should define:
 

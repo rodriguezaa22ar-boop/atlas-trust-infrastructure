@@ -143,6 +143,8 @@ nix-shell --run './bin/dev-qa'
 ./tools/atlas/bin/atlas flow packet --json customer-signup customer-signup-flow
 ./tools/atlas/bin/atlas flow verify customer-signup customer-signup-flow
 ./tools/atlas/bin/atlas flow verify --json customer-signup customer-signup-flow
+./tools/atlas/bin/atlas flow assurance customer-signup customer-signup-flow
+./tools/atlas/bin/atlas flow assurance --json customer-signup customer-signup-flow
 ./tools/atlas/bin/atlas flow trust-chain customer-signup customer-signup-flow
 ./tools/atlas/bin/atlas flow trust-chain --json customer-signup customer-signup-flow
 ```

@@ -215,8 +215,9 @@ verification, negative tests, and readiness integration are stable.
 5. Keep flow finding and validation links metadata-only and referential.
 6. Keep flow approval and retention links metadata-only and referential.
 7. Keep flow record, flow link, evidence/finding/validation/approval/retention
-   link, packet, and flow trust-chain schemas stable before deeper integration.
-8. Keep Business Flow Evidence JSON packet and verification parity aligned with
+   link, packet, flow assurance, and flow trust-chain schemas stable before
+   deeper integration.
+8. Keep Business Flow Evidence JSON packet, verification, and assurance parity aligned with
    the Markdown packet contract.
 9. Add packet/replay parity where retained proof needs machine-readable gates.
 

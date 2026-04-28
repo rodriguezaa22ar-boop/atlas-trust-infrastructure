@@ -193,15 +193,16 @@ Each pillar status must include:
 
 - Status: `ready`, `planned`, or `disabled`
 - Reason: optional metadata-only flow records, evidence links, retention links,
-  packets, and packet verification are available, or the optional pillar is explicitly
-  disabled/planned.
+  packets, packet verification, and read-only assurance are available, or the
+  optional pillar is explicitly disabled/planned.
 - Tests: `tests/atlas.bats` business-flow records, links, packets, verify, and
   readiness tests.
 - Commands: `atlas flow add`, `atlas flow list`, `atlas flow show`,
   `atlas flow link-evidence`, `atlas flow link-finding`,
   `atlas flow link-validation`, `atlas flow link-approval`,
   `atlas flow link-retention`, `atlas flow packet`, `atlas flow packet --json`, `atlas flow verify`,
-  `atlas flow verify --json`, `atlas flow trust-chain`,
+  `atlas flow verify --json`, `atlas flow assurance`,
+  `atlas flow assurance --json`, `atlas flow trust-chain`,
   `atlas flow trust-chain --json`
 - Artifacts: `state/atlas/flows/`,
   `sessions/<operation>/business_flows.ndjson`,

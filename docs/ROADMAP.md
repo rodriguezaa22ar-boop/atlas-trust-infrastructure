@@ -25,6 +25,7 @@ Atlas is in the trust infrastructure lane:
 - Business Flow Evidence operation trust-chain visibility
 - Business Flow Evidence retention links
 - Business Flow Evidence flow-specific trust-chain visibility
+- Business Flow Evidence assurance view
 - archive packet JSON parity
 - audit packet JSON parity
 - closeout manifest JSON parity
@@ -64,29 +65,33 @@ Atlas is in the trust infrastructure lane:
 13. Flow-specific trust-chain command. Implemented as
     `atlas flow trust-chain` and `atlas flow trust-chain --json` with
     `atlas.business_flow_trust_chain.v1`.
-14. Archive packet JSON parity. Implemented as
+14. Flow assurance view. Implemented as `atlas flow assurance` and
+    `atlas flow assurance --json` with `atlas.business_flow_assurance.v1`,
+    summarizing open linked findings, validation gaps, retention coverage, and
+    packet verification state without making Business Flow Evidence required.
+15. Archive packet JSON parity. Implemented as
     `atlas op archive-packet --json`, with `atlas.archive_packet.v1` and
     `atlas op archive-verify` support for Markdown or JSON packets.
-15. Audit packet JSON parity. Implemented as
+16. Audit packet JSON parity. Implemented as
     `atlas op audit-packet --json`, with `atlas.audit_packet.v1` and
     `atlas op audit-verify` support for Markdown or JSON packets.
-16. Closeout manifest JSON parity. Implemented as
+17. Closeout manifest JSON parity. Implemented as
     `atlas op closeout --json`, with `atlas.closeout_manifest.v1` and
     `atlas op verify` support for Markdown or JSON closeout manifests.
-17. Handoff packet JSON parity. Implemented as
+18. Handoff packet JSON parity. Implemented as
     `atlas op handoff --json`, with `atlas.handoff_packet.v1`.
-18. Accepted-risk review packet JSON parity. Implemented as
+19. Accepted-risk review packet JSON parity. Implemented as
     `atlas finding review-packet --json`, with
     `atlas.accepted_risk_review_packet.v1` and `atlas finding review-verify`
     support for Markdown or JSON packets.
-19. Advisor prompt packet JSON parity. Implemented as
+20. Advisor prompt packet JSON parity. Implemented as
     `atlas advisor prompt --json`, with `atlas.advisor_prompt_packet.v1`.
-20. Release artifact manifest hardening. Implemented as
+21. Release artifact manifest hardening. Implemented as
     `atlas release manifest` and `atlas release manifest-verify`, with
     `atlas.release_artifact_manifest.v1`.
-21. Production manifest gate. Implemented by requiring the latest verified
+22. Production manifest gate. Implemented by requiring the latest verified
     release artifact manifest inside `atlas production status`.
-22. Release artifact manifest completeness. Harden
+23. Release artifact manifest completeness. Harden
     `atlas release manifest-verify` with generated commit/tag checks, required
     artifact classes, required paths, schema references, known limitations, and
     forbidden raw-content marker detection.

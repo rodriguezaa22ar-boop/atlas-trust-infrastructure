@@ -593,6 +593,14 @@ The near-term roadmap is:
     schema and guidance document references, known limitations references, and
     forbidden raw-content markers before replaying release packet, provenance,
     dry-run, and signed tag verification.
+93. Deepen Business Flow Evidence assurance visibility. `atlas flow assurance`
+    and `atlas flow assurance --json` now report one flow's business-process
+    assurance state by combining operation links, evidence links, finding links,
+    open finding counts, validation coverage gaps, approval links, retention
+    links, and packet verification. The JSON view emits
+    `atlas.business_flow_assurance.v1`. The command is read-only,
+    metadata-only, and does not make Business Flow Evidence a required
+    readiness or production gate.
 
 ## First Serious Version
 

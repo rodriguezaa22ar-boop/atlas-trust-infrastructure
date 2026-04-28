@@ -29,6 +29,7 @@ documented at [../atlas/TRUST_OBJECT_MODEL.md](../atlas/TRUST_OBJECT_MODEL.md).
 | `atlas.advisor_prompt_packet.v1` | `atlas advisor prompt --json` | [advisor-prompt-packet.v1.md](advisor-prompt-packet.v1.md) |
 | `atlas.business_flow_packet.v1` | `atlas flow packet --json` | [business-flow-packet.v1.md](business-flow-packet.v1.md) |
 | `atlas.business_flow_verify.v1` | `atlas flow verify --json` | [business-flow-verify.v1.md](business-flow-verify.v1.md) |
+| `atlas.business_flow_assurance.v1` | `atlas flow assurance --json` | [business-flow-assurance.v1.md](business-flow-assurance.v1.md) |
 | `atlas.business_flow_trust_chain.v1` | `atlas flow trust-chain --json` | [business-flow-trust-chain.v1.md](business-flow-trust-chain.v1.md) |
 
 ## Design Contracts
