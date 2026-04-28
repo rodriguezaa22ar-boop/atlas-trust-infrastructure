@@ -179,7 +179,8 @@ Each pillar status must include:
   `atlas release verify`
 - Artifacts: closeout manifest, audit packet, archive packet, release trust
   packet, optional operation trust-chain summary, accepted-risk review packet
-  references, release trust JSON schema `atlas.release_trust.v1`.
+  references, closeout manifest JSON schema `atlas.closeout_manifest.v1`, and
+  release trust JSON schema `atlas.release_trust.v1`.
 - Limitations: release provenance uses signed Git tags, but operation
   retention packets are not individually signed.
 

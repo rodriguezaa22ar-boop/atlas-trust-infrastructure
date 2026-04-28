@@ -79,6 +79,7 @@ where appropriate. Forced closure should be exceptional and visible.
 
 ```bash
 ./tools/atlas/bin/atlas op closeout demo-operation demo-operation-closeout
+./tools/atlas/bin/atlas op closeout --json demo-operation demo-operation-closeout
 ./tools/atlas/bin/atlas op verify demo-operation
 ./tools/atlas/bin/atlas op audit demo-operation
 ./tools/atlas/bin/atlas op audit-packet demo-operation demo-operation-audit

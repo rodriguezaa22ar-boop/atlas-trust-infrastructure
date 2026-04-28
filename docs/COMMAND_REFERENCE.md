@@ -90,6 +90,7 @@ nix-shell --run './bin/dev-qa'
 ./tools/atlas/bin/atlas op close april-review
 ./tools/atlas/bin/atlas op close april-review --force
 ./tools/atlas/bin/atlas op closeout april-review
+./tools/atlas/bin/atlas op closeout --json april-review
 ./tools/atlas/bin/atlas op verify april-review
 ./tools/atlas/bin/atlas op audit april-review
 ./tools/atlas/bin/atlas op audit-packet april-review

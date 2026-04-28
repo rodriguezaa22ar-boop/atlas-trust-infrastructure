@@ -90,6 +90,7 @@ Close and verify the operation:
 ```bash
 ./tools/atlas/bin/atlas op close demo-operation
 ./tools/atlas/bin/atlas op closeout demo-operation demo-operation-closeout
+./tools/atlas/bin/atlas op closeout --json demo-operation demo-operation-closeout
 ./tools/atlas/bin/atlas op verify demo-operation
 ./tools/atlas/bin/atlas op audit demo-operation
 ./tools/atlas/bin/atlas op audit-packet demo-operation demo-operation-audit

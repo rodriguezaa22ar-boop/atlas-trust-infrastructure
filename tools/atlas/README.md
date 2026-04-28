@@ -83,6 +83,7 @@ atlas op readiness april-review
 atlas op handoff april-review
 atlas op close april-review
 atlas op closeout april-review
+atlas op closeout --json april-review
 atlas op verify april-review
 atlas op audit april-review
 atlas op audit-packet april-review
@@ -126,6 +127,7 @@ atlas op readiness
 atlas op handoff
 atlas op close [--force]
 atlas op closeout <name>
+atlas op closeout --json <name>
 atlas op verify <name>
 atlas op audit <name>
 atlas op audit-packet <name>
@@ -553,15 +555,18 @@ manifest hash, operation ledger, findings, validation plans, report freshness,
 bundle freshness, handoff freshness, and close readiness state without embedding
 raw artifact contents.
 
-`atlas op closeout [name] [manifest-name]` writes a metadata-only audit manifest
-under the operation directory. It captures the closeout readiness snapshot,
-freshness states, latest report, bundle, handoff, ledger event count, and
-SHA-256 anchors for the operation metadata without embedding raw artifacts.
+`atlas op closeout [--json] [name] [manifest-name]` writes a metadata-only
+audit manifest under the operation directory. Markdown is the human review
+format. `--json` emits `atlas.closeout_manifest.v1` for gates, replay,
+dashboards, and future consumers. Both formats capture the closeout readiness
+snapshot, freshness states, latest report, bundle, handoff, ledger event count,
+and SHA-256 anchors for the operation metadata without embedding raw artifacts.
 
 `atlas op verify [name] [closeout-manifest]` reads a closeout manifest without
-mutating operation state. It verifies recorded SHA-256 anchors and the operation
-ledger event count, reporting each artifact as `verified`, `missing`, `changed`,
-or `unverifiable`.
+mutating operation state. It accepts Markdown or `atlas.closeout_manifest.v1`
+JSON, verifies recorded SHA-256 anchors and the operation ledger event count,
+and reports each artifact as `verified`, `missing`, `changed`, or
+`unverifiable`.
 
 `atlas op audit [name]` reads the operation ledger without mutating state. It
 prints event counts, audit flags for denied preflights, forced closeout, stale

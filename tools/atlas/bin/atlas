@@ -180,7 +180,7 @@ quick flow:
   atlas op report [name] [report-name]
   atlas op readiness [name]
   atlas op handoff [name] [handoff-name]
-  atlas op closeout [name] [manifest-name]
+  atlas op closeout [--json] [name] [manifest-name]
   atlas op verify [name] [closeout-manifest]
   atlas op audit [name]
   atlas op audit-packet [--json] [name] [packet-name]
@@ -216,7 +216,7 @@ operations:
   atlas op report [name] [report-name]
   atlas op readiness [name]
   atlas op handoff [name] [handoff-name]
-  atlas op closeout [name] [manifest-name]
+  atlas op closeout [--json] [name] [manifest-name]
   atlas op verify [name] [closeout-manifest]
   atlas op audit [name]
   atlas op audit-packet [--json] [name] [packet-name]
@@ -1402,7 +1402,11 @@ print_operation_report_commands() {
 			printf -- "- \`%s\`\n" "atlas op handoff $ATLAS_OP_SLUG $(basename "$detail" .md)"
 			;;
 		closeout)
-			printf -- "- \`%s\`\n" "atlas op closeout $ATLAS_OP_SLUG $(basename "$detail" .md)"
+			if [ "${detail%.json}" != "$detail" ]; then
+				printf -- "- \`%s\`\n" "atlas op closeout --json $ATLAS_OP_SLUG $(basename "$detail" .json)"
+			else
+				printf -- "- \`%s\`\n" "atlas op closeout $ATLAS_OP_SLUG $(basename "$detail" .md)"
+			fi
 			;;
 		audit-packet)
 			if [ "${detail%.json}" != "$detail" ]; then

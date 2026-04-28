@@ -21,7 +21,7 @@ the chain is still current.
 | Validation | `atlas web validation-plan`, `atlas web validation-approve`, `atlas validation plan`, `atlas validation approve`, `atlas validation run`, `atlas validation retest` | approval record, validation plan, retest state |
 | Report | `atlas op report`, `atlas op readiness` | current operation report and readiness state |
 | Handoff | `atlas op handoff` | metadata-only handoff packet |
-| Closeout | `atlas op close`, `atlas op closeout`, `atlas op verify` | closeout manifest and hash verification |
+| Closeout | `atlas op close`, `atlas op closeout`, `atlas op closeout --json`, `atlas op verify` | closeout manifest and hash verification |
 | Audit | `atlas op audit-packet`, `atlas op audit-packet --json`, `atlas op audit-verify` | audit packet and audit verification |
 | Archive | `atlas op archive-packet`, `atlas op archive-packet --json`, `atlas op archive-verify` | archive packet and archive verification |
 | Trust Chain | `atlas op trust-chain --strict`, `atlas op trust-chain --json` | consolidated operation trust-chain status, optional business-flow counts, and `atlas.operation_trust_chain.v1` JSON |
@@ -61,6 +61,7 @@ atlas op report trust-lifecycle-op trust-lifecycle-report
 atlas op handoff trust-lifecycle-op trust-lifecycle-handoff
 atlas op close trust-lifecycle-op
 atlas op closeout trust-lifecycle-op trust-lifecycle-closeout
+atlas op closeout --json trust-lifecycle-op trust-lifecycle-closeout
 atlas op verify trust-lifecycle-op
 atlas op audit-packet trust-lifecycle-op trust-lifecycle-audit
 atlas op audit-packet --json trust-lifecycle-op trust-lifecycle-audit

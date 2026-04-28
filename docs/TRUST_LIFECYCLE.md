@@ -20,7 +20,7 @@ still current.
 | Validation | `atlas validation plan`, `atlas validation approve`, `atlas validation run`, `atlas validation retest` | approval record, validation plan, run outcome, retest state |
 | Report | `atlas op report`, `atlas op readiness` | assessment report and closure readiness |
 | Handoff | `atlas op handoff` | metadata-only handoff packet |
-| Closeout | `atlas op close`, `atlas op closeout`, `atlas op verify` | closeout manifest and hash verification |
+| Closeout | `atlas op close`, `atlas op closeout`, `atlas op closeout --json`, `atlas op verify` | closeout manifest and hash verification |
 | Audit | `atlas op audit-packet`, `atlas op audit-packet --json`, `atlas op audit-verify` | audit packet and audit verification |
 | Archive | `atlas op archive-packet`, `atlas op archive-packet --json`, `atlas op archive-verify` | archive packet and archive verification |
 | Trust Chain | `atlas op trust-chain --strict`, `atlas op trust-chain --json` | consolidated operation trust-chain status, optional business-flow counts, and `atlas.operation_trust_chain.v1` JSON |

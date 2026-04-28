@@ -188,16 +188,252 @@ atlas_closeout_write_manifest() {
   } >"$file"
 }
 
+atlas_closeout_write_json_manifest() {
+  local file="$1"
+  local generated_at="$2"
+  local latest_report
+  local report_at=""
+  local report_path=""
+  local report_sha=""
+  local latest_bundle
+  local bundle_at=""
+  local bundle_slug=""
+  local bundle_dir=""
+  local manifest_file=""
+  local manifest_sha=""
+  local bundle_files="0"
+  local include_unredacted="0"
+  local latest_handoff
+  local handoff_at=""
+  local handoff_path=""
+  local handoff_sha=""
+  local ledger_file
+  local ledger_sha=""
+  local ledger_events="0"
+  local scope_file
+  local evidence_index
+  local findings_index
+  local validation_index
+  local op_env_sha=""
+  local scope_sha=""
+  local evidence_index_sha=""
+  local findings_index_sha=""
+  local validation_index_sha=""
+
+  atlas_scope_load_snapshot
+  atlas_readiness_collect "$ATLAS_OP_TARGET"
+  intel_require_jq
+
+  latest_report="$(atlas_handoff_latest_report_fields)"
+  if [ -n "$latest_report" ]; then
+    IFS=$'\t' read -r report_at report_path report_sha <<<"$latest_report"
+  fi
+
+  latest_bundle="$(atlas_handoff_latest_bundle_fields)"
+  if [ -n "$latest_bundle" ]; then
+    IFS=$'\t' read -r bundle_at bundle_slug bundle_dir manifest_file manifest_sha bundle_files include_unredacted <<<"$latest_bundle"
+  fi
+
+  latest_handoff="$(atlas_closeout_latest_handoff_fields)"
+  if [ -n "$latest_handoff" ]; then
+    IFS=$'\t' read -r handoff_at handoff_path handoff_sha <<<"$latest_handoff"
+  fi
+
+  ledger_file="$(atlas_ledger_file "$ATLAS_OP_DIR")"
+  if [ -f "$ledger_file" ]; then
+    ledger_sha="$(atlas_closeout_sha_for_file "$ledger_file")"
+    ledger_events="$(atlas_closeout_ledger_event_count "$ledger_file")"
+  fi
+  scope_file="$(atlas_scope_snapshot_file "$ATLAS_OP_DIR")"
+  evidence_index="$(atlas_evidence_index_file "$ATLAS_OP_DIR")"
+  findings_index="$(atlas_findings_index_file "$ATLAS_OP_DIR")"
+  validation_index="$(atlas_validation_index_file "$ATLAS_OP_DIR")"
+  op_env_sha="$(atlas_closeout_sha_for_file "$ATLAS_OP_FILE")"
+  scope_sha="$(atlas_closeout_sha_for_file "$scope_file")"
+  evidence_index_sha="$(atlas_closeout_sha_for_file "$evidence_index")"
+  findings_index_sha="$(atlas_closeout_sha_for_file "$findings_index")"
+  validation_index_sha="$(atlas_closeout_sha_for_file "$validation_index")"
+
+  jq -n \
+    --arg schema_version "atlas.closeout_manifest.v1" \
+    --arg generated_at "$generated_at" \
+    --arg operation_name "$ATLAS_OP_NAME" \
+    --arg operation_id "$ATLAS_OP_SLUG" \
+    --arg operation_status "$ATLAS_OP_STATUS" \
+    --arg closed_at "${ATLAS_OP_CLOSED_AT:-}" \
+    --arg target "$ATLAS_OP_TARGET" \
+    --arg address "${ATLAS_OP_TARGET_ADDRESS:-}" \
+    --arg profile "$ATLAS_SCOPE_PROFILE" \
+    --arg close_readiness "$ATLAS_READINESS_STATUS" \
+    --arg next_step "$ATLAS_READINESS_NEXT_STEP" \
+    --argjson evidence_records "${ATLAS_READINESS_EVIDENCE_COUNT:-0}" \
+    --argjson findings "${ATLAS_READINESS_FINDING_COUNT:-0}" \
+    --argjson open_findings "${ATLAS_READINESS_OPEN_FINDINGS_COUNT:-0}" \
+    --argjson expired_accepted_risks "${ATLAS_READINESS_EXPIRED_ACCEPTED_RISK_COUNT:-0}" \
+    --argjson validation_plans "${ATLAS_READINESS_VALIDATION_COUNT:-0}" \
+    --argjson pending_validation "${ATLAS_READINESS_PENDING_VALIDATION_COUNT:-0}" \
+    --arg report_freshness "$ATLAS_READINESS_REPORT_FRESHNESS" \
+    --arg bundle_freshness "$ATLAS_READINESS_BUNDLE_FRESHNESS" \
+    --arg handoff_freshness "$ATLAS_READINESS_HANDOFF_FRESHNESS" \
+    --arg closeout_freshness "$ATLAS_READINESS_CLOSEOUT_FRESHNESS" \
+    --arg report_path "$report_path" \
+    --arg report_generated_at "$report_at" \
+    --arg report_sha256 "$report_sha" \
+    --arg bundle_path "$bundle_dir" \
+    --arg bundle_slug "$bundle_slug" \
+    --arg bundle_generated_at "$bundle_at" \
+    --argjson bundle_files "${bundle_files:-0}" \
+    --arg include_unredacted "${include_unredacted:-0}" \
+    --arg manifest_path "$manifest_file" \
+    --arg manifest_sha256 "$manifest_sha" \
+    --arg handoff_path "$handoff_path" \
+    --arg handoff_generated_at "$handoff_at" \
+    --arg handoff_sha256 "$handoff_sha" \
+    --arg ledger_path "$ledger_file" \
+    --argjson ledger_events "$ledger_events" \
+    --arg ledger_sha256 "$ledger_sha" \
+    --arg op_env_path "$ATLAS_OP_FILE" \
+    --arg op_env_sha256 "$op_env_sha" \
+    --arg scope_path "$scope_file" \
+    --arg scope_sha256 "$scope_sha" \
+    --arg evidence_index_path "$evidence_index" \
+    --arg evidence_index_sha256 "$evidence_index_sha" \
+    --arg finding_index_path "$findings_index" \
+    --arg finding_index_sha256 "$findings_index_sha" \
+    --arg validation_index_path "$validation_index" \
+    --arg validation_index_sha256 "$validation_index_sha" '
+      def nullable($v):
+        if $v == "" or $v == "-" or $v == "none" then null else $v end;
+      def anchor_path($path; $sha):
+        if $sha == "" or $sha == "-" or $sha == "none" then null else nullable($path) end;
+      {
+        schema_version: $schema_version,
+        generated_at: $generated_at,
+        operation: {
+          name: $operation_name,
+          id: $operation_id,
+          status: $operation_status,
+          closed_at: nullable($closed_at),
+          target: $target,
+          address: nullable($address),
+          profile: $profile
+        },
+        metadata_only: true,
+        raw_artifacts_embedded: false,
+        readiness: {
+          close_readiness: $close_readiness,
+          next_step: $next_step,
+          evidence_records: $evidence_records,
+          findings: $findings,
+          open_findings: $open_findings,
+          expired_accepted_risks: $expired_accepted_risks,
+          validation_plans: $validation_plans,
+          pending_validation: $pending_validation,
+          freshness: {
+            report: $report_freshness,
+            bundle: $bundle_freshness,
+            handoff: $handoff_freshness,
+            closeout: $closeout_freshness
+          }
+        },
+        artifacts: {
+          latest_report: {
+            path: anchor_path($report_path; $report_sha256),
+            generated_at: nullable($report_generated_at),
+            sha256: nullable($report_sha256)
+          },
+          evidence_bundle: {
+            path: nullable($bundle_path),
+            slug: nullable($bundle_slug),
+            generated_at: nullable($bundle_generated_at),
+            files: $bundle_files,
+            include_unredacted: ($include_unredacted == "1" or $include_unredacted == "true")
+          },
+          evidence_manifest: {
+            path: anchor_path($manifest_path; $manifest_sha256),
+            sha256: nullable($manifest_sha256)
+          },
+          latest_handoff: {
+            path: anchor_path($handoff_path; $handoff_sha256),
+            generated_at: nullable($handoff_generated_at),
+            sha256: nullable($handoff_sha256)
+          }
+        },
+        integrity: {
+          operation_ledger: {
+            path: anchor_path($ledger_path; $ledger_sha256),
+            events: $ledger_events,
+            sha256: nullable($ledger_sha256)
+          },
+          operation_env: {
+            path: anchor_path($op_env_path; $op_env_sha256),
+            sha256: nullable($op_env_sha256)
+          },
+          scope_snapshot: {
+            path: anchor_path($scope_path; $scope_sha256),
+            sha256: nullable($scope_sha256)
+          },
+          evidence_index: {
+            path: anchor_path($evidence_index_path; $evidence_index_sha256),
+            sha256: nullable($evidence_index_sha256)
+          },
+          finding_index: {
+            path: anchor_path($finding_index_path; $finding_index_sha256),
+            sha256: nullable($finding_index_sha256)
+          },
+          validation_index: {
+            path: anchor_path($validation_index_path; $validation_index_sha256),
+            sha256: nullable($validation_index_sha256)
+          }
+        },
+        known_limitations: [
+          "Closeout manifests are metadata-only and retain local references, hashes, counts, freshness states, and verification anchors.",
+          "Raw report, handoff, evidence, finding, validation, and ledger contents are not embedded.",
+          "Closeout verification tolerates later audit, archive, and accepted-risk review packet ledger events when the recorded ledger prefix still matches.",
+          "Closeout verification is not external audit, legal compliance evidence, or cryptographic immutability."
+        ]
+      }
+    ' >"$file"
+}
+
 cmd_op_closeout() {
-  local manifest_name="${2:-}"
+  local json_output=0
+  local operation_name=""
+  local manifest_name=""
   local manifest_slug
   local closeout_dir
   local manifest_file
+  local generated_at
 
-  [ "$#" -le 2 ] || fail "op closeout [name] [manifest-name]"
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+    --json)
+      json_output=1
+      shift
+      ;;
+    --)
+      shift
+      break
+      ;;
+    -*)
+      fail "unknown op closeout option: $1"
+      ;;
+    *)
+      if [ -z "$operation_name" ]; then
+        operation_name="$1"
+      elif [ -z "$manifest_name" ]; then
+        manifest_name="$1"
+      else
+        fail "op closeout [--json] [name] [manifest-name]"
+      fi
+      shift
+      ;;
+    esac
+  done
+  [ "$#" -eq 0 ] || fail "op closeout [--json] [name] [manifest-name]"
 
-  if [ "$#" -gt 0 ]; then
-    load_atlas_operation "$1"
+  if [ -n "$operation_name" ]; then
+    load_atlas_operation "$operation_name"
   else
     load_active_operation
   fi
@@ -211,15 +447,29 @@ cmd_op_closeout() {
   closeout_dir="$ATLAS_OP_DIR/closeout"
   mkdir -p "$closeout_dir"
   chmod 700 "$closeout_dir" 2>/dev/null || true
-  manifest_file="$closeout_dir/$manifest_slug.md"
+  if [ "$json_output" -eq 1 ]; then
+    manifest_file="$closeout_dir/$manifest_slug.json"
+  else
+    manifest_file="$closeout_dir/$manifest_slug.md"
+  fi
 
   atlas_ledger_append_current "closeout.manifest.generated" "read-only" "atlas" "ok" "$manifest_file"
-  atlas_closeout_write_manifest "$manifest_file"
+  generated_at="$(timestamp)"
+  if [ "$json_output" -eq 1 ]; then
+    atlas_closeout_write_json_manifest "$manifest_file" "$generated_at"
+  else
+    atlas_closeout_write_manifest "$manifest_file"
+  fi
   chmod 600 "$manifest_file" 2>/dev/null || true
   record_operation_history "$ATLAS_OP_DIR" "closeout" "$manifest_file"
 
-  ui_ok "closeout manifest written"
-  printf 'closeout: %s\n' "$manifest_file"
+  if [ "$json_output" -eq 1 ]; then
+    ui_ok "closeout JSON manifest written"
+    printf 'closeout_json: %s\n' "$manifest_file"
+  else
+    ui_ok "closeout manifest written"
+    printf 'closeout: %s\n' "$manifest_file"
+  fi
 }
 
 atlas_closeout_manifest_field() {
@@ -292,8 +542,13 @@ atlas_closeout_verify_hash_anchor() {
 
   expected_sha="$(atlas_closeout_anchor_token "$line" "sha256")"
   if [ -z "$expected_sha" ]; then
-    atlas_closeout_verify_row "$display_label" "unverifiable" "$path" "missing expected sha256"
-    ATLAS_CLOSEOUT_VERIFY_PROBLEMS=$((ATLAS_CLOSEOUT_VERIFY_PROBLEMS + 1))
+    if [ ! -f "$path" ]; then
+      atlas_closeout_verify_row "$display_label" "unverifiable" "$path" "not recorded"
+      ATLAS_CLOSEOUT_VERIFY_GAPS=$((ATLAS_CLOSEOUT_VERIFY_GAPS + 1))
+    else
+      atlas_closeout_verify_row "$display_label" "unverifiable" "$path" "missing expected sha256"
+      ATLAS_CLOSEOUT_VERIFY_PROBLEMS=$((ATLAS_CLOSEOUT_VERIFY_PROBLEMS + 1))
+    fi
     return 0
   fi
 
@@ -436,11 +691,110 @@ atlas_closeout_verify_ledger_anchor() {
   fi
 }
 
+atlas_closeout_verify_json_hash_anchor() {
+  local manifest_file="$1"
+  local jq_path="$2"
+  local display_label="$3"
+  local path
+  local expected_sha
+  local actual_sha
+
+  path="$(jq -r "$jq_path.path // \"\"" "$manifest_file" 2>/dev/null || true)"
+  expected_sha="$(jq -r "$jq_path.sha256 // \"\"" "$manifest_file" 2>/dev/null || true)"
+  if [ -z "$path" ]; then
+    atlas_closeout_verify_row "$display_label" "unverifiable" "-" "not recorded"
+    ATLAS_CLOSEOUT_VERIFY_GAPS=$((ATLAS_CLOSEOUT_VERIFY_GAPS + 1))
+    return 0
+  fi
+
+  if [ -z "$expected_sha" ]; then
+    atlas_closeout_verify_row "$display_label" "unverifiable" "$path" "missing expected sha256"
+    ATLAS_CLOSEOUT_VERIFY_PROBLEMS=$((ATLAS_CLOSEOUT_VERIFY_PROBLEMS + 1))
+    return 0
+  fi
+
+  if [ ! -f "$path" ]; then
+    atlas_closeout_verify_row "$display_label" "missing" "$path" "expected sha256=$expected_sha"
+    ATLAS_CLOSEOUT_VERIFY_PROBLEMS=$((ATLAS_CLOSEOUT_VERIFY_PROBLEMS + 1))
+    return 0
+  fi
+
+  actual_sha="$(atlas_closeout_sha_for_file "$path")"
+  if [ "$actual_sha" = "$expected_sha" ]; then
+    atlas_closeout_verify_row "$display_label" "verified" "$path"
+    ATLAS_CLOSEOUT_VERIFY_VERIFIED=$((ATLAS_CLOSEOUT_VERIFY_VERIFIED + 1))
+  else
+    atlas_closeout_verify_row "$display_label" "changed" "$path" "expected=$expected_sha actual=$actual_sha"
+    ATLAS_CLOSEOUT_VERIFY_PROBLEMS=$((ATLAS_CLOSEOUT_VERIFY_PROBLEMS + 1))
+  fi
+}
+
+atlas_closeout_verify_json_ledger_anchor() {
+  local manifest_file="$1"
+  local path
+  local expected_events
+  local actual_events
+  local expected_sha
+  local actual_sha
+  local prefix_sha
+  local disallowed_events
+
+  path="$(jq -r '.integrity.operation_ledger.path // ""' "$manifest_file" 2>/dev/null || true)"
+  expected_events="$(jq -r '.integrity.operation_ledger.events // ""' "$manifest_file" 2>/dev/null || true)"
+  expected_sha="$(jq -r '.integrity.operation_ledger.sha256 // ""' "$manifest_file" 2>/dev/null || true)"
+  if [ -z "$path" ] || [ -z "$expected_events" ] || [ -z "$expected_sha" ]; then
+    atlas_closeout_verify_row "Operation Ledger" "unverifiable" "${path:--}" "missing events or sha256"
+    ATLAS_CLOSEOUT_VERIFY_PROBLEMS=$((ATLAS_CLOSEOUT_VERIFY_PROBLEMS + 1))
+    return 0
+  fi
+
+  if [ ! -f "$path" ]; then
+    atlas_closeout_verify_row "Operation Ledger" "missing" "$path" "expected events=$expected_events sha256=$expected_sha"
+    ATLAS_CLOSEOUT_VERIFY_PROBLEMS=$((ATLAS_CLOSEOUT_VERIFY_PROBLEMS + 1))
+    return 0
+  fi
+
+  actual_events="$(atlas_closeout_ledger_event_count "$path")"
+  actual_sha="$(atlas_closeout_sha_for_file "$path")"
+  if [ "$actual_events" = "$expected_events" ] && [ "$actual_sha" = "$expected_sha" ]; then
+    atlas_closeout_verify_row "Operation Ledger" "verified" "$path" "events=$actual_events"
+    ATLAS_CLOSEOUT_VERIFY_VERIFIED=$((ATLAS_CLOSEOUT_VERIFY_VERIFIED + 1))
+  elif atlas_closeout_numeric_token "$expected_events" &&
+    atlas_closeout_numeric_token "$actual_events" &&
+    [ "$actual_events" -gt "$expected_events" ]; then
+    prefix_sha="$(atlas_closeout_ledger_prefix_sha "$path" "$expected_events")"
+    disallowed_events="$(atlas_closeout_disallowed_later_ledger_events "$path" "$expected_events")"
+    if [ "$prefix_sha" = "$expected_sha" ] && [ -z "$disallowed_events" ]; then
+      atlas_closeout_verify_row "Operation Ledger" "verified" "$path" "events=$actual_events anchored_events=$expected_events later_allowed_events=$((actual_events - expected_events))"
+      ATLAS_CLOSEOUT_VERIFY_VERIFIED=$((ATLAS_CLOSEOUT_VERIFY_VERIFIED + 1))
+    else
+      atlas_closeout_verify_row "Operation Ledger" "changed" "$path" "expected_events=$expected_events actual_events=$actual_events expected_sha=$expected_sha actual_sha=$actual_sha disallowed_later_events=${disallowed_events:-none}"
+      ATLAS_CLOSEOUT_VERIFY_PROBLEMS=$((ATLAS_CLOSEOUT_VERIFY_PROBLEMS + 1))
+    fi
+  else
+    atlas_closeout_verify_row "Operation Ledger" "changed" "$path" "expected_events=$expected_events actual_events=$actual_events expected_sha=$expected_sha actual_sha=$actual_sha"
+    ATLAS_CLOSEOUT_VERIFY_PROBLEMS=$((ATLAS_CLOSEOUT_VERIFY_PROBLEMS + 1))
+  fi
+}
+
+atlas_closeout_json_manifest_forbidden_content_present() {
+  local manifest_file="$1"
+
+  jq -r '
+    paths(scalars) as $path
+    | getpath($path)
+    | strings
+  ' "$manifest_file" 2>/dev/null |
+    tr '[:upper:]' '[:lower:]' |
+    grep -Eq 'password=|passwd=|api_key=|secret=|token=|authorization:|bearer[[:space:]]|set-cookie:|begin rsa|begin openssh|session=|cookie='
+}
+
 atlas_closeout_resolve_manifest() {
   local manifest_arg="$1"
   local latest_manifest
   local latest_manifest_path=""
   local candidate
+  local manifest_base
   local manifest_slug
 
   if [ -z "$manifest_arg" ]; then
@@ -463,8 +817,15 @@ atlas_closeout_resolve_manifest() {
     return 0
   fi
 
-  manifest_slug="$(slugify "${manifest_arg%.md}")"
+  manifest_base="${manifest_arg%.md}"
+  manifest_base="${manifest_base%.json}"
+  manifest_slug="$(slugify "$manifest_base")"
   candidate="$ATLAS_OP_DIR/closeout/$manifest_slug.md"
+  if [ -f "$candidate" ]; then
+    readlink -f "$candidate"
+    return 0
+  fi
+  candidate="$ATLAS_OP_DIR/closeout/$manifest_slug.json"
   if [ -f "$candidate" ]; then
     readlink -f "$candidate"
     return 0
@@ -473,7 +834,77 @@ atlas_closeout_resolve_manifest() {
   fail "unknown closeout manifest for operation '$ATLAS_OP_SLUG': $manifest_arg"
 }
 
-atlas_closeout_verify_manifest() {
+atlas_closeout_verify_json_manifest() {
+  local manifest_file="$1"
+  local manifest_operation
+  local verification_status="verified"
+
+  [ -f "$manifest_file" ] || fail "closeout manifest is not a file: $manifest_file"
+  intel_require_jq
+  jq -e 'type == "object"' "$manifest_file" >/dev/null 2>&1 || fail "closeout JSON manifest is invalid: $manifest_file"
+  jq -e '.schema_version == "atlas.closeout_manifest.v1"' "$manifest_file" >/dev/null 2>&1 || fail "closeout JSON manifest has unsupported schema: $manifest_file"
+  manifest_operation="$(jq -r '.operation.id // ""' "$manifest_file")"
+  [ -n "$manifest_operation" ] || fail "closeout JSON manifest is missing operation.id: $manifest_file"
+  [ "$manifest_operation" = "$ATLAS_OP_SLUG" ] || fail "closeout manifest belongs to '$manifest_operation', not '$ATLAS_OP_SLUG'"
+
+  ATLAS_CLOSEOUT_VERIFY_PROBLEMS=0
+  ATLAS_CLOSEOUT_VERIFY_GAPS=0
+  ATLAS_CLOSEOUT_VERIFY_VERIFIED=0
+
+  ui_heading "Closeout Verification"
+  ui_rule
+  ui_kv "Operation" "$ATLAS_OP_NAME"
+  ui_kv "Manifest" "$manifest_file"
+  ui_rule
+  printf '%-20s %-14s %s\n' "ARTIFACT" "STATUS" "PATH"
+
+  if jq -e '.metadata_only == true' "$manifest_file" >/dev/null 2>&1; then
+    atlas_closeout_verify_row "Metadata Only" "verified" "true"
+    ATLAS_CLOSEOUT_VERIFY_VERIFIED=$((ATLAS_CLOSEOUT_VERIFY_VERIFIED + 1))
+  else
+    atlas_closeout_verify_row "Metadata Only" "blocked" "expected=true"
+    ATLAS_CLOSEOUT_VERIFY_PROBLEMS=$((ATLAS_CLOSEOUT_VERIFY_PROBLEMS + 1))
+  fi
+
+  if jq -e '.raw_artifacts_embedded == false' "$manifest_file" >/dev/null 2>&1; then
+    atlas_closeout_verify_row "Raw Artifacts" "verified" "embedded=false"
+    ATLAS_CLOSEOUT_VERIFY_VERIFIED=$((ATLAS_CLOSEOUT_VERIFY_VERIFIED + 1))
+  else
+    atlas_closeout_verify_row "Raw Artifacts" "blocked" "expected embedded=false"
+    ATLAS_CLOSEOUT_VERIFY_PROBLEMS=$((ATLAS_CLOSEOUT_VERIFY_PROBLEMS + 1))
+  fi
+
+  if atlas_closeout_json_manifest_forbidden_content_present "$manifest_file"; then
+    atlas_closeout_verify_row "Forbidden Content" "blocked" "$manifest_file" "raw-content marker detected"
+    ATLAS_CLOSEOUT_VERIFY_PROBLEMS=$((ATLAS_CLOSEOUT_VERIFY_PROBLEMS + 1))
+  else
+    atlas_closeout_verify_row "Forbidden Content" "verified" "$manifest_file"
+    ATLAS_CLOSEOUT_VERIFY_VERIFIED=$((ATLAS_CLOSEOUT_VERIFY_VERIFIED + 1))
+  fi
+
+  atlas_closeout_verify_json_hash_anchor "$manifest_file" ".artifacts.latest_report" "Latest Report"
+  atlas_closeout_verify_json_hash_anchor "$manifest_file" ".artifacts.evidence_manifest" "Evidence Manifest"
+  atlas_closeout_verify_json_hash_anchor "$manifest_file" ".artifacts.latest_handoff" "Latest Handoff"
+  atlas_closeout_verify_json_ledger_anchor "$manifest_file"
+  atlas_closeout_verify_json_hash_anchor "$manifest_file" ".integrity.operation_env" "Operation Env"
+  atlas_closeout_verify_json_hash_anchor "$manifest_file" ".integrity.scope_snapshot" "Scope Snapshot"
+  atlas_closeout_verify_json_hash_anchor "$manifest_file" ".integrity.evidence_index" "Evidence Index"
+  atlas_closeout_verify_json_hash_anchor "$manifest_file" ".integrity.finding_index" "Finding Index"
+  atlas_closeout_verify_json_hash_anchor "$manifest_file" ".integrity.validation_index" "Validation Index"
+  ui_rule
+
+  if [ "$ATLAS_CLOSEOUT_VERIFY_PROBLEMS" -gt 0 ]; then
+    verification_status="attention-required"
+  fi
+  ui_kv "Verification Status" "$verification_status"
+  ui_kv "Verified Anchors" "$ATLAS_CLOSEOUT_VERIFY_VERIFIED"
+  ui_kv "Verification Gaps" "$ATLAS_CLOSEOUT_VERIFY_GAPS"
+  ui_kv "Verification Problems" "$ATLAS_CLOSEOUT_VERIFY_PROBLEMS"
+
+  [ "$ATLAS_CLOSEOUT_VERIFY_PROBLEMS" -eq 0 ] || return 1
+}
+
+atlas_closeout_verify_markdown_manifest() {
   local manifest_file="$1"
   local manifest_operation
   local verification_status="verified"
@@ -513,6 +944,17 @@ atlas_closeout_verify_manifest() {
   ui_kv "Verification Problems" "$ATLAS_CLOSEOUT_VERIFY_PROBLEMS"
 
   [ "$ATLAS_CLOSEOUT_VERIFY_PROBLEMS" -eq 0 ] || return 1
+}
+
+atlas_closeout_verify_manifest() {
+  local manifest_file="$1"
+
+  [ -f "$manifest_file" ] || fail "closeout manifest is not a file: $manifest_file"
+  if jq -e '.schema_version == "atlas.closeout_manifest.v1"' "$manifest_file" >/dev/null 2>&1; then
+    atlas_closeout_verify_json_manifest "$manifest_file"
+  else
+    atlas_closeout_verify_markdown_manifest "$manifest_file"
+  fi
 }
 
 cmd_op_verify() {

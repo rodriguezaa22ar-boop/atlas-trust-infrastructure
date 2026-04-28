@@ -552,6 +552,17 @@ The near-term roadmap is:
     metadata-only flags, rejects forbidden raw-content markers, tolerates later
     archive-packet ledger events when the recorded ledger prefix still matches,
     and verifies closeout manifest anchors without mutating operation state.
+88. Add closeout manifest JSON parity. `atlas op closeout --json` now writes
+    metadata-only `atlas.closeout_manifest.v1` manifests with operation
+    identity, close readiness, freshness state, retained artifact references,
+    operation ledger anchors, SHA-256 anchors, and known limitations. `atlas op
+    verify` now accepts Markdown or JSON closeout manifests, checks JSON
+    metadata-only flags, rejects forbidden raw-content markers, tolerates later
+    audit, archive, and accepted-risk review packet ledger events when the
+    recorded ledger prefix still matches, and verifies retained artifact anchors
+    without mutating operation state. Audit and archive verification paths use
+    the shared closeout verifier so the latest JSON closeout remains consumable
+    by downstream trust packets.
 
 ## First Serious Version
 

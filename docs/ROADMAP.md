@@ -27,6 +27,7 @@ Atlas is in the trust infrastructure lane:
 - Business Flow Evidence flow-specific trust-chain visibility
 - archive packet JSON parity
 - audit packet JSON parity
+- closeout manifest JSON parity
 
 ## Near-Term Milestones
 
@@ -65,7 +66,10 @@ Atlas is in the trust infrastructure lane:
 15. Audit packet JSON parity. Implemented as
     `atlas op audit-packet --json`, with `atlas.audit_packet.v1` and
     `atlas op audit-verify` support for Markdown or JSON packets.
-16. JSON parity for closeout and handoff packets where needed.
+16. Closeout manifest JSON parity. Implemented as
+    `atlas op closeout --json`, with `atlas.closeout_manifest.v1` and
+    `atlas op verify` support for Markdown or JSON closeout manifests.
+17. JSON parity for handoff packets where needed.
 
 ## Later Control-Plane Work
 

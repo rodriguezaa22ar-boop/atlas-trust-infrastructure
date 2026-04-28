@@ -135,8 +135,8 @@ atlas_audit_ledger_anchor_problem_count() {
 atlas_audit_closeout_verification_status() {
   local latest_closeout
   local closeout_path=""
-  local problems=0
-  local label
+  local verification_output=""
+  local problems="1"
 
   latest_closeout="$(atlas_readiness_latest_closeout)"
   if [ -z "$latest_closeout" ]; then
@@ -150,15 +150,12 @@ atlas_audit_closeout_verification_status() {
     return 0
   fi
 
-  for label in "Latest report" "Evidence manifest" "Latest handoff" "Operation env" "Scope snapshot" "Evidence index" "Finding index" "Validation index"; do
-    problems=$((problems + $(atlas_audit_hash_anchor_problem_count "$closeout_path" "$label")))
-  done
-  problems=$((problems + $(atlas_audit_ledger_anchor_problem_count "$closeout_path")))
-
-  if [ "$problems" -eq 0 ]; then
-    printf 'verified\t%s\t0\n' "$closeout_path"
+  if verification_output="$(atlas_closeout_verify_manifest "$closeout_path" 2>/dev/null)"; then
+    problems="$(printf '%s\n' "$verification_output" | awk -F': ' '$1 == "Verification Problems" { print $2; exit }')"
+    printf 'verified\t%s\t%s\n' "$closeout_path" "${problems:-0}"
   else
-    printf 'attention-required\t%s\t%s\n' "$closeout_path" "$problems"
+    problems="$(printf '%s\n' "$verification_output" | awk -F': ' '$1 == "Verification Problems" { print $2; exit }')"
+    printf 'attention-required\t%s\t%s\n' "$closeout_path" "${problems:-1}"
   fi
 }
 
