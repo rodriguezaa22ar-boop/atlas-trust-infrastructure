@@ -236,7 +236,7 @@ atlas_production_check_business_flow_evidence() {
       "disabled" \
       "optional Business Flow Evidence is explicitly disabled by environment policy" \
       "docs/atlas/BUSINESS_FLOW_EVIDENCE.md" \
-      "atlas flow add; atlas flow packet; atlas flow verify" \
+      "atlas flow add; atlas flow packet; atlas flow packet --json; atlas flow verify; atlas flow verify --json" \
       "business-flow evidence is optional and does not block production readiness yet"
     return 0
     ;;
@@ -248,7 +248,7 @@ atlas_production_check_business_flow_evidence() {
       "planned" \
       "optional Business Flow Evidence is marked planned" \
       "docs/atlas/BUSINESS_FLOW_EVIDENCE.md" \
-      "atlas flow add; atlas flow packet; atlas flow verify" \
+      "atlas flow add; atlas flow packet; atlas flow packet --json; atlas flow verify; atlas flow verify --json" \
       "business-flow evidence is optional and does not block production readiness yet"
     return 0
     ;;
@@ -264,7 +264,7 @@ atlas_production_check_business_flow_evidence() {
       "planned" \
       "optional Business Flow Evidence commands are not fully enabled yet" \
       "docs/atlas/BUSINESS_FLOW_EVIDENCE.md" \
-      "atlas flow add; atlas flow packet; atlas flow verify" \
+      "atlas flow add; atlas flow packet; atlas flow packet --json; atlas flow verify; atlas flow verify --json" \
       "business-flow evidence is optional and does not block production readiness yet"
     return 0
   fi
@@ -280,7 +280,7 @@ atlas_production_check_business_flow_evidence() {
     "ready" \
     "optional metadata-only Business Flow Evidence commands, packets, and verification are available; flow_records=$flow_records" \
     "docs/atlas/BUSINESS_FLOW_EVIDENCE.md" \
-    "atlas flow add; atlas flow packet; atlas flow verify" \
+    "atlas flow add; atlas flow packet; atlas flow packet --json; atlas flow verify; atlas flow verify --json" \
     "optional gate; not required for local production readiness until schemas and flow trust-chain integration are stable"
 }
 

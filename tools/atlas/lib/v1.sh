@@ -631,7 +631,7 @@ atlas_v1_collect_business_flow_evidence() {
     operation_links="$(atlas_flow_operation_link_count "$ATLAS_OP_DIR")"
     operation_packets="$(atlas_flow_operation_packet_count "$ATLAS_OP_DIR")"
     reason="$reason active_operation_links=$operation_links active_operation_packets=$operation_packets"
-    artifacts="$artifacts; ${ATLAS_OP_DIR}/business_flows.ndjson; ${ATLAS_OP_DIR}/flow_packets"
+    artifacts="$artifacts; ${ATLAS_OP_DIR}/business_flows.ndjson; ${ATLAS_OP_DIR}/flow_packets; ${ATLAS_OP_DIR}/flow_packets_json"
   fi
 
   atlas_v1_add_pillar \
@@ -641,9 +641,9 @@ atlas_v1_collect_business_flow_evidence() {
     "ready" \
     "$reason" \
     "tests/atlas.bats business-flow records, links, packets, verify, and readiness tests" \
-    "atlas flow add; atlas flow list; atlas flow show; atlas flow link-evidence; atlas flow packet; atlas flow verify" \
+    "atlas flow add; atlas flow list; atlas flow show; atlas flow link-evidence; atlas flow packet; atlas flow packet --json; atlas flow verify; atlas flow verify --json" \
     "$artifacts" \
-    "optional non-blocking pillar; no automatic flow discovery, finding/validation links, or JSON packet parity yet"
+    "optional non-blocking pillar; no automatic flow discovery, finding/validation links, or retention links yet"
 }
 
 atlas_v1_collect() {

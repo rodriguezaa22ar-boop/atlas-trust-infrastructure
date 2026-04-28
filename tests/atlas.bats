@@ -1539,6 +1539,9 @@ EOF
       .pillars.core_cli.status == "ready" and
       .pillars.business_flow_evidence.required == false and
       .pillars.business_flow_evidence.status == "ready" and
+      (.pillars.business_flow_evidence.commands | contains("atlas flow packet --json")) and
+      (.pillars.business_flow_evidence.commands | contains("atlas flow verify --json")) and
+      (.pillars.business_flow_evidence.limitations | contains("JSON packet parity") | not) and
       .pillars.ai_advisor.required == false
     '
 
@@ -1633,7 +1636,9 @@ EOF
       .pillars.business_flow_evidence.required == false and
       .pillars.business_flow_evidence.status == "ready" and
       (.pillars.business_flow_evidence.reason | contains("active_operation_links=1")) and
-      (.pillars.business_flow_evidence.reason | contains("active_operation_packets=0"))
+      (.pillars.business_flow_evidence.reason | contains("active_operation_packets=0")) and
+      (.pillars.business_flow_evidence.commands | contains("atlas flow verify --json")) and
+      (.pillars.business_flow_evidence.limitations | contains("JSON packet parity") | not)
     '
 }
 
@@ -1675,6 +1680,8 @@ EOF
       .gates.production_contract.status == "ready" and
       .gates.business_flow_evidence.required == false and
       .gates.business_flow_evidence.status == "ready" and
+      (.gates.business_flow_evidence.commands | contains("atlas flow packet --json")) and
+      (.gates.business_flow_evidence.commands | contains("atlas flow verify --json")) and
       .gates.release_trust_packet.status == "blocked" and
       .gates.signing_provenance.status == "blocked" and
       .gates.production_dry_run.status == "blocked" and
