@@ -22,6 +22,8 @@ captures, credential material, private keys, tokens, or evidence bodies.
 ## Required Fields
 
 - `schema_version`: must be `atlas.release_artifact_manifest.v1`
+- `generated`: timestamp when the manifest was generated
+- `manifest`: manifest name
 - `metadata_only`: must be `true`
 - `raw_artifacts_embedded`: must be `false`
 - `release.commit`: full release commit hash
@@ -47,9 +49,25 @@ captures, credential material, private keys, tokens, or evidence bodies.
 - `signing_public_key.sha256`
 - `signing_public_key.verified`: expected `true`
 - `artifacts[]`: kind/path/SHA-256/required records for retained files
+- `contract.schema_document`: expected
+  `docs/schemas/release-artifact-manifest.v1.md`
+- `contract.guidance_document`: expected
+  `docs/atlas/RELEASE_ARTIFACT_MANIFEST.md`
+- `contract.known_limitations_reference`: expected `known_limitations`
 - `metadata_boundary.excludes`
 - `known_limitations`
 - `no_production_overclaim`: must be `true`
+
+Required artifact classes:
+
+- `release_packet`
+- `release_provenance`
+- `production_dry_run`
+- `signing_public_key`
+
+Optional artifact classes:
+
+- `milestone_note`
 
 ## Verification Rules
 
@@ -57,8 +75,16 @@ captures, credential material, private keys, tokens, or evidence bodies.
 
 - schema version
 - metadata-only and no-production-overclaim flags
+- forbidden raw-content markers
 - release commit match
+- manifest generation commit availability
+- signed tag metadata and target
 - repository state and upstream-sync state recorded at manifest generation
+- artifact count
+- required artifact classes
+- required artifact paths
+- schema and guidance document references
+- known limitations reference
 - SHA-256 hash for each listed artifact
 - release packet verification with `atlas release verify`
 - provenance verification with retained public key and signed tag

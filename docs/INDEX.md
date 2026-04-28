@@ -36,6 +36,8 @@ repository in filesystem order.
 
 - [RELEASE_TRUST.md](RELEASE_TRUST.md): release packet, verify, replay,
   signing, and provenance.
+- [atlas/RELEASE_ARTIFACT_MANIFEST.md](atlas/RELEASE_ARTIFACT_MANIFEST.md):
+  retained release artifact manifest contract and verification rules.
 - [retention/releases/REPLAY_VERIFICATION.md](retention/releases/REPLAY_VERIFICATION.md):
   clean-checkout replay procedure.
 - [atlas/PRODUCTION_READINESS.md](atlas/PRODUCTION_READINESS.md): local

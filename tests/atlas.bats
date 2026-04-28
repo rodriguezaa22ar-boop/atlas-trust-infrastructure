@@ -92,6 +92,7 @@ make_repo_clean_and_synced() {
   trust_lifecycle="$TEST_ROOT/toolkit/docs/TRUST_LIFECYCLE.md"
   trust_direction="$TEST_ROOT/toolkit/docs/atlas/TRUST_INFRASTRUCTURE_DIRECTION.md"
   trust_object_model="$TEST_ROOT/toolkit/docs/atlas/TRUST_OBJECT_MODEL.md"
+  release_manifest_doc="$TEST_ROOT/toolkit/docs/atlas/RELEASE_ARTIFACT_MANIFEST.md"
   operator_guide="$TEST_ROOT/toolkit/docs/OPERATOR_GUIDE.md"
   release_trust="$TEST_ROOT/toolkit/docs/RELEASE_TRUST.md"
   web_assessment="$TEST_ROOT/toolkit/docs/WEB_ASSESSMENT.md"
@@ -103,6 +104,7 @@ make_repo_clean_and_synced() {
   [ -f "$trust_lifecycle" ]
   [ -f "$trust_direction" ]
   [ -f "$trust_object_model" ]
+  [ -f "$release_manifest_doc" ]
   [ -f "$operator_guide" ]
   [ -f "$release_trust" ]
   [ -f "$web_assessment" ]
@@ -119,6 +121,7 @@ make_repo_clean_and_synced() {
   grep -q 'docs/TRUST_LIFECYCLE.md' "$readme"
   grep -q 'docs/atlas/TRUST_INFRASTRUCTURE_DIRECTION.md' "$readme"
   grep -q 'docs/atlas/TRUST_OBJECT_MODEL.md' "$readme"
+  grep -q 'docs/atlas/RELEASE_ARTIFACT_MANIFEST.md' "$readme"
   grep -q 'docs/OPERATOR_GUIDE.md' "$readme"
   grep -q 'docs/RELEASE_TRUST.md' "$readme"
   grep -q 'docs/WEB_ASSESSMENT.md' "$readme"
@@ -132,6 +135,7 @@ make_repo_clean_and_synced() {
   grep -q 'Production readiness' "$docs_index"
   grep -q 'atlas/TRUST_INFRASTRUCTURE_DIRECTION.md' "$docs_index"
   grep -q 'atlas/TRUST_OBJECT_MODEL.md' "$docs_index"
+  grep -q 'atlas/RELEASE_ARTIFACT_MANIFEST.md' "$docs_index"
   grep -q 'atlas/BUSINESS_FLOW_EVIDENCE.md' "$docs_index"
   grep -q 'Milestones' "$docs_index"
   grep -q 'Agent guidance' "$docs_index"
@@ -153,6 +157,7 @@ make_repo_clean_and_synced() {
   grep -q '^# Operator Guide$' "$operator_guide"
   grep -q '^# Release Trust$' "$release_trust"
   grep -q 'atlas.release_provenance.v1' "$release_trust"
+  grep -q 'RELEASE_ARTIFACT_MANIFEST.md' "$docs_index"
   grep -q '^# Web Assessment$' "$web_assessment"
   grep -q 'atlas web assess' "$web_assessment"
 }
@@ -1655,6 +1660,9 @@ EOF
   grep -q '`schema_version`: must be `atlas.release_artifact_manifest.v1`' "$release_manifest_schema"
   grep -q '`metadata_only`: must be `true`' "$release_manifest_schema"
   grep -q '`raw_artifacts_embedded`: must be `false`' "$release_manifest_schema"
+  grep -q '`contract.schema_document`' "$release_manifest_schema"
+  grep -q 'required artifact classes' "$release_manifest_schema"
+  grep -q 'forbidden raw-content markers' "$release_manifest_schema"
   grep -q 'raw runtime artifacts' "$release_manifest_schema"
   grep -q 'SLSA certification' "$release_manifest_schema"
 
@@ -2857,6 +2865,9 @@ EOF
     .production_dry_run.verified == true and
     .signing_public_key.verified == true and
     .signed_tag.verification == "verified" and
+    .contract.schema_document == "docs/schemas/release-artifact-manifest.v1.md" and
+    .contract.guidance_document == "docs/atlas/RELEASE_ARTIFACT_MANIFEST.md" and
+    .contract.known_limitations_reference == "known_limitations" and
     any(.artifacts[]; .kind == "release_packet" and .required == true) and
     any(.artifacts[]; .kind == "release_provenance" and .required == true) and
     any(.artifacts[]; .kind == "production_dry_run" and .required == true) and
@@ -2877,6 +2888,16 @@ EOF
   [[ "$output" == *"Atlas Release Artifact Manifest Verification"* ]]
   [[ "$output" == *"Schema: ok atlas.release_artifact_manifest.v1"* ]]
   [[ "$output" == *"Metadata Boundary: ok"* ]]
+  [[ "$output" == *"Forbidden Content: ok"* ]]
+  [[ "$output" == *"Generated Commit: ok"* ]]
+  [[ "$output" == *"Generated Tag: ok"* ]]
+  [[ "$output" == *"Artifact Count: ok"* ]]
+  [[ "$output" == *"Artifact Classes: ok"* ]]
+  [[ "$output" == *"Release Packet Path: ok"* ]]
+  [[ "$output" == *"Provenance Path: ok"* ]]
+  [[ "$output" == *"Production Dry Run Path: ok"* ]]
+  [[ "$output" == *"Schema Docs Reference: ok"* ]]
+  [[ "$output" == *"Known Limitations Reference: ok"* ]]
   [[ "$output" == *"Artifact release_packet: ok"* ]]
   [[ "$output" == *"Artifact release_provenance: ok"* ]]
   [[ "$output" == *"Artifact production_dry_run: ok"* ]]
@@ -2906,6 +2927,68 @@ EOF
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release manifest-verify "$TEST_ROOT/bad-manifest-metadata.json" --commit "$release_commit"
   [ "$status" -ne 0 ]
   [[ "$output" == *"Metadata Boundary: fail"* ]]
+}
+
+@test "atlas release manifest verification fails closed on completeness gaps" {
+  make_repo_clean_and_synced
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release manifest m92-completeness
+  [ "$status" -eq 0 ]
+  manifest_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "release_manifest" { print $2; exit }')"
+  [ -f "$manifest_path" ]
+  release_commit="$(jq -r '.release.commit' "$manifest_path")"
+
+  jq 'del(.artifacts[] | select(.kind == "release_provenance"))' \
+    "$manifest_path" > "$TEST_ROOT/missing-artifact-entry.json"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release manifest-verify "$TEST_ROOT/missing-artifact-entry.json" --commit "$release_commit"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Artifact Count: fail"* ]]
+  [[ "$output" == *"Artifact Classes: fail"* ]]
+
+  jq '.artifacts[] |= if .kind == "release_packet" then .sha256 = "0000000000000000000000000000000000000000000000000000000000000000" else . end' \
+    "$manifest_path" > "$TEST_ROOT/wrong-artifact-hash.json"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release manifest-verify "$TEST_ROOT/wrong-artifact-hash.json" --commit "$release_commit"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Artifact release_packet: fail"* ]]
+
+  jq 'del(.provenance)' "$manifest_path" > "$TEST_ROOT/missing-provenance-entry.json"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release manifest-verify "$TEST_ROOT/missing-provenance-entry.json" --commit "$release_commit"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Provenance Path: fail"* ]]
+  [[ "$output" == *"Provenance: fail"* ]]
+
+  jq 'del(.production_dry_run)' "$manifest_path" > "$TEST_ROOT/missing-dry-run-entry.json"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release manifest-verify "$TEST_ROOT/missing-dry-run-entry.json" --commit "$release_commit"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Production Dry Run Path: fail"* ]]
+  [[ "$output" == *"Production Dry Run: fail"* ]]
+
+  jq '.release.commit = "0000000000000000000000000000000000000000"' \
+    "$manifest_path" > "$TEST_ROOT/commit-mismatch.json"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release manifest-verify "$TEST_ROOT/commit-mismatch.json" --commit "$release_commit"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Release Commit: fail"* ]]
+
+  jq '
+    .release_packet.path = "docs/retention/releases/missing-release-packet.json" |
+    (.artifacts[] | select(.kind == "release_packet") | .path) = "docs/retention/releases/missing-release-packet.json"
+  ' "$manifest_path" > "$TEST_ROOT/nonexistent-artifact-file.json"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release manifest-verify "$TEST_ROOT/nonexistent-artifact-file.json" --commit "$release_commit"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Release Packet Path: fail"* ]]
+  [[ "$output" == *"Artifact release_packet: fail"* ]]
+
+  jq '.raw_runtime_artifacts = "password=should-not-appear"' \
+    "$manifest_path" > "$TEST_ROOT/forbidden-content-marker.json"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release manifest-verify "$TEST_ROOT/forbidden-content-marker.json" --commit "$release_commit"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Forbidden Content: fail"* ]]
+
+  jq 'del(.known_limitations)' "$manifest_path" > "$TEST_ROOT/missing-known-limitations.json"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release manifest-verify "$TEST_ROOT/missing-known-limitations.json" --commit "$release_commit"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Known Limitations Reference: fail"* ]]
+  [[ "$output" == *"Known Limitations: fail"* ]]
 }
 
 @test "atlas release replay checks release packet from replay worktree" {

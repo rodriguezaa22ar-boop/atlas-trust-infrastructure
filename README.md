@@ -91,6 +91,7 @@ infrastructure. It means the local Atlas gates pass against retained evidence.
 | [docs/atlas/TRUST_INFRASTRUCTURE_DIRECTION.md](docs/atlas/TRUST_INFRASTRUCTURE_DIRECTION.md) | Atlas trust-infrastructure direction. |
 | [docs/atlas/TRUST_OBJECT_MODEL.md](docs/atlas/TRUST_OBJECT_MODEL.md) | Actors, objects, packets, schemas, freshness, verification, and replay. |
 | [docs/RELEASE_TRUST.md](docs/RELEASE_TRUST.md) | Release packets, verification, replay, signing, and provenance. |
+| [docs/atlas/RELEASE_ARTIFACT_MANIFEST.md](docs/atlas/RELEASE_ARTIFACT_MANIFEST.md) | Release artifact manifest contract and completeness checks. |
 | [docs/WEB_ASSESSMENT.md](docs/WEB_ASSESSMENT.md) | `atlas web assess` flow and boundaries. |
 | [docs/atlas/BUSINESS_FLOW_EVIDENCE.md](docs/atlas/BUSINESS_FLOW_EVIDENCE.md) | Optional metadata-only business-flow evidence model, retention links, packet path, trust-chain view, verification, and non-blocking readiness integration. |
 | [docs/ATLAS_BLUEPRINT.md](docs/ATLAS_BLUEPRINT.md) | Product architecture and milestone history. |

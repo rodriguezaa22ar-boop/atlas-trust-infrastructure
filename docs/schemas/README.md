@@ -66,8 +66,9 @@ are not stable command outputs yet for JSON.
   packet's recorded commit from a clean checkout.
 - `atlas release manifest-verify` validates
   `atlas.release_artifact_manifest.v1` by checking retained artifact hashes,
-  release packet verification, signed provenance, the retained public key, and
-  the production dry-run note.
+  required artifact classes, required paths, schema references, release packet
+  verification, signed provenance, the retained public key, the production
+  dry-run note, and forbidden raw-content markers.
 - `atlas production status` reports `atlas.production_readiness.v1` and
   verifies `atlas.release_artifact_manifest.v1` and
   `atlas.release_provenance.v1` when production trust evidence is required.

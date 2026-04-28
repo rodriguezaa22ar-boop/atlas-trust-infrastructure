@@ -87,7 +87,9 @@ unless the overall state is `production-ready`.
   retained signing public key, production dry-run note, signed tag metadata, and
   optional milestone note are indexed with SHA-256 hashes and verify against
   the current commit or the retained release commit immediately before a
-  manifest-retention commit.
+  manifest-retention commit. Verification also checks required artifact
+  classes, required paths, schema references, known limitations, and forbidden
+  raw-content markers.
 - Limitation: release artifact manifests are metadata-only local indexes, not
   external audit attestations or deployment certification.
 

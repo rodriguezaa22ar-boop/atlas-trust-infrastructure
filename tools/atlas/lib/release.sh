@@ -889,6 +889,11 @@ atlas_release_manifest_write() {
           stores: ["paths", "sha256 hashes", "commit ids", "tag ids", "verification states", "known limitations"],
           excludes: ["raw runtime artifacts", "target secrets", "session contents", "packet captures", "credential material", "private keys", "tokens", "evidence bodies"]
         },
+        contract: {
+          schema_document: "docs/schemas/release-artifact-manifest.v1.md",
+          guidance_document: "docs/atlas/RELEASE_ARTIFACT_MANIFEST.md",
+          known_limitations_reference: "known_limitations"
+        },
         known_limitations: [
           "Release artifact manifests are metadata-only local release indexes, not external audit attestations.",
           "Artifact files are hash-bound by this manifest but are not individually signed.",
@@ -909,6 +914,11 @@ atlas_release_manifest_verify_artifact_hashes() {
   local file
   local actual_sha
 
+  if ! jq -e '(.artifacts // null | type) == "array"' "$manifest_file" >/dev/null 2>&1; then
+    atlas_release_manifest_verify_row "Artifact Hashes" "fail" "artifacts array missing"
+    return 0
+  fi
+
   while IFS=$'\t' read -r kind path expected_sha required; do
     [ -n "$kind" ] || continue
     file="$(atlas_release_resolve_repo_file "$path" 2>/dev/null || true)"
@@ -923,6 +933,155 @@ atlas_release_manifest_verify_artifact_hashes() {
       atlas_release_manifest_verify_row "Artifact $kind" "fail" "expected_sha=$expected_sha actual_sha=$actual_sha path=$path"
     fi
   done < <(jq -r '.artifacts[] | [.kind, .path, .sha256, (.required | tostring)] | @tsv' "$manifest_file")
+}
+
+atlas_release_manifest_verify_completeness() {
+  local manifest_file="$1"
+  local artifact_count
+  local required_count
+  local missing=""
+  local kind
+
+  artifact_count="$(jq -r 'if ((.artifacts // null | type) == "array") then (.artifacts | length) else -1 end' "$manifest_file")"
+  required_count="$(jq -r 'if ((.artifacts // null | type) == "array") then ([.artifacts[] | select(.required == true)] | length) else 0 end' "$manifest_file")"
+  if [ "$artifact_count" -ge 4 ] && [ "$required_count" -ge 4 ]; then
+    atlas_release_manifest_verify_row "Artifact Count" "ok" "total=$artifact_count required=$required_count"
+  else
+    atlas_release_manifest_verify_row "Artifact Count" "fail" "expected_at_least=4 total=$artifact_count required=$required_count"
+  fi
+
+  for kind in release_packet release_provenance production_dry_run signing_public_key; do
+    if ! jq -e --arg kind "$kind" '
+      [(.artifacts // [])[]?
+        | select(
+          .kind == $kind and
+          .required == true and
+          ((.path // "") | type == "string" and length > 0) and
+          ((.sha256 // "") | test("^[a-f0-9]{64}$"))
+        )
+      ] | length == 1
+    ' "$manifest_file" >/dev/null 2>&1; then
+      missing="${missing:+$missing,}$kind"
+    fi
+  done
+
+  if [ -z "$missing" ]; then
+    atlas_release_manifest_verify_row "Artifact Classes" "ok" "required classes present"
+  else
+    atlas_release_manifest_verify_row "Artifact Classes" "fail" "missing_or_invalid=$missing"
+  fi
+}
+
+atlas_release_manifest_verify_path_field() {
+  local manifest_file="$1"
+  local label="$2"
+  local jq_expr="$3"
+  local path
+  local file
+
+  path="$(jq -r "$jq_expr" "$manifest_file" 2>/dev/null || true)"
+  if [ -n "$path" ]; then
+    file="$(atlas_release_resolve_repo_file "$path" 2>/dev/null || true)"
+  else
+    file=""
+  fi
+
+  if [ -n "$file" ]; then
+    atlas_release_manifest_verify_row "$label" "ok" "path=$path"
+  else
+    atlas_release_manifest_verify_row "$label" "fail" "missing path=${path:-missing}"
+  fi
+}
+
+atlas_release_manifest_verify_generated_metadata() {
+  local manifest_file="$1"
+  local expected_commit="$2"
+  local generated_commit
+  local tag_name
+  local tag_target
+  local tag_object
+  local actual_tag_object
+
+  generated_commit="$(jq -r '.release.retained_by_commit // ""' "$manifest_file")"
+  if [ -n "$generated_commit" ] && git -C "$LAB_ROOT" rev-parse --verify --quiet "$generated_commit^{commit}" >/dev/null; then
+    atlas_release_manifest_verify_row "Generated Commit" "ok" "$generated_commit"
+  else
+    atlas_release_manifest_verify_row "Generated Commit" "fail" "missing_or_unavailable=${generated_commit:-missing}"
+  fi
+
+  tag_name="$(jq -r '.signed_tag.name // ""' "$manifest_file")"
+  tag_target="$(jq -r '.signed_tag.target // ""' "$manifest_file")"
+  tag_object="$(jq -r '.signed_tag.tag_object // ""' "$manifest_file")"
+  actual_tag_object="$(git -C "$LAB_ROOT" rev-parse "$tag_name^{tag}" 2>/dev/null || true)"
+  if [ -n "$tag_name" ] &&
+    atlas_release_commit_matches "$tag_target" "$expected_commit" &&
+    [ -n "$tag_object" ] &&
+    [ "$tag_object" = "$actual_tag_object" ] &&
+    jq -e '.signed_tag.verification == "verified"' "$manifest_file" >/dev/null 2>&1; then
+    atlas_release_manifest_verify_row "Generated Tag" "ok" "tag=$tag_name target=$tag_target"
+  else
+    atlas_release_manifest_verify_row "Generated Tag" "fail" "tag=${tag_name:-missing} target=${tag_target:-missing} tag_object=${tag_object:-missing}"
+  fi
+}
+
+atlas_release_manifest_verify_contract_refs() {
+  local manifest_file="$1"
+  local schema_doc
+  local guidance_doc
+  local known_ref
+
+  schema_doc="$(jq -r '.contract.schema_document // ""' "$manifest_file")"
+  if [ -n "$schema_doc" ] && atlas_release_resolve_repo_file "$schema_doc" >/dev/null 2>&1; then
+    atlas_release_manifest_verify_row "Schema Docs Reference" "ok" "$schema_doc"
+  else
+    atlas_release_manifest_verify_row "Schema Docs Reference" "fail" "missing path=${schema_doc:-missing}"
+  fi
+
+  guidance_doc="$(jq -r '.contract.guidance_document // ""' "$manifest_file")"
+  if [ -n "$guidance_doc" ] && atlas_release_resolve_repo_file "$guidance_doc" >/dev/null 2>&1; then
+    atlas_release_manifest_verify_row "Manifest Contract Reference" "ok" "$guidance_doc"
+  else
+    atlas_release_manifest_verify_row "Manifest Contract Reference" "fail" "missing path=${guidance_doc:-missing}"
+  fi
+
+  known_ref="$(jq -r '.contract.known_limitations_reference // ""' "$manifest_file")"
+  if [ "$known_ref" = "known_limitations" ] && jq -e '((.known_limitations // []) | length > 0)' "$manifest_file" >/dev/null 2>&1; then
+    atlas_release_manifest_verify_row "Known Limitations Reference" "ok" "$known_ref"
+  else
+    atlas_release_manifest_verify_row "Known Limitations Reference" "fail" "missing reference=${known_ref:-missing}"
+  fi
+}
+
+atlas_release_manifest_verify_forbidden_content() {
+  local manifest_file="$1"
+  local forbidden
+
+  forbidden="$(jq -r '
+    def pathstr($p): $p | map(tostring) | join(".");
+    def ignored($p): (($p[0] // "") == "metadata_boundary") or (($p[0] // "") == "known_limitations");
+    def bad_key: test("^(raw_runtime_artifacts|target_secrets|session_contents|packet_captures|credential_material|private_keys|tokens|password|passwd|api_key|secret|authorization|cookie|session)$"; "i");
+    def bad_value: test("password=|passwd=|api_key=|secret=|authorization:|bearer[[:space:]]|set-cookie:|BEGIN RSA|BEGIN OPENSSH|session=|cookie="; "i");
+    (
+      [
+        paths as $p
+        | select(($p | length) > 0 and (ignored($p) | not))
+        | select((($p[-1] | type) == "string") and (($p[-1] | tostring) | bad_key))
+        | pathstr($p)
+      ] +
+      [
+        paths(scalars) as $p
+        | select(ignored($p) | not)
+        | select(((getpath($p) | type) == "string") and (getpath($p) | bad_value))
+        | pathstr($p)
+      ]
+    ) | unique | .[]
+  ' "$manifest_file" 2>/dev/null || true)"
+
+  if [ -z "$forbidden" ]; then
+    atlas_release_manifest_verify_row "Forbidden Content" "ok" "no forbidden raw-content markers"
+  else
+    atlas_release_manifest_verify_row "Forbidden Content" "fail" "$(printf '%s' "$forbidden" | paste -sd, -)"
+  fi
 }
 
 atlas_release_manifest_verify_packet() {
@@ -964,12 +1123,15 @@ atlas_release_manifest_verify_packet() {
     atlas_release_manifest_verify_row "Metadata Boundary" "fail" "expected metadata_only=true raw_artifacts_embedded=false no_production_overclaim=true"
   fi
 
+  atlas_release_manifest_verify_forbidden_content "$manifest_file"
+
   release_commit="$(jq -r '.release.commit // ""' "$manifest_file")"
   if atlas_release_commit_matches "$release_commit" "$expected_commit"; then
     atlas_release_manifest_verify_row "Release Commit" "ok" "$release_commit"
   else
     atlas_release_manifest_verify_row "Release Commit" "fail" "expected=$expected_commit actual=${release_commit:-missing}"
   fi
+  atlas_release_manifest_verify_generated_metadata "$manifest_file" "$expected_commit"
 
   repo_state="$(jq -r '.repository.state_before_manifest // ""' "$manifest_file")"
   if [ "$repo_state" = "clean" ]; then
@@ -987,6 +1149,12 @@ atlas_release_manifest_verify_packet() {
     atlas_release_manifest_verify_row "Upstream Sync" "fail" "expected=synced actual=${sync_state:-missing}"
   fi
 
+  atlas_release_manifest_verify_completeness "$manifest_file"
+  atlas_release_manifest_verify_path_field "$manifest_file" "Release Packet Path" '.release_packet.path // ""'
+  atlas_release_manifest_verify_path_field "$manifest_file" "Provenance Path" '.provenance.path // ""'
+  atlas_release_manifest_verify_path_field "$manifest_file" "Production Dry Run Path" '.production_dry_run.path // ""'
+  atlas_release_manifest_verify_path_field "$manifest_file" "Signing Public Key Path" '.signing_public_key.path // ""'
+  atlas_release_manifest_verify_contract_refs "$manifest_file"
   atlas_release_manifest_verify_artifact_hashes "$manifest_file"
 
   packet_path="$(jq -r '.release_packet.path // ""' "$manifest_file")"

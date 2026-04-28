@@ -139,9 +139,13 @@ release evidence for a release commit:
 - optional milestone note path and SHA-256
 
 `atlas release manifest-verify` checks artifact hashes, release packet
-verification, signed provenance, production dry-run evidence, and tag
-verification with the retained public key. The schema is documented at
-[schemas/release-artifact-manifest.v1.md](schemas/release-artifact-manifest.v1.md).
+verification, signed provenance, production dry-run evidence, tag verification
+with the retained public key, required artifact classes, required paths, schema
+references, known limitations, and forbidden raw-content markers. The schema is
+documented at
+[schemas/release-artifact-manifest.v1.md](schemas/release-artifact-manifest.v1.md),
+and the operational contract is documented at
+[atlas/RELEASE_ARTIFACT_MANIFEST.md](atlas/RELEASE_ARTIFACT_MANIFEST.md).
 
 ## Production Status
 

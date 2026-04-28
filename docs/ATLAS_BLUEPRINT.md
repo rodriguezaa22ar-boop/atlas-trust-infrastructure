@@ -587,6 +587,12 @@ The near-term roadmap is:
     production readiness depends on a metadata-only index that binds the
     retained release packet, signed provenance, signing key, production dry-run
     note, signed tag, and optional milestone note.
+92. Harden release artifact manifest verification. `atlas release
+    manifest-verify` now checks manifest generation metadata, signed tag
+    metadata, artifact counts, required artifact classes, required paths,
+    schema and guidance document references, known limitations references, and
+    forbidden raw-content markers before replaying release packet, provenance,
+    dry-run, and signed tag verification.
 
 ## First Serious Version
 
