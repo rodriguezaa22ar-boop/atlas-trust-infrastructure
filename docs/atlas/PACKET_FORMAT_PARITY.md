@@ -34,7 +34,7 @@ A packet or status surface has JSON parity only when:
 | `atlas op audit-packet` | Markdown | no | planned | gap | Needs JSON audit packet and verifier parity. |
 | `atlas op archive-packet` | Markdown | no | planned | gap | Needs JSON archive packet and verifier parity. |
 | `atlas finding review-packet` | Markdown | no | planned | gap | Needs JSON accepted-risk review packet and verifier parity. |
-| `atlas flow packet` | Markdown | no | `atlas.business_flow_packet.v1` | gap | Markdown flow packet and `atlas flow verify` are implemented; JSON parity remains planned. |
+| `atlas flow packet` | Markdown | yes | `atlas.business_flow_packet.v1`; `atlas.business_flow_verify.v1` | implemented | `atlas flow packet --json` and `atlas flow verify --json` are implemented and tested with metadata-only guardrails. |
 | `atlas advisor prompt` | Markdown | no | planned | non-blocking gap | Advisor packets remain metadata-only; JSON can come after trust packets. |
 
 ## Implemented JSON Schemas
@@ -43,6 +43,8 @@ A packet or status surface has JSON parity only when:
 - [`atlas.release_provenance.v1`](../schemas/release-provenance.v1.md)
 - [`atlas.production_readiness.v1`](../schemas/production-readiness.v1.md)
 - [`atlas.operation_trust_chain.v1`](../schemas/operation-trust-chain.v1.md)
+- [`atlas.business_flow_packet.v1`](../schemas/business-flow-packet.v1.md)
+- [`atlas.business_flow_verify.v1`](../schemas/business-flow-verify.v1.md)
 
 ## Missing JSON Packet Surfaces
 
@@ -53,8 +55,7 @@ Priority order:
 3. closeout manifest
 4. handoff packet
 5. accepted-risk review packet
-6. business-flow packet
-7. advisor prompt packet
+6. advisor prompt packet
 
 ## Guardrails
 

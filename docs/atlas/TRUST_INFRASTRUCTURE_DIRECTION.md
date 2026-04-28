@@ -215,7 +215,9 @@ verification, negative tests, and readiness integration are stable.
 5. Add flow finding and validation links when the metadata model is stable.
 6. Keep flow record, flow link, evidence link, and packet schemas stable before
    adding JSON parity or deeper flow trust-chain integration.
-7. Add packet/replay parity where retained proof needs machine-readable gates.
+7. Keep Business Flow Evidence JSON packet and verification parity aligned with
+   the Markdown packet contract.
+8. Add packet/replay parity where retained proof needs machine-readable gates.
 
 Do not jump to Atlas OS, web UI, kernel work, ISI runtime, fleet control, SQL
 migration, or autonomous features before the metadata-first trust

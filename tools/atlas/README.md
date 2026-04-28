@@ -228,18 +228,20 @@ execution and retest as separate commands.
 metadata-only Business Flow Evidence records. Global flow records live under
 `state/atlas/flows/`; operation evidence links live under
 `sessions/<operation>/flow_evidence.ndjson`; flow packets live under
-`sessions/<operation>/flow_packets/`. Flow records describe business-critical
-processes with labels such as owner, criticality, systems, data classes, and
-control objectives. Evidence links reference existing Atlas evidence IDs,
-hashes, and retained paths without copying raw evidence. Flow packets preserve
-that same metadata-only boundary and include known limitations. Flow
+`sessions/<operation>/flow_packets/`, and JSON flow packets live under
+`sessions/<operation>/flow_packets_json/`. Flow records describe
+business-critical processes with labels such as owner, criticality, systems,
+data classes, and control objectives. Evidence links reference existing Atlas
+evidence IDs, hashes, and retained paths without copying raw evidence. Flow
+packets preserve that same metadata-only boundary and include known
+limitations. `atlas flow packet --json` emits `atlas.business_flow_packet.v1`;
+`atlas flow verify --json` emits `atlas.business_flow_verify.v1`. Flow
 verification checks packet metadata, linked evidence records, retained evidence
 files, hashes, freshness, and forbidden-content markers. Flow records, links,
 and packets must not contain secrets, customer records, request or response
 bodies, payment data, tokens, or raw evidence. `atlas v1 status` and
 `atlas production status` surface Business Flow Evidence as an optional
-non-blocking pillar/gate. JSON parity and finding/validation links remain
-planned later steps.
+non-blocking pillar/gate. Finding/validation links remain planned later steps.
 
 The full trust lifecycle is documented in
 [`docs/TRUST_LIFECYCLE.md`](../../docs/TRUST_LIFECYCLE.md). It

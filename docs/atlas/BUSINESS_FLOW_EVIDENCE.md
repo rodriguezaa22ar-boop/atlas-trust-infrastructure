@@ -175,8 +175,8 @@ atlas flow add <flow-name>
 atlas flow list
 atlas flow show <flow>
 atlas flow link-evidence <flow> <evidence-id>
-atlas flow packet <flow> [packet-name]
-atlas flow verify <flow> [packet-name]
+atlas flow packet [--json] <flow> [packet-name]
+atlas flow verify [--json] <flow> [packet-name]
 ```
 
 Implemented records are written to:
@@ -186,6 +186,7 @@ state/atlas/flows/<flow-slug>.env
 sessions/<operation>/business_flows.ndjson
 sessions/<operation>/flow_evidence.ndjson
 sessions/<operation>/flow_packets/<packet-name>.md
+sessions/<operation>/flow_packets_json/<packet-name>.json
 ```
 
 Implemented schema contracts:
@@ -194,6 +195,7 @@ Implemented schema contracts:
 - [`atlas.business_flow_link.v1`](../schemas/business-flow-link.v1.md)
 - [`atlas.flow_evidence_link.v1`](../schemas/flow-evidence-link.v1.md)
 - [`atlas.business_flow_packet.v1`](../schemas/business-flow-packet.v1.md)
+- [`atlas.business_flow_verify.v1`](../schemas/business-flow-verify.v1.md)
 
 `atlas flow link-evidence` requires an active operation and an existing evidence
 ID in that operation. The link records metadata such as evidence ID, kind,
@@ -202,19 +204,21 @@ the evidence artifact and does not store the evidence body or original source
 path.
 
 `atlas flow packet` requires an active operation and an existing business-flow
-evidence link in that operation. It writes a metadata-only Markdown packet with
-flow identity, operation metadata, data class labels, system aliases, control
-objective labels, evidence IDs, retained evidence paths, SHA-256 hashes,
-classification, redaction state, freshness metadata, and known limitations.
+evidence link in that operation. By default it writes a metadata-only Markdown
+packet with flow identity, operation metadata, data class labels, system
+aliases, control objective labels, evidence IDs, retained evidence paths,
+SHA-256 hashes, classification, redaction state, freshness metadata, and known
+limitations. With `--json`, it writes the same metadata-only contract as
+machine-readable JSON under `flow_packets_json/`.
 
 `atlas flow verify` requires an active operation and verifies the current
 metadata-only Markdown packet against the flow record, operation link, evidence
 links, retained evidence records, retained evidence files, hashes, freshness
-timestamps, and forbidden-content guardrails.
+timestamps, and forbidden-content guardrails. With `--json`, it verifies the
+JSON packet and emits `atlas.business_flow_verify.v1`.
 
-This slice does not implement JSON packet parity, finding or validation links,
-or retention links yet. Readiness integration is implemented as optional and
-non-blocking.
+This slice does not implement finding or validation links, or retention links
+yet. Readiness integration is implemented as optional and non-blocking.
 
 ## Flow Record Contract
 
@@ -285,6 +289,13 @@ packet under:
 sessions/<operation>/flow_packets/<packet-name>.md
 ```
 
+`atlas flow packet --json <flow> [packet-name]` generates the JSON parity
+packet under:
+
+```text
+sessions/<operation>/flow_packets_json/<packet-name>.json
+```
+
 The packet includes:
 
 - flow identity
@@ -303,9 +314,9 @@ The packet includes:
 - known limitations
 - SHA-256 anchors where available
 
-The first packet slice records findings, validation, approvals, retention
-references, and JSON parity as known limitations instead of claiming those links
-exist.
+The first packet slice records findings, validation, approvals, and retention
+references as empty metadata structures or known limitations instead of
+claiming those links exist.
 
 The packet must not include:
 
@@ -320,7 +331,8 @@ The packet must not include:
 
 ## Flow Verification
 
-`atlas flow verify <flow> [packet-name]` checks:
+`atlas flow verify <flow> [packet-name]` and
+`atlas flow verify --json <flow> [packet-name]` check:
 
 - flow record exists
 - packet exists
@@ -339,8 +351,8 @@ The packet must not include:
 
 Verification fails closed on missing packets, missing links, stale packets,
 missing retained files, hash mismatches, and forbidden raw-content markers.
-Finding, validation, approval, retention, and JSON verification can be added
-after those link types exist.
+Finding, validation, approval, and retention verification can be added after
+those link types exist.
 
 ## Freshness
 
@@ -371,8 +383,8 @@ atlas flow add <flow-name>
 atlas flow list
 atlas flow show <flow>
 atlas flow link-evidence <flow> <evidence-id>
-atlas flow packet <flow> [packet-name]
-atlas flow verify <flow> [packet-name]
+atlas flow packet [--json] <flow> [packet-name]
+atlas flow verify [--json] <flow> [packet-name]
 ```
 
 The next runtime command set should add:
@@ -385,8 +397,8 @@ atlas flow link-validation <flow> <validation-id>
 Later commands may add:
 
 ```bash
-atlas flow packet --json <flow> [packet-name]
-atlas flow verify --json <flow> [packet-name]
+atlas flow link-approval <flow> <approval-id>
+atlas flow trust-chain <flow>
 ```
 
 Do not add automatic business-flow discovery in the first implementation.

@@ -9,11 +9,12 @@ The packet is metadata-only. It records which business flow was reviewed, which
 Atlas artifacts support the review, what validation or findings exist, and
 whether the packet is current.
 
-The current `atlas flow packet` implementation emits a Markdown packet aligned
-to this contract, and `atlas flow verify` verifies that Markdown packet against
+The current `atlas flow packet` implementation emits a Markdown packet by
+default. `atlas flow packet --json` emits a machine-readable JSON packet under
+`sessions/<operation>/flow_packets_json/`. `atlas flow verify` verifies the
+Markdown packet, and `atlas flow verify --json` verifies the JSON packet against
 the active operation, flow record, evidence links, retained evidence files,
-hashes, freshness, and metadata-only guardrails. A stable JSON companion is
-still planned.
+hashes, freshness, and metadata-only guardrails.
 
 This packet depends on the stabilized record and link contracts:
 
@@ -30,6 +31,7 @@ This packet depends on the stabilized record and link contracts:
 | `generated_at` | string | UTC timestamp. |
 | `operation` | string | Atlas operation name or slug. |
 | `target` | string | Atlas target name. |
+| `raw_evidence_embedded` | boolean | Must be `false`. |
 | `flow` | object | Flow identity and metadata. |
 | `systems` | array of strings | System aliases involved in the flow. |
 | `data_classes` | array of strings | Data class labels involved in the flow. |
@@ -102,7 +104,7 @@ The packet may include hashes and metadata references to redacted artifacts.
 
 ## Verification Rules
 
-`atlas flow verify` checks:
+`atlas flow verify --json` checks:
 
 - packet exists
 - `schema_version` matches
@@ -119,7 +121,7 @@ The packet may include hashes and metadata references to redacted artifacts.
 - forbidden raw-content markers are absent
 
 Future verification can add linked finding IDs, linked validation IDs, linked
-retention references, and JSON packet parity once those surfaces exist.
+retention references once those surfaces exist.
 
 ## Markdown Parity
 
@@ -138,7 +140,7 @@ The Markdown packet should include the same core sections:
 - Known Limitations
 
 Markdown is for human review. JSON is for gates, replay, dashboards, and future
-automation.
+automation. The two formats must retain the same metadata-only boundary.
 
 ## Non-Goals
 

@@ -63,7 +63,9 @@ repository in filesystem order.
 - [schemas/business-flow-evidence.v1.md](schemas/business-flow-evidence.v1.md):
   optional business-flow evidence contract.
 - [schemas/business-flow-packet.v1.md](schemas/business-flow-packet.v1.md):
-  business-flow packet contract, with Markdown implemented and JSON planned.
+  business-flow packet contract for Markdown and JSON packet parity.
+- [schemas/business-flow-verify.v1.md](schemas/business-flow-verify.v1.md):
+  machine-readable business-flow packet verification contract.
 - [atlas/PACKET_FORMAT_PARITY.md](atlas/PACKET_FORMAT_PARITY.md): Markdown and
   JSON parity matrix.
 

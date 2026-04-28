@@ -488,6 +488,15 @@ The near-term roadmap is:
     `atlas.business_flow_packet.v1` Markdown packet parity. The docs clarify
     required fields, metadata-only boundaries, forbidden content, verification
     rules, and remaining gaps before JSON parity or required-pillar promotion.
+80. Add Business Flow Evidence JSON packet parity. `atlas flow packet --json`
+    now writes metadata-only JSON packets under
+    `sessions/<operation>/flow_packets_json/`, and
+    `atlas flow verify --json` emits `atlas.business_flow_verify.v1` results
+    while verifying packet metadata, flow record hashes, operation links,
+    evidence links, retained evidence files, freshness, and forbidden-content
+    guardrails. The Markdown packet remains the human review surface; JSON is
+    now available for gates, replay, dashboards, and future trust-chain
+    integration.
 
 ## First Serious Version
 

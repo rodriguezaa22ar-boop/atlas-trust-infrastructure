@@ -20,6 +20,8 @@ documented at [../atlas/TRUST_OBJECT_MODEL.md](../atlas/TRUST_OBJECT_MODEL.md).
 | `atlas.release_provenance.v1` | `docs/retention/releases/*.provenance.json` | [release-provenance.v1.md](release-provenance.v1.md) |
 | `atlas.production_readiness.v1` | `atlas production status --json` | [production-readiness.v1.md](production-readiness.v1.md) |
 | `atlas.operation_trust_chain.v1` | `atlas op trust-chain --json` | [operation-trust-chain.v1.md](operation-trust-chain.v1.md) |
+| `atlas.business_flow_packet.v1` | `atlas flow packet --json` | [business-flow-packet.v1.md](business-flow-packet.v1.md) |
+| `atlas.business_flow_verify.v1` | `atlas flow verify --json` | [business-flow-verify.v1.md](business-flow-verify.v1.md) |
 
 ## Design Contracts
 
@@ -32,7 +34,6 @@ are not stable command outputs yet for JSON.
 | `atlas.business_flow_link.v1` | `sessions/<operation>/business_flows.ndjson` | [business-flow-link.v1.md](business-flow-link.v1.md) |
 | `atlas.flow_evidence_link.v1` | `sessions/<operation>/flow_evidence.ndjson` | [flow-evidence-link.v1.md](flow-evidence-link.v1.md) |
 | `atlas.business_flow_evidence.v1` | optional flow evidence object, JSON planned | [business-flow-evidence.v1.md](business-flow-evidence.v1.md) |
-| `atlas.business_flow_packet.v1` | `atlas flow packet` Markdown, JSON planned | [business-flow-packet.v1.md](business-flow-packet.v1.md) |
 
 ## Rules
 

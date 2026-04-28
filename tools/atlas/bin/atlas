@@ -106,8 +106,8 @@ usage:
   atlas flow list
   atlas flow show <flow>
   atlas flow link-evidence <flow> <evidence-id>
-  atlas flow packet <flow> [packet-name]
-  atlas flow verify <flow> [packet-name]
+  atlas flow packet [--json] <flow> [packet-name]
+  atlas flow verify [--json] <flow> [packet-name]
   atlas web assess <url> [assessment-name]
   atlas web validation-plan [--all]
   atlas web validation-approve [--all] --reason text
@@ -336,8 +336,8 @@ business flows:
   atlas flow list
   atlas flow show <flow>
   atlas flow link-evidence <flow> <evidence-id>
-  atlas flow packet <flow> [packet-name]
-  atlas flow verify <flow> [packet-name]
+  atlas flow packet [--json] <flow> [packet-name]
+  atlas flow verify [--json] <flow> [packet-name]
 
 v1:
   atlas v1 status [name] [--strict] [--json]

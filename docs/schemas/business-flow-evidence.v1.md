@@ -15,6 +15,7 @@ file-backed surfaces are documented separately:
 - `atlas.business_flow_link.v1`
 - `atlas.flow_evidence_link.v1`
 - `atlas.business_flow_packet.v1`
+- `atlas.business_flow_verify.v1`
 
 ## Required Fields
 
