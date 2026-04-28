@@ -1,0 +1,35 @@
+{
+  "schema_version": "atlas.release_provenance.v1",
+  "generated": "2026-04-28T02:13:37Z",
+  "metadata_only": true,
+  "commit": "14c511b8d4ccb25a764019be3086b01ff2683059",
+  "signed_tag": {
+    "name": "atlas-production-candidate-m81",
+    "target": "14c511b8d4ccb25a764019be3086b01ff2683059",
+    "tag_object": "a0dcb9be3534f37492ddc9ef8e52b8d73d82f2dc",
+    "verification": "verified",
+    "signer_fingerprint": "24B1E00EEB286B966F9FCE0C9C6439E15BBFD290",
+    "public_key_path": "docs/retention/releases/atlas-m67-release-signing-public-key.asc",
+    "public_key_sha256": "c08e7454ee3ab72a39286f61efd4deca8fbe0ef3fe20844771ff5735da6a79d5"
+  },
+  "release_packet": {
+    "path": "docs/retention/releases/atlas-m81-business-flow-context-links.json",
+    "sha256": "158475542387cf0983b1af1fd138269b214d23eaac062bd8e6a29b3e78216957"
+  },
+  "qa": {
+    "status": "pass",
+    "command": "nix-shell --run './bin/dev-qa'",
+    "note": "dev-qa passed with 93/93 tests, lint ok, and stress ok before M81 business-flow finding and validation link release packet"
+  },
+  "production_status": {
+    "observed": "not-ready",
+    "note": "provenance and dry-run evidence were pending before retaining this packet set"
+  },
+  "known_limitations": [
+    "local signed-tag provenance is not an external audit",
+    "release packet files are hash-bound by provenance but are not individually signed",
+    "Business Flow Evidence finding and validation links are implemented, but approval links, retention links, flow trust-chain integration, and required-pillar promotion remain planned",
+    "Atlas production status is a local contract, not deployment certification"
+  ],
+  "no_production_overclaim": true
+}
