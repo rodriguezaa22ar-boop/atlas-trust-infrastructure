@@ -429,6 +429,9 @@ make_repo_clean_and_synced() {
   grep -q 'atlas flow assurance --json <flow>' "$assurance_schema"
   grep -q '`open_findings`' "$assurance_schema"
   grep -q '`validation_gaps`' "$assurance_schema"
+  grep -q '`coverage_model`' "$assurance_schema"
+  grep -q '`controls`' "$assurance_schema"
+  grep -q 'aggregate-flow-v1' "$assurance_schema"
   grep -q 'The command is read-only' "$assurance_schema"
 
   grep -q '## Design Contracts' "$schema_index"
@@ -1582,6 +1585,11 @@ EOF
   [[ "$output" == *"Evidence Links: 1"* ]]
   [[ "$output" == *"Open Findings: 0"* ]]
   [[ "$output" == *"Retention Links: 1"* ]]
+  [[ "$output" == *"Control Objectives: 1"* ]]
+  [[ "$output" == *"Aggregate Evidence-Covered Controls: 1"* ]]
+  [[ "$output" == *"Validation-Covered Controls: 0"* ]]
+  [[ "$output" == *"audit_logging"* ]]
+  [[ "$output" == *"evidence-linked"* ]]
   [[ "$output" == *"Status: current"* ]]
   [[ "$output" != *"flow assurance proof that must not be copied"* ]]
   [[ "$output" != *"retained assurance report that must not be copied"* ]]
@@ -1593,6 +1601,7 @@ EOF
       .schema_version == "atlas.business_flow_assurance.v1" and
       .metadata_only == true and
       .required == false and
+      .coverage_model == "aggregate-flow-v1" and
       .overall == "current" and
       .counts.operation_links == 1 and
       .counts.evidence_links == 1 and
@@ -1600,8 +1609,16 @@ EOF
       .counts.open_findings == 0 and
       .counts.validation_gaps == 0 and
       .counts.retention_links == 1 and
+      .counts.control_objectives == 1 and
+      .counts.controls_with_aggregate_evidence == 1 and
+      .counts.controls_with_validation_coverage == 0 and
+      .controls[0].control_objective == "audit_logging" and
+      .controls[0].coverage_model == "aggregate-flow-v1" and
+      .controls[0].status == "evidence-linked" and
       .packet.status == "current" and
       .packet.format == "json" and
+      any(.checks[]; .check == "Control Objectives" and .status == "ok") and
+      any(.checks[]; .check == "Control Coverage" and .status == "ok") and
       any(.checks[]; .check == "Packet Verification" and .status == "ok")
     '
 
@@ -1628,6 +1645,8 @@ EOF
       .counts.finding_links == 1 and
       .counts.open_findings == 1 and
       .counts.validation_gaps == 1 and
+      .counts.control_objectives == 1 and
+      .controls[0].status == "attention-required" and
       .packet.status == "stale" and
       any(.checks[]; .check == "Open Findings" and .status == "warning") and
       any(.checks[]; .check == "Validation Coverage" and .status == "warning") and

@@ -22,11 +22,13 @@ or production gate.
 | `schema_version` | string | Must be `atlas.business_flow_assurance.v1`. |
 | `metadata_only` | boolean | Must be `true`. |
 | `required` | boolean | Must be `false` at the current maturity stage. |
+| `coverage_model` | string | Must be `aggregate-flow-v1` for the current control coverage model. |
 | `flow` | object | Flow identity, owner, criticality, environment, and scope labels. |
 | `operation` | object | Active operation slug and target. |
 | `overall` | string | `current`, `attention-required`, `blocked`, or `not-recorded`. |
 | `next_step` | string | Operator action to improve the assurance state. |
 | `counts` | object | Link counts, open finding count, and validation gap count. |
+| `controls` | array | Declared control objectives interpreted against aggregate flow evidence state. |
 | `packet` | object | Selected packet name, path, format, verification status, and checks. |
 | `checks` | array | Assurance-level checks with status and detail. |
 | `known_limitations` | array | Non-goals and limits for this assurance view. |
@@ -43,10 +45,34 @@ or production gate.
 - `validation_gaps`
 - `approval_links`
 - `retention_links`
+- `control_objectives`
+- `controls_with_aggregate_evidence`
+- `controls_with_validation_coverage`
 
 `open_findings` is based on the latest linked finding record when available.
 `validation_gaps` counts linked findings that do not have a linked validation
 record for the same flow and operation.
+
+## Controls Array
+
+Each `controls` item represents one declared control objective from the flow
+record. The current model is aggregate, not per-control evidence mapping.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `control_objective` | string | Declared flow control objective label. |
+| `requirement` | string | `declared`; required/optional control classes are not implemented yet. |
+| `coverage_model` | string | `aggregate-flow-v1`. |
+| `status` | string | `not-recorded`, `missing-evidence`, `evidence-linked`, `validation-covered`, or `attention-required`. |
+| `evidence_links` | number | Aggregate evidence links for the flow. |
+| `validation_links` | number | Aggregate validation links for the flow. |
+| `open_findings` | number | Current open linked findings for the flow. |
+| `validation_gaps` | number | Linked findings without linked validation. |
+| `detail` | string | Human-readable explanation of the aggregate status. |
+
+This version intentionally does not claim that a specific evidence artifact
+proves a specific control objective. It reports whether declared controls have
+aggregate flow evidence and whether linked findings have validation coverage.
 
 ## Packet Object
 
@@ -72,20 +98,23 @@ Each `checks` item contains:
 
 - `not-recorded`: the flow is not linked to the active operation.
 - `blocked`: packet verification is blocked.
-- `attention-required`: the flow has evidence, finding, validation, retention,
-  or packet gaps, open linked findings, or stale packet state.
+- `attention-required`: the flow has evidence, control objective, finding,
+  validation, retention, or packet gaps, open linked findings, or stale packet
+  state.
 - `current`: the flow is linked, packet verification is current, linked
-  findings have validation coverage, there are no open linked findings, and a
-  high- or critical-importance flow has retention coverage.
+  findings have validation coverage, declared controls have aggregate evidence,
+  there are no open linked findings, and a high- or critical-importance flow
+  has retention coverage.
 
 The command is read-only and should not write ledger events or mutate operation
 state.
 
 ## Metadata-Only Boundary
 
-This output may include flow labels, operation labels, counts, packet paths,
-finding statuses, validation coverage counts, approval and retention counts,
-verification statuses, and verifier check metadata.
+This output may include flow labels, operation labels, declared control
+objective labels, counts, packet paths, finding statuses, validation coverage
+counts, approval and retention counts, verification statuses, and verifier
+check metadata.
 
 It must not include raw evidence bodies, finding impact or recommendation
 bodies, validation reasons, plan bodies, session contents, approval reasons,

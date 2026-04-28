@@ -267,13 +267,16 @@ it verifies the JSON packet and emits `atlas.business_flow_verify.v1`.
 
 `atlas flow assurance` requires an active operation and reports a read-only
 business-process assurance view for one flow. It summarizes operation links,
-evidence links, finding links, open finding counts, validation coverage gaps,
-approval links, retention links, and packet verification state. With `--json`,
-it emits `atlas.business_flow_assurance.v1` without writing ledger events or
-mutating operation state. The command highlights `current`, `not-recorded`,
-`attention-required`, and `blocked` states; it is not production
-certification, payment verification, legal compliance evidence, or a
-third-party audit.
+declared control objective coverage, evidence links, finding links, open
+finding counts, validation coverage gaps, approval links, retention links, and
+packet verification state. The current control coverage model is
+`aggregate-flow-v1`: Atlas reports whether declared controls have aggregate
+flow evidence and whether linked findings have validation coverage, but it does
+not yet claim per-control evidence mapping. With `--json`, it emits
+`atlas.business_flow_assurance.v1` without writing ledger events or mutating
+operation state. The command highlights `current`, `not-recorded`,
+`attention-required`, and `blocked` states; it is not production certification,
+payment verification, legal compliance evidence, or a third-party audit.
 
 `atlas flow trust-chain` requires an active operation and reports the trust
 state for one flow. It summarizes operation, evidence, finding, validation,
@@ -537,6 +540,7 @@ atlas flow link-approval <flow> <capability>
 atlas flow link-retention <flow> <kind> <path>
 atlas flow packet [--json] <flow> [packet-name]
 atlas flow verify [--json] <flow> [packet-name]
+atlas flow assurance [--json] <flow> [packet-name]
 atlas flow trust-chain [--json] <flow> [packet-name]
 ```
 
@@ -579,6 +583,8 @@ Evidence pillar is intentionally promoted from optional to required.
 ## Known Limitations
 
 - This model does not prove the business process is correct by itself.
+- Control coverage is aggregate in the current version; Atlas does not yet map
+  one evidence artifact to one declared control objective.
 - This model does not validate payment processors, banks, or third-party
   settlement outside retained metadata.
 - This model does not replace compliance audits.

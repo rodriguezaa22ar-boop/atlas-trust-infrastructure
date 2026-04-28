@@ -3634,6 +3634,82 @@ atlas_flow_validation_gap_count() {
   printf '%s\n' "$count"
 }
 
+atlas_flow_control_objective_count() {
+  local value="$1"
+  local count=0
+  local item
+
+  if [ -z "$value" ]; then
+    printf '0\n'
+    return 0
+  fi
+
+  while IFS= read -r item; do
+    [ -n "$item" ] || continue
+    count=$((count + 1))
+  done < <(printf '%s\n' "$value" | tr ',' '\n')
+
+  printf '%s\n' "$count"
+}
+
+atlas_flow_control_coverage_json() {
+  local value="$1"
+  local operation_links="$2"
+  local evidence_links="$3"
+  local open_findings="$4"
+  local validation_links="$5"
+  local validation_gaps="$6"
+  local item
+  local status
+  local detail
+
+  if [ -z "$value" ]; then
+    printf '[]\n'
+    return 0
+  fi
+
+  while IFS= read -r item; do
+    [ -n "$item" ] || continue
+    if [ "$operation_links" -eq 0 ]; then
+      status="not-recorded"
+      detail="flow is not linked to the active operation"
+    elif [ "$evidence_links" -eq 0 ]; then
+      status="missing-evidence"
+      detail="no evidence links are recorded for this flow"
+    elif [ "$open_findings" -gt 0 ]; then
+      status="attention-required"
+      detail="linked open findings require review or validation"
+    elif [ "$validation_links" -gt 0 ] && [ "$validation_gaps" -eq 0 ]; then
+      status="validation-covered"
+      detail="aggregate flow validation links cover linked findings"
+    else
+      status="evidence-linked"
+      detail="aggregate flow evidence exists; no linked open findings"
+    fi
+    jq -cn \
+      --arg control_objective "$item" \
+      --arg requirement "declared" \
+      --arg coverage_model "aggregate-flow-v1" \
+      --arg status "$status" \
+      --arg detail "$detail" \
+      --argjson evidence_links "$evidence_links" \
+      --argjson validation_links "$validation_links" \
+      --argjson open_findings "$open_findings" \
+      --argjson validation_gaps "$validation_gaps" \
+      '{
+        control_objective: $control_objective,
+        requirement: $requirement,
+        coverage_model: $coverage_model,
+        status: $status,
+        evidence_links: $evidence_links,
+        validation_links: $validation_links,
+        open_findings: $open_findings,
+        validation_gaps: $validation_gaps,
+        detail: $detail
+      }'
+  done < <(printf '%s\n' "$value" | tr ',' '\n') | jq -s '.'
+}
+
 atlas_flow_assurance_add_check() {
   local rows_file="$1"
   local check="$2"
@@ -3675,6 +3751,10 @@ cmd_flow_assurance() {
   local retention_links=0
   local open_findings=0
   local validation_gaps=0
+  local control_objectives=0
+  local controls_with_aggregate_evidence=0
+  local controls_with_validation_coverage=0
+  local controls_json="[]"
   local packet_status="missing"
   local packet_format="none"
   local packet_path=""
@@ -3741,6 +3821,17 @@ cmd_flow_assurance() {
   retention_links="$(atlas_flow_retention_link_count "$retention_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
   open_findings="$(atlas_flow_current_open_finding_count "$finding_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
   validation_gaps="$(atlas_flow_validation_gap_count "$finding_links_file" "$validation_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  control_objectives="$(atlas_flow_control_objective_count "$ATLAS_FLOW_CONTROL_OBJECTIVES")"
+  if [ "$operation_links" -gt 0 ] && [ "$control_objectives" -gt 0 ] && [ "$evidence_links" -gt 0 ]; then
+    controls_with_aggregate_evidence="$control_objectives"
+  fi
+  if [ "$operation_links" -gt 0 ] &&
+    [ "$control_objectives" -gt 0 ] &&
+    [ "$validation_links" -gt 0 ] &&
+    [ "$validation_gaps" -eq 0 ]; then
+    controls_with_validation_coverage="$control_objectives"
+  fi
+  controls_json="$(atlas_flow_control_coverage_json "$ATLAS_FLOW_CONTROL_OBJECTIVES" "$operation_links" "$evidence_links" "$open_findings" "$validation_links" "$validation_gaps")"
 
   if [ "$operation_links" -eq 0 ]; then
     packet_status="not-recorded"
@@ -3755,6 +3846,18 @@ cmd_flow_assurance() {
     atlas_flow_assurance_add_check "$checks_file" "Evidence Links" "ok" "$evidence_links"
   elif [ "$operation_links" -gt 0 ]; then
     atlas_flow_assurance_add_check "$checks_file" "Evidence Links" "warning" "no evidence links recorded for this flow"
+  fi
+
+  if [ "$control_objectives" -gt 0 ]; then
+    atlas_flow_assurance_add_check "$checks_file" "Control Objectives" "ok" "declared=$control_objectives"
+  elif [ "$operation_links" -gt 0 ]; then
+    atlas_flow_assurance_add_check "$checks_file" "Control Objectives" "warning" "no control objectives declared for this flow"
+  fi
+
+  if [ "$operation_links" -gt 0 ] && [ "$control_objectives" -gt 0 ] && [ "$controls_with_aggregate_evidence" -eq "$control_objectives" ]; then
+    atlas_flow_assurance_add_check "$checks_file" "Control Coverage" "ok" "aggregate_evidence_covered=$controls_with_aggregate_evidence/$control_objectives"
+  elif [ "$operation_links" -gt 0 ] && [ "$control_objectives" -gt 0 ]; then
+    atlas_flow_assurance_add_check "$checks_file" "Control Coverage" "warning" "aggregate_evidence_covered=$controls_with_aggregate_evidence/$control_objectives"
   fi
 
   if [ "$finding_links" -gt 0 ] && [ "$open_findings" -gt 0 ]; then
@@ -3833,6 +3936,7 @@ cmd_flow_assurance() {
       overall="blocked"
       next_step="Resolve blocked packet verification checks before relying on this flow assurance state."
     elif [ "$evidence_links" -eq 0 ] ||
+      [ "$control_objectives" -eq 0 ] ||
       [ "$open_findings" -gt 0 ] ||
       [ "$validation_gaps" -gt 0 ] ||
       [ "$packet_status" != "current" ] ||
@@ -3874,12 +3978,17 @@ cmd_flow_assurance() {
       --argjson validation_gaps "$validation_gaps" \
       --argjson approval_links "$approval_links" \
       --argjson retention_links "$retention_links" \
+      --argjson control_objectives "$control_objectives" \
+      --argjson controls_with_aggregate_evidence "$controls_with_aggregate_evidence" \
+      --argjson controls_with_validation_coverage "$controls_with_validation_coverage" \
+      --argjson controls "$controls_json" \
       --argjson checks "$checks_json" \
       --argjson verification_checks "$verify_checks_json" \
       '{
         schema_version: $schema_version,
         metadata_only: true,
         required: false,
+        coverage_model: "aggregate-flow-v1",
         flow: {
           flow_id: $flow_id,
           flow_slug: $flow_slug,
@@ -3904,8 +4013,12 @@ cmd_flow_assurance() {
           validation_links: $validation_links,
           validation_gaps: $validation_gaps,
           approval_links: $approval_links,
-          retention_links: $retention_links
+          retention_links: $retention_links,
+          control_objectives: $control_objectives,
+          controls_with_aggregate_evidence: $controls_with_aggregate_evidence,
+          controls_with_validation_coverage: $controls_with_validation_coverage
         },
+        controls: $controls,
         packet: {
           status: $packet_status,
           format: $packet_format,
@@ -3943,6 +4056,21 @@ cmd_flow_assurance() {
   ui_kv "Validation Gaps" "$validation_gaps"
   ui_kv "Approval Links" "$approval_links"
   ui_kv "Retention Links" "$retention_links"
+  ui_kv "Control Objectives" "$control_objectives"
+  ui_kv "Aggregate Evidence-Covered Controls" "$controls_with_aggregate_evidence"
+  ui_kv "Validation-Covered Controls" "$controls_with_validation_coverage"
+  ui_rule
+  ui_subheading "Control Coverage"
+  if [ "$control_objectives" -eq 0 ]; then
+    ui_note "no control objectives declared"
+  else
+    printf '%-32s %-22s %s\n' "CONTROL" "STATUS" "DETAIL"
+    printf '%s\n' "$controls_json" |
+      jq -r '.[] | [.control_objective, .status, .detail] | @tsv' |
+      while IFS=$'\t' read -r control status detail; do
+        printf '%-32s %-22s %s\n' "$control" "$status" "$detail"
+      done
+  fi
   ui_rule
   ui_subheading "Packet"
   ui_kv "Status" "$packet_status"
