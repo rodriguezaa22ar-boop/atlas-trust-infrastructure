@@ -18,6 +18,8 @@ manual dispatch.
 
 It checks:
 
+- a full Git checkout, including tags, so retained release provenance and
+  release artifact manifests can verify signed tags
 - repository whitespace with `git diff --check`
 - the full local QA gate with `nix-shell --run './bin/dev-qa'`
 - Atlas internal readiness with `nix-shell --run './tools/atlas/bin/atlas v1 status --strict'`
@@ -45,10 +47,10 @@ nix-shell --run 'bats --filter "<test name>" tests/atlas.bats'
 
 ## Non-Goals
 
-The current CI gate does not claim production readiness. It does not yet block
-on `atlas production status`, because production readiness is expected to remain
-`not-ready` until signing/provenance, retained production dry-run evidence, and
-a current verified release trust packet are in place.
+The current CI gate does not claim production readiness and does not yet block
+on `atlas production status`. Production status remains a separate local
+release-promotion contract even when retained release evidence reports
+`production-ready`.
 
 The CI gate also does not run live target assessments, external web tests, or
 router/device tests.
