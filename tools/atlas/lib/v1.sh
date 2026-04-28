@@ -585,7 +585,7 @@ atlas_v1_collect_business_flow_evidence() {
       "disabled" \
       "Business Flow Evidence is explicitly disabled by environment policy" \
       "tests/atlas.bats business-flow readiness tests" \
-      "atlas flow add; atlas flow link-retention; atlas flow packet; atlas flow verify" \
+      "atlas flow add; atlas flow link-retention; atlas flow packet; atlas flow verify; atlas flow trust-chain" \
       "state/atlas/flows" \
       "optional pillar; disabled state is non-blocking"
     return 0
@@ -598,7 +598,7 @@ atlas_v1_collect_business_flow_evidence() {
       "planned" \
       "Business Flow Evidence is marked planned and non-blocking" \
       "tests/atlas.bats business-flow readiness tests" \
-      "atlas flow add; atlas flow link-retention; atlas flow packet; atlas flow verify" \
+      "atlas flow add; atlas flow link-retention; atlas flow packet; atlas flow verify; atlas flow trust-chain" \
       "state/atlas/flows" \
       "optional pillar; planned state is non-blocking"
     return 0
@@ -611,7 +611,8 @@ atlas_v1_collect_business_flow_evidence() {
     ! declare -F cmd_flow_link_approval >/dev/null 2>&1 ||
     ! declare -F cmd_flow_link_retention >/dev/null 2>&1 ||
     ! declare -F cmd_flow_packet >/dev/null 2>&1 ||
-    ! declare -F cmd_flow_verify >/dev/null 2>&1; then
+    ! declare -F cmd_flow_verify >/dev/null 2>&1 ||
+    ! declare -F cmd_flow_trust_chain >/dev/null 2>&1; then
     atlas_v1_add_pillar \
       "business_flow_evidence" \
       "Business Flow Evidence" \
@@ -619,7 +620,7 @@ atlas_v1_collect_business_flow_evidence() {
       "planned" \
       "Business Flow Evidence commands are not fully enabled yet" \
       "tests/atlas.bats business-flow readiness tests" \
-      "atlas flow add; atlas flow link-retention; atlas flow packet; atlas flow verify" \
+      "atlas flow add; atlas flow link-retention; atlas flow packet; atlas flow verify; atlas flow trust-chain" \
       "state/atlas/flows" \
       "optional pillar; command availability must be proven before promotion"
     return 0
@@ -645,9 +646,9 @@ atlas_v1_collect_business_flow_evidence() {
     "ready" \
     "$reason" \
     "tests/atlas.bats business-flow records, links, packets, verify, and readiness tests" \
-    "atlas flow add; atlas flow list; atlas flow show; atlas flow link-evidence; atlas flow link-finding; atlas flow link-validation; atlas flow link-approval; atlas flow link-retention; atlas flow packet; atlas flow packet --json; atlas flow verify; atlas flow verify --json" \
+    "atlas flow add; atlas flow list; atlas flow show; atlas flow link-evidence; atlas flow link-finding; atlas flow link-validation; atlas flow link-approval; atlas flow link-retention; atlas flow packet; atlas flow packet --json; atlas flow verify; atlas flow verify --json; atlas flow trust-chain; atlas flow trust-chain --json" \
     "$artifacts" \
-    "optional non-blocking pillar; no automatic flow discovery or flow-specific trust-chain command yet"
+    "optional non-blocking pillar; no automatic flow discovery yet"
 }
 
 atlas_v1_collect() {

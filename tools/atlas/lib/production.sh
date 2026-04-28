@@ -236,7 +236,7 @@ atlas_production_check_business_flow_evidence() {
       "disabled" \
       "optional Business Flow Evidence is explicitly disabled by environment policy" \
       "docs/atlas/BUSINESS_FLOW_EVIDENCE.md" \
-      "atlas flow add; atlas flow link-evidence; atlas flow link-finding; atlas flow link-validation; atlas flow link-approval; atlas flow link-retention; atlas flow packet; atlas flow packet --json; atlas flow verify; atlas flow verify --json" \
+      "atlas flow add; atlas flow link-evidence; atlas flow link-finding; atlas flow link-validation; atlas flow link-approval; atlas flow link-retention; atlas flow packet; atlas flow packet --json; atlas flow verify; atlas flow verify --json; atlas flow trust-chain; atlas flow trust-chain --json" \
       "business-flow evidence is optional and does not block production readiness yet"
     return 0
     ;;
@@ -248,7 +248,7 @@ atlas_production_check_business_flow_evidence() {
       "planned" \
       "optional Business Flow Evidence is marked planned" \
       "docs/atlas/BUSINESS_FLOW_EVIDENCE.md" \
-      "atlas flow add; atlas flow link-evidence; atlas flow link-finding; atlas flow link-validation; atlas flow link-approval; atlas flow link-retention; atlas flow packet; atlas flow packet --json; atlas flow verify; atlas flow verify --json" \
+      "atlas flow add; atlas flow link-evidence; atlas flow link-finding; atlas flow link-validation; atlas flow link-approval; atlas flow link-retention; atlas flow packet; atlas flow packet --json; atlas flow verify; atlas flow verify --json; atlas flow trust-chain; atlas flow trust-chain --json" \
       "business-flow evidence is optional and does not block production readiness yet"
     return 0
     ;;
@@ -260,7 +260,8 @@ atlas_production_check_business_flow_evidence() {
     ! declare -F cmd_flow_link_approval >/dev/null 2>&1 ||
     ! declare -F cmd_flow_link_retention >/dev/null 2>&1 ||
     ! declare -F cmd_flow_packet >/dev/null 2>&1 ||
-    ! declare -F cmd_flow_verify >/dev/null 2>&1; then
+    ! declare -F cmd_flow_verify >/dev/null 2>&1 ||
+    ! declare -F cmd_flow_trust_chain >/dev/null 2>&1; then
     atlas_production_add_gate \
       "business_flow_evidence" \
       "Business Flow Evidence" \
@@ -268,7 +269,7 @@ atlas_production_check_business_flow_evidence() {
       "planned" \
       "optional Business Flow Evidence commands are not fully enabled yet" \
       "docs/atlas/BUSINESS_FLOW_EVIDENCE.md" \
-      "atlas flow add; atlas flow link-evidence; atlas flow link-finding; atlas flow link-validation; atlas flow link-approval; atlas flow link-retention; atlas flow packet; atlas flow packet --json; atlas flow verify; atlas flow verify --json" \
+      "atlas flow add; atlas flow link-evidence; atlas flow link-finding; atlas flow link-validation; atlas flow link-approval; atlas flow link-retention; atlas flow packet; atlas flow packet --json; atlas flow verify; atlas flow verify --json; atlas flow trust-chain; atlas flow trust-chain --json" \
       "business-flow evidence is optional and does not block production readiness yet"
     return 0
   fi
@@ -284,8 +285,8 @@ atlas_production_check_business_flow_evidence() {
     "ready" \
     "optional metadata-only Business Flow Evidence commands, retention links, packets, and verification are available; flow_records=$flow_records" \
     "docs/atlas/BUSINESS_FLOW_EVIDENCE.md" \
-    "atlas flow add; atlas flow link-evidence; atlas flow link-finding; atlas flow link-validation; atlas flow link-approval; atlas flow link-retention; atlas flow packet; atlas flow packet --json; atlas flow verify; atlas flow verify --json" \
-    "optional gate; not required for local production readiness until flow trust-chain integration is stable"
+    "atlas flow add; atlas flow link-evidence; atlas flow link-finding; atlas flow link-validation; atlas flow link-approval; atlas flow link-retention; atlas flow packet; atlas flow packet --json; atlas flow verify; atlas flow verify --json; atlas flow trust-chain; atlas flow trust-chain --json" \
+    "optional gate; not required for local production readiness until Business Flow Evidence is promoted to a required pillar"
 }
 
 atlas_production_latest_dry_run_note() {

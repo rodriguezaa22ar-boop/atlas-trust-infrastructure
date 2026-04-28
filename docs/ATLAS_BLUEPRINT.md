@@ -529,6 +529,14 @@ The near-term roadmap is:
     freshness counts, retained artifact hash checks, and stale/blocking
     outcomes without embedding report bodies, packet bodies, raw evidence,
     approval reasons, operator notes, or sensitive business data.
+85. Add Business Flow Evidence flow trust-chain visibility. `atlas flow
+    trust-chain` and `atlas flow trust-chain --json` now report a single flow's
+    operation, evidence, finding, validation, approval, and retention link
+    counts; Markdown and JSON packet presence; and packet verification state.
+    The JSON view emits `atlas.business_flow_trust_chain.v1`. The command is
+    read-only and does not write ledger events or embed raw evidence, retained
+    artifact bodies, approval reasons, operator notes, or sensitive business
+    data.
 
 ## First Serious Version
 

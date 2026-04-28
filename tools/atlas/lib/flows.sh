@@ -3558,6 +3558,249 @@ cmd_flow_verify() {
   fi
 }
 
+cmd_flow_trust_chain() {
+  local json=0
+  local flow=""
+  local packet_name=""
+  local flow_links_file
+  local evidence_links_file
+  local finding_links_file
+  local validation_links_file
+  local approval_links_file
+  local retention_links_file
+  local markdown_packet
+  local json_packet
+  local operation_links=0
+  local evidence_links=0
+  local finding_links=0
+  local validation_links=0
+  local approval_links=0
+  local retention_links=0
+  local markdown_packet_exists=false
+  local json_packet_exists=false
+  local verification_status="not-run"
+  local verification_format="none"
+  local verification_packet=""
+  local verification_checks_json="[]"
+  local status
+  local next_step
+  local verify_file
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+    --json)
+      json=1
+      shift
+      ;;
+    --)
+      shift
+      break
+      ;;
+    -*)
+      fail "unknown flow trust-chain option: $1"
+      ;;
+    *)
+      if [ -z "$flow" ]; then
+        flow="$1"
+      elif [ -z "$packet_name" ]; then
+        packet_name="$1"
+      else
+        fail "flow trust-chain [--json] <flow> [packet-name]"
+      fi
+      shift
+      ;;
+    esac
+  done
+  [ "$#" -eq 0 ] || fail "flow trust-chain [--json] <flow> [packet-name]"
+  [ -n "$flow" ] || fail "flow trust-chain [--json] <flow> [packet-name]"
+
+  atlas_flow_load "$flow"
+  load_active_operation
+  intel_require_jq
+
+  if [ -z "$packet_name" ]; then
+    packet_name="$ATLAS_FLOW_SLUG-flow-packet"
+  fi
+
+  flow_links_file="$(atlas_flow_operation_links_file "$ATLAS_OP_DIR")"
+  evidence_links_file="$(atlas_flow_evidence_links_file "$ATLAS_OP_DIR")"
+  finding_links_file="$(atlas_flow_finding_links_file "$ATLAS_OP_DIR")"
+  validation_links_file="$(atlas_flow_validation_links_file "$ATLAS_OP_DIR")"
+  approval_links_file="$(atlas_flow_approval_links_file "$ATLAS_OP_DIR")"
+  retention_links_file="$(atlas_flow_retention_links_file "$ATLAS_OP_DIR")"
+  markdown_packet="$(atlas_flow_packet_path_for_name "$packet_name")"
+  json_packet="$(atlas_flow_packet_json_path_for_name "$packet_name")"
+
+  if atlas_flow_operation_link_exists "$flow_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG"; then
+    operation_links=1
+  fi
+  evidence_links="$(atlas_flow_evidence_link_count "$evidence_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  finding_links="$(atlas_flow_finding_link_count "$finding_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  validation_links="$(atlas_flow_validation_link_count "$validation_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  approval_links="$(atlas_flow_approval_link_count "$approval_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  retention_links="$(atlas_flow_retention_link_count "$retention_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+
+  if [ -f "$markdown_packet" ]; then
+    markdown_packet_exists=true
+  fi
+  if [ -f "$json_packet" ]; then
+    json_packet_exists=true
+  fi
+
+  if [ "$operation_links" -eq 0 ]; then
+    status="not-recorded"
+    next_step="Link the flow to operation evidence with atlas flow link-evidence."
+  elif [ "$evidence_links" -eq 0 ]; then
+    status="linked"
+    next_step="Link at least one evidence record before packetizing this flow."
+  elif [ "$json_packet_exists" = true ]; then
+    verify_file="$(mktemp)"
+    if cmd_flow_verify_json "$ATLAS_FLOW_SLUG" "$packet_name" >"$verify_file" 2>/dev/null; then
+      verification_status="current"
+    else
+      verification_status="$(jq -r '.overall // "blocked"' "$verify_file" 2>/dev/null || printf 'blocked\n')"
+    fi
+    verification_format="json"
+    verification_packet="$json_packet"
+    if jq -e 'type == "object"' "$verify_file" >/dev/null 2>&1; then
+      verification_checks_json="$(jq -c '.checks // []' "$verify_file")"
+      verification_status="$(jq -r '.overall // "'"$verification_status"'"' "$verify_file")"
+    fi
+    rm -f "$verify_file"
+    if [ "$verification_status" = "current" ]; then
+      status="current"
+      next_step="Flow trust chain is current."
+    else
+      status="attention-required"
+      next_step="Resolve flow verification issues, then regenerate and verify the flow packet."
+    fi
+  elif [ "$markdown_packet_exists" = true ]; then
+    verification_format="markdown"
+    verification_packet="$markdown_packet"
+    if cmd_flow_verify_markdown "$ATLAS_FLOW_SLUG" "$packet_name" >/dev/null 2>&1; then
+      verification_status="current"
+      status="current"
+      next_step="Flow trust chain is current; generate JSON parity when machine-readable gates need it."
+    else
+      verification_status="${ATLAS_FLOW_VERIFY_OVERALL:-blocked}"
+      status="attention-required"
+      next_step="Resolve flow verification issues, then regenerate and verify the flow packet."
+    fi
+  else
+    status="linked"
+    next_step="Generate a metadata-only flow packet with atlas flow packet and atlas flow packet --json."
+  fi
+
+  if [ "$json" -eq 1 ]; then
+    jq -n \
+      --arg schema_version "atlas.business_flow_trust_chain.v1" \
+      --arg flow_id "$ATLAS_FLOW_ID" \
+      --arg flow_slug "$ATLAS_FLOW_SLUG" \
+      --arg flow_name "$ATLAS_FLOW_NAME" \
+      --arg operation "$ATLAS_OP_SLUG" \
+      --arg target "$ATLAS_OP_TARGET" \
+      --arg status "$status" \
+      --arg next_step "$next_step" \
+      --arg flow_links_file "$flow_links_file" \
+      --arg evidence_links_file "$evidence_links_file" \
+      --arg finding_links_file "$finding_links_file" \
+      --arg validation_links_file "$validation_links_file" \
+      --arg approval_links_file "$approval_links_file" \
+      --arg retention_links_file "$retention_links_file" \
+      --arg markdown_packet "$markdown_packet" \
+      --arg json_packet "$json_packet" \
+      --arg verification_status "$verification_status" \
+      --arg verification_format "$verification_format" \
+      --arg verification_packet "$verification_packet" \
+      --argjson required false \
+      --argjson operation_links "$operation_links" \
+      --argjson evidence_links "$evidence_links" \
+      --argjson finding_links "$finding_links" \
+      --argjson validation_links "$validation_links" \
+      --argjson approval_links "$approval_links" \
+      --argjson retention_links "$retention_links" \
+      --argjson markdown_packet_exists "$markdown_packet_exists" \
+      --argjson json_packet_exists "$json_packet_exists" \
+      --argjson verification_checks "$verification_checks_json" \
+      '{
+        schema_version: $schema_version,
+        flow: {
+          flow_id: $flow_id,
+          flow_slug: $flow_slug,
+          flow_name: $flow_name
+        },
+        operation: {
+          slug: $operation,
+          target: $target
+        },
+        status: $status,
+        next_step: $next_step,
+        required: $required,
+        metadata_only: true,
+        links: {
+          operation_links: $operation_links,
+          evidence_links: $evidence_links,
+          finding_links: $finding_links,
+          validation_links: $validation_links,
+          approval_links: $approval_links,
+          retention_links: $retention_links
+        },
+        artifacts: {
+          operation_links: $flow_links_file,
+          evidence_links: $evidence_links_file,
+          finding_links: $finding_links_file,
+          validation_links: $validation_links_file,
+          approval_links: $approval_links_file,
+          retention_links: $retention_links_file,
+          markdown_packet: $markdown_packet,
+          json_packet: $json_packet
+        },
+        packets: {
+          markdown: {
+            path: $markdown_packet,
+            exists: $markdown_packet_exists
+          },
+          json: {
+            path: $json_packet,
+            exists: $json_packet_exists
+          }
+        },
+        verification: {
+          status: $verification_status,
+          packet_format: $verification_format,
+          packet: $verification_packet,
+          checks: $verification_checks
+        }
+      }'
+    return 0
+  fi
+
+  ui_heading "Atlas Business Flow Trust Chain"
+  ui_rule
+  ui_kv "Flow" "$ATLAS_FLOW_ID"
+  ui_kv "Operation" "$ATLAS_OP_SLUG"
+  ui_kv "Target" "$ATLAS_OP_TARGET"
+  ui_kv "Status" "$status"
+  ui_kv "Next Step" "$next_step"
+  ui_rule
+  ui_subheading "Links"
+  ui_kv "Operation Links" "$operation_links path=$flow_links_file"
+  ui_kv "Evidence Links" "$evidence_links path=$evidence_links_file"
+  ui_kv "Finding Links" "$finding_links path=$finding_links_file"
+  ui_kv "Validation Links" "$validation_links path=$validation_links_file"
+  ui_kv "Approval Links" "$approval_links path=$approval_links_file"
+  ui_kv "Retention Links" "$retention_links path=$retention_links_file"
+  ui_rule
+  ui_subheading "Packets"
+  ui_kv "Markdown Packet" "$markdown_packet_exists path=$markdown_packet"
+  ui_kv "JSON Packet" "$json_packet_exists path=$json_packet"
+  ui_rule
+  ui_subheading "Verification"
+  ui_kv "Status" "$verification_status"
+  ui_kv "Packet Format" "$verification_format"
+  ui_kv "Packet" "${verification_packet:-none}"
+}
+
 dispatch_flow_command() {
   case "${1:-}" in
   add)
@@ -3599,6 +3842,10 @@ dispatch_flow_command() {
   verify)
     shift
     cmd_flow_verify "$@"
+    ;;
+  trust-chain)
+    shift
+    cmd_flow_trust_chain "$@"
     ;;
   *)
     usage

@@ -195,7 +195,8 @@ Each pillar status must include:
   `atlas flow link-evidence`, `atlas flow link-finding`,
   `atlas flow link-validation`, `atlas flow link-approval`,
   `atlas flow link-retention`, `atlas flow packet`, `atlas flow packet --json`, `atlas flow verify`,
-  `atlas flow verify --json`
+  `atlas flow verify --json`, `atlas flow trust-chain`,
+  `atlas flow trust-chain --json`
 - Artifacts: `state/atlas/flows/`,
   `sessions/<operation>/business_flows.ndjson`,
   `sessions/<operation>/flow_evidence.ndjson`,
@@ -206,7 +207,7 @@ Each pillar status must include:
   `sessions/<operation>/flow_packets/`,
   `sessions/<operation>/flow_packets_json/`
 - Limitations: optional non-blocking pillar; no automatic business-flow
-  discovery or flow-specific trust-chain command yet.
+  discovery yet.
 
 ### AI Advisor
 

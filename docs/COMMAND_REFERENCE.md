@@ -137,6 +137,8 @@ nix-shell --run './bin/dev-qa'
 ./tools/atlas/bin/atlas flow packet --json customer-signup customer-signup-flow
 ./tools/atlas/bin/atlas flow verify customer-signup customer-signup-flow
 ./tools/atlas/bin/atlas flow verify --json customer-signup customer-signup-flow
+./tools/atlas/bin/atlas flow trust-chain customer-signup customer-signup-flow
+./tools/atlas/bin/atlas flow trust-chain --json customer-signup customer-signup-flow
 ```
 
 Business-flow records are metadata-only global flow records under
@@ -156,7 +158,8 @@ approval metadata references, retention references,
 freshness metadata, and known limitations. Flow verification checks packet
 metadata, evidence links, finding links, validation links, approval links,
 retention links, retained files, hashes, freshness, and forbidden-content
-markers.
+markers. Flow trust-chain output summarizes one flow's link counts, packet
+presence, and verification state without mutating operation state.
 
 ## Atlas Findings
 

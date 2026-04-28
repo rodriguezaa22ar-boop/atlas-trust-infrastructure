@@ -45,6 +45,7 @@ A packet or status surface has JSON parity only when:
 - [`atlas.operation_trust_chain.v1`](../schemas/operation-trust-chain.v1.md)
 - [`atlas.business_flow_packet.v1`](../schemas/business-flow-packet.v1.md)
 - [`atlas.business_flow_verify.v1`](../schemas/business-flow-verify.v1.md)
+- [`atlas.business_flow_trust_chain.v1`](../schemas/business-flow-trust-chain.v1.md)
 
 ## Missing JSON Packet Surfaces
 

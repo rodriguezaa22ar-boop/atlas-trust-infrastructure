@@ -71,7 +71,7 @@ Packets are metadata-only records that anchor trust state at a point in time.
 | Release provenance packet | Binds a release packet hash to a signed Git tag and retained public key. |
 | Production dry-run note | Records local production-contract dry-run evidence. |
 | Advisor packet | Carries metadata-only AI Advisor context. |
-| Business-flow packet | Metadata-only flow proof linking flows to operation evidence, findings, validation, approvals, and retained artifacts. Flow record, operation link, evidence/finding/validation/approval/retention links, Markdown/JSON packets, Markdown/JSON verification, and optional non-blocking readiness visibility are implemented. |
+| Business-flow packet | Metadata-only flow proof linking flows to operation evidence, findings, validation, approvals, and retained artifacts. Flow record, operation link, evidence/finding/validation/approval/retention links, Markdown/JSON packets, Markdown/JSON verification, single-flow trust-chain visibility, and optional non-blocking readiness visibility are implemented. |
 
 Packets must not embed raw runtime artifacts, secrets, customer records,
 payloads, session contents, packet captures, private keys, tokens, credentials,
@@ -213,6 +213,6 @@ Readiness language remains layered:
 
 Business Flow Evidence remains optional. It is visible as a non-blocking
 readiness pillar/gate, and operation trust-chain output can summarize flow link
-and packet counts. Flow retention links are implemented; a flow-specific
-trust-chain command and required-pillar promotion remain planned until the model
-is stable.
+and packet counts. Flow retention links and a flow-specific trust-chain command
+are implemented; required-pillar promotion remains planned until the model is
+stable.

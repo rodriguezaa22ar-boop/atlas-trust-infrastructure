@@ -185,6 +185,7 @@ atlas flow link-approval <flow> <capability>
 atlas flow link-retention <flow> <kind> <path>
 atlas flow packet [--json] <flow> [packet-name]
 atlas flow verify [--json] <flow> [packet-name]
+atlas flow trust-chain [--json] <flow> [packet-name]
 ```
 
 Implemented records are written to:
@@ -212,6 +213,7 @@ Implemented schema contracts:
 - [`atlas.flow_retention_link.v1`](../schemas/flow-retention-link.v1.md)
 - [`atlas.business_flow_packet.v1`](../schemas/business-flow-packet.v1.md)
 - [`atlas.business_flow_verify.v1`](../schemas/business-flow-verify.v1.md)
+- [`atlas.business_flow_trust_chain.v1`](../schemas/business-flow-trust-chain.v1.md)
 
 `atlas flow link-evidence` requires an active operation and an existing evidence
 ID in that operation. The link records metadata such as evidence ID, kind,
@@ -261,9 +263,16 @@ retained evidence records, retained evidence files, retained artifact files,
 hashes, freshness timestamps, and forbidden-content guardrails. With `--json`,
 it verifies the JSON packet and emits `atlas.business_flow_verify.v1`.
 
-This slice does not implement a flow-specific trust-chain command yet.
+`atlas flow trust-chain` requires an active operation and reports the trust
+state for one flow. It summarizes operation, evidence, finding, validation,
+approval, and retention link counts; Markdown and JSON packet presence; and
+verification state. With `--json`, it emits
+`atlas.business_flow_trust_chain.v1` without writing ledger events or mutating
+operation state.
+
 Operation trust-chain output can summarize flow link, retention link, and packet
-counts, and readiness integration remains optional and non-blocking.
+counts across the operation, and readiness integration remains optional and
+non-blocking.
 
 ## Flow Record Contract
 
@@ -516,12 +525,7 @@ atlas flow link-approval <flow> <capability>
 atlas flow link-retention <flow> <kind> <path>
 atlas flow packet [--json] <flow> [packet-name]
 atlas flow verify [--json] <flow> [packet-name]
-```
-
-Later commands may add:
-
-```bash
-atlas flow trust-chain <flow>
+atlas flow trust-chain [--json] <flow> [packet-name]
 ```
 
 Do not add automatic business-flow discovery in the first implementation.

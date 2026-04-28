@@ -22,6 +22,7 @@ documented at [../atlas/TRUST_OBJECT_MODEL.md](../atlas/TRUST_OBJECT_MODEL.md).
 | `atlas.operation_trust_chain.v1` | `atlas op trust-chain --json` | [operation-trust-chain.v1.md](operation-trust-chain.v1.md) |
 | `atlas.business_flow_packet.v1` | `atlas flow packet --json` | [business-flow-packet.v1.md](business-flow-packet.v1.md) |
 | `atlas.business_flow_verify.v1` | `atlas flow verify --json` | [business-flow-verify.v1.md](business-flow-verify.v1.md) |
+| `atlas.business_flow_trust_chain.v1` | `atlas flow trust-chain --json` | [business-flow-trust-chain.v1.md](business-flow-trust-chain.v1.md) |
 
 ## Design Contracts
 

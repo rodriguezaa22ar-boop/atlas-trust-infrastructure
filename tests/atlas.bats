@@ -318,6 +318,7 @@ make_repo_clean_and_synced() {
   grep -q 'atlas flow link-retention <flow> <kind> <path>' "$flow_doc"
   grep -Fq 'atlas flow packet [--json] <flow> [packet-name]' "$flow_doc"
   grep -Fq 'atlas flow verify [--json] <flow> [packet-name]' "$flow_doc"
+  grep -Fq 'atlas flow trust-chain [--json] <flow> [packet-name]' "$flow_doc"
   grep -q 'state/atlas/flows/<flow-slug>.env' "$flow_doc"
   grep -q 'sessions/<operation>/flow_evidence.ndjson' "$flow_doc"
   grep -q 'sessions/<operation>/flow_findings.ndjson' "$flow_doc"
@@ -333,6 +334,7 @@ make_repo_clean_and_synced() {
   grep -q 'atlas.flow_retention_link.v1' "$flow_doc"
   grep -q 'atlas.business_flow_packet.v1' "$flow_doc"
   grep -q 'atlas.business_flow_verify.v1' "$flow_doc"
+  grep -q 'atlas.business_flow_trust_chain.v1' "$flow_doc"
   grep -q 'password=' "$flow_doc"
   grep -q 'authorization:' "$flow_doc"
   grep -q 'set-cookie:' "$flow_doc"
@@ -1406,6 +1408,108 @@ EOF
   [ "$ledger_before" = "$ledger_after" ]
 }
 
+@test "atlas flow trust-chain reports single-flow verification state read-only" {
+  mkdir -p "$TEST_ROOT/toolkit/targets"
+  cat > "$TEST_ROOT/toolkit/targets/demo-node.env" <<'EOF'
+NAME=demo-node
+ADDRESS=10.10.10.10
+SCOPE_STATUS=in-scope
+CRITICALITY=high
+CREATED_AT=2026-04-23T20:53:16Z
+EOF
+  artifact="$TEST_ROOT/flow-specific-trust-artifact.txt"
+  second_artifact="$TEST_ROOT/flow-specific-trust-second-artifact.txt"
+  printf 'single-flow trust proof that must not be copied\n' > "$artifact"
+  printf 'second single-flow trust proof that must not be copied\n' > "$second_artifact"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow add customer-signup \
+    --type customer_onboarding \
+    --owner product \
+    --criticality high \
+    --environment staging \
+    --scope-status in-scope \
+    --data-class email \
+    --system web_app \
+    --control audit_logging
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op start flow-specific-trust-op demo-node authorized flow trust-chain
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow trust-chain customer-signup
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Atlas Business Flow Trust Chain"* ]]
+  [[ "$output" == *"Status: not-recorded"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence add "$artifact" --kind redacted-report --classification public
+  [ "$status" -eq 0 ]
+  evidence_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  [ -n "$evidence_id" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow link-evidence customer-signup "$evidence_id"
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow trust-chain --json customer-signup customer-signup-flow
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" |
+    jq -e '
+      .schema_version == "atlas.business_flow_trust_chain.v1" and
+      .status == "linked" and
+      .required == false and
+      .metadata_only == true and
+      .links.operation_links == 1 and
+      .links.evidence_links == 1 and
+      .packets.json.exists == false
+    '
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow packet customer-signup customer-signup-flow
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow packet --json customer-signup customer-signup-flow
+  [ "$status" -eq 0 ]
+
+  ledger="$TEST_ROOT/toolkit/sessions/flow-specific-trust-op/ledger.ndjson"
+  ledger_before="$(sha256sum "$ledger" | awk '{ print $1 }')"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow trust-chain customer-signup customer-signup-flow
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Status: current"* ]]
+  [[ "$output" == *"Evidence Links: 1"* ]]
+  [[ "$output" == *"JSON Packet: true"* ]]
+  [[ "$output" == *"Packet Format: json"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow trust-chain --json customer-signup customer-signup-flow
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" |
+    jq -e '
+      .status == "current" and
+      .verification.status == "current" and
+      .verification.packet_format == "json" and
+      .links.evidence_links == 1 and
+      (.artifacts.evidence_links | endswith("flow_evidence.ndjson"))
+    '
+
+  ledger_after="$(sha256sum "$ledger" | awk '{ print $1 }')"
+  [ "$ledger_before" = "$ledger_after" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence add "$second_artifact" --kind redacted-report --classification public
+  [ "$status" -eq 0 ]
+  second_evidence_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  [ -n "$second_evidence_id" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow link-evidence customer-signup "$second_evidence_id"
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow trust-chain --json customer-signup customer-signup-flow
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" |
+    jq -e '
+      .status == "attention-required" and
+      .verification.status == "stale" and
+      any(.verification.checks[]; .check == "Evidence Count" and .status == "stale")
+    '
+}
+
 @test "release replay verification runbook preserves clean-checkout procedure" {
   replay_doc="$TEST_ROOT/toolkit/docs/retention/releases/REPLAY_VERIFICATION.md"
 
@@ -1441,6 +1545,7 @@ EOF
   grep -q 'atlas.operation_trust_chain.v1' "$parity_doc"
   grep -q 'atlas.business_flow_packet.v1' "$parity_doc"
   grep -q 'atlas.business_flow_verify.v1' "$parity_doc"
+  grep -q 'atlas.business_flow_trust_chain.v1' "$parity_doc"
   grep -q '`atlas op archive-packet`' "$parity_doc"
   grep -q '`atlas op audit-packet`' "$parity_doc"
   grep -q '`atlas op closeout`' "$parity_doc"
@@ -1466,6 +1571,7 @@ EOF
   trust_chain_schema="$schemas_dir/operation-trust-chain.v1.md"
   business_packet_schema="$schemas_dir/business-flow-packet.v1.md"
   business_verify_schema="$schemas_dir/business-flow-verify.v1.md"
+  business_trust_chain_schema="$schemas_dir/business-flow-trust-chain.v1.md"
 
   [ -f "$index_file" ]
   [ -f "$release_schema" ]
@@ -1474,6 +1580,7 @@ EOF
   [ -f "$trust_chain_schema" ]
   [ -f "$business_packet_schema" ]
   [ -f "$business_verify_schema" ]
+  [ -f "$business_trust_chain_schema" ]
 
   grep -q 'atlas.release_trust.v1' "$index_file"
   grep -q 'atlas.release_provenance.v1' "$index_file"
@@ -1481,6 +1588,7 @@ EOF
   grep -q 'atlas.operation_trust_chain.v1' "$index_file"
   grep -q 'atlas.business_flow_packet.v1' "$index_file"
   grep -q 'atlas.business_flow_verify.v1' "$index_file"
+  grep -q 'atlas.business_flow_trust_chain.v1' "$index_file"
   grep -q 'metadata-only' "$index_file"
   grep -q 'Release Trust Consumers' "$index_file"
   grep -q 'atlas release verify' "$index_file"
@@ -1529,6 +1637,10 @@ EOF
   grep -q '^# Schema Contract: atlas.business_flow_verify.v1$' "$business_verify_schema"
   grep -q 'atlas flow verify --json' "$business_verify_schema"
   grep -q '`schema_version` | string | Must be `atlas.business_flow_verify.v1`' "$business_verify_schema"
+  grep -q '^# `atlas.business_flow_trust_chain.v1`$' "$business_trust_chain_schema"
+  grep -q 'atlas flow trust-chain --json <flow>' "$business_trust_chain_schema"
+  grep -q '`status`: `not-recorded`, `linked`, `current`, or `attention-required`' "$business_trust_chain_schema"
+  grep -q 'The command must not write ledger events' "$business_trust_chain_schema"
 }
 
 @test "demo walkthrough preserves full Atlas trust path" {
@@ -1659,6 +1771,7 @@ EOF
   [[ "$output" == *"atlas flow link-retention <flow> <kind> <path>"* ]]
   [[ "$output" == *"atlas flow packet [--json] <flow> [packet-name]"* ]]
   [[ "$output" == *"atlas flow verify [--json] <flow> [packet-name]"* ]]
+  [[ "$output" == *"atlas flow trust-chain [--json] <flow> [packet-name]"* ]]
   [[ "$output" == *"atlas web assess <url> [assessment-name]"* ]]
   [[ "$output" == *"atlas web validation-plan [--all]"* ]]
   [[ "$output" == *"atlas web validation-approve [--all] --reason text"* ]]
@@ -2117,6 +2230,7 @@ EOF
       (.pillars.business_flow_evidence.commands | contains("atlas flow link-retention")) and
       (.pillars.business_flow_evidence.commands | contains("atlas flow packet --json")) and
       (.pillars.business_flow_evidence.commands | contains("atlas flow verify --json")) and
+      (.pillars.business_flow_evidence.commands | contains("atlas flow trust-chain --json")) and
       (.pillars.business_flow_evidence.limitations | contains("JSON packet parity") | not) and
       (.pillars.business_flow_evidence.limitations | contains("finding/validation links") | not) and
       .pillars.ai_advisor.required == false
@@ -2218,6 +2332,7 @@ EOF
       (.pillars.business_flow_evidence.commands | contains("atlas flow link-approval")) and
       (.pillars.business_flow_evidence.commands | contains("atlas flow link-retention")) and
       (.pillars.business_flow_evidence.commands | contains("atlas flow verify --json")) and
+      (.pillars.business_flow_evidence.commands | contains("atlas flow trust-chain --json")) and
       (.pillars.business_flow_evidence.limitations | contains("JSON packet parity") | not)
     '
 }
@@ -2266,6 +2381,7 @@ EOF
       (.gates.business_flow_evidence.commands | contains("atlas flow link-retention")) and
       (.gates.business_flow_evidence.commands | contains("atlas flow packet --json")) and
       (.gates.business_flow_evidence.commands | contains("atlas flow verify --json")) and
+      (.gates.business_flow_evidence.commands | contains("atlas flow trust-chain --json")) and
       .gates.release_trust_packet.status == "blocked" and
       .gates.signing_provenance.status == "blocked" and
       .gates.production_dry_run.status == "blocked" and
