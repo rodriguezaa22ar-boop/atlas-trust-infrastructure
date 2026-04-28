@@ -91,9 +91,12 @@ NDJSON, and Markdown surfaces:
 - `atlas.flow_finding_link.v1`
 - `atlas.flow_validation_link.v1`
 - `atlas.flow_approval_link.v1`
+- `atlas.handoff_packet.v1`
 - `atlas.closeout_manifest.v1`
 - `atlas.audit_packet.v1`
 - `atlas.archive_packet.v1`
+- `atlas.accepted_risk_review_packet.v1`
+- `atlas.advisor_prompt_packet.v1`
 - `atlas.business_flow_packet.v1`
 - `atlas.business_flow_verify.v1`
 

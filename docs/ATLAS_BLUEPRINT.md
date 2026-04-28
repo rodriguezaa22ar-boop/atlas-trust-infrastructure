@@ -563,6 +563,15 @@ The near-term roadmap is:
     without mutating operation state. Audit and archive verification paths use
     the shared closeout verifier so the latest JSON closeout remains consumable
     by downstream trust packets.
+89. Complete v1 trust-packet JSON parity. `atlas op handoff --json`,
+    `atlas finding review-packet --json`, and `atlas advisor prompt --json`
+    now write metadata-only JSON packets for the remaining v1 packet surfaces:
+    `atlas.handoff_packet.v1`, `atlas.accepted_risk_review_packet.v1`, and
+    `atlas.advisor_prompt_packet.v1`. Accepted-risk review verification now
+    accepts Markdown or JSON packets and checks JSON metadata-only flags,
+    forbidden raw-content markers, finding index anchors, and operation ledger
+    anchors. The packet parity matrix now reports no missing JSON packet
+    surfaces for the current v1 trust-packet pipeline.
 
 ## First Serious Version
 

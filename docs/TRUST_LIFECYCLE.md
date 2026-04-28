@@ -19,7 +19,7 @@ still current.
 | Findings | `atlas finding add`, `atlas finding update`, `atlas finding accept` | finding lifecycle records and accepted-risk ownership |
 | Validation | `atlas validation plan`, `atlas validation approve`, `atlas validation run`, `atlas validation retest` | approval record, validation plan, run outcome, retest state |
 | Report | `atlas op report`, `atlas op readiness` | assessment report and closure readiness |
-| Handoff | `atlas op handoff` | metadata-only handoff packet |
+| Handoff | `atlas op handoff`, `atlas op handoff --json` | metadata-only handoff packet |
 | Closeout | `atlas op close`, `atlas op closeout`, `atlas op closeout --json`, `atlas op verify` | closeout manifest and hash verification |
 | Audit | `atlas op audit-packet`, `atlas op audit-packet --json`, `atlas op audit-verify` | audit packet and audit verification |
 | Archive | `atlas op archive-packet`, `atlas op archive-packet --json`, `atlas op archive-verify` | archive packet and archive verification |

@@ -69,6 +69,7 @@ Validation remains approval-gated. Do not bypass that separation.
 ./tools/atlas/bin/atlas op report demo-operation demo-operation-report
 ./tools/atlas/bin/atlas op readiness demo-operation
 ./tools/atlas/bin/atlas op handoff demo-operation demo-operation-handoff
+./tools/atlas/bin/atlas op handoff --json demo-operation demo-operation-handoff
 ./tools/atlas/bin/atlas op close demo-operation
 ```
 

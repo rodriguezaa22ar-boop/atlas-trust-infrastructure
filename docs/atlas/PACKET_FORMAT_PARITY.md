@@ -29,13 +29,13 @@ A packet or status surface has JSON parity only when:
 | `atlas release packet` | Markdown | yes | `atlas.release_trust.v1` | implemented | `atlas release verify` validates Markdown and JSON packets. |
 | release provenance packet | JSON | yes | `atlas.release_provenance.v1` | implemented | Binds a retained release packet to a verified signed Git tag for production status. |
 | `atlas op trust-chain` | text | yes | `atlas.operation_trust_chain.v1` | implemented | JSON includes readiness, freshness, verification, artifacts, and ledger anchors. |
-| `atlas op handoff` | Markdown | no | planned | gap | Needs metadata-only JSON handoff packet. |
+| `atlas op handoff` | Markdown | yes | `atlas.handoff_packet.v1` | implemented | `atlas op handoff --json` writes metadata-only JSON for gates, replay, dashboards, and downstream trust packets. |
 | `atlas op closeout` | Markdown | yes | `atlas.closeout_manifest.v1` | implemented | `atlas op closeout --json` writes metadata-only JSON and `atlas op verify` consumes Markdown or JSON manifests. |
 | `atlas op audit-packet` | Markdown | yes | `atlas.audit_packet.v1` | implemented | `atlas op audit-packet --json` writes metadata-only JSON and `atlas op audit-verify` consumes Markdown or JSON packets. |
 | `atlas op archive-packet` | Markdown | yes | `atlas.archive_packet.v1` | implemented | `atlas op archive-packet --json` writes metadata-only JSON and `atlas op archive-verify` consumes Markdown or JSON packets. |
-| `atlas finding review-packet` | Markdown | no | planned | gap | Needs JSON accepted-risk review packet and verifier parity. |
+| `atlas finding review-packet` | Markdown | yes | `atlas.accepted_risk_review_packet.v1` | implemented | `atlas finding review-packet --json` writes metadata-only JSON and `atlas finding review-verify` consumes Markdown or JSON packets. |
 | `atlas flow packet` | Markdown | yes | `atlas.business_flow_packet.v1`; `atlas.business_flow_verify.v1` | implemented | `atlas flow packet --json` and `atlas flow verify --json` are implemented and tested with metadata-only guardrails. |
-| `atlas advisor prompt` | Markdown | no | planned | non-blocking gap | Advisor packets remain metadata-only; JSON can come after trust packets. |
+| `atlas advisor prompt` | Markdown | yes | `atlas.advisor_prompt_packet.v1` | implemented | `atlas advisor prompt --json` writes metadata-only planning context; it remains non-executing and non-blocking. |
 
 ## Implemented JSON Schemas
 
@@ -43,20 +43,19 @@ A packet or status surface has JSON parity only when:
 - [`atlas.release_provenance.v1`](../schemas/release-provenance.v1.md)
 - [`atlas.production_readiness.v1`](../schemas/production-readiness.v1.md)
 - [`atlas.operation_trust_chain.v1`](../schemas/operation-trust-chain.v1.md)
+- [`atlas.handoff_packet.v1`](../schemas/handoff-packet.v1.md)
 - [`atlas.closeout_manifest.v1`](../schemas/closeout-manifest.v1.md)
 - [`atlas.audit_packet.v1`](../schemas/audit-packet.v1.md)
 - [`atlas.archive_packet.v1`](../schemas/archive-packet.v1.md)
+- [`atlas.accepted_risk_review_packet.v1`](../schemas/accepted-risk-review-packet.v1.md)
+- [`atlas.advisor_prompt_packet.v1`](../schemas/advisor-prompt-packet.v1.md)
 - [`atlas.business_flow_packet.v1`](../schemas/business-flow-packet.v1.md)
 - [`atlas.business_flow_verify.v1`](../schemas/business-flow-verify.v1.md)
 - [`atlas.business_flow_trust_chain.v1`](../schemas/business-flow-trust-chain.v1.md)
 
 ## Missing JSON Packet Surfaces
 
-Priority order:
-
-1. handoff packet
-2. accepted-risk review packet
-3. advisor prompt packet
+No missing JSON packet surfaces remain for the current v1 trust-packet pipeline.
 
 ## Guardrails
 

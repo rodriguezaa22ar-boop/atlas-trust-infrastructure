@@ -82,6 +82,7 @@ Generate retained operation artifacts:
 ./tools/atlas/bin/atlas evidence bundle demo-operation-bundle
 ./tools/atlas/bin/atlas op report demo-operation demo-operation-report
 ./tools/atlas/bin/atlas op handoff demo-operation demo-operation-handoff
+./tools/atlas/bin/atlas op handoff --json demo-operation demo-operation-handoff
 ./tools/atlas/bin/atlas op readiness demo-operation
 ```
 

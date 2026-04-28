@@ -181,14 +181,198 @@ atlas_handoff_write_packet() {
   } >"$file"
 }
 
+atlas_handoff_write_json_packet() {
+  local file="$1"
+  local generated_at="$2"
+  local latest_report
+  local report_at=""
+  local report_path=""
+  local report_sha=""
+  local latest_bundle
+  local bundle_at=""
+  local bundle_slug=""
+  local bundle_dir=""
+  local manifest_file=""
+  local manifest_sha=""
+  local bundle_files="0"
+  local include_unredacted="0"
+  local ledger_file
+  local ledger_events="0"
+  local ledger_sha=""
+
+  atlas_readiness_collect "$ATLAS_OP_TARGET"
+  intel_require_jq
+
+  latest_report="$(atlas_handoff_latest_report_fields)"
+  if [ -n "$latest_report" ]; then
+    IFS=$'\t' read -r report_at report_path report_sha <<<"$latest_report"
+  fi
+  latest_bundle="$(atlas_handoff_latest_bundle_fields)"
+  if [ -n "$latest_bundle" ]; then
+    IFS=$'\t' read -r bundle_at bundle_slug bundle_dir manifest_file manifest_sha bundle_files include_unredacted <<<"$latest_bundle"
+  fi
+
+  ledger_file="$(atlas_ledger_file "$ATLAS_OP_DIR")"
+  if [ -f "$ledger_file" ]; then
+    ledger_events="$(atlas_closeout_ledger_event_count "$ledger_file")"
+    ledger_sha="$(atlas_closeout_sha_for_file "$ledger_file")"
+  fi
+
+  jq -n \
+    --arg schema_version "atlas.handoff_packet.v1" \
+    --arg generated_at "$generated_at" \
+    --arg operation_name "$ATLAS_OP_NAME" \
+    --arg operation_id "$ATLAS_OP_SLUG" \
+    --arg operation_status "$ATLAS_OP_STATUS" \
+    --arg target "$ATLAS_OP_TARGET" \
+    --arg address "${ATLAS_OP_TARGET_ADDRESS:-}" \
+    --arg close_readiness "$ATLAS_READINESS_STATUS" \
+    --arg next_step "$ATLAS_READINESS_NEXT_STEP" \
+    --argjson evidence_records "${ATLAS_READINESS_EVIDENCE_COUNT:-0}" \
+    --argjson findings "${ATLAS_READINESS_FINDING_COUNT:-0}" \
+    --argjson open_findings "${ATLAS_READINESS_OPEN_FINDINGS_COUNT:-0}" \
+    --argjson expired_accepted_risks "${ATLAS_READINESS_EXPIRED_ACCEPTED_RISK_COUNT:-0}" \
+    --argjson validation_plans "${ATLAS_READINESS_VALIDATION_COUNT:-0}" \
+    --argjson pending_validation "${ATLAS_READINESS_PENDING_VALIDATION_COUNT:-0}" \
+    --arg report_freshness "$ATLAS_READINESS_REPORT_FRESHNESS" \
+    --arg bundle_freshness "$ATLAS_READINESS_BUNDLE_FRESHNESS" \
+    --arg handoff_freshness "$ATLAS_READINESS_HANDOFF_FRESHNESS" \
+    --arg latest_state_change_at "${ATLAS_READINESS_LATEST_CHANGE_AT:-}" \
+    --arg latest_state_change_event "${ATLAS_READINESS_LATEST_CHANGE_EVENT:-}" \
+    --arg latest_evidence_change_at "${ATLAS_READINESS_LATEST_EVIDENCE_CHANGE_AT:-}" \
+    --arg latest_evidence_change_event "${ATLAS_READINESS_LATEST_EVIDENCE_CHANGE_EVENT:-}" \
+    --arg report_path "$report_path" \
+    --arg report_generated_at "$report_at" \
+    --arg report_sha256 "$report_sha" \
+    --arg bundle_path "$bundle_dir" \
+    --arg bundle_slug "$bundle_slug" \
+    --arg bundle_generated_at "$bundle_at" \
+    --argjson bundle_files "${bundle_files:-0}" \
+    --arg include_unredacted "${include_unredacted:-0}" \
+    --arg manifest_path "$manifest_file" \
+    --arg manifest_sha256 "$manifest_sha" \
+    --arg ledger_path "$ledger_file" \
+    --argjson ledger_events "$ledger_events" \
+    --arg ledger_sha256 "$ledger_sha" \
+    --arg operation_dir "$ATLAS_OP_DIR" '
+      def nullable($v):
+        if $v == "" or $v == "-" or $v == "none" then null else $v end;
+      def anchor_path($path; $sha):
+        if $sha == "" or $sha == "-" or $sha == "none" then null else nullable($path) end;
+      {
+        schema_version: $schema_version,
+        generated_at: $generated_at,
+        operation: {
+          name: $operation_name,
+          id: $operation_id,
+          status: $operation_status,
+          target: $target,
+          address: nullable($address)
+        },
+        metadata_only: true,
+        raw_artifacts_embedded: false,
+        readiness: {
+          close_readiness: $close_readiness,
+          next_step: $next_step,
+          evidence_records: $evidence_records,
+          findings: $findings,
+          open_findings: $open_findings,
+          expired_accepted_risks: $expired_accepted_risks,
+          validation_plans: $validation_plans,
+          pending_validation: $pending_validation,
+          freshness: {
+            report: $report_freshness,
+            bundle: $bundle_freshness,
+            handoff_before_packet: $handoff_freshness
+          },
+          latest_state_change: {
+            at: nullable($latest_state_change_at),
+            event: nullable($latest_state_change_event)
+          },
+          latest_evidence_change: {
+            at: nullable($latest_evidence_change_at),
+            event: nullable($latest_evidence_change_event)
+          }
+        },
+        artifacts: {
+          latest_report: {
+            path: anchor_path($report_path; $report_sha256),
+            generated_at: nullable($report_generated_at),
+            sha256: nullable($report_sha256)
+          },
+          evidence_bundle: {
+            path: nullable($bundle_path),
+            slug: nullable($bundle_slug),
+            generated_at: nullable($bundle_generated_at),
+            files: $bundle_files,
+            include_unredacted: ($include_unredacted == "1" or $include_unredacted == "true")
+          },
+          evidence_manifest: {
+            path: anchor_path($manifest_path; $manifest_sha256),
+            sha256: nullable($manifest_sha256)
+          }
+        },
+        integrity: {
+          operation_ledger: {
+            path: anchor_path($ledger_path; $ledger_sha256),
+            events: $ledger_events,
+            sha256: nullable($ledger_sha256)
+          },
+          operation_directory: {
+            path: nullable($operation_dir)
+          }
+        },
+        metadata_boundary: {
+          stores: ["paths", "hashes", "counts", "freshness states", "readiness states", "known limitations"],
+          excludes: ["raw report bodies", "raw evidence bodies", "finding bodies", "validation output", "secrets", "tokens", "credentials", "packet captures", "session contents"]
+        },
+        known_limitations: [
+          "Handoff packets are metadata-only and retain local references, hashes, counts, freshness states, and readiness state.",
+          "Raw report, evidence, finding, validation, and ledger contents are not embedded.",
+          "Handoff JSON is not external audit, legal compliance evidence, or cryptographic immutability."
+        ]
+      }
+    ' >"$file"
+}
+
 cmd_op_handoff() {
-  local packet_name="${2:-}"
+  local json_output=0
+  local operation_name=""
+  local packet_name=""
   local packet_slug
   local handoff_dir
   local packet_file
+  local generated_at
 
-  if [ "$#" -gt 0 ]; then
-    load_atlas_operation "$1"
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+    --json)
+      json_output=1
+      shift
+      ;;
+    --)
+      shift
+      break
+      ;;
+    -*)
+      fail "unknown op handoff option: $1"
+      ;;
+    *)
+      if [ -z "$operation_name" ]; then
+        operation_name="$1"
+      elif [ -z "$packet_name" ]; then
+        packet_name="$1"
+      else
+        fail "op handoff [--json] [name] [handoff-name]"
+      fi
+      shift
+      ;;
+    esac
+  done
+  [ "$#" -eq 0 ] || fail "op handoff [--json] [name] [handoff-name]"
+
+  if [ -n "$operation_name" ]; then
+    load_atlas_operation "$operation_name"
   else
     load_active_operation
   fi
@@ -202,13 +386,28 @@ cmd_op_handoff() {
   handoff_dir="$ATLAS_OP_DIR/handoff"
   mkdir -p "$handoff_dir"
   chmod 700 "$handoff_dir" 2>/dev/null || true
-  packet_file="$handoff_dir/$packet_slug.md"
-  atlas_handoff_write_packet "$packet_file"
+  if [ "$json_output" -eq 1 ]; then
+    packet_file="$handoff_dir/$packet_slug.json"
+  else
+    packet_file="$handoff_dir/$packet_slug.md"
+  fi
+
+  generated_at="$(timestamp)"
+  if [ "$json_output" -eq 1 ]; then
+    atlas_handoff_write_json_packet "$packet_file" "$generated_at"
+  else
+    atlas_handoff_write_packet "$packet_file"
+  fi
   chmod 600 "$packet_file" 2>/dev/null || true
 
   atlas_ledger_append_current "handoff.generated" "read-only" "atlas" "ok" "$packet_file"
   record_operation_history "$ATLAS_OP_DIR" "handoff" "$packet_file"
 
-  ui_ok "handoff packet written"
-  printf 'handoff: %s\n' "$packet_file"
+  if [ "$json_output" -eq 1 ]; then
+    ui_ok "handoff JSON packet written"
+    printf 'handoff_json: %s\n' "$packet_file"
+  else
+    ui_ok "handoff packet written"
+    printf 'handoff: %s\n' "$packet_file"
+  fi
 }

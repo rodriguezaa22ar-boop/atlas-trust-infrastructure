@@ -20,9 +20,12 @@ documented at [../atlas/TRUST_OBJECT_MODEL.md](../atlas/TRUST_OBJECT_MODEL.md).
 | `atlas.release_provenance.v1` | `docs/retention/releases/*.provenance.json` | [release-provenance.v1.md](release-provenance.v1.md) |
 | `atlas.production_readiness.v1` | `atlas production status --json` | [production-readiness.v1.md](production-readiness.v1.md) |
 | `atlas.operation_trust_chain.v1` | `atlas op trust-chain --json` | [operation-trust-chain.v1.md](operation-trust-chain.v1.md) |
+| `atlas.handoff_packet.v1` | `atlas op handoff --json` | [handoff-packet.v1.md](handoff-packet.v1.md) |
 | `atlas.closeout_manifest.v1` | `atlas op closeout --json` | [closeout-manifest.v1.md](closeout-manifest.v1.md) |
 | `atlas.audit_packet.v1` | `atlas op audit-packet --json` | [audit-packet.v1.md](audit-packet.v1.md) |
 | `atlas.archive_packet.v1` | `atlas op archive-packet --json` | [archive-packet.v1.md](archive-packet.v1.md) |
+| `atlas.accepted_risk_review_packet.v1` | `atlas finding review-packet --json` | [accepted-risk-review-packet.v1.md](accepted-risk-review-packet.v1.md) |
+| `atlas.advisor_prompt_packet.v1` | `atlas advisor prompt --json` | [advisor-prompt-packet.v1.md](advisor-prompt-packet.v1.md) |
 | `atlas.business_flow_packet.v1` | `atlas flow packet --json` | [business-flow-packet.v1.md](business-flow-packet.v1.md) |
 | `atlas.business_flow_verify.v1` | `atlas flow verify --json` | [business-flow-verify.v1.md](business-flow-verify.v1.md) |
 | `atlas.business_flow_trust_chain.v1` | `atlas flow trust-chain --json` | [business-flow-trust-chain.v1.md](business-flow-trust-chain.v1.md) |

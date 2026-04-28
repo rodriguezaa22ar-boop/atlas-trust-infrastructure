@@ -1193,7 +1193,130 @@ atlas_findings_write_review_packet() {
   } >"$file"
 }
 
+atlas_findings_write_json_review_packet() {
+  local file="$1"
+  local generated_at="$2"
+  local window="$3"
+  local today="$4"
+  local due_by="$5"
+  local rows="$6"
+  local findings_file
+  local findings_sha=""
+  local ledger_file
+  local ledger_events="0"
+  local ledger_sha=""
+  local expired_count
+  local due_soon_count
+  local current_count
+  local no_expiry_count
+
+  intel_require_jq
+
+  findings_file="$(atlas_findings_index_file "$ATLAS_OP_DIR")"
+  ledger_file="$(atlas_ledger_file "$ATLAS_OP_DIR")"
+  if [ -f "$findings_file" ]; then
+    findings_sha="$(atlas_evidence_hash_path "$findings_file")"
+  fi
+  if [ -f "$ledger_file" ]; then
+    ledger_events="$(atlas_audit_event_count "$ledger_file")"
+    ledger_sha="$(atlas_evidence_hash_path "$ledger_file")"
+  fi
+
+  expired_count="$(atlas_findings_review_queue_state_count "$rows" "expired")"
+  due_soon_count="$(atlas_findings_review_queue_state_count "$rows" "due-soon")"
+  current_count="$(atlas_findings_review_queue_state_count "$rows" "current")"
+  no_expiry_count="$(atlas_findings_review_queue_state_count "$rows" "no-expiry")"
+
+  jq -n \
+    --arg schema_version "atlas.accepted_risk_review_packet.v1" \
+    --arg generated_at "$generated_at" \
+    --arg operation_name "$ATLAS_OP_NAME" \
+    --arg operation_id "$ATLAS_OP_SLUG" \
+    --arg operation_status "$ATLAS_OP_STATUS" \
+    --arg target "$ATLAS_OP_TARGET" \
+    --arg address "${ATLAS_OP_TARGET_ADDRESS:-}" \
+    --arg today "$today" \
+    --argjson window "$window" \
+    --arg due_by "$due_by" \
+    --argjson expired "$expired_count" \
+    --argjson due_soon "$due_soon_count" \
+    --argjson no_expiry "$no_expiry_count" \
+    --argjson current "$current_count" \
+    --arg findings_path "$findings_file" \
+    --arg findings_sha256 "$findings_sha" \
+    --arg ledger_path "$ledger_file" \
+    --argjson ledger_events "$ledger_events" \
+    --arg ledger_sha256 "$ledger_sha" \
+    --arg rows "$rows" '
+      def nullable($v):
+        if $v == "" or $v == "-" or $v == "none" then null else $v end;
+      def anchor_path($path; $sha):
+        if $sha == "" or $sha == "-" or $sha == "none" then null else nullable($path) end;
+      def row_object:
+        split("\t") as $parts
+        | {
+            finding_id: ($parts[0] // ""),
+            state: ($parts[1] // ""),
+            expires: nullable($parts[2] // ""),
+            owner: nullable($parts[3] // ""),
+            severity: ($parts[4] // "info"),
+            level: ($parts[5] // "inferred"),
+            title: ($parts[6] // "")
+          };
+      {
+        schema_version: $schema_version,
+        generated_at: $generated_at,
+        operation: {
+          name: $operation_name,
+          id: $operation_id,
+          status: $operation_status,
+          target: $target,
+          address: nullable($address)
+        },
+        metadata_only: true,
+        raw_artifacts_embedded: false,
+        review_window: {
+          today: $today,
+          days: $window,
+          due_by: $due_by
+        },
+        queue_counts: {
+          expired: $expired,
+          due_soon: $due_soon,
+          no_expiry: $no_expiry,
+          current: $current
+        },
+        anchors: {
+          finding_index: {
+            path: anchor_path($findings_path; $findings_sha256),
+            sha256: nullable($findings_sha256)
+          },
+          operation_ledger: {
+            path: anchor_path($ledger_path; $ledger_sha256),
+            events: $ledger_events,
+            sha256: nullable($ledger_sha256)
+          }
+        },
+        review_queue: (
+          $rows
+          | split("\n")
+          | map(select(length > 0) | row_object)
+        ),
+        metadata_boundary: {
+          stores: ["finding ids", "review states", "owner labels", "severity labels", "levels", "paths", "hashes", "counts", "timestamps"],
+          excludes: ["raw evidence bodies", "operator notes", "accepted-risk reason bodies", "credentials", "tokens", "secrets", "packet captures", "session contents"]
+        },
+        known_limitations: [
+          "Accepted-risk review packets are metadata-only and retain local references, hashes, queue state, and counts.",
+          "Raw evidence, validation output, operator notes, and accepted-risk reason bodies are not embedded.",
+          "Accepted-risk review packet verification is not external audit, legal compliance evidence, or cryptographic immutability."
+        ]
+      }
+    ' >"$file"
+}
+
 cmd_finding_review_packet() {
+  local json_output=0
   local packet_name=""
   local packet_slug
   local packet_dir
@@ -1205,8 +1328,12 @@ cmd_finding_review_packet() {
 
   while [ "$#" -gt 0 ]; do
     case "$1" in
+    --json)
+      json_output=1
+      shift
+      ;;
     --within | --window)
-      need_args 2 "$#" "finding review-packet [packet-name] [--within days]"
+      need_args 2 "$#" "finding review-packet [--json] [packet-name] [--within days]"
       window="$2"
       shift 2
       ;;
@@ -1215,7 +1342,7 @@ cmd_finding_review_packet() {
       ;;
     *)
       if [ -n "$packet_name" ]; then
-        fail "finding review-packet [packet-name] [--within days]"
+        fail "finding review-packet [--json] [packet-name] [--within days]"
       fi
       packet_name="$1"
       shift
@@ -1238,15 +1365,28 @@ cmd_finding_review_packet() {
   packet_dir="$(atlas_findings_review_packet_dir)"
   mkdir -p "$packet_dir"
   chmod 700 "$packet_dir" 2>/dev/null || true
-  packet_file="$packet_dir/$packet_slug.md"
+  if [ "$json_output" -eq 1 ]; then
+    packet_file="$packet_dir/$packet_slug.json"
+  else
+    packet_file="$packet_dir/$packet_slug.md"
+  fi
 
   atlas_ledger_append_current "finding.review_packet.generated" "read-only" "atlas" "ok" "$packet_file"
-  atlas_findings_write_review_packet "$packet_file" "$window" "$today" "$due_by" "$rows"
+  if [ "$json_output" -eq 1 ]; then
+    atlas_findings_write_json_review_packet "$packet_file" "$(timestamp)" "$window" "$today" "$due_by" "$rows"
+  else
+    atlas_findings_write_review_packet "$packet_file" "$window" "$today" "$due_by" "$rows"
+  fi
   chmod 600 "$packet_file" 2>/dev/null || true
   record_operation_history "$ATLAS_OP_DIR" "finding-review-packet" "$packet_file"
 
-  ui_ok "accepted-risk review packet written"
-  printf 'review_packet: %s\n' "$packet_file"
+  if [ "$json_output" -eq 1 ]; then
+    ui_ok "accepted-risk review JSON packet written"
+    printf 'review_packet_json: %s\n' "$packet_file"
+  else
+    ui_ok "accepted-risk review packet written"
+    printf 'review_packet: %s\n' "$packet_file"
+  fi
 }
 
 atlas_findings_resolve_review_packet() {
@@ -1276,14 +1416,146 @@ atlas_findings_resolve_review_packet() {
     return 0
   fi
 
-  packet_slug="$(slugify "${packet_arg%.md}")"
+  packet_slug="${packet_arg%.md}"
+  packet_slug="${packet_slug%.json}"
+  packet_slug="$(slugify "$packet_slug")"
   candidate="$(atlas_findings_review_packet_dir)/$packet_slug.md"
+  if [ -f "$candidate" ]; then
+    readlink -f "$candidate"
+    return 0
+  fi
+  candidate="$(atlas_findings_review_packet_dir)/$packet_slug.json"
   if [ -f "$candidate" ]; then
     readlink -f "$candidate"
     return 0
   fi
 
   fail "unknown accepted-risk review packet for operation '$ATLAS_OP_SLUG': $packet_arg"
+}
+
+atlas_findings_review_json_packet_forbidden_content_present() {
+  local packet_file="$1"
+
+  jq -r '
+    paths(scalars) as $path
+    | getpath($path)
+    | strings
+  ' "$packet_file" 2>/dev/null |
+    tr '[:upper:]' '[:lower:]' |
+    grep -Eq 'password=|passwd=|api_key=|secret=|token=|authorization:|bearer[[:space:]]|set-cookie:|begin rsa|begin openssh|session=|cookie='
+}
+
+atlas_findings_verify_json_review_packet() {
+  local packet_file="$1"
+  local packet_operation
+  local findings_file
+  local expected_findings_sha
+  local actual_findings_sha=""
+  local findings_status="verified"
+  local ledger_file
+  local expected_events
+  local actual_events=""
+  local expected_ledger_sha
+  local actual_ledger_sha=""
+  local ledger_status="verified"
+  local ledger_detail=""
+  local disallowed_events=""
+  local metadata_status="verified"
+  local raw_artifacts_status="verified"
+  local forbidden_status="verified"
+  local problems=0
+  local status="verified"
+
+  [ -f "$packet_file" ] || fail "accepted-risk review packet is not a file: $packet_file"
+  intel_require_jq
+  jq -e 'type == "object"' "$packet_file" >/dev/null 2>&1 || fail "accepted-risk review JSON packet is invalid: $packet_file"
+  jq -e '.schema_version == "atlas.accepted_risk_review_packet.v1"' "$packet_file" >/dev/null 2>&1 || fail "accepted-risk review JSON packet has unsupported schema: $packet_file"
+  packet_operation="$(jq -r '.operation.id // ""' "$packet_file")"
+  [ -n "$packet_operation" ] || fail "accepted-risk review JSON packet is missing operation.id: $packet_file"
+  [ "$packet_operation" = "$ATLAS_OP_SLUG" ] || fail "accepted-risk review packet belongs to '$packet_operation', not '$ATLAS_OP_SLUG'"
+
+  if ! jq -e '.metadata_only == true' "$packet_file" >/dev/null 2>&1; then
+    metadata_status="blocked"
+    problems=$((problems + 1))
+  fi
+  if ! jq -e '.raw_artifacts_embedded == false' "$packet_file" >/dev/null 2>&1; then
+    raw_artifacts_status="blocked"
+    problems=$((problems + 1))
+  fi
+  if atlas_findings_review_json_packet_forbidden_content_present "$packet_file"; then
+    forbidden_status="blocked"
+    problems=$((problems + 1))
+  fi
+
+  findings_file="$(jq -r '.anchors.finding_index.path // ""' "$packet_file")"
+  expected_findings_sha="$(jq -r '.anchors.finding_index.sha256 // ""' "$packet_file")"
+  if [ -z "$findings_file" ] || [ -z "$expected_findings_sha" ]; then
+    findings_status="unverifiable"
+    problems=$((problems + 1))
+  elif [ ! -f "$findings_file" ]; then
+    findings_status="missing"
+    problems=$((problems + 1))
+  else
+    actual_findings_sha="$(atlas_evidence_hash_path "$findings_file")"
+    if [ "$actual_findings_sha" != "$expected_findings_sha" ]; then
+      findings_status="changed"
+      problems=$((problems + 1))
+    fi
+  fi
+
+  ledger_file="$(jq -r '.anchors.operation_ledger.path // ""' "$packet_file")"
+  expected_events="$(jq -r '.anchors.operation_ledger.events // ""' "$packet_file")"
+  expected_ledger_sha="$(jq -r '.anchors.operation_ledger.sha256 // ""' "$packet_file")"
+  if [ -z "$ledger_file" ] || [ -z "$expected_events" ] || [ -z "$expected_ledger_sha" ]; then
+    ledger_status="unverifiable"
+    problems=$((problems + 1))
+  elif [ ! -f "$ledger_file" ]; then
+    ledger_status="missing"
+    problems=$((problems + 1))
+  else
+    actual_events="$(atlas_audit_event_count "$ledger_file")"
+    actual_ledger_sha="$(atlas_evidence_hash_path "$ledger_file")"
+    if [ "$actual_events" = "$expected_events" ] && [ "$actual_ledger_sha" = "$expected_ledger_sha" ]; then
+      ledger_detail="events=$actual_events"
+    elif atlas_findings_review_packet_ledger_anchor_matches "$ledger_file" "$expected_events" "$expected_ledger_sha"; then
+      ledger_detail="events=$actual_events anchored_events=$expected_events later_allowed_events=$((actual_events - expected_events))"
+    else
+      ledger_status="changed"
+      disallowed_events="$(atlas_findings_review_packet_disallowed_later_ledger_events "$ledger_file" "$expected_events" 2>/dev/null || true)"
+      ledger_detail="expected_events=$expected_events actual_events=$actual_events expected_sha=$expected_ledger_sha actual_sha=$actual_ledger_sha disallowed_later_events=${disallowed_events:-none}"
+      problems=$((problems + 1))
+    fi
+  fi
+
+  if [ "$problems" -gt 0 ]; then
+    status="attention-required"
+  fi
+
+  ui_heading "Accepted Risk Review Packet Verification"
+  ui_rule
+  ui_kv "Operation" "$ATLAS_OP_NAME"
+  ui_kv "Packet" "$packet_file"
+  ui_rule
+  printf '%-20s %-14s %s\n' "ARTIFACT" "STATUS" "DETAIL"
+  printf '%-20s %-14s %s\n' "Metadata Only" "$metadata_status" "expected=true"
+  printf '%-20s %-14s %s\n' "Raw Artifacts" "$raw_artifacts_status" "expected=false"
+  printf '%-20s %-14s %s\n' "Forbidden Content" "$forbidden_status" "$packet_file"
+  printf '%-20s %-14s expected_sha=%s actual_sha=%s path=%s\n' \
+    "Finding Index" \
+    "$findings_status" \
+    "${expected_findings_sha:-unknown}" \
+    "${actual_findings_sha:-unknown}" \
+    "${findings_file:-unknown}"
+  printf '%-20s %-14s ledger=%s %s\n' \
+    "Operation Ledger" \
+    "$ledger_status" \
+    "${ledger_file:-unknown}" \
+    "${ledger_detail:-expected_events=${expected_events:-unknown} actual_events=${actual_events:-unknown} expected_sha=${expected_ledger_sha:-unknown} actual_sha=${actual_ledger_sha:-unknown}}"
+  ui_rule
+  ui_kv "Verification Status" "$status"
+  ui_kv "Verification Problems" "$problems"
+
+  [ "$problems" -eq 0 ] || return 1
 }
 
 atlas_findings_verify_review_packet() {
@@ -1383,6 +1655,17 @@ atlas_findings_verify_review_packet() {
   [ "$problems" -eq 0 ] || return 1
 }
 
+atlas_findings_verify_review_packet_any() {
+  local packet_file="$1"
+
+  [ -f "$packet_file" ] || fail "accepted-risk review packet is not a file: $packet_file"
+  if jq -e '.schema_version == "atlas.accepted_risk_review_packet.v1"' "$packet_file" >/dev/null 2>&1; then
+    atlas_findings_verify_json_review_packet "$packet_file"
+  else
+    atlas_findings_verify_review_packet "$packet_file"
+  fi
+}
+
 cmd_finding_review_verify() {
   local packet_arg=""
   local packet_file
@@ -1395,7 +1678,7 @@ cmd_finding_review_verify() {
 
   load_active_operation
   packet_file="$(atlas_findings_resolve_review_packet "$packet_arg")"
-  atlas_findings_verify_review_packet "$packet_file"
+  atlas_findings_verify_review_packet_any "$packet_file"
 }
 
 cmd_finding_list() {

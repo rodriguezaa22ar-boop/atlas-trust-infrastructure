@@ -52,6 +52,7 @@ atlas finding accept finding_... --reason "owner accepts residual exposure" --ow
 atlas finding review finding_... --reason "owner renewed acceptance" --owner Alta --expires 2027-03-31
 atlas finding review-queue --within 30
 atlas finding review-packet accepted-risk-review --within 30
+atlas finding review-packet --json accepted-risk-review --within 30
 atlas finding review-verify accepted-risk-review
 atlas finding resolve finding_... --validation vp_... --note "remediation confirmed"
 atlas finding list
@@ -62,6 +63,7 @@ atlas validation run vp_...
 atlas validation retest vp_... --result resolved --evidence ev_... --note "remediation confirmed"
 atlas advisor brief
 atlas advisor prompt
+atlas advisor prompt --json
 atlas target list
 atlas target update demo-node --scope-status in-scope --criticality high --tag lab
 atlas target brief 10.0.0.8
@@ -81,6 +83,7 @@ atlas op story
 atlas op report april-review
 atlas op readiness april-review
 atlas op handoff april-review
+atlas op handoff --json april-review
 atlas op close april-review
 atlas op closeout april-review
 atlas op closeout --json april-review
@@ -125,6 +128,7 @@ atlas op story
 atlas op report
 atlas op readiness
 atlas op handoff
+atlas op handoff --json
 atlas op close [--force]
 atlas op closeout <name>
 atlas op closeout --json <name>
@@ -290,10 +294,11 @@ the current operation, highlights redaction status before external handoff,
 ranks findings, shows the validation queue, and suggests operator moves without
 running target-touching commands.
 
-`atlas advisor prompt [name] [packet-name]` writes a metadata-only Markdown
+`atlas advisor prompt [--json] [name] [packet-name]` writes a metadata-only
 packet under the operation directory for AI-assisted summarization and report
-drafting. Raw artifact contents are not included, and the packet carries the
-same scope and safety constraints as the CLI workflow.
+drafting. Markdown is the human review format. `--json` emits
+`atlas.advisor_prompt_packet.v1`. Raw artifact contents are not included, and
+the packet carries the same scope and safety constraints as the CLI workflow.
 
 `atlas intel graph [target] [--format dot|ndjson]` projects the shared
 entity/relationship streams into a deterministic graph export. DOT is useful
@@ -417,6 +422,7 @@ atlas finding review finding_20260425T201000Z \
   --expires 2027-03-31
 atlas finding review-queue --within 30
 atlas finding review-packet accepted-risk-review --within 30
+atlas finding review-packet --json accepted-risk-review --within 30
 atlas finding review-verify accepted-risk-review
 atlas finding show finding_20260425T201000Z
 ```
@@ -444,12 +450,14 @@ can update owner/expiry, and appends a `finding.reviewed` ledger event.
 for the active operation. It groups accepted risks as `expired`, `due-soon`,
 `no-expiry`, or `current` so owners can review risk acceptances before expiry
 blocks closeout.
-`atlas finding review-packet [packet-name] [--within days]` preserves that
-queue as a metadata-only Markdown packet under the operation directory. The
-packet records queue counts, the review window, a finding-index hash, and an
-operation-ledger anchor. `atlas finding review-verify [packet]` reads the packet
-without writing ledger events and fails if the finding index changed or if
-disallowed ledger events occurred after the packet.
+`atlas finding review-packet [--json] [packet-name] [--within days]` preserves
+that queue as a metadata-only packet under the operation directory. Markdown is
+the human review format. `--json` emits
+`atlas.accepted_risk_review_packet.v1`. The packet records queue counts, the
+review window, a finding-index hash, and an operation-ledger anchor. `atlas
+finding review-verify [packet]` reads Markdown or JSON packets without writing
+ledger events and fails if the finding index changed or if disallowed ledger
+events occurred after the packet.
 
 Operation reports now render recorded findings instead of only leaving a
 placeholder.
@@ -549,11 +557,12 @@ operation still needs attention, close fails and prints the readiness checklist.
 Operators can use `--force` to close anyway; Atlas records the forced readiness
 snapshot in the operation ledger.
 
-`atlas op handoff [name] [handoff-name]` writes a metadata-only Markdown packet
-under the operation directory. It links the latest report, evidence bundle,
-manifest hash, operation ledger, findings, validation plans, report freshness,
-bundle freshness, handoff freshness, and close readiness state without embedding
-raw artifact contents.
+`atlas op handoff [--json] [name] [handoff-name]` writes a metadata-only packet
+under the operation directory. Markdown is the human review format. `--json`
+emits `atlas.handoff_packet.v1`. Both formats link the latest report, evidence
+bundle, manifest hash, operation ledger, report freshness, bundle freshness,
+handoff freshness, and close readiness state without embedding raw artifact
+contents.
 
 `atlas op closeout [--json] [name] [manifest-name]` writes a metadata-only
 audit manifest under the operation directory. Markdown is the human review
@@ -635,6 +644,7 @@ Use:
 ```bash
 atlas advisor brief
 atlas advisor prompt advisor-op advisor-packet
+atlas advisor prompt --json advisor-op advisor-packet
 ```
 
 The advisor flags unredacted non-public evidence before external handoff. Once

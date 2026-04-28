@@ -138,9 +138,11 @@ Each pillar status must include:
 - Commands: `atlas finding add`, `atlas finding update`,
   `atlas finding accept`, `atlas finding review`,
   `atlas finding review-queue`, `atlas finding review-packet`,
+  `atlas finding review-packet --json`,
   `atlas finding review-verify`, `atlas finding resolve`,
   `atlas op readiness`
-- Artifacts: operation finding index and accepted-risk review packets.
+- Artifacts: operation finding index, accepted-risk review packets, and
+  accepted-risk review JSON schema `atlas.accepted_risk_review_packet.v1`.
 - Limitations: accepted-risk expiry is date-based and checked during readiness;
   Atlas does not yet send scheduled reminders before expiry.
 
@@ -179,7 +181,8 @@ Each pillar status must include:
   `atlas release verify`
 - Artifacts: closeout manifest, audit packet, archive packet, release trust
   packet, optional operation trust-chain summary, accepted-risk review packet
-  references, closeout manifest JSON schema `atlas.closeout_manifest.v1`, and
+  references, handoff packet JSON schema `atlas.handoff_packet.v1`, closeout
+  manifest JSON schema `atlas.closeout_manifest.v1`, and
   release trust JSON schema `atlas.release_trust.v1`.
 - Limitations: release provenance uses signed Git tags, but operation
   retention packets are not individually signed.
@@ -217,7 +220,8 @@ Each pillar status must include:
   optional pillar is explicitly disabled/planned.
 - Tests: `tests/atlas.bats` advisor prompt and v1 advisor-disabled tests.
 - Commands: `atlas advisor brief`, `atlas advisor prompt`
-- Artifacts: advisor prompt packet.
+- Artifacts: advisor prompt packet and advisor prompt JSON schema
+  `atlas.advisor_prompt_packet.v1`.
 - Limitations: external model execution is outside Atlas.
 
 ## Strict Mode

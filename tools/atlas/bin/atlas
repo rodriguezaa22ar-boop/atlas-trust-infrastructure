@@ -134,7 +134,7 @@ usage:
   atlas finding accept <id> --reason text [--owner owner] [--expires date]
   atlas finding review <id> --reason text [--owner owner] [--expires date]
   atlas finding review-queue [--within days]
-  atlas finding review-packet [packet-name] [--within days]
+  atlas finding review-packet [--json] [packet-name] [--within days]
   atlas finding review-verify [packet]
   atlas finding resolve <id> [--evidence id] [--validation id]
   atlas finding list
@@ -147,7 +147,7 @@ usage:
   atlas validation retest <id> --result resolved|still-open
   atlas validation supersede <id> --by replacement-id --reason text
   atlas advisor brief [name]
-  atlas advisor prompt [name] [packet-name]
+  atlas advisor prompt [--json] [name] [packet-name]
   atlas cycle [target]
   atlas flow list
 
@@ -179,7 +179,7 @@ quick flow:
   atlas op story [name]
   atlas op report [name] [report-name]
   atlas op readiness [name]
-  atlas op handoff [name] [handoff-name]
+  atlas op handoff [--json] [name] [handoff-name]
   atlas op closeout [--json] [name] [manifest-name]
   atlas op verify [name] [closeout-manifest]
   atlas op audit [name]
@@ -215,7 +215,7 @@ operations:
   atlas op cycle [name]
   atlas op report [name] [report-name]
   atlas op readiness [name]
-  atlas op handoff [name] [handoff-name]
+  atlas op handoff [--json] [name] [handoff-name]
   atlas op closeout [--json] [name] [manifest-name]
   atlas op verify [name] [closeout-manifest]
   atlas op audit [name]
@@ -317,7 +317,7 @@ findings:
   atlas finding accept <id> --reason text [--owner owner] [--expires date]
   atlas finding review <id> --reason text [--owner owner] [--expires date]
   atlas finding review-queue [--within days]
-  atlas finding review-packet [packet-name] [--within days]
+  atlas finding review-packet [--json] [packet-name] [--within days]
   atlas finding review-verify [packet]
   atlas finding resolve <id> [--evidence id] [--validation id] [--note text]
   atlas finding list
@@ -334,7 +334,7 @@ validation:
 
 advisor:
   atlas advisor brief [name]
-  atlas advisor prompt [name] [packet-name]
+  atlas advisor prompt [--json] [name] [packet-name]
 
 business flows:
   atlas flow add <flow-name> [--type type] [--owner owner] [--criticality low|medium|high|critical] [--environment label] [--scope-status status] [--data-class label] [--system alias] [--control objective]
@@ -1396,10 +1396,18 @@ print_operation_report_commands() {
 			printf -- "- \`%s\`\n" "atlas op action run $lane $session_name"
 			;;
 		advisor-prompt)
-			printf -- "- \`%s\`\n" "atlas advisor prompt $ATLAS_OP_SLUG $(basename "$detail" .md)"
+			if [ "${detail%.json}" != "$detail" ]; then
+				printf -- "- \`%s\`\n" "atlas advisor prompt --json $ATLAS_OP_SLUG $(basename "$detail" .json)"
+			else
+				printf -- "- \`%s\`\n" "atlas advisor prompt $ATLAS_OP_SLUG $(basename "$detail" .md)"
+			fi
 			;;
 		handoff)
-			printf -- "- \`%s\`\n" "atlas op handoff $ATLAS_OP_SLUG $(basename "$detail" .md)"
+			if [ "${detail%.json}" != "$detail" ]; then
+				printf -- "- \`%s\`\n" "atlas op handoff --json $ATLAS_OP_SLUG $(basename "$detail" .json)"
+			else
+				printf -- "- \`%s\`\n" "atlas op handoff $ATLAS_OP_SLUG $(basename "$detail" .md)"
+			fi
 			;;
 		closeout)
 			if [ "${detail%.json}" != "$detail" ]; then

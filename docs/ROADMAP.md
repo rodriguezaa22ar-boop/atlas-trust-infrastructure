@@ -28,6 +28,9 @@ Atlas is in the trust infrastructure lane:
 - archive packet JSON parity
 - audit packet JSON parity
 - closeout manifest JSON parity
+- handoff packet JSON parity
+- accepted-risk review packet JSON parity
+- advisor prompt packet JSON parity
 
 ## Near-Term Milestones
 
@@ -69,7 +72,14 @@ Atlas is in the trust infrastructure lane:
 16. Closeout manifest JSON parity. Implemented as
     `atlas op closeout --json`, with `atlas.closeout_manifest.v1` and
     `atlas op verify` support for Markdown or JSON closeout manifests.
-17. JSON parity for handoff packets where needed.
+17. Handoff packet JSON parity. Implemented as
+    `atlas op handoff --json`, with `atlas.handoff_packet.v1`.
+18. Accepted-risk review packet JSON parity. Implemented as
+    `atlas finding review-packet --json`, with
+    `atlas.accepted_risk_review_packet.v1` and `atlas finding review-verify`
+    support for Markdown or JSON packets.
+19. Advisor prompt packet JSON parity. Implemented as
+    `atlas advisor prompt --json`, with `atlas.advisor_prompt_packet.v1`.
 
 ## Later Control-Plane Work
 

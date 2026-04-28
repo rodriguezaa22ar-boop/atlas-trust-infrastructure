@@ -279,6 +279,130 @@ atlas_advisor_write_prompt() {
   } >"$file"
 }
 
+atlas_advisor_write_json_prompt() {
+  local file="$1"
+  local generated_at="$2"
+  local counts
+  local total
+  local redacted
+  local unredacted
+  local non_public
+  local review_required
+  local priority_rows
+  local validation_rows
+  local next_moves
+
+  atlas_scope_load_snapshot
+  atlas_brief_collect "$ATLAS_OP_TARGET" "1"
+  intel_require_jq
+
+  counts="$(atlas_advisor_evidence_counts)"
+  IFS=$'\t' read -r total redacted unredacted non_public review_required <<<"$counts"
+  priority_rows="$(atlas_advisor_priority_finding_rows 12)"
+  validation_rows="$(atlas_advisor_validation_queue_rows 12)"
+  next_moves="$(atlas_advisor_next_moves)"
+
+  jq -n \
+    --arg schema_version "atlas.advisor_prompt_packet.v1" \
+    --arg generated_at "$generated_at" \
+    --arg operation_name "$ATLAS_OP_NAME" \
+    --arg operation_id "$ATLAS_OP_SLUG" \
+    --arg operation_status "$ATLAS_OP_STATUS" \
+    --arg target "$ATLAS_OP_TARGET" \
+    --arg address "${ATLAS_OP_TARGET_ADDRESS:-}" \
+    --argjson evidence_total "${total:-0}" \
+    --argjson evidence_redacted "${redacted:-0}" \
+    --argjson evidence_unredacted "${unredacted:-0}" \
+    --argjson evidence_non_public "${non_public:-0}" \
+    --argjson evidence_review_required "${review_required:-0}" \
+    --arg priority_rows "$priority_rows" \
+    --arg validation_rows "$validation_rows" \
+    --arg next_moves "$next_moves" '
+      def nullable($v):
+        if $v == "" or $v == "-" or $v == "none" then null else $v end;
+      def priority_object:
+        split("\t") as $parts
+        | {
+            finding_id: ($parts[0] // ""),
+            severity: ($parts[1] // "info"),
+            level: ($parts[2] // "inferred"),
+            status: ($parts[3] // "open"),
+            title: ($parts[4] // ""),
+            advisor_cue: ($parts[5] // "")
+          };
+      def validation_object:
+        split("\t") as $parts
+        | {
+            validation_id: ($parts[0] // ""),
+            lane: ($parts[1] // ""),
+            status: ($parts[2] // ""),
+            result_status: ($parts[3] // ""),
+            finding_id: ($parts[4] // "")
+          };
+      {
+        schema_version: $schema_version,
+        generated_at: $generated_at,
+        operation: {
+          name: $operation_name,
+          id: $operation_id,
+          status: $operation_status,
+          target: $target,
+          address: nullable($address)
+        },
+        metadata_only: true,
+        raw_artifacts_embedded: false,
+        advisor_boundary: {
+          execution: "planning-only",
+          external_model_execution: "outside-atlas",
+          target_touching_actions: "operator-controlled-explicit-atlas-commands"
+        },
+        safety_constraints: [
+          "Stay inside the recorded operation scope and authorization boundary.",
+          "Do not recommend exploitation, payload delivery, persistence, denial of service, brute forcing, credential stuffing, or data extraction.",
+          "Keep execution manual; suggest explicit Atlas commands for the operator to run.",
+          "Treat unredacted non-public evidence as unsafe for external handoff until the operator reviews it."
+        ],
+        redaction_status: {
+          evidence_records: $evidence_total,
+          redacted: $evidence_redacted,
+          unredacted: $evidence_unredacted,
+          non_public: $evidence_non_public,
+          review_required: $evidence_review_required,
+          external_handoff_status: (if $evidence_review_required > 0 then "review-required" else "metadata-only-ready" end)
+        },
+        priority_findings: (
+          $priority_rows
+          | split("\n")
+          | map(select(length > 0) | priority_object)
+        ),
+        validation_queue: (
+          $validation_rows
+          | split("\n")
+          | map(select(length > 0) | validation_object)
+        ),
+        suggested_operator_moves: (
+          $next_moves
+          | split("\n")
+          | map(select(length > 0) | sub("^- "; ""))
+        ),
+        requested_output: [
+          "Summarize the operator situation in five bullets or fewer.",
+          "Identify missing evidence and the safest next Atlas commands.",
+          "Draft concise report language using only recorded facts from this packet."
+        ],
+        metadata_boundary: {
+          stores: ["counts", "ids", "status labels", "severity labels", "advisor cues", "suggested operator moves"],
+          excludes: ["raw evidence bodies", "raw reports", "raw validation output", "credentials", "tokens", "secrets", "packet captures", "session contents"]
+        },
+        known_limitations: [
+          "Advisor prompt packets are metadata-only planning context and are not an execution engine.",
+          "External model execution is outside Atlas.",
+          "Advisor prompt packets are not production certification, external audit, legal compliance evidence, or cryptographic immutability."
+        ]
+      }
+    ' >"$file"
+}
+
 cmd_advisor_brief() {
   if [ "$#" -gt 0 ]; then
     load_atlas_operation "$1"
@@ -315,13 +439,43 @@ cmd_advisor_brief() {
 }
 
 cmd_advisor_prompt() {
-  local packet_name="${2:-}"
+  local json_output=0
+  local operation_name=""
+  local packet_name=""
   local packet_slug
   local advisor_dir
   local packet_file
+  local generated_at
 
-  if [ "$#" -gt 0 ]; then
-    load_atlas_operation "$1"
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+    --json)
+      json_output=1
+      shift
+      ;;
+    --)
+      shift
+      break
+      ;;
+    -*)
+      fail "unknown advisor prompt option: $1"
+      ;;
+    *)
+      if [ -z "$operation_name" ]; then
+        operation_name="$1"
+      elif [ -z "$packet_name" ]; then
+        packet_name="$1"
+      else
+        fail "advisor prompt [--json] [name] [packet-name]"
+      fi
+      shift
+      ;;
+    esac
+  done
+  [ "$#" -eq 0 ] || fail "advisor prompt [--json] [name] [packet-name]"
+
+  if [ -n "$operation_name" ]; then
+    load_atlas_operation "$operation_name"
   else
     load_active_operation
   fi
@@ -335,13 +489,28 @@ cmd_advisor_prompt() {
   advisor_dir="$ATLAS_OP_DIR/advisor"
   mkdir -p "$advisor_dir"
   chmod 700 "$advisor_dir" 2>/dev/null || true
-  packet_file="$advisor_dir/$packet_slug.md"
-  atlas_advisor_write_prompt "$packet_file"
+  if [ "$json_output" -eq 1 ]; then
+    packet_file="$advisor_dir/$packet_slug.json"
+  else
+    packet_file="$advisor_dir/$packet_slug.md"
+  fi
+
+  generated_at="$(timestamp)"
+  if [ "$json_output" -eq 1 ]; then
+    atlas_advisor_write_json_prompt "$packet_file" "$generated_at"
+  else
+    atlas_advisor_write_prompt "$packet_file"
+  fi
   chmod 600 "$packet_file" 2>/dev/null || true
 
   atlas_ledger_append_current "advisor.packet.generated" "read-only" "atlas" "ok" "$packet_file"
   record_operation_history "$ATLAS_OP_DIR" "advisor-prompt" "$packet_file"
 
-  ui_ok "advisor packet written"
-  printf 'packet: %s\n' "$packet_file"
+  if [ "$json_output" -eq 1 ]; then
+    ui_ok "advisor JSON packet written"
+    printf 'packet_json: %s\n' "$packet_file"
+  else
+    ui_ok "advisor packet written"
+    printf 'packet: %s\n' "$packet_file"
+  fi
 }

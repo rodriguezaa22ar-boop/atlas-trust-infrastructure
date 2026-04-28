@@ -87,6 +87,7 @@ nix-shell --run './bin/dev-qa'
 ./tools/atlas/bin/atlas op report april-review
 ./tools/atlas/bin/atlas op readiness april-review
 ./tools/atlas/bin/atlas op handoff april-review
+./tools/atlas/bin/atlas op handoff --json april-review
 ./tools/atlas/bin/atlas op close april-review
 ./tools/atlas/bin/atlas op close april-review --force
 ./tools/atlas/bin/atlas op closeout april-review
@@ -174,6 +175,7 @@ presence, and verification state without mutating operation state.
 ./tools/atlas/bin/atlas finding review finding_... --reason "owner renewed acceptance" --owner Alta --expires 2027-03-31
 ./tools/atlas/bin/atlas finding review-queue --within 30
 ./tools/atlas/bin/atlas finding review-packet accepted-risk-review --within 30
+./tools/atlas/bin/atlas finding review-packet --json accepted-risk-review --within 30
 ./tools/atlas/bin/atlas finding review-verify accepted-risk-review
 ./tools/atlas/bin/atlas finding list
 ./tools/atlas/bin/atlas finding show finding_...
@@ -206,6 +208,7 @@ See [WEB_ASSESSMENT.md](WEB_ASSESSMENT.md) for the full flow and boundaries.
 ```bash
 ./tools/atlas/bin/atlas advisor brief
 ./tools/atlas/bin/atlas advisor prompt
+./tools/atlas/bin/atlas advisor prompt --json
 ./tools/atlas/bin/atlas story demo-web-app
 ```
 

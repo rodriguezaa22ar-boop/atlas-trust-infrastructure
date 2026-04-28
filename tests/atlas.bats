@@ -1543,12 +1543,16 @@ EOF
   grep -q 'atlas.release_provenance.v1' "$parity_doc"
   grep -q 'atlas.production_readiness.v1' "$parity_doc"
   grep -q 'atlas.operation_trust_chain.v1' "$parity_doc"
+  grep -q 'atlas.handoff_packet.v1' "$parity_doc"
   grep -q 'atlas.closeout_manifest.v1' "$parity_doc"
   grep -q 'atlas.audit_packet.v1' "$parity_doc"
   grep -q 'atlas.archive_packet.v1' "$parity_doc"
+  grep -q 'atlas.accepted_risk_review_packet.v1' "$parity_doc"
+  grep -q 'atlas.advisor_prompt_packet.v1' "$parity_doc"
   grep -q 'atlas.business_flow_packet.v1' "$parity_doc"
   grep -q 'atlas.business_flow_verify.v1' "$parity_doc"
   grep -q 'atlas.business_flow_trust_chain.v1' "$parity_doc"
+  grep -q '`atlas op handoff` | Markdown | yes | `atlas.handoff_packet.v1` | implemented' "$parity_doc"
   grep -q '`atlas op closeout` | Markdown | yes | `atlas.closeout_manifest.v1` | implemented' "$parity_doc"
   grep -q '`atlas op audit-packet` | Markdown | yes | `atlas.audit_packet.v1` | implemented' "$parity_doc"
   grep -q '`atlas op archive-packet` | Markdown | yes | `atlas.archive_packet.v1` | implemented' "$parity_doc"
@@ -1558,10 +1562,13 @@ EOF
   grep -q '`atlas flow packet` | Markdown | yes' "$parity_doc"
   grep -q '`atlas advisor prompt`' "$parity_doc"
   grep -q '## Missing JSON Packet Surfaces' "$parity_doc"
-  grep -q '1. handoff packet' "$parity_doc"
+  grep -q 'No missing JSON packet surfaces remain for the current v1 trust-packet pipeline.' "$parity_doc"
+  ! grep -q 'handoff packet$' "$parity_doc"
   ! grep -q 'closeout manifest$' "$parity_doc"
   ! grep -q 'audit packet$' "$parity_doc"
   ! grep -q 'archive packet$' "$parity_doc"
+  ! grep -q 'accepted-risk review packet$' "$parity_doc"
+  ! grep -q 'advisor prompt packet$' "$parity_doc"
   ! grep -q 'business-flow packet$' "$parity_doc"
   grep -q 'metadata-only assertion' "$parity_doc"
   grep -q 'raw runtime artifacts' "$parity_doc"
@@ -1576,9 +1583,12 @@ EOF
   provenance_schema="$schemas_dir/release-provenance.v1.md"
   production_schema="$schemas_dir/production-readiness.v1.md"
   trust_chain_schema="$schemas_dir/operation-trust-chain.v1.md"
+  handoff_schema="$schemas_dir/handoff-packet.v1.md"
   closeout_schema="$schemas_dir/closeout-manifest.v1.md"
   audit_schema="$schemas_dir/audit-packet.v1.md"
   archive_schema="$schemas_dir/archive-packet.v1.md"
+  review_schema="$schemas_dir/accepted-risk-review-packet.v1.md"
+  advisor_schema="$schemas_dir/advisor-prompt-packet.v1.md"
   business_packet_schema="$schemas_dir/business-flow-packet.v1.md"
   business_verify_schema="$schemas_dir/business-flow-verify.v1.md"
   business_trust_chain_schema="$schemas_dir/business-flow-trust-chain.v1.md"
@@ -1588,9 +1598,12 @@ EOF
   [ -f "$provenance_schema" ]
   [ -f "$production_schema" ]
   [ -f "$trust_chain_schema" ]
+  [ -f "$handoff_schema" ]
   [ -f "$closeout_schema" ]
   [ -f "$audit_schema" ]
   [ -f "$archive_schema" ]
+  [ -f "$review_schema" ]
+  [ -f "$advisor_schema" ]
   [ -f "$business_packet_schema" ]
   [ -f "$business_verify_schema" ]
   [ -f "$business_trust_chain_schema" ]
@@ -1599,9 +1612,12 @@ EOF
   grep -q 'atlas.release_provenance.v1' "$index_file"
   grep -q 'atlas.production_readiness.v1' "$index_file"
   grep -q 'atlas.operation_trust_chain.v1' "$index_file"
+  grep -q 'atlas.handoff_packet.v1' "$index_file"
   grep -q 'atlas.closeout_manifest.v1' "$index_file"
   grep -q 'atlas.audit_packet.v1' "$index_file"
   grep -q 'atlas.archive_packet.v1' "$index_file"
+  grep -q 'atlas.accepted_risk_review_packet.v1' "$index_file"
+  grep -q 'atlas.advisor_prompt_packet.v1' "$index_file"
   grep -q 'atlas.business_flow_packet.v1' "$index_file"
   grep -q 'atlas.business_flow_verify.v1' "$index_file"
   grep -q 'atlas.business_flow_trust_chain.v1' "$index_file"
@@ -1647,6 +1663,13 @@ EOF
   grep -q 'from current retained operation state' "$trust_chain_schema"
   grep -q 'Expanding operation scope' "$trust_chain_schema"
 
+  grep -q '^# `atlas.handoff_packet.v1`$' "$handoff_schema"
+  grep -q 'atlas op handoff --json' "$handoff_schema"
+  grep -q '`schema_version`: must be `atlas.handoff_packet.v1`' "$handoff_schema"
+  grep -q '`metadata_only`: must be `true`' "$handoff_schema"
+  grep -q '`raw_artifacts_embedded`: must be `false`' "$handoff_schema"
+  grep -q 'raw report bodies' "$handoff_schema"
+
   grep -q '^# `atlas.closeout_manifest.v1`$' "$closeout_schema"
   grep -q 'atlas op closeout --json' "$closeout_schema"
   grep -q '`schema_version`: must be `atlas.closeout_manifest.v1`' "$closeout_schema"
@@ -1673,6 +1696,21 @@ EOF
   grep -q 'atlas op archive-verify' "$archive_schema"
   grep -q 'raw runtime artifacts' "$archive_schema"
   grep -q 'customer data' "$archive_schema"
+
+  grep -q '^# `atlas.accepted_risk_review_packet.v1`$' "$review_schema"
+  grep -q 'atlas finding review-packet --json' "$review_schema"
+  grep -q '`schema_version`: must be `atlas.accepted_risk_review_packet.v1`' "$review_schema"
+  grep -q '`metadata_only`: must be `true`' "$review_schema"
+  grep -q '`raw_artifacts_embedded`: must be `false`' "$review_schema"
+  grep -q 'atlas finding review-verify' "$review_schema"
+  grep -q 'accepted-risk reason bodies' "$review_schema"
+
+  grep -q '^# `atlas.advisor_prompt_packet.v1`$' "$advisor_schema"
+  grep -q 'atlas advisor prompt --json' "$advisor_schema"
+  grep -q '`schema_version`: must be `atlas.advisor_prompt_packet.v1`' "$advisor_schema"
+  grep -q '`metadata_only`: must be `true`' "$advisor_schema"
+  grep -q '`raw_artifacts_embedded`: must be `false`' "$advisor_schema"
+  grep -q 'not an execution engine' "$advisor_schema"
 
   grep -q '^# Schema Contract: atlas.business_flow_packet.v1$' "$business_packet_schema"
   grep -q 'atlas flow packet --json' "$business_packet_schema"
@@ -1827,14 +1865,14 @@ EOF
   [[ "$output" == *"atlas finding accept <id> --reason text"* ]]
   [[ "$output" == *"atlas finding review <id> --reason text"* ]]
   [[ "$output" == *"atlas finding review-queue [--within days]"* ]]
-  [[ "$output" == *"atlas finding review-packet [packet-name] [--within days]"* ]]
+  [[ "$output" == *"atlas finding review-packet [--json] [packet-name] [--within days]"* ]]
   [[ "$output" == *"atlas finding review-verify [packet]"* ]]
   [[ "$output" == *"atlas finding resolve <id> [--evidence id] [--validation id]"* ]]
   [[ "$output" == *"atlas validation plan <lane> [--finding id] [--evidence id]"* ]]
   [[ "$output" == *"atlas validation retest <id> --result resolved|still-open"* ]]
   [[ "$output" == *"atlas validation supersede <id> --by replacement-id --reason text"* ]]
   [[ "$output" == *"atlas advisor brief [name]"* ]]
-  [[ "$output" == *"atlas advisor prompt [name] [packet-name]"* ]]
+  [[ "$output" == *"atlas advisor prompt [--json] [name] [packet-name]"* ]]
   [[ "$output" == *"atlas cycle [target]"* ]]
   [[ "$output" == *"targets:"* ]]
   [[ "$output" == *"operations:"* ]]
@@ -1857,7 +1895,7 @@ EOF
   [[ "$output" == *"atlas op story [name]"* ]]
   [[ "$output" == *"atlas op report [name] [report-name]"* ]]
   [[ "$output" == *"atlas op readiness [name]"* ]]
-  [[ "$output" == *"atlas op handoff [name] [handoff-name]"* ]]
+  [[ "$output" == *"atlas op handoff [--json] [name] [handoff-name]"* ]]
   [[ "$output" == *"atlas op closeout [--json] [name] [manifest-name]"* ]]
   [[ "$output" == *"atlas op verify [name] [closeout-manifest]"* ]]
   [[ "$output" == *"atlas op audit [name]"* ]]
@@ -3841,10 +3879,35 @@ EOF
   grep -q "$finding_id" "$handoff_path"
   grep -q 'Validate recipient and handling requirements' "$handoff_path"
 
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op handoff --json readiness-op readiness-handoff-json
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"handoff JSON packet written"* ]]
+  handoff_json_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "handoff_json" { print $2; exit }')"
+  [ -f "$handoff_json_path" ]
+  jq -e \
+    --arg report_path "$report_path" \
+    --arg manifest_path "$manifest_path" '
+      .schema_version == "atlas.handoff_packet.v1" and
+      .operation.id == "readiness-op" and
+      .metadata_only == true and
+      .raw_artifacts_embedded == false and
+      .readiness.close_readiness == "ready" and
+      .readiness.freshness.report == "current" and
+      .readiness.freshness.bundle == "stale" and
+      .artifacts.latest_report.path == $report_path and
+      .artifacts.evidence_manifest.path == $manifest_path and
+      (.integrity.operation_ledger.events > 0) and
+      (.integrity.operation_ledger.sha256 | length > 0) and
+      (.metadata_boundary.excludes | index("raw evidence bodies")) and
+      (.known_limitations | length > 0)
+    ' "$handoff_json_path"
+  jq -e --arg handoff_json_path "$handoff_json_path" 'select(.event == "handoff.generated" and .detail == $handoff_json_path)' \
+    "$TEST_ROOT/toolkit/sessions/readiness-op/ledger.ndjson"
+
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op readiness readiness-op
   [ "$status" -eq 0 ]
   [[ "$output" == *"Latest Handoff:"* ]]
-  [[ "$output" == *"$handoff_path"* ]]
+  [[ "$output" == *"$handoff_json_path"* ]]
   [[ "$output" == *"Handoff Freshness: current"* ]]
 
   sleep 1
@@ -3884,7 +3947,7 @@ EOF
   grep -q 'Handoff freshness: stale' "$closeout_path"
   grep -q 'Closeout freshness: current' "$closeout_path"
   grep -q "$report_path" "$closeout_path"
-  grep -q "$handoff_path" "$closeout_path"
+  grep -q "$handoff_json_path" "$closeout_path"
   grep -q 'Operation ledger: .*events=.*sha256=' "$closeout_path"
   grep -q 'Operation env: .*sha256=' "$closeout_path"
   grep -q 'Scope snapshot: .*sha256=' "$closeout_path"
@@ -3919,7 +3982,7 @@ EOF
   [ -f "$closeout_json_path" ]
   jq -e \
     --arg report_path "$report_path" \
-    --arg handoff_path "$handoff_path" '
+    --arg handoff_json_path "$handoff_json_path" '
       .schema_version == "atlas.closeout_manifest.v1" and
       .operation.id == "readiness-op" and
       .metadata_only == true and
@@ -3927,7 +3990,7 @@ EOF
       .readiness.close_readiness == "ready" and
       .readiness.freshness.closeout == "current" and
       .artifacts.latest_report.path == $report_path and
-      .artifacts.latest_handoff.path == $handoff_path and
+      .artifacts.latest_handoff.path == $handoff_json_path and
       (.integrity.operation_ledger.events > 0) and
       (.integrity.operation_ledger.sha256 | length > 0) and
       (.known_limitations | length > 0)
@@ -4522,6 +4585,54 @@ EOF
   review_verify_events_after="$(wc -l < "$TEST_ROOT/toolkit/sessions/review-queue-op/ledger.ndjson" | tr -d ' ')"
   [ "$review_verify_events_after" = "$review_verify_events_before" ]
 
+  run env ATLAS_TODAY=2026-04-27 "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding review-packet --json queue-review-json --within 30
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"accepted-risk review JSON packet written"* ]]
+  review_packet_json_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "review_packet_json" { print $2; exit }')"
+  [ -f "$review_packet_json_path" ]
+  jq -e \
+    --arg expired_id "$expired_id" \
+    --arg due_soon_id "$due_soon_id" \
+    --arg current_id "$current_id" \
+    --arg no_expiry_id "$no_expiry_id" '
+      .schema_version == "atlas.accepted_risk_review_packet.v1" and
+      .operation.id == "review-queue-op" and
+      .metadata_only == true and
+      .raw_artifacts_embedded == false and
+      .review_window.today == "2026-04-27" and
+      .review_window.days == 30 and
+      .review_window.due_by == "2026-05-27" and
+      .queue_counts.expired == 1 and
+      .queue_counts.due_soon == 1 and
+      .queue_counts.no_expiry == 1 and
+      .queue_counts.current == 1 and
+      (.anchors.finding_index.sha256 | length > 0) and
+      (.anchors.operation_ledger.events > 0) and
+      (.anchors.operation_ledger.sha256 | length > 0) and
+      any(.review_queue[]; .finding_id == $expired_id and .state == "expired") and
+      any(.review_queue[]; .finding_id == $due_soon_id and .state == "due-soon") and
+      any(.review_queue[]; .finding_id == $current_id and .state == "current") and
+      any(.review_queue[]; .finding_id == $no_expiry_id and .state == "no-expiry") and
+      (.metadata_boundary.excludes | index("accepted-risk reason bodies")) and
+      (.known_limitations | length > 0)
+    ' "$review_packet_json_path"
+  jq -e --arg review_packet_json_path "$review_packet_json_path" 'select(.event == "finding.review_packet.generated" and .detail == $review_packet_json_path)' \
+    "$TEST_ROOT/toolkit/sessions/review-queue-op/ledger.ndjson"
+
+  review_json_verify_events_before="$(wc -l < "$TEST_ROOT/toolkit/sessions/review-queue-op/ledger.ndjson" | tr -d ' ')"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding review-verify "$review_packet_json_path"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Accepted Risk Review Packet Verification"* ]]
+  [[ "$output" == *"Metadata Only"* ]]
+  [[ "$output" == *"Raw Artifacts"* ]]
+  [[ "$output" == *"Forbidden Content"* ]]
+  [[ "$output" == *"Finding Index"* ]]
+  [[ "$output" == *"Operation Ledger"* ]]
+  [[ "$output" == *"Verification Status: verified"* ]]
+  [[ "$output" == *"Verification Problems: 0"* ]]
+  review_json_verify_events_after="$(wc -l < "$TEST_ROOT/toolkit/sessions/review-queue-op/ledger.ndjson" | tr -d ' ')"
+  [ "$review_json_verify_events_after" = "$review_json_verify_events_before" ]
+
   sleep 1
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding review "$due_soon_id" \
     --reason "owner renewed near-term lab risk" \
@@ -4537,9 +4648,16 @@ EOF
 
   run env ATLAS_TODAY=2026-04-27 "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op audit review-queue-op
   [ "$status" -eq 0 ]
-  [[ "$output" == *"stale accepted-risk review packet: $review_packet_path"* ]]
+  [[ "$output" == *"stale accepted-risk review packet: $review_packet_json_path"* ]]
 
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding review-verify "$review_packet_path"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Finding Index"* ]]
+  [[ "$output" == *"changed"* ]]
+  [[ "$output" == *"Operation Ledger"* ]]
+  [[ "$output" == *"Verification Status: attention-required"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding review-verify "$review_packet_json_path"
   [ "$status" -ne 0 ]
   [[ "$output" == *"Finding Index"* ]]
   [[ "$output" == *"changed"* ]]
@@ -5176,6 +5294,34 @@ EOF
   jq -e \
     --arg packet_path "$packet_path" \
     'select(.event == "advisor.packet.generated" and .detail == $packet_path)' \
+    "$TEST_ROOT/toolkit/sessions/advisor-op/ledger.ndjson"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" advisor prompt --json advisor-op advisor-packet-json
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"advisor JSON packet written"* ]]
+  packet_json_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "packet_json" { print $2; exit }')"
+  [ -f "$packet_json_path" ]
+  jq -e \
+    --arg finding_id "$finding_id" \
+    --arg plan_id "$plan_id" '
+      .schema_version == "atlas.advisor_prompt_packet.v1" and
+      .operation.id == "advisor-op" and
+      .metadata_only == true and
+      .raw_artifacts_embedded == false and
+      .advisor_boundary.execution == "planning-only" and
+      .redaction_status.review_required == 1 and
+      .redaction_status.external_handoff_status == "review-required" and
+      any(.priority_findings[]; .finding_id == $finding_id) and
+      any(.validation_queue[]; .validation_id == $plan_id) and
+      (.safety_constraints | length > 0) and
+      (.suggested_operator_moves | length > 0) and
+      (.metadata_boundary.excludes | index("raw evidence bodies")) and
+      any(.known_limitations[]; contains("not an execution engine"))
+    ' "$packet_json_path"
+
+  jq -e \
+    --arg packet_json_path "$packet_json_path" \
+    'select(.event == "advisor.packet.generated" and .detail == $packet_json_path)' \
     "$TEST_ROOT/toolkit/sessions/advisor-op/ledger.ndjson"
 
   redacted_artifact="$TEST_ROOT/advisor-artifact-redacted.txt"
