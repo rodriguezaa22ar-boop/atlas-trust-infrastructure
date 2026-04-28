@@ -85,8 +85,9 @@ checks:
   expected commit.
 - `atlas release replay`: checks that packet from a clean checkout of the
   packet's recorded commit, including QA unless `--skip-qa` is used.
-- `atlas production status`: verifies the latest release packet, signed
-  provenance packet, retained public key, and production dry-run note together.
+- `atlas production status`: verifies the latest release packet, release
+  artifact manifest, signed provenance packet, retained public key, and
+  production dry-run note together.
 
 The schema contracts that support those checks are:
 
@@ -151,6 +152,7 @@ requires:
 - clean repository
 - synced upstream
 - current verified release trust packet
+- current verified release artifact manifest
 - production readiness contract
 - signing/provenance
 - retained production dry-run evidence

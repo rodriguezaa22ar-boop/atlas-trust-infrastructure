@@ -553,9 +553,9 @@ atlas_release_latest_manifest() {
   local packet_dir="$LAB_DOCS_DIR/retention/releases"
 
   [ -d "$packet_dir" ] || return 0
-  find "$packet_dir" -maxdepth 1 -type f -name '*.manifest.json' -printf '%T@\t%p\n' 2>/dev/null |
-    sort -nr |
-    awk -F'\t' 'NR == 1 { print $2 }'
+  find "$packet_dir" -maxdepth 1 -type f -name '*.manifest.json' 2>/dev/null |
+    sort |
+    tail -n 1
 }
 
 atlas_release_latest_provenance_packet() {

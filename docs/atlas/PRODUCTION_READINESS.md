@@ -78,6 +78,19 @@ unless the overall state is `production-ready`.
   recorded operation trust chain.
 - Limitation: release packets are metadata-only and are not signatures.
 
+### Release Artifact Manifest
+
+- Required: yes
+- Evidence: latest `*.manifest.json` under `docs/retention/releases/`
+- Commands: `atlas release manifest`, `atlas release manifest-verify`
+- Production meaning: the retained release packet, signed provenance packet,
+  retained signing public key, production dry-run note, signed tag metadata, and
+  optional milestone note are indexed with SHA-256 hashes and verify against
+  the current commit or the retained release commit immediately before a
+  manifest-retention commit.
+- Limitation: release artifact manifests are metadata-only local indexes, not
+  external audit attestations or deployment certification.
+
 ### Production Contract
 
 - Required: yes
@@ -163,6 +176,7 @@ A future production release should include:
 - all required v1 pillars ready
 - full QA pass immediately before release
 - current Markdown or JSON release trust packet
+- current release artifact manifest
 - replay verification from a clean checkout of the packet commit
 - verified operation trust-chain sample when the release claims operation-level
   retention coverage

@@ -581,6 +581,12 @@ The near-term roadmap is:
     signed tag verification with the retained public key without embedding raw
     runtime artifacts, secrets, session contents, packet captures, private
     keys, tokens, or evidence bodies.
+91. Require release artifact manifests for production status.
+    `atlas production status` now treats the latest verified
+    `atlas.release_artifact_manifest.v1` manifest as a required gate, so local
+    production readiness depends on a metadata-only index that binds the
+    retained release packet, signed provenance, signing key, production dry-run
+    note, signed tag, and optional milestone note.
 
 ## First Serious Version
 

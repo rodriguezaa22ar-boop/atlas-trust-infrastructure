@@ -104,10 +104,10 @@ status:
   metadata.
 - `docs/retention/releases/REPLAY_VERIFICATION.md` defines the clean-checkout
   replay procedure for retained packets.
-- `atlas production status` consumes the latest release packet and
-  `atlas.release_provenance.v1` provenance packet to report whether the local
-  production contract is ready.
+- `atlas production status` consumes the latest release packet,
+  `atlas.release_artifact_manifest.v1`, and `atlas.release_provenance.v1`
+  provenance packet to report whether the local production contract is ready.
 
-This alignment means release packet JSON, replay docs, production-readiness
-JSON, and signed provenance must be updated together when any release trust
-field becomes trust-critical.
+This alignment means release packet JSON, release artifact manifest JSON,
+replay docs, production-readiness JSON, and signed provenance must be updated
+together when any release trust field becomes trust-critical.

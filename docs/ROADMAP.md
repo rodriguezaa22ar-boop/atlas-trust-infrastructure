@@ -84,6 +84,8 @@ Atlas is in the trust infrastructure lane:
 20. Release artifact manifest hardening. Implemented as
     `atlas release manifest` and `atlas release manifest-verify`, with
     `atlas.release_artifact_manifest.v1`.
+21. Production manifest gate. Implemented by requiring the latest verified
+    release artifact manifest inside `atlas production status`.
 
 ## Later Control-Plane Work
 

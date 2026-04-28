@@ -159,8 +159,9 @@ command, and `--json` emits the same contract in machine-readable form.
 `atlas production status [--strict] [--json]` is a read-only production
 readiness gate. It is stricter than `atlas v1 status`: it requires v1 internal
 readiness, a clean and synced repository, a current verified release trust
-packet, the production readiness contract, signing/provenance, and retained
-production dry-run or external validation evidence. When it reports
+packet, a current verified release artifact manifest, the production readiness
+contract, signing/provenance, and retained production dry-run or external
+validation evidence. When it reports
 `production-ready`, that means the local Atlas production contract passes for
 retained release evidence. It is not an external audit or deployment
 certification. The contract lives in
@@ -213,6 +214,11 @@ hashes, re-verifies the release packet, validates signed provenance with the
 retained public key, checks the production dry-run note, and verifies the signed
 tag. The manifest is local trust evidence, not external audit or deployment
 certification.
+
+`atlas production status` treats the latest verified release artifact manifest
+as a required local production gate. That binds the retained release packet,
+signed provenance, signing key, production dry-run note, and signed tag into one
+metadata-only index before Atlas can report `production-ready`.
 
 Packet format parity is tracked in
 [`docs/atlas/PACKET_FORMAT_PARITY.md`](../../docs/atlas/PACKET_FORMAT_PARITY.md).

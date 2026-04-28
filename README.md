@@ -55,6 +55,7 @@ when all retained release evidence verifies:
 - v1 internal readiness is ready
 - repository state is clean and synced
 - release trust packet verification passes
+- release artifact manifest verification passes
 - production readiness contract exists
 - signing/provenance verifies through a retained public key
 - production dry-run evidence is retained

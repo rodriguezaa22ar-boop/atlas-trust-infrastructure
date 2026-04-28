@@ -42,6 +42,7 @@ valid only when:
 - every required gate is `ready`
 - `counts.required_not_ready` is `0`
 - release trust packet verification is current
+- release artifact manifest verification is current
 - production contract documentation exists
 - signing/provenance evidence verifies a signed tag, release packet hash, and
   release packet replay

@@ -247,4 +247,4 @@ See [WEB_ASSESSMENT.md](WEB_ASSESSMENT.md) for the full flow and boundaries.
   changes the rule.
 - Target-touching commands require authorization and accurate scope records.
 - Production readiness is reported by `atlas production status`; do not infer
-  it from individual command success.
+  it from individual command success or a single release packet.

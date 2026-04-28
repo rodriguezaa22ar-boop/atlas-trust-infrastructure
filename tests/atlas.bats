@@ -2453,6 +2453,7 @@ EOF
   [[ "$output" == *"Repository Clean"* ]]
   [[ "$output" == *"Upstream Sync"* ]]
   [[ "$output" == *"Release Trust Packet"* ]]
+  [[ "$output" == *"Release Artifact Manifest"* ]]
   [[ "$output" == *"Production Contract"* ]]
   [[ "$output" == *"Business Flow Evidence"* ]]
   [[ "$output" == *"Signing And Provenance"* ]]
@@ -2482,9 +2483,10 @@ EOF
       (.gates.business_flow_evidence.commands | contains("atlas flow verify --json")) and
       (.gates.business_flow_evidence.commands | contains("atlas flow trust-chain --json")) and
       .gates.release_trust_packet.status == "blocked" and
+      .gates.release_artifact_manifest.status == "blocked" and
       .gates.signing_provenance.status == "blocked" and
       .gates.production_dry_run.status == "blocked" and
-      .counts.required_not_ready >= 3
+      .counts.required_not_ready >= 4
     '
 
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release packet production-current \
@@ -2507,10 +2509,11 @@ EOF
       .gates.repository_clean.status == "ready" and
       .gates.upstream_sync.status == "ready" and
       .gates.release_trust_packet.status == "ready" and
+      .gates.release_artifact_manifest.status == "blocked" and
       .gates.business_flow_evidence.status == "ready" and
       .gates.signing_provenance.status == "blocked" and
       .gates.production_dry_run.status == "blocked" and
-      .counts.required_not_ready >= 2
+      .counts.required_not_ready >= 3
     '
 
   dry_run_commit="$(git -C "$TEST_ROOT/toolkit" rev-parse HEAD)"
@@ -2544,10 +2547,11 @@ EOF
       .gates.repository_clean.status == "ready" and
       .gates.upstream_sync.status == "ready" and
       .gates.release_trust_packet.status == "blocked" and
+      .gates.release_artifact_manifest.status == "blocked" and
       .gates.business_flow_evidence.status == "ready" and
       .gates.signing_provenance.status == "blocked" and
       .gates.production_dry_run.status == "ready" and
-      .counts.required_not_ready >= 2
+      .counts.required_not_ready >= 3
     '
 
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" production status --strict
@@ -2642,7 +2646,18 @@ EOF
       no_production_overclaim: true
     }' > "$provenance_path"
 
-  git -C "$TEST_ROOT/toolkit" add -f "$signed_packet_path" "$provenance_path" "$public_key_path"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release manifest production-signed-manifest \
+    --packet "$signed_packet_path" \
+    --provenance "$provenance_path" \
+    --dry-run "$signed_dry_run_note" \
+    --tag "$tag_name" \
+    --allow-dirty
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"release artifact manifest written"* ]]
+  signed_manifest_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "release_manifest" { print $2; exit }')"
+  [ -f "$signed_manifest_path" ]
+
+  git -C "$TEST_ROOT/toolkit" add -f "$signed_packet_path" "$provenance_path" "$public_key_path" "$signed_manifest_path"
   git -C "$TEST_ROOT/toolkit" add "$signed_dry_run_note"
   git -C "$TEST_ROOT/toolkit" commit -m "retain signed production provenance" >/dev/null
   git -C "$TEST_ROOT/toolkit" update-ref refs/remotes/origin/main HEAD
@@ -2656,6 +2671,7 @@ EOF
       .gates.repository_clean.status == "ready" and
       .gates.upstream_sync.status == "ready" and
       .gates.release_trust_packet.status == "ready" and
+      .gates.release_artifact_manifest.status == "ready" and
       .gates.business_flow_evidence.status == "ready" and
       .gates.signing_provenance.status == "ready" and
       .gates.production_dry_run.status == "ready" and

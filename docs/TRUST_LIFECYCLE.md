@@ -43,8 +43,8 @@ A trust chain is current only when:
   trusting packet fields alone
 - retained release packets can be replayed from the commit recorded inside the
   packet
-- production status verifies release packet, signing/provenance, and retained
-  dry-run evidence together
+- production status verifies release packet, release artifact manifest,
+  signing/provenance, and retained dry-run evidence together
 
 ## Minimal Verification Path
 

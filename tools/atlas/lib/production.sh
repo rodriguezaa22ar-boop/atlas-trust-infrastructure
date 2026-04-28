@@ -197,6 +197,64 @@ atlas_production_check_release_packet() {
   fi
 }
 
+atlas_production_check_release_manifest() {
+  local latest_manifest
+  local commit
+  local parent_commit
+
+  latest_manifest="$(atlas_release_latest_manifest)"
+  if [ -z "$latest_manifest" ]; then
+    atlas_production_add_gate \
+      "release_artifact_manifest" \
+      "Release Artifact Manifest" \
+      1 \
+      "blocked" \
+      "no release artifact manifest found" \
+      "docs/retention/releases/" \
+      "atlas release manifest; atlas release manifest-verify" \
+      "production promotion requires a current verified metadata-only release artifact manifest"
+    return 0
+  fi
+
+  commit="$(git -C "$LAB_ROOT" rev-parse HEAD 2>/dev/null || atlas_release_commit)"
+  if atlas_release_manifest_verify_packet "$latest_manifest" "$commit" >/dev/null 2>&1; then
+    atlas_production_add_gate \
+      "release_artifact_manifest" \
+      "Release Artifact Manifest" \
+      1 \
+      "ready" \
+      "latest release artifact manifest verifies against the current commit" \
+      "$latest_manifest" \
+      "atlas release manifest-verify --commit $commit" \
+      "release artifact manifests are metadata-only local indexes, not external audit attestations"
+    return 0
+  fi
+
+  parent_commit="$(git -C "$LAB_ROOT" rev-parse HEAD^ 2>/dev/null || true)"
+  if [ -n "$parent_commit" ] && atlas_release_manifest_verify_packet "$latest_manifest" "$parent_commit" >/dev/null 2>&1; then
+    atlas_production_add_gate \
+      "release_artifact_manifest" \
+      "Release Artifact Manifest" \
+      1 \
+      "ready" \
+      "latest release artifact manifest verifies against the retained release commit before the manifest-retention commit" \
+      "$latest_manifest" \
+      "atlas release manifest-verify --commit $parent_commit" \
+      "release artifact manifests are metadata-only local indexes, not external audit attestations"
+    return 0
+  fi
+
+  atlas_production_add_gate \
+    "release_artifact_manifest" \
+    "Release Artifact Manifest" \
+    1 \
+    "blocked" \
+    "latest release artifact manifest does not verify against the current commit or retained release commit" \
+    "$latest_manifest" \
+    "atlas release manifest; atlas release manifest-verify" \
+    "regenerate the release artifact manifest after release packets, provenance, dry-run notes, signing keys, or release commits change"
+}
+
 atlas_production_check_docs() {
   local contract="$LAB_DOCS_DIR/atlas/PRODUCTION_READINESS.md"
 
@@ -584,6 +642,7 @@ atlas_production_collect() {
   atlas_production_check_v1
   atlas_production_check_repository
   atlas_production_check_release_packet
+  atlas_production_check_release_manifest
   atlas_production_check_docs
   atlas_production_check_business_flow_evidence
   atlas_production_check_future_hardening

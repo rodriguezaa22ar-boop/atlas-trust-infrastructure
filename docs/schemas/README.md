@@ -69,4 +69,5 @@ are not stable command outputs yet for JSON.
   release packet verification, signed provenance, the retained public key, and
   the production dry-run note.
 - `atlas production status` reports `atlas.production_readiness.v1` and
-  verifies `atlas.release_provenance.v1` when signing/provenance is required.
+  verifies `atlas.release_artifact_manifest.v1` and
+  `atlas.release_provenance.v1` when production trust evidence is required.
