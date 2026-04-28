@@ -86,6 +86,7 @@ atlas op closeout april-review
 atlas op verify april-review
 atlas op audit april-review
 atlas op audit-packet april-review
+atlas op audit-packet --json april-review
 atlas op audit-verify april-review
 atlas op archive april-review
 atlas op archive-packet april-review
@@ -567,16 +568,20 @@ prints event counts, audit flags for denied preflights, forced closeout, stale
 freshness states, missing or stale accepted-risk review packets when accepted
 risks exist, closeout verification status, and a chronological event timeline.
 
-`atlas op audit-packet [name] [packet-name]` writes a metadata-only Markdown
-audit packet under the operation directory. It includes event counts, audit
-flags, a timeline, closeout verification status, the operation ledger hash, and
-the closeout manifest hash without embedding raw artifacts. Readiness reports
-whether the latest packet is current or stale against later ledger events.
+`atlas op audit-packet [--json] [name] [packet-name]` writes a metadata-only
+audit packet under the operation directory. Markdown is the human review format
+and includes event counts, audit flags, and a timeline. `--json` emits
+`atlas.audit_packet.v1` for gates, replay, dashboards, and future consumers; it
+records event counts, freshness, closeout verification status, the operation
+ledger hash, and the closeout manifest hash without embedding raw timeline
+details or raw artifacts. Readiness reports whether the latest packet is current
+or stale against later ledger events.
 
 `atlas op audit-verify [name] [audit-packet]` reads an audit packet without
-mutating operation state. It verifies the recorded ledger event count and
-SHA-256 hash plus the recorded closeout manifest hash so operators can detect
-later ledger or closeout-manifest changes.
+mutating operation state. It accepts Markdown or `atlas.audit_packet.v1` JSON
+and verifies the recorded ledger event count and SHA-256 hash plus the recorded
+closeout manifest hash so operators can detect later ledger or
+closeout-manifest changes.
 
 `atlas op archive [name]` reads the operation without mutating state and prints
 a compact final archive snapshot. It combines close readiness, freshness states,

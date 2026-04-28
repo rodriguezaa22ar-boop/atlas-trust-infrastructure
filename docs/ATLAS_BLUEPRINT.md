@@ -544,6 +544,14 @@ The near-term roadmap is:
     accepts Markdown or JSON archive packets, checks JSON metadata-only flags,
     rejects forbidden raw-content markers, and verifies retained artifact and
     ledger anchors without mutating operation state.
+87. Add audit packet JSON parity. `atlas op audit-packet --json` now writes
+    metadata-only `atlas.audit_packet.v1` packets with operation identity,
+    ledger anchors, event counts, freshness state, closeout verification state,
+    closeout manifest hash anchors, and known limitations. `atlas op
+    audit-verify` now accepts Markdown or JSON audit packets, checks JSON
+    metadata-only flags, rejects forbidden raw-content markers, tolerates later
+    archive-packet ledger events when the recorded ledger prefix still matches,
+    and verifies closeout manifest anchors without mutating operation state.
 
 ## First Serious Version
 

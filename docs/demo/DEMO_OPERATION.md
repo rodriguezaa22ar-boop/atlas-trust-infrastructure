@@ -93,6 +93,7 @@ Close and verify the operation:
 ./tools/atlas/bin/atlas op verify demo-operation
 ./tools/atlas/bin/atlas op audit demo-operation
 ./tools/atlas/bin/atlas op audit-packet demo-operation demo-operation-audit
+./tools/atlas/bin/atlas op audit-packet --json demo-operation demo-operation-audit
 ./tools/atlas/bin/atlas op audit-verify demo-operation
 ./tools/atlas/bin/atlas op archive demo-operation
 ./tools/atlas/bin/atlas op archive-packet demo-operation demo-operation-archive

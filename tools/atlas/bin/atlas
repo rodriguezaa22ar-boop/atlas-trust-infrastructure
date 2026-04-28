@@ -183,7 +183,7 @@ quick flow:
   atlas op closeout [name] [manifest-name]
   atlas op verify [name] [closeout-manifest]
   atlas op audit [name]
-  atlas op audit-packet [name] [packet-name]
+  atlas op audit-packet [--json] [name] [packet-name]
   atlas op audit-verify [name] [audit-packet]
   atlas op archive [name]
   atlas op archive-packet [--json] [name] [packet-name]
@@ -219,7 +219,7 @@ operations:
   atlas op closeout [name] [manifest-name]
   atlas op verify [name] [closeout-manifest]
   atlas op audit [name]
-  atlas op audit-packet [name] [packet-name]
+  atlas op audit-packet [--json] [name] [packet-name]
   atlas op audit-verify [name] [audit-packet]
   atlas op archive [name]
   atlas op archive-packet [--json] [name] [packet-name]
@@ -1405,7 +1405,11 @@ print_operation_report_commands() {
 			printf -- "- \`%s\`\n" "atlas op closeout $ATLAS_OP_SLUG $(basename "$detail" .md)"
 			;;
 		audit-packet)
-			printf -- "- \`%s\`\n" "atlas op audit-packet $ATLAS_OP_SLUG $(basename "$detail" .md)"
+			if [ "${detail%.json}" != "$detail" ]; then
+				printf -- "- \`%s\`\n" "atlas op audit-packet --json $ATLAS_OP_SLUG $(basename "$detail" .json)"
+			else
+				printf -- "- \`%s\`\n" "atlas op audit-packet $ATLAS_OP_SLUG $(basename "$detail" .md)"
+			fi
 			;;
 		archive-packet)
 			if [ "${detail%.json}" != "$detail" ]; then

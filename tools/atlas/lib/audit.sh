@@ -42,6 +42,16 @@ atlas_audit_print_event_counts() {
     awk -F'\t' '{ printf "%-32s %s\n", $1, $2 }'
 }
 
+atlas_audit_event_counts_json() {
+  local ledger_file="$1"
+
+  jq -sr '
+    group_by(.event)
+    | map({ event: (.[0].event // "?"), count: length })
+    | sort_by(.event)
+  ' "$ledger_file"
+}
+
 atlas_audit_print_timeline() {
   local ledger_file="$1"
 
@@ -343,16 +353,164 @@ atlas_audit_write_packet() {
   } >"$file"
 }
 
+atlas_audit_write_json_packet() {
+  local file="$1"
+  local generated_at="$2"
+  local ledger_file
+  local ledger_sha=""
+  local ledger_events="0"
+  local verification
+  local verification_status
+  local verification_path
+  local verification_problems
+  local closeout_manifest_sha=""
+  local event_counts_json
+
+  atlas_readiness_collect "$ATLAS_OP_TARGET"
+  ledger_file="$(atlas_audit_ledger_file)"
+  if [ -f "$ledger_file" ]; then
+    ledger_sha="$(atlas_evidence_hash_path "$ledger_file")"
+    ledger_events="$(atlas_audit_event_count "$ledger_file")"
+  fi
+  verification="$(atlas_audit_closeout_verification_status)"
+  IFS=$'\t' read -r verification_status verification_path verification_problems <<<"$verification"
+  if [ -n "$verification_path" ] && [ "$verification_path" != "-" ] && [ -f "$verification_path" ]; then
+    closeout_manifest_sha="$(atlas_evidence_hash_path "$verification_path")"
+  fi
+  event_counts_json="$(atlas_audit_event_counts_json "$ledger_file")"
+
+  jq -n \
+    --arg schema_version "atlas.audit_packet.v1" \
+    --arg generated_at "$generated_at" \
+    --arg operation_name "$ATLAS_OP_NAME" \
+    --arg operation_id "$ATLAS_OP_SLUG" \
+    --arg operation_status "$ATLAS_OP_STATUS" \
+    --arg target "$ATLAS_OP_TARGET" \
+    --arg ledger_path "$ledger_file" \
+    --argjson ledger_events "$ledger_events" \
+    --arg ledger_sha256 "$ledger_sha" \
+    --arg closeout_verification_status "$verification_status" \
+    --arg closeout_manifest_path "$verification_path" \
+    --arg closeout_manifest_sha256 "${closeout_manifest_sha:-}" \
+    --argjson closeout_verification_problems "${verification_problems:-0}" \
+    --argjson accepted_risks "${ATLAS_READINESS_ACCEPTED_RISK_COUNT:-0}" \
+    --arg review_packet_path "${ATLAS_READINESS_LATEST_REVIEW_PACKET_PATH:-}" \
+    --arg review_packet_freshness "${ATLAS_READINESS_REVIEW_PACKET_FRESHNESS:-unknown}" \
+    --arg audit_packet_freshness "$ATLAS_READINESS_AUDIT_PACKET_FRESHNESS" \
+    --arg report_freshness "$ATLAS_READINESS_REPORT_FRESHNESS" \
+    --arg bundle_freshness "$ATLAS_READINESS_BUNDLE_FRESHNESS" \
+    --arg handoff_freshness "$ATLAS_READINESS_HANDOFF_FRESHNESS" \
+    --arg closeout_freshness "$ATLAS_READINESS_CLOSEOUT_FRESHNESS" \
+    --arg archive_packet_freshness "$ATLAS_READINESS_ARCHIVE_PACKET_FRESHNESS" \
+    --argjson event_counts "$event_counts_json" '
+      def nullable($v):
+        if $v == "" or $v == "-" or $v == "none" then null else $v end;
+      {
+        schema_version: $schema_version,
+        generated_at: $generated_at,
+        operation: {
+          name: $operation_name,
+          id: $operation_id,
+          status: $operation_status,
+          target: $target
+        },
+        metadata_only: true,
+        raw_artifacts_embedded: false,
+        ledger: {
+          path: $ledger_path,
+          events: $ledger_events,
+          sha256: nullable($ledger_sha256)
+        },
+        closeout_verification: {
+          status: $closeout_verification_status,
+          manifest_path: nullable($closeout_manifest_path),
+          manifest_sha256: nullable($closeout_manifest_sha256),
+          problems: $closeout_verification_problems
+        },
+        readiness: {
+          accepted_risks: $accepted_risks,
+          accepted_risk_review_packet: {
+            path: nullable($review_packet_path),
+            freshness: $review_packet_freshness
+          },
+          freshness: {
+            report: $report_freshness,
+            bundle: $bundle_freshness,
+            handoff: $handoff_freshness,
+            closeout: $closeout_freshness,
+            audit_packet: $audit_packet_freshness,
+            archive_packet: $archive_packet_freshness
+          }
+        },
+        event_counts: $event_counts,
+        metadata_boundary: {
+          stores: [
+            "operation labels",
+            "ledger path",
+            "ledger event counts",
+            "SHA-256 anchors",
+            "freshness states",
+            "verification states",
+            "known limitations"
+          ],
+          excludes: [
+            "raw runtime artifacts",
+            "raw timeline details",
+            "target secrets",
+            "credentials",
+            "tokens",
+            "packet captures",
+            "session contents",
+            "unredacted evidence bodies"
+          ]
+        },
+        known_limitations: [
+          "Audit JSON packets are metadata-only and do not embed raw timeline details.",
+          "Audit verification tolerates later archive-packet ledger events when the recorded ledger prefix still matches.",
+          "Audit packet verification is not external audit, legal compliance evidence, or cryptographic immutability."
+        ]
+      }
+    ' >"$file"
+}
+
 cmd_op_audit_packet() {
-  local packet_name="${2:-}"
+  local json_output=0
+  local operation_name=""
+  local packet_name=""
   local packet_slug
   local audit_dir
   local packet_file
+  local generated_at
 
-  [ "$#" -le 2 ] || fail "op audit-packet [name] [packet-name]"
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+    --json)
+      json_output=1
+      shift
+      ;;
+    --)
+      shift
+      break
+      ;;
+    -*)
+      fail "unknown op audit-packet option: $1"
+      ;;
+    *)
+      if [ -z "$operation_name" ]; then
+        operation_name="$1"
+      elif [ -z "$packet_name" ]; then
+        packet_name="$1"
+      else
+        fail "op audit-packet [--json] [name] [packet-name]"
+      fi
+      shift
+      ;;
+    esac
+  done
+  [ "$#" -eq 0 ] || fail "op audit-packet [--json] [name] [packet-name]"
 
-  if [ "$#" -gt 0 ]; then
-    load_atlas_operation "$1"
+  if [ -n "$operation_name" ]; then
+    load_atlas_operation "$operation_name"
   else
     load_active_operation
   fi
@@ -366,15 +524,29 @@ cmd_op_audit_packet() {
   audit_dir="$ATLAS_OP_DIR/audit"
   mkdir -p "$audit_dir"
   chmod 700 "$audit_dir" 2>/dev/null || true
-  packet_file="$audit_dir/$packet_slug.md"
+  if [ "$json_output" -eq 1 ]; then
+    packet_file="$audit_dir/$packet_slug.json"
+  else
+    packet_file="$audit_dir/$packet_slug.md"
+  fi
 
   atlas_ledger_append_current "audit.packet.generated" "read-only" "atlas" "ok" "$packet_file"
-  atlas_audit_write_packet "$packet_file"
+  generated_at="$(timestamp)"
+  if [ "$json_output" -eq 1 ]; then
+    atlas_audit_write_json_packet "$packet_file" "$generated_at"
+  else
+    atlas_audit_write_packet "$packet_file"
+  fi
   chmod 600 "$packet_file" 2>/dev/null || true
   record_operation_history "$ATLAS_OP_DIR" "audit-packet" "$packet_file"
 
-  ui_ok "audit packet written"
-  printf 'audit_packet: %s\n' "$packet_file"
+  if [ "$json_output" -eq 1 ]; then
+    ui_ok "audit JSON packet written"
+    printf 'audit_packet_json: %s\n' "$packet_file"
+  else
+    ui_ok "audit packet written"
+    printf 'audit_packet: %s\n' "$packet_file"
+  fi
 }
 
 atlas_audit_packet_field() {
@@ -403,6 +575,7 @@ atlas_audit_resolve_packet() {
   local latest_packet
   local latest_packet_path=""
   local candidate
+  local packet_base
   local packet_slug
 
   if [ -z "$packet_arg" ]; then
@@ -425,8 +598,15 @@ atlas_audit_resolve_packet() {
     return 0
   fi
 
-  packet_slug="$(slugify "${packet_arg%.md}")"
+  packet_base="${packet_arg%.md}"
+  packet_base="${packet_base%.json}"
+  packet_slug="$(slugify "$packet_base")"
   candidate="$ATLAS_OP_DIR/audit/$packet_slug.md"
+  if [ -f "$candidate" ]; then
+    readlink -f "$candidate"
+    return 0
+  fi
+  candidate="$ATLAS_OP_DIR/audit/$packet_slug.json"
   if [ -f "$candidate" ]; then
     readlink -f "$candidate"
     return 0
@@ -477,7 +657,141 @@ atlas_audit_ledger_anchor_matches() {
   [ -z "$disallowed_events" ]
 }
 
-atlas_audit_verify_packet() {
+atlas_audit_json_packet_forbidden_content_present() {
+  local packet_file="$1"
+
+  jq -r '
+    paths(scalars) as $path
+    | getpath($path)
+    | strings
+  ' "$packet_file" 2>/dev/null |
+    tr '[:upper:]' '[:lower:]' |
+    grep -Eq 'password=|passwd=|api_key=|secret=|token=|authorization:|bearer[[:space:]]|set-cookie:|begin rsa|begin openssh|session=|cookie='
+}
+
+atlas_audit_verify_json_packet() {
+  local packet_file="$1"
+  local packet_operation
+  local ledger_file
+  local expected_events
+  local actual_events=""
+  local expected_sha
+  local actual_sha=""
+  local closeout_manifest
+  local expected_closeout_sha
+  local actual_closeout_sha=""
+  local problems=0
+  local status="verified"
+  local ledger_status="verified"
+  local ledger_detail=""
+  local disallowed_events=""
+  local closeout_status="not-recorded"
+
+  [ -f "$packet_file" ] || fail "audit packet is not a file: $packet_file"
+  intel_require_jq
+  jq -e 'type == "object"' "$packet_file" >/dev/null 2>&1 || fail "audit JSON packet is invalid: $packet_file"
+  jq -e '.schema_version == "atlas.audit_packet.v1"' "$packet_file" >/dev/null 2>&1 || fail "audit JSON packet has unsupported schema: $packet_file"
+  packet_operation="$(jq -r '.operation.id // ""' "$packet_file")"
+  [ -n "$packet_operation" ] || fail "audit JSON packet is missing operation.id: $packet_file"
+  [ "$packet_operation" = "$ATLAS_OP_SLUG" ] || fail "audit packet belongs to '$packet_operation', not '$ATLAS_OP_SLUG'"
+
+  ui_heading "Audit Packet Verification"
+  ui_rule
+  ui_kv "Operation" "$ATLAS_OP_NAME"
+  ui_kv "Packet" "$packet_file"
+  ui_rule
+  printf '%-20s %-14s %s\n' "ARTIFACT" "STATUS" "DETAIL"
+
+  if jq -e '.metadata_only == true' "$packet_file" >/dev/null 2>&1; then
+    printf '%-20s %-14s %s\n' "Metadata Only" "verified" "true"
+  else
+    printf '%-20s %-14s %s\n' "Metadata Only" "blocked" "expected=true"
+    problems=$((problems + 1))
+  fi
+
+  if jq -e '.raw_artifacts_embedded == false' "$packet_file" >/dev/null 2>&1; then
+    printf '%-20s %-14s %s\n' "Raw Artifacts" "verified" "embedded=false"
+  else
+    printf '%-20s %-14s %s\n' "Raw Artifacts" "blocked" "expected embedded=false"
+    problems=$((problems + 1))
+  fi
+
+  if atlas_audit_json_packet_forbidden_content_present "$packet_file"; then
+    printf '%-20s %-14s %s\n' "Forbidden Content" "blocked" "raw-content marker detected"
+    problems=$((problems + 1))
+  else
+    printf '%-20s %-14s %s\n' "Forbidden Content" "verified" "absent"
+  fi
+
+  ledger_file="$(jq -r '.ledger.path // ""' "$packet_file" 2>/dev/null || true)"
+  expected_events="$(jq -r '.ledger.events // ""' "$packet_file" 2>/dev/null || true)"
+  expected_sha="$(jq -r '.ledger.sha256 // ""' "$packet_file" 2>/dev/null || true)"
+  closeout_manifest="$(jq -r '.closeout_verification.manifest_path // ""' "$packet_file" 2>/dev/null || true)"
+  expected_closeout_sha="$(jq -r '.closeout_verification.manifest_sha256 // ""' "$packet_file" 2>/dev/null || true)"
+
+  if [ -z "$ledger_file" ] || [ -z "$expected_events" ] || [ -z "$expected_sha" ]; then
+    ledger_status="unverifiable"
+    problems=$((problems + 1))
+  elif [ ! -f "$ledger_file" ]; then
+    ledger_status="missing"
+    problems=$((problems + 1))
+  else
+    actual_events="$(atlas_audit_event_count "$ledger_file")"
+    actual_sha="$(atlas_evidence_hash_path "$ledger_file")"
+    if [ "$actual_events" = "$expected_events" ] && [ "$actual_sha" = "$expected_sha" ]; then
+      ledger_detail="events=$actual_events"
+    elif atlas_audit_ledger_anchor_matches "$ledger_file" "$expected_events" "$expected_sha"; then
+      ledger_detail="events=$actual_events anchored_events=$expected_events later_archive_events=$((actual_events - expected_events))"
+    else
+      ledger_status="changed"
+      disallowed_events="$(atlas_audit_disallowed_later_ledger_events "$ledger_file" "$expected_events" 2>/dev/null || true)"
+      ledger_detail="expected_events=$expected_events actual_events=$actual_events expected_sha=$expected_sha actual_sha=$actual_sha disallowed_later_events=${disallowed_events:-none}"
+      problems=$((problems + 1))
+    fi
+  fi
+
+  if [ -n "$closeout_manifest" ]; then
+    if [ -z "$expected_closeout_sha" ]; then
+      closeout_status="unverifiable"
+      problems=$((problems + 1))
+    elif [ ! -f "$closeout_manifest" ]; then
+      closeout_status="missing"
+      problems=$((problems + 1))
+    else
+      actual_closeout_sha="$(atlas_evidence_hash_path "$closeout_manifest")"
+      if [ "$actual_closeout_sha" = "$expected_closeout_sha" ]; then
+        closeout_status="verified"
+      else
+        closeout_status="changed"
+        problems=$((problems + 1))
+      fi
+    fi
+  fi
+
+  printf '%-20s %-14s ledger=%s %s\n' \
+    "Operation Ledger" \
+    "$ledger_status" \
+    "${ledger_file:-unknown}" \
+    "${ledger_detail:-expected_events=${expected_events:-unknown} actual_events=${actual_events:-unknown} expected_sha=${expected_sha:-unknown} actual_sha=${actual_sha:-unknown}}"
+  printf '%-20s %-14s expected_sha=%s actual_sha=%s manifest=%s\n' \
+    "Closeout Manifest" \
+    "$closeout_status" \
+    "${expected_closeout_sha:-unknown}" \
+    "${actual_closeout_sha:-unknown}" \
+    "${closeout_manifest:-unknown}"
+
+  if [ "$problems" -gt 0 ]; then
+    status="attention-required"
+  fi
+
+  ui_rule
+  ui_kv "Verification Status" "$status"
+  ui_kv "Verification Problems" "$problems"
+
+  [ "$problems" -eq 0 ] || return 1
+}
+
+atlas_audit_verify_markdown_packet() {
   local packet_file="$1"
   local packet_operation
   local ledger_line
@@ -573,6 +887,17 @@ atlas_audit_verify_packet() {
   ui_kv "Verification Problems" "$problems"
 
   [ "$problems" -eq 0 ] || return 1
+}
+
+atlas_audit_verify_packet() {
+  local packet_file="$1"
+
+  [ -f "$packet_file" ] || fail "audit packet is not a file: $packet_file"
+  if jq -e '.schema_version == "atlas.audit_packet.v1"' "$packet_file" >/dev/null 2>&1; then
+    atlas_audit_verify_json_packet "$packet_file"
+  else
+    atlas_audit_verify_markdown_packet "$packet_file"
+  fi
 }
 
 cmd_op_audit_verify() {
