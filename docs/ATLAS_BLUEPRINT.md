@@ -537,6 +537,13 @@ The near-term roadmap is:
     read-only and does not write ledger events or embed raw evidence, retained
     artifact bodies, approval reasons, operator notes, or sensitive business
     data.
+86. Add archive packet JSON parity. `atlas op archive-packet --json` now writes
+    metadata-only `atlas.archive_packet.v1` packets with archive status,
+    readiness freshness, verification state, retained artifact paths, SHA-256
+    anchors, and the operation ledger anchor. `atlas op archive-verify` now
+    accepts Markdown or JSON archive packets, checks JSON metadata-only flags,
+    rejects forbidden raw-content markers, and verifies retained artifact and
+    ledger anchors without mutating operation state.
 
 ## First Serious Version
 

@@ -32,7 +32,7 @@ A packet or status surface has JSON parity only when:
 | `atlas op handoff` | Markdown | no | planned | gap | Needs metadata-only JSON handoff packet. |
 | `atlas op closeout` | Markdown | no | planned | gap | Needs JSON closeout manifest with the same anchors as Markdown. |
 | `atlas op audit-packet` | Markdown | no | planned | gap | Needs JSON audit packet and verifier parity. |
-| `atlas op archive-packet` | Markdown | no | planned | gap | Needs JSON archive packet and verifier parity. |
+| `atlas op archive-packet` | Markdown | yes | `atlas.archive_packet.v1` | implemented | `atlas op archive-packet --json` writes metadata-only JSON and `atlas op archive-verify` consumes Markdown or JSON packets. |
 | `atlas finding review-packet` | Markdown | no | planned | gap | Needs JSON accepted-risk review packet and verifier parity. |
 | `atlas flow packet` | Markdown | yes | `atlas.business_flow_packet.v1`; `atlas.business_flow_verify.v1` | implemented | `atlas flow packet --json` and `atlas flow verify --json` are implemented and tested with metadata-only guardrails. |
 | `atlas advisor prompt` | Markdown | no | planned | non-blocking gap | Advisor packets remain metadata-only; JSON can come after trust packets. |
@@ -43,6 +43,7 @@ A packet or status surface has JSON parity only when:
 - [`atlas.release_provenance.v1`](../schemas/release-provenance.v1.md)
 - [`atlas.production_readiness.v1`](../schemas/production-readiness.v1.md)
 - [`atlas.operation_trust_chain.v1`](../schemas/operation-trust-chain.v1.md)
+- [`atlas.archive_packet.v1`](../schemas/archive-packet.v1.md)
 - [`atlas.business_flow_packet.v1`](../schemas/business-flow-packet.v1.md)
 - [`atlas.business_flow_verify.v1`](../schemas/business-flow-verify.v1.md)
 - [`atlas.business_flow_trust_chain.v1`](../schemas/business-flow-trust-chain.v1.md)
@@ -51,12 +52,11 @@ A packet or status surface has JSON parity only when:
 
 Priority order:
 
-1. archive packet
-2. audit packet
-3. closeout manifest
-4. handoff packet
-5. accepted-risk review packet
-6. advisor prompt packet
+1. audit packet
+2. closeout manifest
+3. handoff packet
+4. accepted-risk review packet
+5. advisor prompt packet
 
 ## Guardrails
 

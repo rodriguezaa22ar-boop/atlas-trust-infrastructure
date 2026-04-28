@@ -89,6 +89,7 @@ atlas op audit-packet april-review
 atlas op audit-verify april-review
 atlas op archive april-review
 atlas op archive-packet april-review
+atlas op archive-packet --json april-review
 atlas op archive-verify april-review
 atlas op trust-chain april-review --strict
 atlas session list
@@ -586,16 +587,19 @@ archive packet has been generated, and when accepted risks exist it also expects
 a current accepted-risk review packet. It marks the latest archive packet stale
 after later ledger events.
 
-`atlas op archive-packet [name] [packet-name]` writes that final archive state
-as a metadata-only Markdown packet under the operation directory. The packet
-records readiness, verification state, accepted-risk review packet state,
-hashes, artifact paths, and retention notes without embedding raw artifacts.
-Readiness and archive snapshots report whether the latest archive packet is
-current or stale. Archive packet ledger events do not make the audit packet
-stale when the original audit ledger prefix still verifies.
+`atlas op archive-packet [--json] [name] [packet-name]` writes that final
+archive state as a metadata-only packet under the operation directory. Markdown
+is the human review format. `--json` emits `atlas.archive_packet.v1` for gates,
+replay, dashboards, and future consumers. Both formats record readiness,
+verification state, accepted-risk review packet state, hashes, artifact paths,
+and retention notes without embedding raw artifacts. Readiness and archive
+snapshots report whether the latest archive packet is current or stale. Archive
+packet ledger events do not make the audit packet stale when the original audit
+ledger prefix still verifies.
 
 `atlas op archive-verify [name] [archive-packet]` reads an archive packet
-without mutating operation state. It verifies the recorded hashes for the report,
+without mutating operation state. It accepts Markdown or
+`atlas.archive_packet.v1` JSON and verifies the recorded hashes for the report,
 evidence manifest, handoff, closeout manifest, accepted-risk review packet,
 audit packet, and operation ledger so operators can detect later retention-file
 drift.

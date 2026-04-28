@@ -85,6 +85,7 @@ where appropriate. Forced closure should be exceptional and visible.
 ./tools/atlas/bin/atlas op audit-verify demo-operation
 ./tools/atlas/bin/atlas op archive demo-operation
 ./tools/atlas/bin/atlas op archive-packet demo-operation demo-operation-archive
+./tools/atlas/bin/atlas op archive-packet --json demo-operation demo-operation-archive
 ./tools/atlas/bin/atlas op archive-verify demo-operation
 ./tools/atlas/bin/atlas op trust-chain demo-operation --strict
 ```

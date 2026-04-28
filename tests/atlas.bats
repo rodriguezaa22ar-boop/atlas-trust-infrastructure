@@ -1543,10 +1543,11 @@ EOF
   grep -q 'atlas.release_provenance.v1' "$parity_doc"
   grep -q 'atlas.production_readiness.v1' "$parity_doc"
   grep -q 'atlas.operation_trust_chain.v1' "$parity_doc"
+  grep -q 'atlas.archive_packet.v1' "$parity_doc"
   grep -q 'atlas.business_flow_packet.v1' "$parity_doc"
   grep -q 'atlas.business_flow_verify.v1' "$parity_doc"
   grep -q 'atlas.business_flow_trust_chain.v1' "$parity_doc"
-  grep -q '`atlas op archive-packet`' "$parity_doc"
+  grep -q '`atlas op archive-packet` | Markdown | yes | `atlas.archive_packet.v1` | implemented' "$parity_doc"
   grep -q '`atlas op audit-packet`' "$parity_doc"
   grep -q '`atlas op closeout`' "$parity_doc"
   grep -q '`atlas op handoff`' "$parity_doc"
@@ -1554,7 +1555,8 @@ EOF
   grep -q '`atlas flow packet` | Markdown | yes' "$parity_doc"
   grep -q '`atlas advisor prompt`' "$parity_doc"
   grep -q '## Missing JSON Packet Surfaces' "$parity_doc"
-  grep -q '1. archive packet' "$parity_doc"
+  grep -q '1. audit packet' "$parity_doc"
+  ! grep -q 'archive packet$' "$parity_doc"
   ! grep -q 'business-flow packet$' "$parity_doc"
   grep -q 'metadata-only assertion' "$parity_doc"
   grep -q 'raw runtime artifacts' "$parity_doc"
@@ -1569,6 +1571,7 @@ EOF
   provenance_schema="$schemas_dir/release-provenance.v1.md"
   production_schema="$schemas_dir/production-readiness.v1.md"
   trust_chain_schema="$schemas_dir/operation-trust-chain.v1.md"
+  archive_schema="$schemas_dir/archive-packet.v1.md"
   business_packet_schema="$schemas_dir/business-flow-packet.v1.md"
   business_verify_schema="$schemas_dir/business-flow-verify.v1.md"
   business_trust_chain_schema="$schemas_dir/business-flow-trust-chain.v1.md"
@@ -1578,6 +1581,7 @@ EOF
   [ -f "$provenance_schema" ]
   [ -f "$production_schema" ]
   [ -f "$trust_chain_schema" ]
+  [ -f "$archive_schema" ]
   [ -f "$business_packet_schema" ]
   [ -f "$business_verify_schema" ]
   [ -f "$business_trust_chain_schema" ]
@@ -1586,6 +1590,7 @@ EOF
   grep -q 'atlas.release_provenance.v1' "$index_file"
   grep -q 'atlas.production_readiness.v1' "$index_file"
   grep -q 'atlas.operation_trust_chain.v1' "$index_file"
+  grep -q 'atlas.archive_packet.v1' "$index_file"
   grep -q 'atlas.business_flow_packet.v1' "$index_file"
   grep -q 'atlas.business_flow_verify.v1' "$index_file"
   grep -q 'atlas.business_flow_trust_chain.v1' "$index_file"
@@ -1630,6 +1635,15 @@ EOF
   grep -q 'must be replayed' "$trust_chain_schema"
   grep -q 'from current retained operation state' "$trust_chain_schema"
   grep -q 'Expanding operation scope' "$trust_chain_schema"
+
+  grep -q '^# `atlas.archive_packet.v1`$' "$archive_schema"
+  grep -q 'atlas op archive-packet --json' "$archive_schema"
+  grep -q '`schema_version`: must be `atlas.archive_packet.v1`' "$archive_schema"
+  grep -q '`metadata_only`: must be `true`' "$archive_schema"
+  grep -q '`raw_artifacts_embedded`: must be `false`' "$archive_schema"
+  grep -q 'atlas op archive-verify' "$archive_schema"
+  grep -q 'raw runtime artifacts' "$archive_schema"
+  grep -q 'customer data' "$archive_schema"
 
   grep -q '^# Schema Contract: atlas.business_flow_packet.v1$' "$business_packet_schema"
   grep -q 'atlas flow packet --json' "$business_packet_schema"
@@ -1821,7 +1835,7 @@ EOF
   [[ "$output" == *"atlas op audit-packet [name] [packet-name]"* ]]
   [[ "$output" == *"atlas op audit-verify [name] [audit-packet]"* ]]
   [[ "$output" == *"atlas op archive [name]"* ]]
-  [[ "$output" == *"atlas op archive-packet [name] [packet-name]"* ]]
+  [[ "$output" == *"atlas op archive-packet [--json] [name] [packet-name]"* ]]
   [[ "$output" == *"atlas op archive-verify [name] [archive-packet]"* ]]
   [[ "$output" == *"atlas op trust-chain [name] [--strict] [--json]"* ]]
   [[ "$output" == *"atlas op close [name] [--force]"* ]]
@@ -4606,8 +4620,60 @@ EOF
   trust_events_after="$(wc -l < "$TEST_ROOT/toolkit/sessions/archive-op/ledger.ndjson" | tr -d ' ')"
   [ "$trust_events_after" = "$trust_events_before" ]
 
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op archive-packet --json archive-op archive-final-json
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"archive JSON packet written"* ]]
+  archive_packet_json_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "archive_packet_json" { print $2; exit }')"
+  [ -f "$archive_packet_json_path" ]
+  jq -e \
+    --arg report_path "$report_path" \
+    --arg bundle_dir "$bundle_dir" \
+    --arg handoff_path "$handoff_path" \
+    --arg closeout_path "$closeout_path" \
+    --arg audit_packet_path "$audit_packet_path" \
+    --arg archive_packet_json_path "$archive_packet_json_path" '
+      .schema_version == "atlas.archive_packet.v1" and
+      .operation.id == "archive-op" and
+      .metadata_only == true and
+      .raw_artifacts_embedded == false and
+      .archive_status.status == "current" and
+      .readiness.freshness.archive_packet == "current" and
+      .verification.closeout.status == "verified" and
+      .verification.audit_packet.status == "verified" and
+      .artifacts.latest_report.path == $report_path and
+      .artifacts.evidence_bundle.path == $bundle_dir and
+      .artifacts.latest_handoff.path == $handoff_path and
+      .artifacts.latest_closeout.path == $closeout_path and
+      .artifacts.latest_audit_packet.path == $audit_packet_path and
+      .artifacts.latest_archive_packet.path == $archive_packet_json_path and
+      .artifacts.operation_ledger.events > 0
+    ' "$archive_packet_json_path"
+  jq -e --arg archive_packet_json_path "$archive_packet_json_path" 'select(.event == "archive.packet.generated" and .detail == $archive_packet_json_path)' \
+    "$TEST_ROOT/toolkit/sessions/archive-op/ledger.ndjson"
+
+  archive_json_verify_events_before="$(wc -l < "$TEST_ROOT/toolkit/sessions/archive-op/ledger.ndjson" | tr -d ' ')"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op archive-verify archive-op archive-final-json
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Archive Packet Verification"* ]]
+  [[ "$output" == *"Metadata Only"* ]]
+  [[ "$output" == *"Raw Artifacts"* ]]
+  [[ "$output" == *"Forbidden Content"* ]]
+  [[ "$output" == *"Latest Report"* ]]
+  [[ "$output" == *"Operation Ledger"* ]]
+  [[ "$output" == *"Verification Status: verified"* ]]
+  [[ "$output" == *"Verification Problems: 0"* ]]
+  archive_json_verify_events_after="$(wc -l < "$TEST_ROOT/toolkit/sessions/archive-op/ledger.ndjson" | tr -d ' ')"
+  [ "$archive_json_verify_events_after" = "$archive_json_verify_events_before" ]
+
   printf '\narchive report changed after packet\n' >> "$report_path"
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op archive-verify archive-op "$archive_packet_path"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Latest Report"* ]]
+  [[ "$output" == *"changed"* ]]
+  [[ "$output" == *"Verification Status: attention-required"* ]]
+  [[ "$output" == *"Verification Problems: 2"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op archive-verify archive-op "$archive_packet_json_path"
   [ "$status" -ne 0 ]
   [[ "$output" == *"Latest Report"* ]]
   [[ "$output" == *"changed"* ]]
@@ -4618,7 +4684,7 @@ EOF
   [ "$status" -ne 0 ]
   [[ "$output" == *"Trust Chain Status: attention-required"* ]]
   [[ "$output" == *"Closeout: attention-required manifest=$closeout_path"* ]]
-  [[ "$output" == *"Archive Packet: attention-required packet=$archive_packet_path"* ]]
+  [[ "$output" == *"Archive Packet: attention-required packet=$archive_packet_json_path"* ]]
 
   sleep 1
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op audit-packet archive-op archive-audit-after-archive

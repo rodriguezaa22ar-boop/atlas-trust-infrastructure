@@ -186,7 +186,7 @@ quick flow:
   atlas op audit-packet [name] [packet-name]
   atlas op audit-verify [name] [audit-packet]
   atlas op archive [name]
-  atlas op archive-packet [name] [packet-name]
+  atlas op archive-packet [--json] [name] [packet-name]
   atlas op archive-verify [name] [archive-packet]
   atlas op trust-chain [name] [--strict] [--json]
   atlas op close [name] [--force]
@@ -222,7 +222,7 @@ operations:
   atlas op audit-packet [name] [packet-name]
   atlas op audit-verify [name] [audit-packet]
   atlas op archive [name]
-  atlas op archive-packet [name] [packet-name]
+  atlas op archive-packet [--json] [name] [packet-name]
   atlas op archive-verify [name] [archive-packet]
   atlas op trust-chain [name] [--strict] [--json]
   atlas op next
@@ -1408,7 +1408,11 @@ print_operation_report_commands() {
 			printf -- "- \`%s\`\n" "atlas op audit-packet $ATLAS_OP_SLUG $(basename "$detail" .md)"
 			;;
 		archive-packet)
-			printf -- "- \`%s\`\n" "atlas op archive-packet $ATLAS_OP_SLUG $(basename "$detail" .md)"
+			if [ "${detail%.json}" != "$detail" ]; then
+				printf -- "- \`%s\`\n" "atlas op archive-packet --json $ATLAS_OP_SLUG $(basename "$detail" .json)"
+			else
+				printf -- "- \`%s\`\n" "atlas op archive-packet $ATLAS_OP_SLUG $(basename "$detail" .md)"
+			fi
 			;;
 		close)
 			printf -- "- \`%s\`\n" "atlas op close $ATLAS_OP_SLUG"

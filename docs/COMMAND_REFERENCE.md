@@ -96,6 +96,7 @@ nix-shell --run './bin/dev-qa'
 ./tools/atlas/bin/atlas op audit-verify april-review
 ./tools/atlas/bin/atlas op archive april-review
 ./tools/atlas/bin/atlas op archive-packet april-review
+./tools/atlas/bin/atlas op archive-packet --json april-review
 ./tools/atlas/bin/atlas op archive-verify april-review
 ./tools/atlas/bin/atlas op trust-chain april-review --strict
 ./tools/atlas/bin/atlas op trust-chain april-review --json
