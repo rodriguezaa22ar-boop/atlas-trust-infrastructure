@@ -41,6 +41,8 @@ atlas flow add customer-signup --type customer_onboarding --owner product --crit
 atlas flow list
 atlas flow show customer-signup
 atlas flow link-evidence customer-signup ev_...
+atlas flow link-finding customer-signup finding_...
+atlas flow link-validation customer-signup vp_...
 atlas finding add "SSH reachable" --level observed --severity low --evidence ev_...
 atlas finding update finding_... --level validated --validation vp_... --note "confirmed by validation run"
 atlas finding accept finding_... --reason "owner accepts residual exposure" --owner Alta --expires 2026-12-31
@@ -224,24 +226,27 @@ validation item, and `--plan <id>` approves one explicit plan. Approval is
 metadata-only: it records the reason and operator, then leaves validation
 execution and retest as separate commands.
 
-`atlas flow add/list/show/link-evidence/packet/verify` manages optional
-metadata-only Business Flow Evidence records. Global flow records live under
-`state/atlas/flows/`; operation evidence links live under
-`sessions/<operation>/flow_evidence.ndjson`; flow packets live under
+`atlas flow add/list/show/link-evidence/link-finding/link-validation/packet/verify`
+manages optional metadata-only Business Flow Evidence records. Global flow
+records live under `state/atlas/flows/`; operation links live under
+`sessions/<operation>/flow_evidence.ndjson`,
+`sessions/<operation>/flow_findings.ndjson`, and
+`sessions/<operation>/flow_validation.ndjson`; flow packets live under
 `sessions/<operation>/flow_packets/`, and JSON flow packets live under
 `sessions/<operation>/flow_packets_json/`. Flow records describe
 business-critical processes with labels such as owner, criticality, systems,
-data classes, and control objectives. Evidence links reference existing Atlas
-evidence IDs, hashes, and retained paths without copying raw evidence. Flow
-packets preserve that same metadata-only boundary and include known
-limitations. `atlas flow packet --json` emits `atlas.business_flow_packet.v1`;
-`atlas flow verify --json` emits `atlas.business_flow_verify.v1`. Flow
-verification checks packet metadata, linked evidence records, retained evidence
-files, hashes, freshness, and forbidden-content markers. Flow records, links,
-and packets must not contain secrets, customer records, request or response
-bodies, payment data, tokens, or raw evidence. `atlas v1 status` and
+data classes, and control objectives. Evidence, finding, and validation links
+reference existing Atlas IDs without copying raw evidence, finding bodies,
+validation reasons, plan bodies, or session contents. Flow packets preserve
+that same metadata-only boundary and include known limitations. `atlas flow
+packet --json` emits `atlas.business_flow_packet.v1`; `atlas flow verify --json`
+emits `atlas.business_flow_verify.v1`. Flow verification checks packet metadata,
+linked evidence records, linked finding records, linked validation records,
+retained evidence files, hashes, freshness, and forbidden-content markers. Flow
+records, links, and packets must not contain secrets, customer records, request
+or response bodies, payment data, tokens, or raw evidence. `atlas v1 status` and
 `atlas production status` surface Business Flow Evidence as an optional
-non-blocking pillar/gate. Finding/validation links remain planned later steps.
+non-blocking pillar/gate.
 
 The full trust lifecycle is documented in
 [`docs/TRUST_LIFECYCLE.md`](../../docs/TRUST_LIFECYCLE.md). It

@@ -20,6 +20,7 @@ Atlas is in the trust infrastructure lane:
 - optional Business Flow Evidence readiness integration
 - Business Flow Evidence schema stabilization
 - Business Flow Evidence JSON packet parity
+- Business Flow Evidence finding and validation links
 
 ## Near-Term Milestones
 
@@ -39,8 +40,10 @@ Atlas is in the trust infrastructure lane:
    contracts.
 8. Business Flow Evidence JSON packet parity. Implemented as
    `atlas flow packet --json` and `atlas flow verify --json`.
-9. Flow finding and validation links.
-10. JSON parity for archive and audit packets where needed.
+9. Flow finding and validation links. Implemented as
+   `atlas flow link-finding` and `atlas flow link-validation`.
+10. Flow approval and retention links.
+11. JSON parity for archive and audit packets where needed.
 
 ## Later Control-Plane Work
 

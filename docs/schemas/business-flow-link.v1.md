@@ -4,8 +4,8 @@
 
 `atlas.business_flow_link.v1` describes an operation-scoped NDJSON record that
 links a global business flow to an Atlas operation. It is written when
-`atlas flow link-evidence` first connects a flow to evidence in the active
-operation.
+`atlas flow link-evidence`, `atlas flow link-finding`, or
+`atlas flow link-validation` first connects a flow to operation context.
 
 The record lives at:
 
@@ -32,8 +32,9 @@ Each line is one JSON object.
 ## Cardinality
 
 The same `flow_id` should appear at most once for the same `operation` in
-`business_flows.ndjson`. Additional evidence for the flow belongs in
-`flow_evidence.ndjson`.
+`business_flows.ndjson`. Additional evidence, finding, and validation
+references for the flow belong in `flow_evidence.ndjson`,
+`flow_findings.ndjson`, and `flow_validation.ndjson`.
 
 ## Forbidden Content
 
@@ -62,6 +63,6 @@ A verifier should fail when:
 
 ## Non-Goals
 
-- This link does not copy evidence.
-- This link does not replace evidence links.
+- This link does not copy evidence, finding bodies, or validation details.
+- This link does not replace evidence, finding, or validation links.
 - This link does not prove a packet is current.

@@ -66,6 +66,10 @@ repository in filesystem order.
   business-flow packet contract for Markdown and JSON packet parity.
 - [schemas/business-flow-verify.v1.md](schemas/business-flow-verify.v1.md):
   machine-readable business-flow packet verification contract.
+- [schemas/flow-finding-link.v1.md](schemas/flow-finding-link.v1.md):
+  metadata-only business-flow finding link contract.
+- [schemas/flow-validation-link.v1.md](schemas/flow-validation-link.v1.md):
+  metadata-only business-flow validation link contract.
 - [atlas/PACKET_FORMAT_PARITY.md](atlas/PACKET_FORMAT_PARITY.md): Markdown and
   JSON parity matrix.
 

@@ -280,6 +280,8 @@ make_repo_clean_and_synced() {
   record_schema="$TEST_ROOT/toolkit/docs/schemas/business-flow-record.v1.md"
   flow_link_schema="$TEST_ROOT/toolkit/docs/schemas/business-flow-link.v1.md"
   evidence_link_schema="$TEST_ROOT/toolkit/docs/schemas/flow-evidence-link.v1.md"
+  finding_link_schema="$TEST_ROOT/toolkit/docs/schemas/flow-finding-link.v1.md"
+  validation_link_schema="$TEST_ROOT/toolkit/docs/schemas/flow-validation-link.v1.md"
   evidence_schema="$TEST_ROOT/toolkit/docs/schemas/business-flow-evidence.v1.md"
   packet_schema="$TEST_ROOT/toolkit/docs/schemas/business-flow-packet.v1.md"
   verify_schema="$TEST_ROOT/toolkit/docs/schemas/business-flow-verify.v1.md"
@@ -290,6 +292,8 @@ make_repo_clean_and_synced() {
   [ -f "$record_schema" ]
   [ -f "$flow_link_schema" ]
   [ -f "$evidence_link_schema" ]
+  [ -f "$finding_link_schema" ]
+  [ -f "$validation_link_schema" ]
   [ -f "$evidence_schema" ]
   [ -f "$packet_schema" ]
   [ -f "$verify_schema" ]
@@ -304,13 +308,19 @@ make_repo_clean_and_synced() {
   grep -q 'atlas flow list' "$flow_doc"
   grep -q 'atlas flow show <flow>' "$flow_doc"
   grep -q 'atlas flow link-evidence <flow> <evidence-id>' "$flow_doc"
+  grep -q 'atlas flow link-finding <flow> <finding-id>' "$flow_doc"
+  grep -q 'atlas flow link-validation <flow> <validation-id>' "$flow_doc"
   grep -Fq 'atlas flow packet [--json] <flow> [packet-name]' "$flow_doc"
   grep -Fq 'atlas flow verify [--json] <flow> [packet-name]' "$flow_doc"
   grep -q 'state/atlas/flows/<flow-slug>.env' "$flow_doc"
   grep -q 'sessions/<operation>/flow_evidence.ndjson' "$flow_doc"
+  grep -q 'sessions/<operation>/flow_findings.ndjson' "$flow_doc"
+  grep -q 'sessions/<operation>/flow_validation.ndjson' "$flow_doc"
   grep -q 'atlas.business_flow.v1' "$flow_doc"
   grep -q 'atlas.business_flow_link.v1' "$flow_doc"
   grep -q 'atlas.flow_evidence_link.v1' "$flow_doc"
+  grep -q 'atlas.flow_finding_link.v1' "$flow_doc"
+  grep -q 'atlas.flow_validation_link.v1' "$flow_doc"
   grep -q 'atlas.business_flow_packet.v1' "$flow_doc"
   grep -q 'atlas.business_flow_verify.v1' "$flow_doc"
   grep -q 'password=' "$flow_doc"
@@ -340,10 +350,24 @@ make_repo_clean_and_synced() {
   grep -q '`evidence_path`' "$evidence_link_schema"
   grep -q 'must not include' "$evidence_link_schema"
 
+  grep -q '^# Schema Contract: atlas.flow_finding_link.v1$' "$finding_link_schema"
+  grep -q 'sessions/<operation>/flow_findings.ndjson' "$finding_link_schema"
+  grep -q '`finding_id`' "$finding_link_schema"
+  grep -q 'impact bodies' "$finding_link_schema"
+  grep -q 'recommendation bodies' "$finding_link_schema"
+
+  grep -q '^# Schema Contract: atlas.flow_validation_link.v1$' "$validation_link_schema"
+  grep -q 'sessions/<operation>/flow_validation.ndjson' "$validation_link_schema"
+  grep -q '`validation_id`' "$validation_link_schema"
+  grep -q 'validation reasons' "$validation_link_schema"
+  grep -q 'session contents' "$validation_link_schema"
+
   grep -q '^# Schema Contract: atlas.business_flow_evidence.v1$' "$evidence_schema"
   grep -q 'This is a design contract' "$evidence_schema"
   grep -q 'atlas.business_flow.v1' "$evidence_schema"
   grep -q 'atlas.flow_evidence_link.v1' "$evidence_schema"
+  grep -q 'atlas.flow_finding_link.v1' "$evidence_schema"
+  grep -q 'atlas.flow_validation_link.v1' "$evidence_schema"
   grep -q 'Required Fields' "$evidence_schema"
   grep -q 'Forbidden Content' "$evidence_schema"
   grep -q 'Verification Rules' "$evidence_schema"
@@ -352,6 +376,8 @@ make_repo_clean_and_synced() {
 
   grep -q '^# Schema Contract: atlas.business_flow_packet.v1$' "$packet_schema"
   grep -q 'atlas.business_flow_link.v1' "$packet_schema"
+  grep -q 'atlas.flow_finding_link.v1' "$packet_schema"
+  grep -q 'atlas.flow_validation_link.v1' "$packet_schema"
   grep -q 'metadata_only' "$packet_schema"
   grep -q 'Markdown Parity' "$packet_schema"
   grep -q 'forbidden raw-content markers are absent' "$packet_schema"
@@ -366,6 +392,8 @@ make_repo_clean_and_synced() {
   grep -q 'atlas.business_flow.v1' "$schema_index"
   grep -q 'atlas.business_flow_link.v1' "$schema_index"
   grep -q 'atlas.flow_evidence_link.v1' "$schema_index"
+  grep -q 'atlas.flow_finding_link.v1' "$schema_index"
+  grep -q 'atlas.flow_validation_link.v1' "$schema_index"
   grep -q 'atlas.business_flow_evidence.v1' "$schema_index"
   grep -q 'atlas.business_flow_packet.v1' "$schema_index"
   grep -q 'atlas.business_flow_verify.v1' "$schema_index"
@@ -522,6 +550,171 @@ EOF
       (.detail | contains("evidence=" + $evidence_id))
     )
   ' "$ledger"
+}
+
+@test "atlas flow link-finding and link-validation store metadata-only operation links" {
+  mkdir -p "$TEST_ROOT/toolkit/targets" "$TEST_ROOT/toolkit/state/intel"
+  cat > "$TEST_ROOT/toolkit/targets/demo-node.env" <<'EOF'
+NAME=demo-node
+ADDRESS=10.10.10.10
+SCOPE_STATUS=in-scope
+CRITICALITY=high
+CREATED_AT=2026-04-23T20:53:16Z
+EOF
+  cat > "$TEST_ROOT/toolkit/state/intel/observations.jsonl" <<'EOF'
+{"observed_at":"2026-04-24T00:00:00Z","source_tool":"wiremap","source_name":"fast","source_run_id":"run-2","target":"demo-node","observation_type":"host_state","confidence":"high","value":{"state":"up"}}
+{"observed_at":"2026-04-24T00:00:01Z","source_tool":"wiremap","source_name":"fast","source_run_id":"run-2","target":"demo-node","observation_type":"service_open","confidence":"high","value":{"service_entity_id":"service:demo-node:443/tcp","portproto":"443/tcp","service":"https","detail":"demo HTTPS"}}
+EOF
+  cat > "$TEST_ROOT/toolkit/state/intel/entities.jsonl" <<'EOF'
+{"observed_at":"2026-04-24T00:00:01Z","entity_type":"service","entity_id":"service:demo-node:443/tcp","target":"demo-node","attributes":{"portproto":"443/tcp","service":"https","detail":"demo HTTPS"}}
+EOF
+  : > "$TEST_ROOT/toolkit/state/intel/outcomes.jsonl"
+  : > "$TEST_ROOT/toolkit/state/intel/relationships.jsonl"
+  artifact="$TEST_ROOT/flow-context-artifact.txt"
+  printf 'business flow context proof that must not be copied\n' > "$artifact"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow add customer-signup \
+    --type customer_onboarding \
+    --owner product \
+    --criticality high \
+    --environment staging \
+    --scope-status in-scope \
+    --data-class email \
+    --system web_app \
+    --control audit_logging
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op start --profile htb-starting-point flow-context-op demo-node authorized flow context links
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow link-finding customer-signup finding_missing
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"unknown finding id in active operation"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow link-validation customer-signup vp_missing
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"unknown validation id in active operation"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence add "$artifact" --kind redacted-report --classification public
+  [ "$status" -eq 0 ]
+  evidence_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  [ -n "$evidence_id" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding add "Signup MFA gap" \
+    --level observed \
+    --severity medium \
+    --confidence high \
+    --evidence "$evidence_id"
+  [ "$status" -eq 0 ]
+  finding_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  [ -n "$finding_id" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" validation plan validate \
+    --finding "$finding_id" \
+    --evidence "$evidence_id" \
+    --reason "confirm signup control behavior"
+  [ "$status" -eq 0 ]
+  validation_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  [ -n "$validation_id" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow link-evidence customer-signup "$evidence_id"
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow link-finding customer-signup "$finding_id"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"business flow finding linked"* ]]
+  [[ "$output" == *"finding_id: $finding_id"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow link-validation customer-signup "$validation_id"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"business flow validation linked"* ]]
+  [[ "$output" == *"validation_id: $validation_id"* ]]
+
+  finding_links="$TEST_ROOT/toolkit/sessions/flow-context-op/flow_findings.ndjson"
+  validation_links="$TEST_ROOT/toolkit/sessions/flow-context-op/flow_validation.ndjson"
+  ledger="$TEST_ROOT/toolkit/sessions/flow-context-op/ledger.ndjson"
+  [ -s "$finding_links" ]
+  [ -s "$validation_links" ]
+  [ -s "$ledger" ]
+
+  jq -e --arg finding_id "$finding_id" '
+    .schema_version == "atlas.flow_finding_link.v1" and
+    .flow_id == "flow_customer_signup" and
+    .operation == "flow-context-op" and
+    .finding_id == $finding_id and
+    .title == "Signup MFA gap" and
+    .severity == "medium" and
+    .status == "open" and
+    .metadata_only == true and
+    (has("impact") | not) and
+    (has("recommendation") | not) and
+    (has("raw_finding") | not)
+  ' "$finding_links"
+
+  jq -e --arg validation_id "$validation_id" --arg finding_id "$finding_id" '
+    .schema_version == "atlas.flow_validation_link.v1" and
+    .flow_id == "flow_customer_signup" and
+    .operation == "flow-context-op" and
+    .validation_id == $validation_id and
+    .lane == "validate" and
+    .status == "planned" and
+    .finding_id == $finding_id and
+    .metadata_only == true and
+    (has("reason") | not) and
+    (has("plan_body") | not) and
+    (has("session_contents") | not)
+  ' "$validation_links"
+
+  jq -e --arg finding_id "$finding_id" '
+    select(.event == "flow.finding_linked" and (.detail | contains("finding=" + $finding_id)))
+  ' "$ledger"
+  jq -e --arg validation_id "$validation_id" '
+    select(.event == "flow.validation_linked" and (.detail | contains("validation=" + $validation_id)))
+  ' "$ledger"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow packet customer-signup customer-signup-flow
+  [ "$status" -eq 0 ]
+  packet_path="$TEST_ROOT/toolkit/sessions/flow-context-op/flow_packets/customer-signup-flow.md"
+  grep -q "Finding ID: $finding_id" "$packet_path"
+  grep -q "Validation ID: $validation_id" "$packet_path"
+  grep -q 'Finding Link Count: 1' "$packet_path"
+  grep -q 'Validation Link Count: 1' "$packet_path"
+  ! grep -q 'business flow context proof that must not be copied' "$packet_path"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow packet --json customer-signup customer-signup-flow
+  [ "$status" -eq 0 ]
+  packet_json_path="$TEST_ROOT/toolkit/sessions/flow-context-op/flow_packets_json/customer-signup-flow.json"
+  jq -e --arg finding_id "$finding_id" --arg validation_id "$validation_id" '
+    .freshness.finding_link_count == 1 and
+    .freshness.validation_link_count == 1 and
+    .findings_refs[0].finding_id == $finding_id and
+    .validation_refs[0].validation_id == $validation_id and
+    .metadata_only == true and
+    .raw_evidence_embedded == false
+  ' "$packet_json_path"
+  ! grep -q 'business flow context proof that must not be copied' "$packet_json_path"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow verify customer-signup customer-signup-flow
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Finding Metadata"* ]]
+  [[ "$output" == *"Validation Metadata"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow verify --json customer-signup customer-signup-flow
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" |
+    jq -e '
+      .overall == "current" and
+      any(.checks[]; .check == "Finding Metadata" and .status == "ok") and
+      any(.checks[]; .check == "Validation Metadata" and .status == "ok")
+    '
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" validation approve "$validation_id" bounded approval for flow context
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow verify --json customer-signup customer-signup-flow
+  [ "$status" -ne 0 ]
+  printf '%s\n' "$output" |
+    jq -e '.overall == "stale" and any(.checks[]; .check == "Validation Metadata" and .status == "stale")'
 }
 
 @test "atlas flow packet writes metadata-only business flow packet" {
@@ -1085,6 +1278,8 @@ EOF
   [[ "$output" == *"atlas flow list"* ]]
   [[ "$output" == *"atlas flow show <flow>"* ]]
   [[ "$output" == *"atlas flow link-evidence <flow> <evidence-id>"* ]]
+  [[ "$output" == *"atlas flow link-finding <flow> <finding-id>"* ]]
+  [[ "$output" == *"atlas flow link-validation <flow> <validation-id>"* ]]
   [[ "$output" == *"atlas flow packet [--json] <flow> [packet-name]"* ]]
   [[ "$output" == *"atlas flow verify [--json] <flow> [packet-name]"* ]]
   [[ "$output" == *"atlas web assess <url> [assessment-name]"* ]]
@@ -1539,9 +1734,12 @@ EOF
       .pillars.core_cli.status == "ready" and
       .pillars.business_flow_evidence.required == false and
       .pillars.business_flow_evidence.status == "ready" and
+      (.pillars.business_flow_evidence.commands | contains("atlas flow link-finding")) and
+      (.pillars.business_flow_evidence.commands | contains("atlas flow link-validation")) and
       (.pillars.business_flow_evidence.commands | contains("atlas flow packet --json")) and
       (.pillars.business_flow_evidence.commands | contains("atlas flow verify --json")) and
       (.pillars.business_flow_evidence.limitations | contains("JSON packet parity") | not) and
+      (.pillars.business_flow_evidence.limitations | contains("finding/validation links") | not) and
       .pillars.ai_advisor.required == false
     '
 
@@ -1637,6 +1835,7 @@ EOF
       .pillars.business_flow_evidence.status == "ready" and
       (.pillars.business_flow_evidence.reason | contains("active_operation_links=1")) and
       (.pillars.business_flow_evidence.reason | contains("active_operation_packets=0")) and
+      (.pillars.business_flow_evidence.commands | contains("atlas flow link-finding")) and
       (.pillars.business_flow_evidence.commands | contains("atlas flow verify --json")) and
       (.pillars.business_flow_evidence.limitations | contains("JSON packet parity") | not)
     '
@@ -1680,6 +1879,8 @@ EOF
       .gates.production_contract.status == "ready" and
       .gates.business_flow_evidence.required == false and
       .gates.business_flow_evidence.status == "ready" and
+      (.gates.business_flow_evidence.commands | contains("atlas flow link-finding")) and
+      (.gates.business_flow_evidence.commands | contains("atlas flow link-validation")) and
       (.gates.business_flow_evidence.commands | contains("atlas flow packet --json")) and
       (.gates.business_flow_evidence.commands | contains("atlas flow verify --json")) and
       .gates.release_trust_packet.status == "blocked" and

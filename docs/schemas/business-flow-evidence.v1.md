@@ -14,6 +14,8 @@ file-backed surfaces are documented separately:
 - `atlas.business_flow.v1`
 - `atlas.business_flow_link.v1`
 - `atlas.flow_evidence_link.v1`
+- `atlas.flow_finding_link.v1`
+- `atlas.flow_validation_link.v1`
 - `atlas.business_flow_packet.v1`
 - `atlas.business_flow_verify.v1`
 
@@ -33,8 +35,8 @@ file-backed surfaces are documented separately:
 | `systems` | array of strings | System names or aliases involved in the flow. |
 | `control_objectives` | array of strings | Control objectives reviewed for the flow. |
 | `evidence_refs` | array of objects | Metadata references to Atlas evidence. |
-| `findings_refs` | array of strings | Linked Atlas finding IDs. |
-| `validation_refs` | array of strings | Linked Atlas validation IDs. |
+| `findings_refs` | array of objects | Linked Atlas finding IDs and metadata snapshots. |
+| `validation_refs` | array of objects | Linked Atlas validation IDs and metadata snapshots. |
 | `approval_refs` | array of strings | Linked approval IDs or approval record references. |
 | `freshness` | object | Packet or evidence freshness state. |
 | `known_limitations` | array of strings | Explicit limitations of the flow evidence. |
@@ -100,10 +102,18 @@ Evidence references must not embed the artifact body.
     }
   ],
   "findings_refs": [
-    "finding_20260427_001"
+    {
+      "finding_id": "finding_20260427_001",
+      "severity": "medium",
+      "status": "open"
+    }
   ],
   "validation_refs": [
-    "vp_20260427_001"
+    {
+      "validation_id": "vp_20260427_001",
+      "lane": "validate",
+      "status": "planned"
+    }
   ],
   "approval_refs": [
     "approval_20260427_001"

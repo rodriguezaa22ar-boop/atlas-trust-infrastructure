@@ -129,6 +129,8 @@ nix-shell --run './bin/dev-qa'
 ./tools/atlas/bin/atlas flow list
 ./tools/atlas/bin/atlas flow show customer-signup
 ./tools/atlas/bin/atlas flow link-evidence customer-signup ev_...
+./tools/atlas/bin/atlas flow link-finding customer-signup finding_...
+./tools/atlas/bin/atlas flow link-validation customer-signup vp_...
 ./tools/atlas/bin/atlas flow packet customer-signup customer-signup-flow
 ./tools/atlas/bin/atlas flow packet --json customer-signup customer-signup-flow
 ./tools/atlas/bin/atlas flow verify customer-signup customer-signup-flow
@@ -136,15 +138,18 @@ nix-shell --run './bin/dev-qa'
 ```
 
 Business-flow records are metadata-only global flow records under
-`state/atlas/flows/`. Evidence links are metadata-only operation records under
-`sessions/<operation>/flow_evidence.ndjson`; they reference evidence IDs without
-copying or embedding raw evidence. Flow packets are metadata-only Markdown
-packets under `sessions/<operation>/flow_packets/` and metadata-only JSON
-packets under `sessions/<operation>/flow_packets_json/`. They include flow
-labels, evidence IDs, retained paths, hashes, freshness metadata, and known
-limitations. Flow verification checks packet metadata, evidence links, retained
-files, hashes, freshness, and forbidden-content markers. Finding/validation
-links remain planned.
+`state/atlas/flows/`. Operation links live under
+`sessions/<operation>/flow_evidence.ndjson`,
+`sessions/<operation>/flow_findings.ndjson`, and
+`sessions/<operation>/flow_validation.ndjson`; they reference existing Atlas
+IDs without copying raw evidence, finding bodies, validation reasons, plan
+bodies, or session contents. Flow packets are metadata-only Markdown packets
+under `sessions/<operation>/flow_packets/` and metadata-only JSON packets under
+`sessions/<operation>/flow_packets_json/`. They include flow labels, evidence
+IDs, retained paths, hashes, finding references, validation references,
+freshness metadata, and known limitations. Flow verification checks packet
+metadata, evidence links, finding links, validation links, retained files,
+hashes, freshness, and forbidden-content markers.
 
 ## Atlas Findings
 

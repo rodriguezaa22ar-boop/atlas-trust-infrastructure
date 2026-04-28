@@ -14,13 +14,16 @@ default. `atlas flow packet --json` emits a machine-readable JSON packet under
 `sessions/<operation>/flow_packets_json/`. `atlas flow verify` verifies the
 Markdown packet, and `atlas flow verify --json` verifies the JSON packet against
 the active operation, flow record, evidence links, retained evidence files,
-hashes, freshness, and metadata-only guardrails.
+finding links, validation links, hashes, freshness, and metadata-only
+guardrails.
 
 This packet depends on the stabilized record and link contracts:
 
 - `atlas.business_flow.v1`
 - `atlas.business_flow_link.v1`
 - `atlas.flow_evidence_link.v1`
+- `atlas.flow_finding_link.v1`
+- `atlas.flow_validation_link.v1`
 
 ## Required Fields
 
@@ -37,8 +40,8 @@ This packet depends on the stabilized record and link contracts:
 | `data_classes` | array of strings | Data class labels involved in the flow. |
 | `control_objectives` | array of strings | Control objective labels. |
 | `evidence_refs` | array of objects | Evidence ID, kind, hash, and path references. |
-| `findings_refs` | array of strings | Linked finding IDs. |
-| `validation_refs` | array of strings | Linked validation IDs. |
+| `findings_refs` | array of objects | Linked finding IDs and metadata snapshots. |
+| `validation_refs` | array of objects | Linked validation IDs and metadata snapshots. |
 | `approval_refs` | array of strings | Linked approval references. |
 | `retention_refs` | object | Linked handoff, closeout, audit, archive, or release packet paths. |
 | `freshness` | object | Current packet freshness state. |
@@ -115,13 +118,17 @@ The packet may include hashes and metadata references to redacted artifacts.
 - packet operation and target match the active operation
 - linked evidence IDs exist
 - linked evidence hashes still match
+- linked finding IDs exist
+- linked finding metadata has not drifted from the linked snapshot
+- linked validation IDs exist
+- linked validation metadata has not drifted from the linked snapshot
 - retained evidence files exist
 - retained evidence file hashes still match evidence records
 - freshness is current
 - forbidden raw-content markers are absent
 
-Future verification can add linked finding IDs, linked validation IDs, linked
-retention references once those surfaces exist.
+Future verification can add linked approval and retention references once those
+surfaces exist.
 
 ## Markdown Parity
 

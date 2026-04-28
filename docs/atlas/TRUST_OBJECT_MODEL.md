@@ -71,7 +71,7 @@ Packets are metadata-only records that anchor trust state at a point in time.
 | Release provenance packet | Binds a release packet hash to a signed Git tag and retained public key. |
 | Production dry-run note | Records local production-contract dry-run evidence. |
 | Advisor packet | Carries metadata-only AI Advisor context. |
-| Business-flow packet | Metadata-only flow proof linking flows to operation evidence. Flow record, operation link, evidence link, Markdown/JSON packets, Markdown/JSON verification, and optional non-blocking readiness visibility are implemented; finding, validation, and retention links are planned. |
+| Business-flow packet | Metadata-only flow proof linking flows to operation evidence, findings, and validation. Flow record, operation link, evidence/finding/validation links, Markdown/JSON packets, Markdown/JSON verification, and optional non-blocking readiness visibility are implemented; approval and retention links are planned. |
 
 Packets must not embed raw runtime artifacts, secrets, customer records,
 payloads, session contents, packet captures, private keys, tokens, credentials,
@@ -88,6 +88,8 @@ NDJSON, and Markdown surfaces:
 - `atlas.business_flow.v1`
 - `atlas.business_flow_link.v1`
 - `atlas.flow_evidence_link.v1`
+- `atlas.flow_finding_link.v1`
+- `atlas.flow_validation_link.v1`
 - `atlas.business_flow_packet.v1`
 - `atlas.business_flow_verify.v1`
 
@@ -209,5 +211,5 @@ Readiness language remains layered:
 - external production certification: not claimed unless independently proven
 
 Business Flow Evidence remains optional. It is visible as a non-blocking
-readiness pillar/gate until schema stabilization, finding/validation links, and
-flow trust-chain integration are stable.
+readiness pillar/gate until approval/retention links and flow trust-chain
+integration are stable.

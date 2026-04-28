@@ -39,6 +39,18 @@ atlas_flow_evidence_links_file() {
   printf '%s/flow_evidence.ndjson\n' "$op_dir"
 }
 
+atlas_flow_finding_links_file() {
+  local op_dir="$1"
+
+  printf '%s/flow_findings.ndjson\n' "$op_dir"
+}
+
+atlas_flow_validation_links_file() {
+  local op_dir="$1"
+
+  printf '%s/flow_validation.ndjson\n' "$op_dir"
+}
+
 atlas_flow_packet_dir() {
   printf '%s/flow_packets\n' "$ATLAS_OP_DIR"
 }
@@ -318,7 +330,73 @@ atlas_flow_evidence_link_count() {
     "$file"
 }
 
+atlas_flow_finding_link_count() {
+  local file="$1"
+  local flow_id="$2"
+  local operation="$3"
+
+  if [ ! -s "$file" ]; then
+    printf '0\n'
+    return 0
+  fi
+
+  jq -sr \
+    --arg flow_id "$flow_id" \
+    --arg operation "$operation" \
+    '[.[] | select(.flow_id == $flow_id and .operation == $operation)] | length' \
+    "$file"
+}
+
+atlas_flow_validation_link_count() {
+  local file="$1"
+  local flow_id="$2"
+  local operation="$3"
+
+  if [ ! -s "$file" ]; then
+    printf '0\n'
+    return 0
+  fi
+
+  jq -sr \
+    --arg flow_id "$flow_id" \
+    --arg operation "$operation" \
+    '[.[] | select(.flow_id == $flow_id and .operation == $operation)] | length' \
+    "$file"
+}
+
 atlas_flow_latest_evidence_linked_at() {
+  local file="$1"
+  local flow_id="$2"
+  local operation="$3"
+
+  if [ ! -s "$file" ]; then
+    return 0
+  fi
+
+  jq -sr \
+    --arg flow_id "$flow_id" \
+    --arg operation "$operation" \
+    '[.[] | select(.flow_id == $flow_id and .operation == $operation) | .linked_at // empty] | max // ""' \
+    "$file"
+}
+
+atlas_flow_latest_finding_linked_at() {
+  local file="$1"
+  local flow_id="$2"
+  local operation="$3"
+
+  if [ ! -s "$file" ]; then
+    return 0
+  fi
+
+  jq -sr \
+    --arg flow_id "$flow_id" \
+    --arg operation "$operation" \
+    '[.[] | select(.flow_id == $flow_id and .operation == $operation) | .linked_at // empty] | max // ""' \
+    "$file"
+}
+
+atlas_flow_latest_validation_linked_at() {
   local file="$1"
   local flow_id="$2"
   local operation="$3"
@@ -339,6 +417,12 @@ atlas_flow_packet_evidence_refs() {
   local flow_id="$2"
   local operation="$3"
 
+  if [ ! -s "$file" ] ||
+    ! jq -e --arg flow_id "$flow_id" --arg operation "$operation" 'select(.flow_id == $flow_id and .operation == $operation)' "$file" >/dev/null 2>&1; then
+    printf -- '- none linked\n'
+    return 0
+  fi
+
   jq -r \
     --arg flow_id "$flow_id" \
     --arg operation "$operation" \
@@ -349,6 +433,58 @@ atlas_flow_packet_evidence_refs() {
       "  - SHA-256: " + (.evidence_sha256 // "unknown") + "\n" +
       "  - Classification: " + (.evidence_classification // "unknown") + "\n" +
       "  - Redacted: " + ((.evidence_redacted // false) | tostring) + "\n" +
+      "  - Linked At: " + (.linked_at // "unknown") + "\n" +
+      "  - Metadata Only: " + ((.metadata_only // false) | tostring)' \
+    "$file"
+}
+
+atlas_flow_packet_finding_refs() {
+  local file="$1"
+  local flow_id="$2"
+  local operation="$3"
+
+  if [ ! -s "$file" ] ||
+    ! jq -e --arg flow_id "$flow_id" --arg operation "$operation" 'select(.flow_id == $flow_id and .operation == $operation)' "$file" >/dev/null 2>&1; then
+    printf -- '- none linked\n'
+    return 0
+  fi
+
+  jq -r \
+    --arg flow_id "$flow_id" \
+    --arg operation "$operation" \
+    'select(.flow_id == $flow_id and .operation == $operation) |
+      "- Finding ID: " + (.finding_id // "unknown") + "\n" +
+      "  - Title: " + (.title // "unknown") + "\n" +
+      "  - Level: " + (.level // "unknown") + "\n" +
+      "  - Severity: " + (.severity // "unknown") + "\n" +
+      "  - Confidence: " + (.confidence // "unknown") + "\n" +
+      "  - Status: " + (.status // "unknown") + "\n" +
+      "  - Linked At: " + (.linked_at // "unknown") + "\n" +
+      "  - Metadata Only: " + ((.metadata_only // false) | tostring)' \
+    "$file"
+}
+
+atlas_flow_packet_validation_refs() {
+  local file="$1"
+  local flow_id="$2"
+  local operation="$3"
+
+  if [ ! -s "$file" ] ||
+    ! jq -e --arg flow_id "$flow_id" --arg operation "$operation" 'select(.flow_id == $flow_id and .operation == $operation)' "$file" >/dev/null 2>&1; then
+    printf -- '- none linked\n'
+    return 0
+  fi
+
+  jq -r \
+    --arg flow_id "$flow_id" \
+    --arg operation "$operation" \
+    'select(.flow_id == $flow_id and .operation == $operation) |
+      "- Validation ID: " + (.validation_id // "unknown") + "\n" +
+      "  - Lane: " + (.lane // "unknown") + "\n" +
+      "  - Capability: " + (.capability // "unknown") + "\n" +
+      "  - Status: " + (.status // "unknown") + "\n" +
+      "  - Finding: " + (.finding_id // "-") + "\n" +
+      "  - Result: " + (.result_status // "-") + "\n" +
       "  - Linked At: " + (.linked_at // "unknown") + "\n" +
       "  - Metadata Only: " + ((.metadata_only // false) | tostring)' \
     "$file"
@@ -388,6 +524,58 @@ atlas_flow_evidence_refs_json() {
       sha256: (.evidence_sha256 // ""),
       classification: (.evidence_classification // "unknown"),
       redacted: (.evidence_redacted // false),
+      linked_at: (.linked_at // ""),
+      metadata_only: (.metadata_only // false)
+    }]' \
+    "$file"
+}
+
+atlas_flow_finding_refs_json() {
+  local file="$1"
+  local flow_id="$2"
+  local operation="$3"
+
+  if [ ! -s "$file" ]; then
+    printf '[]\n'
+    return 0
+  fi
+
+  jq -s \
+    --arg flow_id "$flow_id" \
+    --arg operation "$operation" \
+    '[.[] | select(.flow_id == $flow_id and .operation == $operation) | {
+      finding_id: (.finding_id // ""),
+      title: (.title // ""),
+      level: (.level // "unknown"),
+      severity: (.severity // "unknown"),
+      confidence: (.confidence // "unknown"),
+      status: (.status // "unknown"),
+      linked_at: (.linked_at // ""),
+      metadata_only: (.metadata_only // false)
+    }]' \
+    "$file"
+}
+
+atlas_flow_validation_refs_json() {
+  local file="$1"
+  local flow_id="$2"
+  local operation="$3"
+
+  if [ ! -s "$file" ]; then
+    printf '[]\n'
+    return 0
+  fi
+
+  jq -s \
+    --arg flow_id "$flow_id" \
+    --arg operation "$operation" \
+    '[.[] | select(.flow_id == $flow_id and .operation == $operation) | {
+      validation_id: (.validation_id // ""),
+      lane: (.lane // "unknown"),
+      capability: (.capability // "unknown"),
+      status: (.status // "unknown"),
+      finding_id: (.finding_id // null),
+      result_status: (.result_status // null),
       linked_at: (.linked_at // ""),
       metadata_only: (.metadata_only // false)
     }]' \
@@ -587,6 +775,151 @@ atlas_flow_append_evidence_link() {
       evidence_sha256: $evidence_sha256,
       evidence_classification: $evidence_classification,
       evidence_redacted: $evidence_redacted,
+      linked_at: $linked_at,
+      linked_by: $linked_by,
+      notes: $notes,
+      metadata_only: true
+    }' >>"$file"
+}
+
+atlas_flow_append_finding_link() {
+  local file="$1"
+  local finding_record="$2"
+  local finding_id="$3"
+  local linked_at="$4"
+  local title
+  local level
+  local severity
+  local confidence
+  local status
+  local created_at
+  local updated_at
+
+  intel_require_jq
+
+  title="$(printf '%s\n' "$finding_record" | jq -r '.title // ""')"
+  level="$(printf '%s\n' "$finding_record" | jq -r '.level // "unknown"')"
+  severity="$(printf '%s\n' "$finding_record" | jq -r '.severity // "unknown"')"
+  confidence="$(printf '%s\n' "$finding_record" | jq -r '.confidence // "unknown"')"
+  status="$(printf '%s\n' "$finding_record" | jq -r '.status // "unknown"')"
+  created_at="$(printf '%s\n' "$finding_record" | jq -r '.created_at // ""')"
+  updated_at="$(printf '%s\n' "$finding_record" | jq -r '.updated_at // .created_at // ""')"
+
+  [ -n "$title" ] || fail "finding record missing title: $finding_id"
+  atlas_flow_validate_metadata_value "finding title" "$title"
+  atlas_flow_validate_metadata_value "finding level" "$level"
+  atlas_flow_validate_metadata_value "finding severity" "$severity"
+  atlas_flow_validate_metadata_value "finding confidence" "$confidence"
+  atlas_flow_validate_metadata_value "finding status" "$status"
+
+  : >>"$file"
+  chmod 600 "$file" 2>/dev/null || true
+
+  jq -cn \
+    --arg schema_version "atlas.flow_finding_link.v1" \
+    --arg flow_id "$ATLAS_FLOW_ID" \
+    --arg flow_slug "$ATLAS_FLOW_SLUG" \
+    --arg operation "$ATLAS_OP_SLUG" \
+    --arg target "$ATLAS_OP_TARGET" \
+    --arg finding_id "$finding_id" \
+    --arg title "$title" \
+    --arg level "$level" \
+    --arg severity "$severity" \
+    --arg confidence "$confidence" \
+    --arg status "$status" \
+    --arg finding_created_at "$created_at" \
+    --arg finding_updated_at "$updated_at" \
+    --arg linked_at "$linked_at" \
+    --arg linked_by "atlas" \
+    --arg notes "Metadata-only reference. Finding impact and recommendation bodies are not embedded." \
+    '{
+      schema_version: $schema_version,
+      flow_id: $flow_id,
+      flow_slug: $flow_slug,
+      operation: $operation,
+      target: $target,
+      finding_id: $finding_id,
+      title: $title,
+      level: $level,
+      severity: $severity,
+      confidence: $confidence,
+      status: $status,
+      finding_created_at: $finding_created_at,
+      finding_updated_at: $finding_updated_at,
+      linked_at: $linked_at,
+      linked_by: $linked_by,
+      notes: $notes,
+      metadata_only: true
+    }' >>"$file"
+}
+
+atlas_flow_append_validation_link() {
+  local file="$1"
+  local validation_record="$2"
+  local validation_id="$3"
+  local linked_at="$4"
+  local lane
+  local capability
+  local status
+  local finding_id
+  local result_status
+  local created_at
+  local updated_at
+
+  intel_require_jq
+
+  lane="$(printf '%s\n' "$validation_record" | jq -r '.lane // "unknown"')"
+  capability="$(printf '%s\n' "$validation_record" | jq -r '.capability // "unknown"')"
+  status="$(printf '%s\n' "$validation_record" | jq -r '.status // "unknown"')"
+  finding_id="$(printf '%s\n' "$validation_record" | jq -r '.finding // ""')"
+  result_status="$(printf '%s\n' "$validation_record" | jq -r '.result_status // ""')"
+  created_at="$(printf '%s\n' "$validation_record" | jq -r '.created_at // ""')"
+  updated_at="$(printf '%s\n' "$validation_record" | jq -r '.updated_at // .created_at // ""')"
+
+  atlas_flow_validate_metadata_value "validation lane" "$lane"
+  atlas_flow_validate_metadata_value "validation capability" "$capability"
+  atlas_flow_validate_metadata_value "validation status" "$status"
+  if [ -n "$finding_id" ]; then
+    atlas_flow_validate_metadata_value "validation finding id" "$finding_id"
+  fi
+  if [ -n "$result_status" ]; then
+    atlas_flow_validate_metadata_value "validation result status" "$result_status"
+  fi
+
+  : >>"$file"
+  chmod 600 "$file" 2>/dev/null || true
+
+  jq -cn \
+    --arg schema_version "atlas.flow_validation_link.v1" \
+    --arg flow_id "$ATLAS_FLOW_ID" \
+    --arg flow_slug "$ATLAS_FLOW_SLUG" \
+    --arg operation "$ATLAS_OP_SLUG" \
+    --arg target "$ATLAS_OP_TARGET" \
+    --arg validation_id "$validation_id" \
+    --arg lane "$lane" \
+    --arg capability "$capability" \
+    --arg status "$status" \
+    --arg finding_id "$finding_id" \
+    --arg result_status "$result_status" \
+    --arg validation_created_at "$created_at" \
+    --arg validation_updated_at "$updated_at" \
+    --arg linked_at "$linked_at" \
+    --arg linked_by "atlas" \
+    --arg notes "Metadata-only reference. Validation reason, plan body, and session contents are not embedded." \
+    '{
+      schema_version: $schema_version,
+      flow_id: $flow_id,
+      flow_slug: $flow_slug,
+      operation: $operation,
+      target: $target,
+      validation_id: $validation_id,
+      lane: $lane,
+      capability: $capability,
+      status: $status,
+      finding_id: (if $finding_id == "" then null else $finding_id end),
+      result_status: (if $result_status == "" then null else $result_status end),
+      validation_created_at: $validation_created_at,
+      validation_updated_at: $validation_updated_at,
       linked_at: $linked_at,
       linked_by: $linked_by,
       notes: $notes,
@@ -803,6 +1136,84 @@ cmd_flow_link_evidence() {
   printf 'link_path: %s\n' "$evidence_links_file"
 }
 
+cmd_flow_link_finding() {
+  need_args 2 "$#" "flow link-finding <flow> <finding-id>"
+  local flow="$1"
+  local finding_id="$2"
+  local finding_record
+  local linked_at
+  local flow_links_file
+  local finding_links_file
+  local finding_title
+  local finding_status
+  local finding_severity
+
+  atlas_flow_load "$flow"
+  load_active_operation
+
+  finding_record="$(atlas_findings_latest_record "$finding_id" || true)"
+  [ -n "$finding_record" ] || fail "unknown finding id in active operation: $finding_id"
+
+  linked_at="$(timestamp)"
+  flow_links_file="$(atlas_flow_operation_links_file "$ATLAS_OP_DIR")"
+  finding_links_file="$(atlas_flow_finding_links_file "$ATLAS_OP_DIR")"
+
+  atlas_flow_append_operation_link "$flow_links_file" "$linked_at"
+  atlas_flow_append_finding_link "$finding_links_file" "$finding_record" "$finding_id" "$linked_at"
+
+  finding_title="$(printf '%s\n' "$finding_record" | jq -r '.title // ""')"
+  finding_status="$(printf '%s\n' "$finding_record" | jq -r '.status // "unknown"')"
+  finding_severity="$(printf '%s\n' "$finding_record" | jq -r '.severity // "unknown"')"
+
+  atlas_ledger_append_current "flow.finding_linked" "read-only" "atlas" "ok" "flow_id=$ATLAS_FLOW_ID finding=$finding_id severity=$finding_severity status=$finding_status"
+
+  ui_ok "business flow finding linked"
+  printf 'flow_id: %s\n' "$ATLAS_FLOW_ID"
+  printf 'operation: %s\n' "$ATLAS_OP_SLUG"
+  printf 'finding_id: %s\n' "$finding_id"
+  printf 'finding_title: %s\n' "$finding_title"
+  printf 'link_path: %s\n' "$finding_links_file"
+}
+
+cmd_flow_link_validation() {
+  need_args 2 "$#" "flow link-validation <flow> <validation-id>"
+  local flow="$1"
+  local validation_id="$2"
+  local validation_record
+  local linked_at
+  local flow_links_file
+  local validation_links_file
+  local lane
+  local status
+  local finding_id
+
+  atlas_flow_load "$flow"
+  load_active_operation
+
+  validation_record="$(atlas_validation_latest_record "$validation_id" || true)"
+  [ -n "$validation_record" ] || fail "unknown validation id in active operation: $validation_id"
+
+  linked_at="$(timestamp)"
+  flow_links_file="$(atlas_flow_operation_links_file "$ATLAS_OP_DIR")"
+  validation_links_file="$(atlas_flow_validation_links_file "$ATLAS_OP_DIR")"
+
+  atlas_flow_append_operation_link "$flow_links_file" "$linked_at"
+  atlas_flow_append_validation_link "$validation_links_file" "$validation_record" "$validation_id" "$linked_at"
+
+  lane="$(printf '%s\n' "$validation_record" | jq -r '.lane // "unknown"')"
+  status="$(printf '%s\n' "$validation_record" | jq -r '.status // "unknown"')"
+  finding_id="$(printf '%s\n' "$validation_record" | jq -r '.finding // ""')"
+
+  atlas_ledger_append_current "flow.validation_linked" "read-only" "atlas" "ok" "flow_id=$ATLAS_FLOW_ID validation=$validation_id lane=$lane status=$status finding=$finding_id"
+
+  ui_ok "business flow validation linked"
+  printf 'flow_id: %s\n' "$ATLAS_FLOW_ID"
+  printf 'operation: %s\n' "$ATLAS_OP_SLUG"
+  printf 'validation_id: %s\n' "$validation_id"
+  printf 'lane: %s\n' "$lane"
+  printf 'link_path: %s\n' "$validation_links_file"
+}
+
 atlas_flow_write_json_packet() {
   local packet_file="$1"
   local packet_name="$2"
@@ -812,17 +1223,27 @@ atlas_flow_write_json_packet() {
   local evidence_links_file="$6"
   local evidence_link_count="$7"
   local latest_evidence_link="$8"
+  local finding_links_file="$9"
+  local finding_link_count="${10}"
+  local latest_finding_link="${11}"
+  local validation_links_file="${12}"
+  local validation_link_count="${13}"
+  local latest_validation_link="${14}"
   local packet_slug
   local systems_json
   local data_classes_json
   local controls_json
   local evidence_refs_json
+  local finding_refs_json
+  local validation_refs_json
 
   packet_slug="$(atlas_flow_packet_slug_for "$packet_name")"
   systems_json="$(atlas_flow_csv_json_array "$ATLAS_FLOW_SYSTEMS")"
   data_classes_json="$(atlas_flow_csv_json_array "$ATLAS_FLOW_DATA_CLASSES")"
   controls_json="$(atlas_flow_csv_json_array "$ATLAS_FLOW_CONTROL_OBJECTIVES")"
   evidence_refs_json="$(atlas_flow_evidence_refs_json "$evidence_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  finding_refs_json="$(atlas_flow_finding_refs_json "$finding_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  validation_refs_json="$(atlas_flow_validation_refs_json "$validation_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
 
   jq -n \
     --arg schema_version "atlas.business_flow_packet.v1" \
@@ -845,11 +1266,17 @@ atlas_flow_write_json_packet() {
     --arg flow_created_at "$ATLAS_FLOW_CREATED_AT" \
     --arg flow_updated_at "$ATLAS_FLOW_UPDATED_AT" \
     --arg latest_evidence_link "${latest_evidence_link:-}" \
+    --arg latest_finding_link "${latest_finding_link:-}" \
+    --arg latest_validation_link "${latest_validation_link:-}" \
     --argjson evidence_link_count "$evidence_link_count" \
+    --argjson finding_link_count "$finding_link_count" \
+    --argjson validation_link_count "$validation_link_count" \
     --argjson systems "$systems_json" \
     --argjson data_classes "$data_classes_json" \
     --argjson control_objectives "$controls_json" \
     --argjson evidence_refs "$evidence_refs_json" \
+    --argjson findings_refs "$finding_refs_json" \
+    --argjson validation_refs "$validation_refs_json" \
     '{
       schema_version: $schema_version,
       packet_id: $packet_id,
@@ -901,20 +1328,24 @@ atlas_flow_write_json_packet() {
       data_classes: $data_classes,
       control_objectives: $control_objectives,
       evidence_refs: $evidence_refs,
-      findings_refs: [],
-      validation_refs: [],
+      findings_refs: $findings_refs,
+      validation_refs: $validation_refs,
       approval_refs: [],
       retention_refs: {},
       freshness: {
         status: "current",
         packet_generated_at: $generated_at,
         latest_evidence_link: (if $latest_evidence_link == "" then null else $latest_evidence_link end),
-        evidence_link_count: $evidence_link_count
+        latest_finding_link: (if $latest_finding_link == "" then null else $latest_finding_link end),
+        latest_validation_link: (if $latest_validation_link == "" then null else $latest_validation_link end),
+        evidence_link_count: $evidence_link_count,
+        finding_link_count: $finding_link_count,
+        validation_link_count: $validation_link_count
       },
       known_limitations: [
         "This packet is metadata-only and does not embed raw evidence content.",
-        "Flow verification checks packet metadata, evidence links, hashes, freshness, and forbidden-content guardrails.",
-        "Finding, validation, approval, and retention links are not included in this packet slice.",
+        "Flow verification checks packet metadata, evidence, finding, and validation links, hashes, freshness, and forbidden-content guardrails.",
+        "Approval and retention links are not included in this packet slice.",
         "This packet is not production certification, payment verification, legal compliance evidence, or a third-party audit."
       ]
     }' >"$packet_file"
@@ -933,8 +1364,14 @@ cmd_flow_packet_markdown() {
   local flow_sha
   local flow_links_file
   local evidence_links_file
+  local finding_links_file
+  local validation_links_file
   local evidence_link_count
+  local finding_link_count
+  local validation_link_count
   local latest_evidence_link
+  local latest_finding_link
+  local latest_validation_link
 
   atlas_flow_load "$flow"
   load_active_operation
@@ -948,18 +1385,24 @@ cmd_flow_packet_markdown() {
   flow_sha="$(atlas_evidence_hash_path "$flow_file")"
   flow_links_file="$(atlas_flow_operation_links_file "$ATLAS_OP_DIR")"
   evidence_links_file="$(atlas_flow_evidence_links_file "$ATLAS_OP_DIR")"
+  finding_links_file="$(atlas_flow_finding_links_file "$ATLAS_OP_DIR")"
+  validation_links_file="$(atlas_flow_validation_links_file "$ATLAS_OP_DIR")"
 
   if ! atlas_flow_operation_link_exists "$flow_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG"; then
     fail "business flow has no links in active operation; run 'atlas flow link-evidence' first"
   fi
 
   evidence_link_count="$(atlas_flow_evidence_link_count "$evidence_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  finding_link_count="$(atlas_flow_finding_link_count "$finding_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  validation_link_count="$(atlas_flow_validation_link_count "$validation_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
   [ "$evidence_link_count" -gt 0 ] || fail "business flow has no evidence links in active operation"
 
   generated_at="$(timestamp)"
   packet_dir="$(atlas_flow_packet_dir)"
   packet_file="$(atlas_flow_packet_path_for_name "$packet_name")"
   latest_evidence_link="$(atlas_flow_latest_evidence_linked_at "$evidence_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  latest_finding_link="$(atlas_flow_latest_finding_linked_at "$finding_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  latest_validation_link="$(atlas_flow_latest_validation_linked_at "$validation_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
 
   mkdir -p "$packet_dir"
   chmod 700 "$packet_dir" 2>/dev/null || true
@@ -994,9 +1437,9 @@ cmd_flow_packet_markdown() {
     printf '\n## Evidence References\n\n'
     atlas_flow_packet_evidence_refs "$evidence_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG"
     printf '\n\n## Findings\n\n'
-    printf -- '- none linked in this packet version\n'
+    atlas_flow_packet_finding_refs "$finding_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG"
     printf '\n## Validation\n\n'
-    printf -- '- none linked in this packet version\n'
+    atlas_flow_packet_validation_refs "$validation_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG"
     printf '\n## Approvals\n\n'
     printf -- '- none linked in this packet version\n'
     printf '\n## Freshness\n\n'
@@ -1007,11 +1450,23 @@ cmd_flow_packet_markdown() {
     else
       printf -- '- Latest Evidence Link: none recorded\n'
     fi
+    if [ -n "$latest_finding_link" ]; then
+      printf -- '- Latest Finding Link: %s\n' "$latest_finding_link"
+    else
+      printf -- '- Latest Finding Link: none recorded\n'
+    fi
+    if [ -n "$latest_validation_link" ]; then
+      printf -- '- Latest Validation Link: %s\n' "$latest_validation_link"
+    else
+      printf -- '- Latest Validation Link: none recorded\n'
+    fi
     printf -- '- Evidence Link Count: %s\n' "$evidence_link_count"
+    printf -- '- Finding Link Count: %s\n' "$finding_link_count"
+    printf -- '- Validation Link Count: %s\n' "$validation_link_count"
     printf '\n## Known Limitations\n\n'
     printf -- '- This packet is metadata-only and does not embed raw evidence content.\n'
-    printf -- '- Flow verification checks packet metadata, evidence links, hashes, freshness, and forbidden-content guardrails.\n'
-    printf -- '- Finding, validation, approval, and retention links are not included in this packet slice.\n'
+    printf -- '- Flow verification checks packet metadata, evidence, finding, and validation links, hashes, freshness, and forbidden-content guardrails.\n'
+    printf -- '- Approval and retention links are not included in this packet slice.\n'
     printf -- '- This packet is not production certification, payment verification, legal compliance evidence, or a third-party audit.\n'
   } >"$packet_file"
 
@@ -1021,7 +1476,7 @@ cmd_flow_packet_markdown() {
     fail "business-flow packet failed metadata-only validation"
   fi
 
-  atlas_ledger_append_current "flow.packet.generated" "read-only" "atlas" "ok" "flow_id=$ATLAS_FLOW_ID packet=$packet_file evidence_links=$evidence_link_count"
+  atlas_ledger_append_current "flow.packet.generated" "read-only" "atlas" "ok" "flow_id=$ATLAS_FLOW_ID packet=$packet_file evidence_links=$evidence_link_count finding_links=$finding_link_count validation_links=$validation_link_count"
 
   ui_ok "business flow packet written"
   printf 'flow_id: %s\n' "$ATLAS_FLOW_ID"
@@ -1042,8 +1497,14 @@ cmd_flow_packet_json() {
   local flow_sha
   local flow_links_file
   local evidence_links_file
+  local finding_links_file
+  local validation_links_file
   local evidence_link_count
+  local finding_link_count
+  local validation_link_count
   local latest_evidence_link
+  local latest_finding_link
+  local latest_validation_link
 
   atlas_flow_load "$flow"
   load_active_operation
@@ -1057,22 +1518,28 @@ cmd_flow_packet_json() {
   flow_sha="$(atlas_evidence_hash_path "$flow_file")"
   flow_links_file="$(atlas_flow_operation_links_file "$ATLAS_OP_DIR")"
   evidence_links_file="$(atlas_flow_evidence_links_file "$ATLAS_OP_DIR")"
+  finding_links_file="$(atlas_flow_finding_links_file "$ATLAS_OP_DIR")"
+  validation_links_file="$(atlas_flow_validation_links_file "$ATLAS_OP_DIR")"
 
   if ! atlas_flow_operation_link_exists "$flow_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG"; then
     fail "business flow has no links in active operation; run 'atlas flow link-evidence' first"
   fi
 
   evidence_link_count="$(atlas_flow_evidence_link_count "$evidence_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  finding_link_count="$(atlas_flow_finding_link_count "$finding_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  validation_link_count="$(atlas_flow_validation_link_count "$validation_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
   [ "$evidence_link_count" -gt 0 ] || fail "business flow has no evidence links in active operation"
 
   generated_at="$(timestamp)"
   packet_dir="$(atlas_flow_packet_json_dir)"
   packet_file="$(atlas_flow_packet_json_path_for_name "$packet_name")"
   latest_evidence_link="$(atlas_flow_latest_evidence_linked_at "$evidence_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  latest_finding_link="$(atlas_flow_latest_finding_linked_at "$finding_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  latest_validation_link="$(atlas_flow_latest_validation_linked_at "$validation_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
 
   mkdir -p "$packet_dir"
   chmod 700 "$packet_dir" 2>/dev/null || true
-  atlas_flow_write_json_packet "$packet_file" "$packet_name" "$generated_at" "$flow_file" "$flow_sha" "$evidence_links_file" "$evidence_link_count" "$latest_evidence_link"
+  atlas_flow_write_json_packet "$packet_file" "$packet_name" "$generated_at" "$flow_file" "$flow_sha" "$evidence_links_file" "$evidence_link_count" "$latest_evidence_link" "$finding_links_file" "$finding_link_count" "$latest_finding_link" "$validation_links_file" "$validation_link_count" "$latest_validation_link"
 
   chmod 600 "$packet_file" 2>/dev/null || true
   if ! atlas_flow_validate_json_packet_file "$packet_file"; then
@@ -1080,7 +1547,7 @@ cmd_flow_packet_json() {
     fail "business-flow JSON packet failed metadata-only validation"
   fi
 
-  atlas_ledger_append_current "flow.packet.generated" "read-only" "atlas" "ok" "flow_id=$ATLAS_FLOW_ID packet=$packet_file format=json evidence_links=$evidence_link_count"
+  atlas_ledger_append_current "flow.packet.generated" "read-only" "atlas" "ok" "flow_id=$ATLAS_FLOW_ID packet=$packet_file format=json evidence_links=$evidence_link_count finding_links=$finding_link_count validation_links=$validation_link_count"
 
   ui_ok "business flow JSON packet written"
   printf 'flow_id: %s\n' "$ATLAS_FLOW_ID"
@@ -1140,23 +1607,53 @@ cmd_flow_verify_markdown() {
   local packet_flow_sha
   local flow_links_file
   local evidence_links_file
+  local finding_links_file
+  local validation_links_file
   local expected_count
   local packet_count
   local evidence_count_stale=0
+  local expected_finding_count
+  local packet_finding_count
+  local finding_count_stale=0
+  local expected_validation_count
+  local packet_validation_count
+  local validation_count_stale=0
   local generated_at
   local latest_evidence_link
+  local latest_finding_link
+  local latest_validation_link
   local link_json
   local evidence_id
+  local finding_id
+  local validation_id
   local link_path
   local link_sha
   local link_classification
   local link_redacted
   local link_linked_at
+  local link_title
+  local link_level
+  local link_severity
+  local link_confidence
+  local link_status
+  local link_lane
+  local link_capability
+  local link_finding_id
+  local link_result_status
   local record
   local record_path
   local record_sha
   local record_classification
   local record_redacted
+  local record_title
+  local record_level
+  local record_severity
+  local record_confidence
+  local record_status
+  local record_lane
+  local record_capability
+  local record_finding_id
+  local record_result_status
   local evidence_file
   local actual_sha
 
@@ -1173,6 +1670,8 @@ cmd_flow_verify_markdown() {
   flow_sha="$(atlas_evidence_hash_path "$flow_file")"
   flow_links_file="$(atlas_flow_operation_links_file "$ATLAS_OP_DIR")"
   evidence_links_file="$(atlas_flow_evidence_links_file "$ATLAS_OP_DIR")"
+  finding_links_file="$(atlas_flow_finding_links_file "$ATLAS_OP_DIR")"
+  validation_links_file="$(atlas_flow_validation_links_file "$ATLAS_OP_DIR")"
 
   ui_heading "Atlas Business Flow Packet Verification"
   ui_rule
@@ -1249,6 +1748,44 @@ cmd_flow_verify_markdown() {
     atlas_flow_verify_row "Freshness" "stale" "latest_evidence_link=$latest_evidence_link packet_generated=$generated_at"
   else
     atlas_flow_verify_row "Freshness" "ok" "latest_evidence_link=${latest_evidence_link:-none} packet_generated=${generated_at:-missing}"
+  fi
+
+  expected_finding_count="$(atlas_flow_finding_link_count "$finding_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  packet_finding_count="$(atlas_flow_packet_field "$packet_file" "Finding Link Count")"
+  if [ -z "$packet_finding_count" ] && [ "$expected_finding_count" = "0" ]; then
+    packet_finding_count="0"
+  fi
+  if [ "$packet_finding_count" = "$expected_finding_count" ]; then
+    atlas_flow_verify_row "Finding Count" "ok" "$packet_finding_count"
+  else
+    finding_count_stale=1
+    atlas_flow_verify_row "Finding Count" "stale" "expected=$expected_finding_count actual=${packet_finding_count:-missing}"
+  fi
+
+  latest_finding_link="$(atlas_flow_latest_finding_linked_at "$finding_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  if atlas_flow_timestamp_after "$latest_finding_link" "$generated_at"; then
+    atlas_flow_verify_row "Finding Freshness" "stale" "latest_finding_link=$latest_finding_link packet_generated=$generated_at"
+  else
+    atlas_flow_verify_row "Finding Freshness" "ok" "latest_finding_link=${latest_finding_link:-none} packet_generated=${generated_at:-missing}"
+  fi
+
+  expected_validation_count="$(atlas_flow_validation_link_count "$validation_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  packet_validation_count="$(atlas_flow_packet_field "$packet_file" "Validation Link Count")"
+  if [ -z "$packet_validation_count" ] && [ "$expected_validation_count" = "0" ]; then
+    packet_validation_count="0"
+  fi
+  if [ "$packet_validation_count" = "$expected_validation_count" ]; then
+    atlas_flow_verify_row "Validation Count" "ok" "$packet_validation_count"
+  else
+    validation_count_stale=1
+    atlas_flow_verify_row "Validation Count" "stale" "expected=$expected_validation_count actual=${packet_validation_count:-missing}"
+  fi
+
+  latest_validation_link="$(atlas_flow_latest_validation_linked_at "$validation_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  if atlas_flow_timestamp_after "$latest_validation_link" "$generated_at"; then
+    atlas_flow_verify_row "Validation Freshness" "stale" "latest_validation_link=$latest_validation_link packet_generated=$generated_at"
+  else
+    atlas_flow_verify_row "Validation Freshness" "ok" "latest_validation_link=${latest_validation_link:-none} packet_generated=${generated_at:-missing}"
   fi
 
   if atlas_flow_timestamp_after "$ATLAS_FLOW_UPDATED_AT" "$generated_at"; then
@@ -1340,6 +1877,114 @@ cmd_flow_verify_markdown() {
     fi
   )
 
+  while IFS= read -r link_json; do
+    [ -n "$link_json" ] || continue
+    finding_id="$(printf '%s\n' "$link_json" | jq -r '.finding_id // ""')"
+    link_title="$(printf '%s\n' "$link_json" | jq -r '.title // ""')"
+    link_level="$(printf '%s\n' "$link_json" | jq -r '.level // ""')"
+    link_severity="$(printf '%s\n' "$link_json" | jq -r '.severity // ""')"
+    link_confidence="$(printf '%s\n' "$link_json" | jq -r '.confidence // ""')"
+    link_status="$(printf '%s\n' "$link_json" | jq -r '.status // ""')"
+    link_linked_at="$(printf '%s\n' "$link_json" | jq -r '.linked_at // ""')"
+
+    if [ -z "$finding_id" ]; then
+      atlas_flow_verify_row "Finding Record" "blocked" "link missing finding id"
+      continue
+    fi
+
+    if atlas_flow_packet_contains_value "$packet_file" "Finding ID" "$finding_id"; then
+      atlas_flow_verify_row "Finding $finding_id" "ok" "packet reference present"
+    elif [ "$finding_count_stale" -eq 1 ] || atlas_flow_timestamp_after "$link_linked_at" "$generated_at"; then
+      atlas_flow_verify_row "Finding $finding_id" "stale" "link newer than packet or count mismatch"
+    else
+      atlas_flow_verify_row "Finding $finding_id" "blocked" "packet reference missing"
+    fi
+
+    record="$(atlas_findings_latest_record "$finding_id" || true)"
+    if [ -z "$record" ]; then
+      atlas_flow_verify_row "Finding Record" "blocked" "missing current record for $finding_id"
+      continue
+    fi
+
+    record_title="$(printf '%s\n' "$record" | jq -r '.title // ""')"
+    record_level="$(printf '%s\n' "$record" | jq -r '.level // ""')"
+    record_severity="$(printf '%s\n' "$record" | jq -r '.severity // ""')"
+    record_confidence="$(printf '%s\n' "$record" | jq -r '.confidence // ""')"
+    record_status="$(printf '%s\n' "$record" | jq -r '.status // ""')"
+
+    if [ "$record_title" = "$link_title" ] &&
+      [ "$record_level" = "$link_level" ] &&
+      [ "$record_severity" = "$link_severity" ] &&
+      [ "$record_confidence" = "$link_confidence" ] &&
+      [ "$record_status" = "$link_status" ]; then
+      atlas_flow_verify_row "Finding Metadata" "ok" "$finding_id status=$record_status severity=$record_severity"
+    else
+      atlas_flow_verify_row "Finding Metadata" "stale" "finding=$finding_id current metadata differs from linked snapshot"
+    fi
+  done < <(
+    if [ -s "$finding_links_file" ]; then
+      jq -c \
+        --arg flow_id "$ATLAS_FLOW_ID" \
+        --arg operation "$ATLAS_OP_SLUG" \
+        'select(.flow_id == $flow_id and .operation == $operation)' \
+        "$finding_links_file"
+    fi
+  )
+
+  while IFS= read -r link_json; do
+    [ -n "$link_json" ] || continue
+    validation_id="$(printf '%s\n' "$link_json" | jq -r '.validation_id // ""')"
+    link_lane="$(printf '%s\n' "$link_json" | jq -r '.lane // ""')"
+    link_capability="$(printf '%s\n' "$link_json" | jq -r '.capability // ""')"
+    link_status="$(printf '%s\n' "$link_json" | jq -r '.status // ""')"
+    link_finding_id="$(printf '%s\n' "$link_json" | jq -r '.finding_id // ""')"
+    link_result_status="$(printf '%s\n' "$link_json" | jq -r '.result_status // ""')"
+    link_linked_at="$(printf '%s\n' "$link_json" | jq -r '.linked_at // ""')"
+
+    if [ -z "$validation_id" ]; then
+      atlas_flow_verify_row "Validation Record" "blocked" "link missing validation id"
+      continue
+    fi
+
+    if atlas_flow_packet_contains_value "$packet_file" "Validation ID" "$validation_id"; then
+      atlas_flow_verify_row "Validation $validation_id" "ok" "packet reference present"
+    elif [ "$validation_count_stale" -eq 1 ] || atlas_flow_timestamp_after "$link_linked_at" "$generated_at"; then
+      atlas_flow_verify_row "Validation $validation_id" "stale" "link newer than packet or count mismatch"
+    else
+      atlas_flow_verify_row "Validation $validation_id" "blocked" "packet reference missing"
+    fi
+
+    record="$(atlas_validation_latest_record "$validation_id" || true)"
+    if [ -z "$record" ]; then
+      atlas_flow_verify_row "Validation Record" "blocked" "missing current record for $validation_id"
+      continue
+    fi
+
+    record_lane="$(printf '%s\n' "$record" | jq -r '.lane // ""')"
+    record_capability="$(printf '%s\n' "$record" | jq -r '.capability // ""')"
+    record_status="$(printf '%s\n' "$record" | jq -r '.status // ""')"
+    record_finding_id="$(printf '%s\n' "$record" | jq -r '.finding // ""')"
+    record_result_status="$(printf '%s\n' "$record" | jq -r '.result_status // ""')"
+
+    if [ "$record_lane" = "$link_lane" ] &&
+      [ "$record_capability" = "$link_capability" ] &&
+      [ "$record_status" = "$link_status" ] &&
+      [ "$record_finding_id" = "$link_finding_id" ] &&
+      [ "$record_result_status" = "$link_result_status" ]; then
+      atlas_flow_verify_row "Validation Metadata" "ok" "$validation_id status=$record_status lane=$record_lane"
+    else
+      atlas_flow_verify_row "Validation Metadata" "stale" "validation=$validation_id current metadata differs from linked snapshot"
+    fi
+  done < <(
+    if [ -s "$validation_links_file" ]; then
+      jq -c \
+        --arg flow_id "$ATLAS_FLOW_ID" \
+        --arg operation "$ATLAS_OP_SLUG" \
+        'select(.flow_id == $flow_id and .operation == $operation)' \
+        "$validation_links_file"
+    fi
+  )
+
   ui_rule
   ui_kv "Overall" "$ATLAS_FLOW_VERIFY_OVERALL"
   if [ "$ATLAS_FLOW_VERIFY_FAILURES" -eq 0 ]; then
@@ -1425,28 +2070,67 @@ cmd_flow_verify_json() {
   local packet_target
   local flow_links_file
   local evidence_links_file
+  local finding_links_file
+  local validation_links_file
   local expected_count
   local packet_count
   local evidence_count_stale=0
+  local expected_finding_count
+  local packet_finding_count
+  local finding_count_stale=0
+  local expected_validation_count
+  local packet_validation_count
+  local validation_count_stale=0
   local generated_at
   local latest_evidence_link
+  local latest_finding_link
+  local latest_validation_link
   local link_json
   local evidence_id
+  local finding_id
+  local validation_id
   local link_path
   local link_sha
   local link_classification
   local link_redacted
   local link_linked_at
+  local link_title
+  local link_level
+  local link_severity
+  local link_confidence
+  local link_status
+  local link_lane
+  local link_capability
+  local link_finding_id
+  local link_result_status
   local packet_ref
   local packet_ref_path
   local packet_ref_sha
   local packet_ref_classification
   local packet_ref_redacted
+  local packet_ref_title
+  local packet_ref_level
+  local packet_ref_severity
+  local packet_ref_confidence
+  local packet_ref_status
+  local packet_ref_lane
+  local packet_ref_capability
+  local packet_ref_finding_id
+  local packet_ref_result_status
   local record
   local record_path
   local record_sha
   local record_classification
   local record_redacted
+  local record_title
+  local record_level
+  local record_severity
+  local record_confidence
+  local record_status
+  local record_lane
+  local record_capability
+  local record_finding_id
+  local record_result_status
   local evidence_file
   local actual_sha
   local rows_file
@@ -1465,6 +2149,8 @@ cmd_flow_verify_json() {
   flow_sha="$(atlas_evidence_hash_path "$flow_file")"
   flow_links_file="$(atlas_flow_operation_links_file "$ATLAS_OP_DIR")"
   evidence_links_file="$(atlas_flow_evidence_links_file "$ATLAS_OP_DIR")"
+  finding_links_file="$(atlas_flow_finding_links_file "$ATLAS_OP_DIR")"
+  validation_links_file="$(atlas_flow_validation_links_file "$ATLAS_OP_DIR")"
   rows_file="$(mktemp)"
 
   atlas_flow_verify_reset
@@ -1574,6 +2260,44 @@ cmd_flow_verify_json() {
     atlas_flow_verify_json_row "$rows_file" "Freshness" "ok" "latest_evidence_link=${latest_evidence_link:-none} packet_generated=${generated_at:-missing}"
   fi
 
+  expected_finding_count="$(atlas_flow_finding_link_count "$finding_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  packet_finding_count="$(jq -r '.freshness.finding_link_count // ""' "$packet_file" 2>/dev/null || true)"
+  if [ -z "$packet_finding_count" ] && [ "$expected_finding_count" = "0" ]; then
+    packet_finding_count="0"
+  fi
+  if [ "$packet_finding_count" = "$expected_finding_count" ]; then
+    atlas_flow_verify_json_row "$rows_file" "Finding Count" "ok" "$packet_finding_count"
+  else
+    finding_count_stale=1
+    atlas_flow_verify_json_row "$rows_file" "Finding Count" "stale" "expected=$expected_finding_count actual=${packet_finding_count:-missing}"
+  fi
+
+  latest_finding_link="$(atlas_flow_latest_finding_linked_at "$finding_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  if atlas_flow_timestamp_after "$latest_finding_link" "$generated_at"; then
+    atlas_flow_verify_json_row "$rows_file" "Finding Freshness" "stale" "latest_finding_link=$latest_finding_link packet_generated=$generated_at"
+  else
+    atlas_flow_verify_json_row "$rows_file" "Finding Freshness" "ok" "latest_finding_link=${latest_finding_link:-none} packet_generated=${generated_at:-missing}"
+  fi
+
+  expected_validation_count="$(atlas_flow_validation_link_count "$validation_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  packet_validation_count="$(jq -r '.freshness.validation_link_count // ""' "$packet_file" 2>/dev/null || true)"
+  if [ -z "$packet_validation_count" ] && [ "$expected_validation_count" = "0" ]; then
+    packet_validation_count="0"
+  fi
+  if [ "$packet_validation_count" = "$expected_validation_count" ]; then
+    atlas_flow_verify_json_row "$rows_file" "Validation Count" "ok" "$packet_validation_count"
+  else
+    validation_count_stale=1
+    atlas_flow_verify_json_row "$rows_file" "Validation Count" "stale" "expected=$expected_validation_count actual=${packet_validation_count:-missing}"
+  fi
+
+  latest_validation_link="$(atlas_flow_latest_validation_linked_at "$validation_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  if atlas_flow_timestamp_after "$latest_validation_link" "$generated_at"; then
+    atlas_flow_verify_json_row "$rows_file" "Validation Freshness" "stale" "latest_validation_link=$latest_validation_link packet_generated=$generated_at"
+  else
+    atlas_flow_verify_json_row "$rows_file" "Validation Freshness" "ok" "latest_validation_link=${latest_validation_link:-none} packet_generated=${generated_at:-missing}"
+  fi
+
   if atlas_flow_timestamp_after "$ATLAS_FLOW_UPDATED_AT" "$generated_at"; then
     atlas_flow_verify_json_row "$rows_file" "Flow Freshness" "stale" "flow_updated=$ATLAS_FLOW_UPDATED_AT packet_generated=$generated_at"
   else
@@ -1676,6 +2400,170 @@ cmd_flow_verify_json() {
     fi
   )
 
+  while IFS= read -r link_json; do
+    [ -n "$link_json" ] || continue
+    finding_id="$(printf '%s\n' "$link_json" | jq -r '.finding_id // ""')"
+    link_title="$(printf '%s\n' "$link_json" | jq -r '.title // ""')"
+    link_level="$(printf '%s\n' "$link_json" | jq -r '.level // ""')"
+    link_severity="$(printf '%s\n' "$link_json" | jq -r '.severity // ""')"
+    link_confidence="$(printf '%s\n' "$link_json" | jq -r '.confidence // ""')"
+    link_status="$(printf '%s\n' "$link_json" | jq -r '.status // ""')"
+    link_linked_at="$(printf '%s\n' "$link_json" | jq -r '.linked_at // ""')"
+
+    if [ -z "$finding_id" ]; then
+      atlas_flow_verify_json_row "$rows_file" "Finding Record" "blocked" "link missing finding id"
+      continue
+    fi
+
+    packet_ref="$(jq -c --arg finding_id "$finding_id" '[.findings_refs[]? | select(.finding_id == $finding_id)] | first // empty' "$packet_file" 2>/dev/null || true)"
+    if [ -n "$packet_ref" ]; then
+      atlas_flow_verify_json_row "$rows_file" "Finding $finding_id" "ok" "packet reference present"
+      packet_ref_title="$(printf '%s\n' "$packet_ref" | jq -r '.title // ""')"
+      packet_ref_level="$(printf '%s\n' "$packet_ref" | jq -r '.level // ""')"
+      packet_ref_severity="$(printf '%s\n' "$packet_ref" | jq -r '.severity // ""')"
+      packet_ref_confidence="$(printf '%s\n' "$packet_ref" | jq -r '.confidence // ""')"
+      packet_ref_status="$(printf '%s\n' "$packet_ref" | jq -r '.status // ""')"
+    elif [ "$finding_count_stale" -eq 1 ] || atlas_flow_timestamp_after "$link_linked_at" "$generated_at"; then
+      atlas_flow_verify_json_row "$rows_file" "Finding $finding_id" "stale" "link newer than packet or count mismatch"
+      packet_ref_title=""
+      packet_ref_level=""
+      packet_ref_severity=""
+      packet_ref_confidence=""
+      packet_ref_status=""
+    else
+      atlas_flow_verify_json_row "$rows_file" "Finding $finding_id" "blocked" "packet reference missing"
+      packet_ref_title=""
+      packet_ref_level=""
+      packet_ref_severity=""
+      packet_ref_confidence=""
+      packet_ref_status=""
+    fi
+
+    record="$(atlas_findings_latest_record "$finding_id" || true)"
+    if [ -z "$record" ]; then
+      atlas_flow_verify_json_row "$rows_file" "Finding Record" "blocked" "missing current record for $finding_id"
+      continue
+    fi
+
+    record_title="$(printf '%s\n' "$record" | jq -r '.title // ""')"
+    record_level="$(printf '%s\n' "$record" | jq -r '.level // ""')"
+    record_severity="$(printf '%s\n' "$record" | jq -r '.severity // ""')"
+    record_confidence="$(printf '%s\n' "$record" | jq -r '.confidence // ""')"
+    record_status="$(printf '%s\n' "$record" | jq -r '.status // ""')"
+
+    if [ "$packet_ref_title" = "$link_title" ] &&
+      [ "$packet_ref_level" = "$link_level" ] &&
+      [ "$packet_ref_severity" = "$link_severity" ] &&
+      [ "$packet_ref_confidence" = "$link_confidence" ] &&
+      [ "$packet_ref_status" = "$link_status" ]; then
+      atlas_flow_verify_json_row "$rows_file" "Packet Finding" "ok" "$finding_id metadata matches"
+    elif [ "$finding_count_stale" -eq 1 ] || atlas_flow_timestamp_after "$link_linked_at" "$generated_at"; then
+      atlas_flow_verify_json_row "$rows_file" "Packet Finding" "stale" "$finding_id link newer than packet or count mismatch"
+    else
+      atlas_flow_verify_json_row "$rows_file" "Packet Finding" "blocked" "$finding_id metadata missing or mismatched"
+    fi
+
+    if [ "$record_title" = "$link_title" ] &&
+      [ "$record_level" = "$link_level" ] &&
+      [ "$record_severity" = "$link_severity" ] &&
+      [ "$record_confidence" = "$link_confidence" ] &&
+      [ "$record_status" = "$link_status" ]; then
+      atlas_flow_verify_json_row "$rows_file" "Finding Metadata" "ok" "$finding_id status=$record_status severity=$record_severity"
+    else
+      atlas_flow_verify_json_row "$rows_file" "Finding Metadata" "stale" "finding=$finding_id current metadata differs from linked snapshot"
+    fi
+  done < <(
+    if [ -s "$finding_links_file" ]; then
+      jq -c \
+        --arg flow_id "$ATLAS_FLOW_ID" \
+        --arg operation "$ATLAS_OP_SLUG" \
+        'select(.flow_id == $flow_id and .operation == $operation)' \
+        "$finding_links_file"
+    fi
+  )
+
+  while IFS= read -r link_json; do
+    [ -n "$link_json" ] || continue
+    validation_id="$(printf '%s\n' "$link_json" | jq -r '.validation_id // ""')"
+    link_lane="$(printf '%s\n' "$link_json" | jq -r '.lane // ""')"
+    link_capability="$(printf '%s\n' "$link_json" | jq -r '.capability // ""')"
+    link_status="$(printf '%s\n' "$link_json" | jq -r '.status // ""')"
+    link_finding_id="$(printf '%s\n' "$link_json" | jq -r '.finding_id // ""')"
+    link_result_status="$(printf '%s\n' "$link_json" | jq -r '.result_status // ""')"
+    link_linked_at="$(printf '%s\n' "$link_json" | jq -r '.linked_at // ""')"
+
+    if [ -z "$validation_id" ]; then
+      atlas_flow_verify_json_row "$rows_file" "Validation Record" "blocked" "link missing validation id"
+      continue
+    fi
+
+    packet_ref="$(jq -c --arg validation_id "$validation_id" '[.validation_refs[]? | select(.validation_id == $validation_id)] | first // empty' "$packet_file" 2>/dev/null || true)"
+    if [ -n "$packet_ref" ]; then
+      atlas_flow_verify_json_row "$rows_file" "Validation $validation_id" "ok" "packet reference present"
+      packet_ref_lane="$(printf '%s\n' "$packet_ref" | jq -r '.lane // ""')"
+      packet_ref_capability="$(printf '%s\n' "$packet_ref" | jq -r '.capability // ""')"
+      packet_ref_status="$(printf '%s\n' "$packet_ref" | jq -r '.status // ""')"
+      packet_ref_finding_id="$(printf '%s\n' "$packet_ref" | jq -r '.finding_id // ""')"
+      packet_ref_result_status="$(printf '%s\n' "$packet_ref" | jq -r '.result_status // ""')"
+    elif [ "$validation_count_stale" -eq 1 ] || atlas_flow_timestamp_after "$link_linked_at" "$generated_at"; then
+      atlas_flow_verify_json_row "$rows_file" "Validation $validation_id" "stale" "link newer than packet or count mismatch"
+      packet_ref_lane=""
+      packet_ref_capability=""
+      packet_ref_status=""
+      packet_ref_finding_id=""
+      packet_ref_result_status=""
+    else
+      atlas_flow_verify_json_row "$rows_file" "Validation $validation_id" "blocked" "packet reference missing"
+      packet_ref_lane=""
+      packet_ref_capability=""
+      packet_ref_status=""
+      packet_ref_finding_id=""
+      packet_ref_result_status=""
+    fi
+
+    record="$(atlas_validation_latest_record "$validation_id" || true)"
+    if [ -z "$record" ]; then
+      atlas_flow_verify_json_row "$rows_file" "Validation Record" "blocked" "missing current record for $validation_id"
+      continue
+    fi
+
+    record_lane="$(printf '%s\n' "$record" | jq -r '.lane // ""')"
+    record_capability="$(printf '%s\n' "$record" | jq -r '.capability // ""')"
+    record_status="$(printf '%s\n' "$record" | jq -r '.status // ""')"
+    record_finding_id="$(printf '%s\n' "$record" | jq -r '.finding // ""')"
+    record_result_status="$(printf '%s\n' "$record" | jq -r '.result_status // ""')"
+
+    if [ "$packet_ref_lane" = "$link_lane" ] &&
+      [ "$packet_ref_capability" = "$link_capability" ] &&
+      [ "$packet_ref_status" = "$link_status" ] &&
+      [ "$packet_ref_finding_id" = "$link_finding_id" ] &&
+      [ "$packet_ref_result_status" = "$link_result_status" ]; then
+      atlas_flow_verify_json_row "$rows_file" "Packet Validation" "ok" "$validation_id metadata matches"
+    elif [ "$validation_count_stale" -eq 1 ] || atlas_flow_timestamp_after "$link_linked_at" "$generated_at"; then
+      atlas_flow_verify_json_row "$rows_file" "Packet Validation" "stale" "$validation_id link newer than packet or count mismatch"
+    else
+      atlas_flow_verify_json_row "$rows_file" "Packet Validation" "blocked" "$validation_id metadata missing or mismatched"
+    fi
+
+    if [ "$record_lane" = "$link_lane" ] &&
+      [ "$record_capability" = "$link_capability" ] &&
+      [ "$record_status" = "$link_status" ] &&
+      [ "$record_finding_id" = "$link_finding_id" ] &&
+      [ "$record_result_status" = "$link_result_status" ]; then
+      atlas_flow_verify_json_row "$rows_file" "Validation Metadata" "ok" "$validation_id status=$record_status lane=$record_lane"
+    else
+      atlas_flow_verify_json_row "$rows_file" "Validation Metadata" "stale" "validation=$validation_id current metadata differs from linked snapshot"
+    fi
+  done < <(
+    if [ -s "$validation_links_file" ]; then
+      jq -c \
+        --arg flow_id "$ATLAS_FLOW_ID" \
+        --arg operation "$ATLAS_OP_SLUG" \
+        'select(.flow_id == $flow_id and .operation == $operation)' \
+        "$validation_links_file"
+    fi
+  )
+
   atlas_flow_verify_json_print "$rows_file" "$packet_file"
   if [ "$ATLAS_FLOW_VERIFY_FAILURES" -ne 0 ]; then
     exit_status=1
@@ -1741,6 +2629,14 @@ dispatch_flow_command() {
   link-evidence)
     shift
     cmd_flow_link_evidence "$@"
+    ;;
+  link-finding)
+    shift
+    cmd_flow_link_finding "$@"
+    ;;
+  link-validation)
+    shift
+    cmd_flow_link_validation "$@"
     ;;
   packet)
     shift

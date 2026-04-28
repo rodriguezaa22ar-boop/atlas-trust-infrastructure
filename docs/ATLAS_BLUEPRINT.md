@@ -497,6 +497,15 @@ The near-term roadmap is:
     guardrails. The Markdown packet remains the human review surface; JSON is
     now available for gates, replay, dashboards, and future trust-chain
     integration.
+81. Add Business Flow Evidence finding and validation links.
+    `atlas flow link-finding` now writes `atlas.flow_finding_link.v1`
+    metadata-only records under `sessions/<operation>/flow_findings.ndjson`,
+    and `atlas flow link-validation` writes `atlas.flow_validation_link.v1`
+    records under `sessions/<operation>/flow_validation.ndjson`. Flow packets
+    and Markdown/JSON verification now include finding and validation
+    references, freshness counts, current-record checks, and stale-state
+    detection without embedding finding bodies, validation reasons, plan
+    contents, session contents, or raw evidence.
 
 ## First Serious Version
 
