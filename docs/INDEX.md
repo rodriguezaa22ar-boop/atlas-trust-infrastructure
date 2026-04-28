@@ -57,6 +57,10 @@ repository in filesystem order.
 - [SECURITY_MODEL.md](SECURITY_MODEL.md): authorized-use boundary and
   capability tiers.
 - [RESPONSIBLE_USE.md](RESPONSIBLE_USE.md): responsible-use constraints.
+- [../SECURITY.md](../SECURITY.md): public vulnerability reporting rules and
+  no-secrets disclosure boundary.
+- [../CONTRIBUTING.md](../CONTRIBUTING.md): public contribution rules and QA
+  expectations.
 - [agents/AGENT_WORKFLOW.md](agents/AGENT_WORKFLOW.md): agent work protocol.
 
 ## Schemas

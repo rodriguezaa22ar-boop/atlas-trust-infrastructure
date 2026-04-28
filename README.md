@@ -102,6 +102,8 @@ infrastructure. It means the local Atlas gates pass against retained evidence.
 | [docs/RESPONSIBLE_USE.md](docs/RESPONSIBLE_USE.md) | Responsible-use policy. |
 | [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) | Current limitations and language boundaries. |
 | [docs/CI.md](docs/CI.md) | GitHub Actions and local QA parity. |
+| [SECURITY.md](SECURITY.md) | Public vulnerability reporting and authorized-use boundary. |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution rules, QA expectations, and no-secrets policy. |
 
 ## Repository Layout
 
