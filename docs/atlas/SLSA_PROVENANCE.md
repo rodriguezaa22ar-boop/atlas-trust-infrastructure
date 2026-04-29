@@ -100,6 +100,27 @@ For policy-grade verification, record the expected subject SHA-256, source
 repository, builder/workflow identity, tag or commit, and run URL in the
 release notes or retained Atlas release manifest.
 
+## Retained Smoke Verification
+
+Milestone 98 records a successful tag-triggered SLSA smoke run:
+
+- Tag: `atlas-release-m101-slsa-smoke`
+- Commit: `087579936838faf7a5c8e3a242fd27f90ded88d5`
+- Workflow run:
+  `https://github.com/rodriguezaa22ar-boop/atlas-trust-infrastructure/actions/runs/25128727308`
+- Artifact:
+  `atlas-trust-infrastructure-atlas-release-m101-slsa-smoke-087579936838.tar.gz`
+- Artifact SHA-256:
+  `96dddcc8ff437c70518b1f720460506aa78910c02d6f7da695cce4fd2fdbf75b`
+- Repository attestation:
+  `https://github.com/rodriguezaa22ar-boop/atlas-trust-infrastructure/attestations/25991842`
+- Rekor log:
+  `https://search.sigstore.dev?logIndex=1404516311`
+
+This proves the current workflow can build, upload, and attest a release-style
+artifact. It does not mean external SLSA certification, and Atlas release
+manifests do not yet record verified SLSA attestation references.
+
 ## Relationship To Atlas Release Trust
 
 Atlas already has local release trust artifacts:

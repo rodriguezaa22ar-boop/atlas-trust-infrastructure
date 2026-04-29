@@ -99,7 +99,8 @@ Atlas is in the trust infrastructure lane:
 24. SLSA-verifiable release artifacts. Implemented as
     `.github/workflows/release-slsa.yml`, `docs/atlas/SLSA_PROVENANCE.md`, and
     `atlas.slsa_provenance.v1`. This prepares GitHub/Sigstore provenance for
-    release artifacts without claiming external SLSA certification.
+    release artifacts without claiming external SLSA certification. A
+    tag-triggered smoke run has verified artifact upload and attestation.
 
 ## Later Control-Plane Work
 

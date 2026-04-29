@@ -10,8 +10,8 @@ means ready-to-refine, not production-certified.
 - Release trust packets are hash-bound by release provenance; packet files are
   not individually signed.
 - Release provenance currently uses local signed Git tags for Atlas production
-  status; GitHub/Sigstore SLSA provenance is prepared for release artifacts,
-  but not yet recorded in Atlas release manifests.
+  status; GitHub/Sigstore SLSA provenance is prepared and smoke-verified for
+  release artifacts, but not yet recorded in Atlas release manifests.
 - Atlas is not externally SLSA-certified.
 - Production dry-run evidence is retained locally; it is not an independent
   external validation.

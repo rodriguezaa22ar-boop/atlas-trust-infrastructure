@@ -619,6 +619,13 @@ The near-term roadmap is:
     GitHub/Sigstore SLSA build provenance attestation with `actions/attest@v4`.
     This is SLSA-verifiable provenance preparation, not external SLSA
     certification.
+98. Smoke-verify SLSA release artifact provenance. The tag-triggered
+    `Release SLSA Provenance` workflow now resolves annotated tags to the
+    underlying release commit, checks that release tags match `origin/main`,
+    runs QA from a local branch tracking `origin/main`, uploads a release
+    artifact/checksum/metadata bundle, and successfully creates a
+    GitHub/Sigstore Build Provenance attestation for
+    `atlas-release-m101-slsa-smoke`.
 
 ## First Serious Version
 
