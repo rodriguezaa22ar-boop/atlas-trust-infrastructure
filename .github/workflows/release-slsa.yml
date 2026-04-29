@@ -39,6 +39,24 @@ jobs:
         with:
           nix_path: nixpkgs=channel:nixos-unstable
 
+      - name: Prepare release branch context
+        if: github.ref_type == 'tag'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --tags
+
+          origin_main="$(git rev-parse origin/main)"
+          if [ "$GITHUB_SHA" != "$origin_main" ]; then
+            printf 'Tagged commit does not match origin/main\n' >&2
+            printf 'tag commit: %s\n' "$GITHUB_SHA" >&2
+            printf 'origin/main: %s\n' "$origin_main" >&2
+            exit 1
+          fi
+
+          git checkout -B main "$GITHUB_SHA"
+          git branch --set-upstream-to=origin/main main
+
       - name: Check whitespace
         run: git diff --check
 
