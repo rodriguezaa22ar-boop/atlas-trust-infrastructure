@@ -44,7 +44,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git fetch origin main --tags
+          git fetch origin '+refs/heads/main:refs/remotes/origin/main' --tags
 
           origin_main="$(git rev-parse origin/main)"
           if [ "$GITHUB_SHA" != "$origin_main" ]; then

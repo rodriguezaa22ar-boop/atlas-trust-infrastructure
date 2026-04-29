@@ -2193,6 +2193,7 @@ EOF
   grep -q 'cachix/install-nix-action@v31' "$slsa_workflow"
   grep -q 'Prepare release branch context' "$slsa_workflow"
   grep -q "github.ref_type == 'tag'" "$slsa_workflow"
+  grep -q '+refs/heads/main:refs/remotes/origin/main' "$slsa_workflow"
   grep -q 'Tagged commit does not match origin/main' "$slsa_workflow"
   grep -q 'git checkout -B main "$GITHUB_SHA"' "$slsa_workflow"
   grep -q 'git branch --set-upstream-to=origin/main main' "$slsa_workflow"
