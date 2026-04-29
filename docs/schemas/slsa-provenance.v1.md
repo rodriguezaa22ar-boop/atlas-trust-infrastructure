@@ -44,13 +44,15 @@ When Atlas records SLSA provenance references later, the record should include:
 The release SLSA workflow should include:
 
 - checkout with full history and tags
+- release commit resolution with `${GITHUB_SHA}^{commit}` for annotated tag
+  compatibility
 - tag-triggered release builds must verify the tagged commit matches
   `origin/main`
 - tag-triggered release builds must run QA from a local `main` branch tracking
   `origin/main`
 - local Atlas QA with `nix-shell --run './bin/dev-qa'`
 - strict v1 readiness with `atlas v1 status --strict`
-- release artifact creation from `git archive` at `$GITHUB_SHA`
+- release artifact creation from `git archive` at `$ATLAS_RELEASE_COMMIT`
 - SHA-256 checksum generation
 - artifact upload
 - `actions/attest@v4`

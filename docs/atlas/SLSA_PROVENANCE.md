@@ -31,16 +31,18 @@ nix-shell --run './bin/dev-qa'
 nix-shell --run './tools/atlas/bin/atlas v1 status --strict'
 ```
 
-For tag-triggered releases, the tagged commit must match `origin/main`. The
-workflow then checks out a local `main` branch at that exact commit and sets
-`origin/main` as its upstream before running Atlas QA. This preserves the exact
-release commit while keeping Atlas release and production gates in the same
-branch/tracking context they verify locally.
+The workflow resolves `${GITHUB_SHA}^{commit}` into `ATLAS_RELEASE_COMMIT` so
+annotated tags and commit refs both build from the underlying Git commit. For
+tag-triggered releases, that resolved tagged commit must match `origin/main`.
+The workflow then checks out a local `main` branch at that exact commit and
+sets `origin/main` as its upstream before running Atlas QA. This preserves the
+exact release commit while keeping Atlas release and production gates in the
+same branch/tracking context they verify locally.
 
 It then builds a source release artifact from the exact Git commit:
 
 ```bash
-git archive --format=tar --prefix="<artifact>/" "$GITHUB_SHA" | gzip -n
+git archive --format=tar --prefix="<artifact>/" "$ATLAS_RELEASE_COMMIT" | gzip -n
 ```
 
 The artifact is uploaded with:

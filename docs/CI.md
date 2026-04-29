@@ -68,7 +68,8 @@ the local QA gate, checks Atlas v1 readiness, builds a source release artifact
 from the exact Git commit with `git archive`, uploads the artifact/checksum,
 and asks GitHub Artifact Attestations to generate SLSA build provenance through
 `actions/attest@v4`. Tag-triggered runs require the tagged commit to match
-`origin/main` and run QA from a local `main` branch tracking `origin/main`.
+`origin/main`, resolve annotated tags to their underlying Git commit, and run QA
+from a local `main` branch tracking `origin/main`.
 
 The workflow is preparation for SLSA-verifiable release artifacts. It does not claim external SLSA certification.
 

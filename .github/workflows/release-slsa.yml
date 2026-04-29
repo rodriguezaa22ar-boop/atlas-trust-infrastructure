@@ -34,6 +34,13 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
+      - name: Resolve release commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_commit="$(git rev-parse "${GITHUB_SHA}^{commit}")"
+          printf 'ATLAS_RELEASE_COMMIT=%s\n' "$release_commit" >>"$GITHUB_ENV"
+
       - name: Install Nix
         uses: cachix/install-nix-action@v31
         with:
@@ -47,14 +54,14 @@ jobs:
           git fetch origin '+refs/heads/main:refs/remotes/origin/main' --tags
 
           origin_main="$(git rev-parse origin/main)"
-          if [ "$GITHUB_SHA" != "$origin_main" ]; then
+          if [ "$ATLAS_RELEASE_COMMIT" != "$origin_main" ]; then
             printf 'Tagged commit does not match origin/main\n' >&2
-            printf 'tag commit: %s\n' "$GITHUB_SHA" >&2
+            printf 'tag commit: %s\n' "$ATLAS_RELEASE_COMMIT" >&2
             printf 'origin/main: %s\n' "$origin_main" >&2
             exit 1
           fi
 
-          git checkout -B main "$GITHUB_SHA"
+          git checkout -B main "$ATLAS_RELEASE_COMMIT"
           git branch --set-upstream-to=origin/main main
 
       - name: Check whitespace
@@ -77,13 +84,13 @@ jobs:
           if [ -z "$base_name" ]; then
             base_name="atlas-trust-infrastructure"
           fi
-          artifact_base="${base_name}-${ref_name}-${GITHUB_SHA::12}"
+          artifact_base="${base_name}-${ref_name}-${ATLAS_RELEASE_COMMIT::12}"
           artifact_path="dist/${artifact_base}.tar.gz"
 
           git archive \
             --format=tar \
             --prefix="${artifact_base}/" \
-            "$GITHUB_SHA" |
+            "$ATLAS_RELEASE_COMMIT" |
             gzip -n >"$artifact_path"
 
           sha256sum "$artifact_path" >"${artifact_path}.sha256"
@@ -97,7 +104,8 @@ jobs:
         run: |
           set -euo pipefail
           {
-            printf 'commit=%s\n' "$GITHUB_SHA"
+            printf 'commit=%s\n' "$ATLAS_RELEASE_COMMIT"
+            printf 'github_sha=%s\n' "$GITHUB_SHA"
             printf 'ref=%s\n' "$GITHUB_REF"
             printf 'ref_name=%s\n' "$GITHUB_REF_NAME"
             printf 'workflow=%s\n' "$GITHUB_WORKFLOW"
