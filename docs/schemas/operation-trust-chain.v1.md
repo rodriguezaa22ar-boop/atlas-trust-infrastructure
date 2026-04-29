@@ -54,16 +54,22 @@ The `assurance` object contains:
 - `total`: linked flow records assessed.
 - `current`: linked flows whose aggregate assurance prerequisites are present.
 - `attention_required`: linked flows with evidence, control, finding,
-  validation, retention, or packet gaps.
-- `blocked`: linked flows with malformed links or missing flow records.
+  validation, retention, missing-packet, or stale-packet gaps.
+- `blocked`: linked flows with malformed links, missing flow records, or
+  blocked packet metadata.
 - `not_recorded`: nonzero when no business-flow links exist for the operation.
 - `flows`: metadata-only per-flow summaries.
 
 Each `flows[]` item may include flow ID, flow slug, status, detail,
 criticality, link counts, open finding count, validation gap count, declared
-control count, retention count, and matching packet count. It must not embed
-raw business data, evidence bodies, finding bodies, validation reasons,
-approval reasons, operator notes, or retained artifact contents.
+control count, approval count, retention count, matching packet count,
+`packet_status`, `packet_format`, `packet_path`, `packet_generated_at`,
+`latest_material_at`, and `issues`. Packet status values are `current`,
+`stale`, `missing`, `blocked`, or `not-recorded`. The `issues` array is a
+metadata-only list of rollup gaps such as open findings, validation gaps,
+missing packets, stale packets, malformed links, or missing flow records. It
+must not embed raw business data, evidence bodies, finding bodies, validation
+reasons, approval reasons, operator notes, or retained artifact contents.
 
 ## Verification Rules
 

@@ -73,13 +73,16 @@ atlas_trust_chain_next_step() {
 
 atlas_trust_chain_ndjson_count() {
   local file="$1"
+  local count
 
   if [ ! -s "$file" ]; then
     printf '0\n'
     return 0
   fi
 
-  jq -sr 'length' "$file" 2>/dev/null || printf '0\n'
+  count="$(jq -sr 'length' "$file" 2>/dev/null)" ||
+    count="$(awk 'NF { count++ } END { print count + 0 }' "$file")"
+  printf '%s\n' "$count"
 }
 
 atlas_trust_chain_file_count() {
@@ -108,21 +111,71 @@ atlas_trust_chain_business_flow_status() {
   fi
 }
 
-atlas_trust_chain_business_flow_matching_packet_count() {
+atlas_trust_chain_latest_timestamp() {
+  local latest=""
+  local value
+
+  for value in "$@"; do
+    [ -n "$value" ] || continue
+    if [ -z "$latest" ] || atlas_flow_timestamp_after "$value" "$latest"; then
+      latest="$value"
+    fi
+  done
+
+  printf '%s\n' "$latest"
+}
+
+atlas_trust_chain_issue_json() {
+  local issues="$1"
+
+  if [ -z "$issues" ]; then
+    printf '[]\n'
+    return 0
+  fi
+
+  printf '%s\n' "$issues" | jq -Rsc 'split("\n") | map(select(length > 0))'
+}
+
+atlas_trust_chain_issue_detail() {
+  local issues="$1"
+
+  if [ -z "$issues" ]; then
+    printf '\n'
+    return 0
+  fi
+
+  printf '%s\n' "$issues" |
+    awk 'NF { if (out != "") { out = out "; " $0 } else { out = $0 } } END { print out }'
+}
+
+atlas_trust_chain_business_flow_packet_summary() {
   local flow_id="$1"
   local operation="$2"
   local packet_dir="$3"
   local packet_json_dir="$4"
+  local latest_material_at="$5"
   local count=0
+  local status="missing"
+  local format="none"
+  local path="none"
+  local generated_at=""
+  local candidate_generated_at
+  local candidate_operation
   local file
 
   if [ -d "$packet_json_dir" ]; then
     while IFS= read -r file; do
       [ -n "$file" ] || continue
       if jq -e --arg flow_id "$flow_id" --arg operation "$operation" \
-        '(.flow.flow_id // "") == $flow_id and ((if (.operation | type) == "object" then (.operation.slug // "") else (.operation // "") end) == $operation)' \
+        'type == "object" and (.flow.flow_id // "") == $flow_id and ((if (.operation | type) == "object" then (.operation.slug // "") else (.operation // "") end) == $operation)' \
         "$file" >/dev/null 2>&1; then
         count=$((count + 1))
+        candidate_generated_at="$(jq -r '.freshness.packet_generated_at // .generated_at // ""' "$file" 2>/dev/null || true)"
+        if [ -z "$generated_at" ] || atlas_flow_timestamp_after "$candidate_generated_at" "$generated_at"; then
+          generated_at="$candidate_generated_at"
+          format="json"
+          path="$file"
+        fi
       fi
     done < <(find "$packet_json_dir" -maxdepth 1 -type f -name '*.json' 2>/dev/null | sort)
   fi
@@ -130,13 +183,76 @@ atlas_trust_chain_business_flow_matching_packet_count() {
   if [ -d "$packet_dir" ]; then
     while IFS= read -r file; do
       [ -n "$file" ] || continue
-      if grep -Fq "Flow ID: $flow_id" "$file" 2>/dev/null; then
+      if grep -Fq "Flow ID: $flow_id" "$file" 2>/dev/null &&
+        grep -Fq "Operation: $operation" "$file" 2>/dev/null; then
         count=$((count + 1))
+        candidate_operation="$(atlas_flow_packet_field "$file" "Operation")"
+        [ "$candidate_operation" = "$operation" ] || continue
+        candidate_generated_at="$(atlas_flow_packet_field "$file" "Packet Generated At")"
+        if [ -z "$candidate_generated_at" ]; then
+          candidate_generated_at="$(atlas_flow_packet_field "$file" "Generated At")"
+        fi
+        if [ -z "$generated_at" ] || atlas_flow_timestamp_after "$candidate_generated_at" "$generated_at"; then
+          generated_at="$candidate_generated_at"
+          format="markdown"
+          path="$file"
+        fi
       fi
     done < <(find "$packet_dir" -maxdepth 1 -type f -name '*.md' 2>/dev/null | sort)
   fi
 
-  printf '%s\n' "$count"
+  if [ "$count" -eq 0 ]; then
+    status="missing"
+  elif [ -z "$generated_at" ]; then
+    status="blocked"
+  elif atlas_flow_timestamp_after "$latest_material_at" "$generated_at"; then
+    status="stale"
+  else
+    status="current"
+  fi
+
+  printf '%s\t%s\t%s\t%s\t%s\n' "$count" "$status" "$format" "$path" "${generated_at:-none}"
+}
+
+atlas_trust_chain_business_flow_packet_counts_current() {
+  local packet_format="$1"
+  local packet_path="$2"
+  local evidence_links="$3"
+  local finding_links="$4"
+  local validation_links="$5"
+  local approval_links="$6"
+  local retention_links="$7"
+  local packet_evidence_links
+  local packet_finding_links
+  local packet_validation_links
+  local packet_approval_links
+  local packet_retention_links
+
+  case "$packet_format" in
+  json)
+    packet_evidence_links="$(jq -r '.freshness.evidence_link_count // ""' "$packet_path" 2>/dev/null || true)"
+    packet_finding_links="$(jq -r '.freshness.finding_link_count // ""' "$packet_path" 2>/dev/null || true)"
+    packet_validation_links="$(jq -r '.freshness.validation_link_count // ""' "$packet_path" 2>/dev/null || true)"
+    packet_approval_links="$(jq -r '.freshness.approval_link_count // ""' "$packet_path" 2>/dev/null || true)"
+    packet_retention_links="$(jq -r '.freshness.retention_link_count // ""' "$packet_path" 2>/dev/null || true)"
+    ;;
+  markdown)
+    packet_evidence_links="$(atlas_flow_packet_field "$packet_path" "Evidence Link Count")"
+    packet_finding_links="$(atlas_flow_packet_field "$packet_path" "Finding Link Count")"
+    packet_validation_links="$(atlas_flow_packet_field "$packet_path" "Validation Link Count")"
+    packet_approval_links="$(atlas_flow_packet_field "$packet_path" "Approval Link Count")"
+    packet_retention_links="$(atlas_flow_packet_field "$packet_path" "Retention Link Count")"
+    ;;
+  *)
+    return 1
+    ;;
+  esac
+
+  [ "$packet_evidence_links" = "$evidence_links" ] &&
+    [ "$packet_finding_links" = "$finding_links" ] &&
+    [ "$packet_validation_links" = "$validation_links" ] &&
+    [ "$packet_approval_links" = "$approval_links" ] &&
+    [ "$packet_retention_links" = "$retention_links" ]
 }
 
 atlas_trust_chain_collect_business_flow_assurance() {
@@ -144,9 +260,10 @@ atlas_trust_chain_collect_business_flow_assurance() {
   local evidence_links_file="$2"
   local finding_links_file="$3"
   local validation_links_file="$4"
-  local retention_links_file="$5"
-  local packet_dir="$6"
-  local packet_json_dir="$7"
+  local approval_links_file="$5"
+  local retention_links_file="$6"
+  local packet_dir="$7"
+  local packet_json_dir="$8"
   local flows_file
   local link_json
   local flow_id
@@ -157,12 +274,25 @@ atlas_trust_chain_collect_business_flow_assurance() {
   local open_findings
   local validation_links
   local validation_gaps
+  local approval_links
   local retention_links
   local control_objectives
   local matching_packets
+  local packet_summary
+  local packet_status
+  local packet_format
+  local packet_path
+  local packet_generated_at
+  local latest_evidence_link
+  local latest_finding_link
+  local latest_validation_link
+  local latest_approval_link
+  local latest_retention_link
+  local latest_material_at
   local status
   local detail
   local criticality
+  local issues
 
   ATLAS_TRUST_FLOW_ASSURANCE_TOTAL=0
   ATLAS_TRUST_FLOW_ASSURANCE_CURRENT=0
@@ -177,68 +307,125 @@ atlas_trust_chain_collect_business_flow_assurance() {
   fi
 
   flows_file="$(mktemp)"
-  while IFS= read -r link_json; do
+  while IFS= read -r link_json || [ -n "$link_json" ]; do
     [ -n "$link_json" ] || continue
-    flow_id="$(printf '%s\n' "$link_json" | jq -r '.flow_id // ""')"
-    flow_slug="$(printf '%s\n' "$link_json" | jq -r '.flow_slug // ""')"
-    if [ -z "$flow_id" ] || [ -z "$flow_slug" ]; then
+    issues=""
+    packet_status="not-recorded"
+    packet_format="none"
+    packet_path="none"
+    packet_generated_at="none"
+    latest_material_at="none"
+    if ! printf '%s\n' "$link_json" | jq -e 'type == "object"' >/dev/null 2>&1; then
+      flow_id=""
+      flow_slug=""
       status="blocked"
-      detail="operation flow link is missing flow_id or flow_slug"
+      detail="operation flow link is not valid JSON"
       criticality="unknown"
       evidence_links=0
       finding_links=0
       open_findings=0
       validation_links=0
       validation_gaps=0
+      approval_links=0
       retention_links=0
       control_objectives=0
       matching_packets=0
+      issues="operation flow link is not valid JSON"
     else
-      flow_file="$(atlas_flow_file_for_slug "$flow_slug")"
-      if [ ! -f "$flow_file" ]; then
+      flow_id="$(printf '%s\n' "$link_json" | jq -r '.flow_id // ""')"
+      flow_slug="$(printf '%s\n' "$link_json" | jq -r '.flow_slug // ""')"
+      if [ -z "$flow_id" ] || [ -z "$flow_slug" ]; then
         status="blocked"
-        detail="flow record missing for $flow_slug"
+        detail="operation flow link is missing flow_id or flow_slug"
         criticality="unknown"
         evidence_links=0
         finding_links=0
         open_findings=0
         validation_links=0
         validation_gaps=0
+        approval_links=0
         retention_links=0
         control_objectives=0
         matching_packets=0
+        issues="operation flow link is missing flow_id or flow_slug"
       else
-        atlas_flow_load_file "$flow_file"
-        criticality="$ATLAS_FLOW_CRITICALITY"
-        evidence_links="$(atlas_flow_evidence_link_count "$evidence_links_file" "$flow_id" "$ATLAS_OP_SLUG")"
-        finding_links="$(atlas_flow_finding_link_count "$finding_links_file" "$flow_id" "$ATLAS_OP_SLUG")"
-        open_findings="$(atlas_flow_current_open_finding_count "$finding_links_file" "$flow_id" "$ATLAS_OP_SLUG")"
-        validation_links="$(atlas_flow_validation_link_count "$validation_links_file" "$flow_id" "$ATLAS_OP_SLUG")"
-        validation_gaps="$(atlas_flow_validation_gap_count "$finding_links_file" "$validation_links_file" "$flow_id" "$ATLAS_OP_SLUG")"
-        retention_links="$(atlas_flow_retention_link_count "$retention_links_file" "$flow_id" "$ATLAS_OP_SLUG")"
-        control_objectives="$(atlas_flow_control_objective_count "$ATLAS_FLOW_CONTROL_OBJECTIVES")"
-        matching_packets="$(atlas_trust_chain_business_flow_matching_packet_count "$flow_id" "$ATLAS_OP_SLUG" "$packet_dir" "$packet_json_dir")"
-        if [ "$evidence_links" -eq 0 ]; then
-          status="attention-required"
-          detail="no evidence links recorded"
-        elif [ "$control_objectives" -eq 0 ]; then
-          status="attention-required"
-          detail="no control objectives declared"
-        elif [ "$open_findings" -gt 0 ]; then
-          status="attention-required"
-          detail="open_findings=$open_findings"
-        elif [ "$validation_gaps" -gt 0 ]; then
-          status="attention-required"
-          detail="validation_gaps=$validation_gaps"
-        elif [ "$matching_packets" -eq 0 ]; then
-          status="attention-required"
-          detail="no matching flow packet found"
-        elif [ "$retention_links" -eq 0 ] && { [ "$criticality" = "high" ] || [ "$criticality" = "critical" ]; }; then
-          status="attention-required"
-          detail="high-criticality flow has no retention links"
+        flow_file="$(atlas_flow_file_for_slug "$flow_slug")"
+        if [ ! -f "$flow_file" ]; then
+          status="blocked"
+          detail="flow record missing for $flow_slug"
+          criticality="unknown"
+          evidence_links=0
+          finding_links=0
+          open_findings=0
+          validation_links=0
+          validation_gaps=0
+          approval_links=0
+          retention_links=0
+          control_objectives=0
+          matching_packets=0
+          issues="flow record missing for $flow_slug"
         else
-          status="current"
-          detail="flow assurance prerequisites are represented in operation metadata"
+          atlas_flow_load_file "$flow_file"
+          criticality="$ATLAS_FLOW_CRITICALITY"
+          evidence_links="$(atlas_flow_evidence_link_count "$evidence_links_file" "$flow_id" "$ATLAS_OP_SLUG")"
+          finding_links="$(atlas_flow_finding_link_count "$finding_links_file" "$flow_id" "$ATLAS_OP_SLUG")"
+          open_findings="$(atlas_flow_current_open_finding_count "$finding_links_file" "$flow_id" "$ATLAS_OP_SLUG")"
+          validation_links="$(atlas_flow_validation_link_count "$validation_links_file" "$flow_id" "$ATLAS_OP_SLUG")"
+          validation_gaps="$(atlas_flow_validation_gap_count "$finding_links_file" "$validation_links_file" "$flow_id" "$ATLAS_OP_SLUG")"
+          approval_links="$(atlas_flow_approval_link_count "$approval_links_file" "$flow_id" "$ATLAS_OP_SLUG")"
+          retention_links="$(atlas_flow_retention_link_count "$retention_links_file" "$flow_id" "$ATLAS_OP_SLUG")"
+          control_objectives="$(atlas_flow_control_objective_count "$ATLAS_FLOW_CONTROL_OBJECTIVES")"
+          latest_evidence_link="$(atlas_flow_latest_evidence_linked_at "$evidence_links_file" "$flow_id" "$ATLAS_OP_SLUG")"
+          latest_finding_link="$(atlas_flow_latest_finding_linked_at "$finding_links_file" "$flow_id" "$ATLAS_OP_SLUG")"
+          latest_validation_link="$(atlas_flow_latest_validation_linked_at "$validation_links_file" "$flow_id" "$ATLAS_OP_SLUG")"
+          latest_approval_link="$(atlas_flow_latest_approval_linked_at "$approval_links_file" "$flow_id" "$ATLAS_OP_SLUG")"
+          latest_retention_link="$(atlas_flow_latest_retention_linked_at "$retention_links_file" "$flow_id" "$ATLAS_OP_SLUG")"
+          latest_material_at="$(atlas_trust_chain_latest_timestamp "$ATLAS_FLOW_UPDATED_AT" "$latest_evidence_link" "$latest_finding_link" "$latest_validation_link" "$latest_approval_link" "$latest_retention_link")"
+          packet_summary="$(atlas_trust_chain_business_flow_packet_summary "$flow_id" "$ATLAS_OP_SLUG" "$packet_dir" "$packet_json_dir" "$latest_material_at")"
+          IFS=$'\t' read -r matching_packets packet_status packet_format packet_path packet_generated_at <<<"$packet_summary"
+          if [ "$packet_status" = "current" ] &&
+            ! atlas_trust_chain_business_flow_packet_counts_current "$packet_format" "$packet_path" "$evidence_links" "$finding_links" "$validation_links" "$approval_links" "$retention_links"; then
+            packet_status="stale"
+          fi
+
+          if [ "$evidence_links" -eq 0 ]; then
+            issues="${issues}${issues:+$'\n'}no evidence links recorded"
+          fi
+          if [ "$control_objectives" -eq 0 ]; then
+            issues="${issues}${issues:+$'\n'}no control objectives declared"
+          fi
+          if [ "$open_findings" -gt 0 ]; then
+            issues="${issues}${issues:+$'\n'}open_findings=$open_findings"
+          fi
+          if [ "$validation_gaps" -gt 0 ]; then
+            issues="${issues}${issues:+$'\n'}validation_gaps=$validation_gaps"
+          fi
+          case "$packet_status" in
+          current)
+            ;;
+          missing)
+            issues="${issues}${issues:+$'\n'}no matching flow packet found"
+            ;;
+          stale)
+            issues="${issues}${issues:+$'\n'}flow packet stale"
+            ;;
+          *)
+            issues="${issues}${issues:+$'\n'}flow packet verification blocked"
+            ;;
+          esac
+          if [ "$retention_links" -eq 0 ] && { [ "$criticality" = "high" ] || [ "$criticality" = "critical" ]; }; then
+            issues="${issues}${issues:+$'\n'}high-criticality flow has no retention links"
+          fi
+          if [ "$packet_status" = "blocked" ]; then
+            status="blocked"
+            detail="$(atlas_trust_chain_issue_detail "$issues")"
+          elif [ -n "$issues" ]; then
+            status="attention-required"
+            detail="$(atlas_trust_chain_issue_detail "$issues")"
+          else
+            status="current"
+            detail="flow assurance prerequisites are represented in operation metadata"
+          fi
         fi
       fi
     fi
@@ -270,9 +457,16 @@ atlas_trust_chain_collect_business_flow_assurance() {
       --argjson open_findings "$open_findings" \
       --argjson validation_links "$validation_links" \
       --argjson validation_gaps "$validation_gaps" \
+      --argjson approval_links "$approval_links" \
       --argjson retention_links "$retention_links" \
       --argjson control_objectives "$control_objectives" \
       --argjson matching_packets "$matching_packets" \
+      --arg packet_status "$packet_status" \
+      --arg packet_format "$packet_format" \
+      --arg packet_path "$packet_path" \
+      --arg packet_generated_at "$packet_generated_at" \
+      --arg latest_material_at "$latest_material_at" \
+      --argjson issues "$(atlas_trust_chain_issue_json "$issues")" \
       '{
         flow_id: $flow_id,
         flow_slug: $flow_slug,
@@ -284,11 +478,18 @@ atlas_trust_chain_collect_business_flow_assurance() {
         open_findings: $open_findings,
         validation_links: $validation_links,
         validation_gaps: $validation_gaps,
+        approval_links: $approval_links,
         retention_links: $retention_links,
         control_objectives: $control_objectives,
-        matching_packets: $matching_packets
+        matching_packets: $matching_packets,
+        packet_status: $packet_status,
+        packet_format: $packet_format,
+        packet_path: $packet_path,
+        packet_generated_at: $packet_generated_at,
+        latest_material_at: $latest_material_at,
+        issues: $issues
       }' >>"$flows_file"
-  done < <(jq -c '.' "$flow_links_file")
+  done <"$flow_links_file"
 
   ATLAS_TRUST_FLOW_ASSURANCE_JSON="$(jq -s '.' "$flows_file")"
   rm -f "$flows_file"
@@ -327,6 +528,7 @@ atlas_trust_chain_collect_business_flows() {
     "$evidence_links_file" \
     "$finding_links_file" \
     "$validation_links_file" \
+    "$approval_links_file" \
     "$retention_links_file" \
     "$packet_dir" \
     "$packet_json_dir"

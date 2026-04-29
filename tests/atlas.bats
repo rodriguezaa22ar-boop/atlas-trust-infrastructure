@@ -1439,6 +1439,140 @@ EOF
   [ "$ledger_before" = "$ledger_after" ]
 }
 
+@test "atlas op trust-chain business-flow assurance flags stale missing and malformed flow state" {
+  mkdir -p "$TEST_ROOT/toolkit/targets"
+  cat > "$TEST_ROOT/toolkit/targets/demo-node.env" <<'EOF'
+NAME=demo-node
+ADDRESS=10.10.10.10
+SCOPE_STATUS=in-scope
+CRITICALITY=high
+CREATED_AT=2026-04-23T20:53:16Z
+EOF
+  artifact="$TEST_ROOT/flow-rollup-negative-artifact.txt"
+  printf 'flow rollup proof that must not be copied\n' > "$artifact"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow add customer-signup \
+    --type customer_onboarding \
+    --owner product \
+    --criticality medium \
+    --environment staging \
+    --scope-status in-scope \
+    --data-class email \
+    --system web_app \
+    --control audit_logging
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow add password-reset \
+    --type account_recovery \
+    --owner product \
+    --criticality medium \
+    --environment staging \
+    --scope-status in-scope \
+    --data-class email \
+    --system auth_service \
+    --control audit_logging
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op start flow-rollup-negative-op demo-node authorized flow rollup negative
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence add "$artifact" --kind redacted-report --classification public
+  [ "$status" -eq 0 ]
+  evidence_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  [ -n "$evidence_id" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow link-evidence customer-signup "$evidence_id"
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow link-evidence password-reset "$evidence_id"
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow packet --json customer-signup customer-signup-flow
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding add "Signup packet freshness gap" \
+    --level observed \
+    --severity medium \
+    --confidence high \
+    --evidence "$evidence_id"
+  [ "$status" -eq 0 ]
+  finding_id="$(printf '%s\n' "$output" | awk -F': ' '$1 == "id" { print $2; exit }')"
+  [ -n "$finding_id" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow link-finding customer-signup "$finding_id"
+  [ "$status" -eq 0 ]
+
+  flow_links="$TEST_ROOT/toolkit/sessions/flow-rollup-negative-op/business_flows.ndjson"
+  printf 'not-json\n' >> "$flow_links"
+  jq -cn \
+    --arg schema_version "atlas.business_flow_link.v1" \
+    --arg flow_id "flow_missing_flow" \
+    --arg flow_slug "missing-flow" \
+    --arg flow_name "missing-flow" \
+    --arg operation "flow-rollup-negative-op" \
+    --arg target "demo-node" \
+    --arg linked_at "2026-04-29T00:00:00Z" \
+    '{
+      schema_version: $schema_version,
+      flow_id: $flow_id,
+      flow_slug: $flow_slug,
+      flow_name: $flow_name,
+      operation: $operation,
+      target: $target,
+      linked_at: $linked_at,
+      linked_by: "atlas-test",
+      metadata_only: true
+    }' >> "$flow_links"
+
+  ledger="$TEST_ROOT/toolkit/sessions/flow-rollup-negative-op/ledger.ndjson"
+  ledger_before="$(sha256sum "$ledger" | awk '{ print $1 }')"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op trust-chain flow-rollup-negative-op
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Assurance Total: 4"* ]]
+  [[ "$output" == *"Assurance Current: 0"* ]]
+  [[ "$output" == *"Assurance Attention Required: 2"* ]]
+  [[ "$output" == *"Assurance Blocked: 2"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op trust-chain flow-rollup-negative-op --json
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" |
+    jq -e '
+      .business_flow_evidence.operation_links == 4 and
+      .business_flow_evidence.assurance.total == 4 and
+      .business_flow_evidence.assurance.current == 0 and
+      .business_flow_evidence.assurance.attention_required == 2 and
+      .business_flow_evidence.assurance.blocked == 2 and
+      any(.business_flow_evidence.assurance.flows[];
+        .flow_slug == "customer-signup" and
+        .status == "attention-required" and
+        .packet_status == "stale" and
+        (.issues | index("flow packet stale")) and
+        (.issues | index("open_findings=1")) and
+        (.issues | index("validation_gaps=1"))
+      ) and
+      any(.business_flow_evidence.assurance.flows[];
+        .flow_slug == "password-reset" and
+        .status == "attention-required" and
+        .packet_status == "missing" and
+        .matching_packets == 0 and
+        (.issues | index("no matching flow packet found"))
+      ) and
+      any(.business_flow_evidence.assurance.flows[];
+        .status == "blocked" and
+        .detail == "operation flow link is not valid JSON"
+      ) and
+      any(.business_flow_evidence.assurance.flows[];
+        .flow_slug == "missing-flow" and
+        .status == "blocked" and
+        .detail == "flow record missing for missing-flow"
+      )
+    '
+
+  ledger_after="$(sha256sum "$ledger" | awk '{ print $1 }')"
+  [ "$ledger_before" = "$ledger_after" ]
+}
+
 @test "atlas flow trust-chain reports single-flow verification state read-only" {
   mkdir -p "$TEST_ROOT/toolkit/targets"
   cat > "$TEST_ROOT/toolkit/targets/demo-node.env" <<'EOF'
@@ -1836,6 +1970,8 @@ EOF
   grep -q 'flow_retention.ndjson' "$trust_chain_schema"
   grep -q '`assurance`: aggregate read-only assurance summary' "$trust_chain_schema"
   grep -q '`attention_required`: linked flows with evidence, control, finding' "$trust_chain_schema"
+  grep -q '`packet_status`, `packet_format`, `packet_path`, `packet_generated_at`' "$trust_chain_schema"
+  grep -q '`issues` array is a' "$trust_chain_schema"
   grep -q '`required`: must be `false`' "$trust_chain_schema"
   grep -q 'must be replayed' "$trust_chain_schema"
   grep -q 'from current retained operation state' "$trust_chain_schema"
