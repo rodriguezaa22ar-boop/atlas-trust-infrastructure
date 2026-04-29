@@ -51,7 +51,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git fetch origin '+refs/heads/main:refs/remotes/origin/main' --tags
+          git fetch origin '+refs/heads/main:refs/remotes/origin/main'
 
           origin_main="$(git rev-parse origin/main)"
           if [ "$ATLAS_RELEASE_COMMIT" != "$origin_main" ]; then
