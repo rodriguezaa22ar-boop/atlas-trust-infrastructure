@@ -38,6 +38,8 @@ repository in filesystem order.
   signing, and provenance.
 - [atlas/RELEASE_ARTIFACT_MANIFEST.md](atlas/RELEASE_ARTIFACT_MANIFEST.md):
   retained release artifact manifest contract and verification rules.
+- [atlas/SLSA_PROVENANCE.md](atlas/SLSA_PROVENANCE.md): GitHub/Sigstore SLSA
+  provenance workflow and verification contract for Atlas release artifacts.
 - [retention/releases/REPLAY_VERIFICATION.md](retention/releases/REPLAY_VERIFICATION.md):
   clean-checkout replay procedure.
 - [atlas/PRODUCTION_READINESS.md](atlas/PRODUCTION_READINESS.md): local
@@ -78,6 +80,8 @@ repository in filesystem order.
   machine-readable single-flow trust-chain status contract.
 - [schemas/release-artifact-manifest.v1.md](schemas/release-artifact-manifest.v1.md):
   metadata-only release artifact manifest contract.
+- [schemas/slsa-provenance.v1.md](schemas/slsa-provenance.v1.md):
+  SLSA provenance readiness contract for release artifacts.
 - [schemas/handoff-packet.v1.md](schemas/handoff-packet.v1.md):
   metadata-only operation handoff packet contract.
 - [schemas/closeout-manifest.v1.md](schemas/closeout-manifest.v1.md):

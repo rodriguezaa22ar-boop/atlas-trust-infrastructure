@@ -60,9 +60,10 @@ when all retained release evidence verifies:
 - signing/provenance verifies through a retained public key
 - production dry-run evidence is retained
 
-This does not mean external audit, enterprise certification, SLSA
-certification, deployment certification, immutable storage, or tamper-proof
-infrastructure. It means the local Atlas gates pass against retained evidence.
+Release artifacts can be built through the SLSA provenance workflow, but Atlas
+does not claim external audit, enterprise certification, SLSA certification,
+deployment certification, immutable storage, or tamper-proof infrastructure. It
+means the local Atlas gates pass against retained evidence.
 
 ## Top 10 Commands
 
@@ -91,6 +92,7 @@ infrastructure. It means the local Atlas gates pass against retained evidence.
 | [docs/atlas/TRUST_INFRASTRUCTURE_DIRECTION.md](docs/atlas/TRUST_INFRASTRUCTURE_DIRECTION.md) | Atlas trust-infrastructure direction. |
 | [docs/atlas/TRUST_OBJECT_MODEL.md](docs/atlas/TRUST_OBJECT_MODEL.md) | Actors, objects, packets, schemas, freshness, verification, and replay. |
 | [docs/RELEASE_TRUST.md](docs/RELEASE_TRUST.md) | Release packets, verification, replay, signing, and provenance. |
+| [docs/atlas/SLSA_PROVENANCE.md](docs/atlas/SLSA_PROVENANCE.md) | GitHub/Sigstore SLSA provenance workflow and verification contract. |
 | [docs/atlas/RELEASE_ARTIFACT_MANIFEST.md](docs/atlas/RELEASE_ARTIFACT_MANIFEST.md) | Release artifact manifest contract and completeness checks. |
 | [docs/WEB_ASSESSMENT.md](docs/WEB_ASSESSMENT.md) | `atlas web assess` flow and boundaries. |
 | [docs/atlas/BUSINESS_FLOW_EVIDENCE.md](docs/atlas/BUSINESS_FLOW_EVIDENCE.md) | Optional metadata-only business-flow evidence model, retention links, packet path, assurance view, trust-chain view, verification, and non-blocking readiness integration. |

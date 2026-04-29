@@ -85,6 +85,7 @@ content by default.
 - archive packet
 - release packet
 - release provenance packet
+- SLSA provenance attestation reference
 - production dry-run note
 - advisor packet
 - business-flow packet
@@ -115,7 +116,7 @@ content by default.
 
 - no external production certification
 - no external audit by default
-- no SLSA-certified provenance yet
+- no external SLSA certification yet
 - no cryptographic immutability of every local state file
 - no tamper-proof storage
 - no autonomous exploitation

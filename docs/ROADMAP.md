@@ -33,6 +33,7 @@ Atlas is in the trust infrastructure lane:
 - accepted-risk review packet JSON parity
 - advisor prompt packet JSON parity
 - release artifact manifest hardening
+- SLSA-verifiable release artifact workflow
 
 ## Near-Term Milestones
 
@@ -95,10 +96,15 @@ Atlas is in the trust infrastructure lane:
     `atlas release manifest-verify` with generated commit/tag checks, required
     artifact classes, required paths, schema references, known limitations, and
     forbidden raw-content marker detection.
+24. SLSA-verifiable release artifacts. Implemented as
+    `.github/workflows/release-slsa.yml`, `docs/atlas/SLSA_PROVENANCE.md`, and
+    `atlas.slsa_provenance.v1`. This prepares GitHub/Sigstore provenance for
+    release artifacts without claiming external SLSA certification.
 
 ## Later Control-Plane Work
 
-- signed/provenance hardening beyond local signed tags
+- record verified SLSA attestation references in Atlas release manifests
+- add `atlas release slsa-verify` as a local verification wrapper
 - read-only dashboard planning
 - node runtime planning
 - reproducible runtime profile

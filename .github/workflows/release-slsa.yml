@@ -1,0 +1,105 @@
+name: Release SLSA Provenance
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_name:
+        description: Release artifact name without extension
+        required: false
+        default: atlas-trust-infrastructure
+  push:
+    tags:
+      - 'atlas-v*'
+      - 'atlas-release-*'
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+  artifact-metadata: write
+
+concurrency:
+  group: release-slsa-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-attest:
+    name: Build and attest release artifact
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - name: Check whitespace
+        run: git diff --check
+
+      - name: Run local QA gate
+        run: nix-shell --run './bin/dev-qa'
+
+      - name: Check Atlas v1 readiness
+        run: nix-shell --run './tools/atlas/bin/atlas v1 status --strict'
+
+      - name: Build source release artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+
+          ref_name="${GITHUB_REF_NAME:-manual}"
+          base_name="${{ inputs.release_name }}"
+          if [ -z "$base_name" ]; then
+            base_name="atlas-trust-infrastructure"
+          fi
+          artifact_base="${base_name}-${ref_name}-${GITHUB_SHA::12}"
+          artifact_path="dist/${artifact_base}.tar.gz"
+
+          git archive \
+            --format=tar \
+            --prefix="${artifact_base}/" \
+            "$GITHUB_SHA" |
+            gzip -n >"$artifact_path"
+
+          sha256sum "$artifact_path" >"${artifact_path}.sha256"
+          {
+            printf 'artifact=%s\n' "$artifact_path"
+            printf 'artifact_base=%s\n' "$artifact_base"
+          } >>"$GITHUB_ENV"
+
+      - name: Record artifact metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            printf 'commit=%s\n' "$GITHUB_SHA"
+            printf 'ref=%s\n' "$GITHUB_REF"
+            printf 'ref_name=%s\n' "$GITHUB_REF_NAME"
+            printf 'workflow=%s\n' "$GITHUB_WORKFLOW"
+            printf 'run_id=%s\n' "$GITHUB_RUN_ID"
+            printf 'artifact=%s\n' "$artifact"
+            printf 'sha256='
+            awk '{ print $1 }' "${artifact}.sha256"
+          } >"dist/${artifact_base}.metadata.env"
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.artifact_base }}
+          path: |
+            ${{ env.artifact }}
+            ${{ env.artifact }}.sha256
+            dist/${{ env.artifact_base }}.metadata.env
+          if-no-files-found: error
+
+      - name: Generate SLSA build provenance attestation
+        uses: actions/attest@v4
+        with:
+          subject-path: ${{ env.artifact }}

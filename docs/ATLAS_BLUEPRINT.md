@@ -601,6 +601,24 @@ The near-term roadmap is:
     `atlas.business_flow_assurance.v1`. The command is read-only,
     metadata-only, and does not make Business Flow Evidence a required
     readiness or production gate.
+94. Add business-flow control coverage assurance. `atlas flow assurance` now
+    reports aggregate declared-control coverage for Business Flow Evidence,
+    including `coverage_model: aggregate-flow-v1`, declared controls, aggregate
+    evidence-covered controls, and validation-covered controls. It does not
+    claim one artifact proves one control objective.
+95. Add operation business-flow assurance rollups. `atlas op trust-chain` now
+    includes aggregate Business Flow Evidence assurance counts in text and JSON,
+    while keeping flows optional, read-only, metadata-only, and non-blocking.
+96. Harden operation flow assurance completeness. Operation trust-chain flow
+    assurance now reports stale packets, missing packets, malformed flow links,
+    and missing flow records explicitly with metadata-only `issues[]` instead
+    of hiding them behind packet counts.
+97. Prepare SLSA-verifiable release artifacts. `.github/workflows/release-slsa.yml`
+    builds a source release artifact from the exact Git commit, runs local QA
+    and v1 readiness, uploads the artifact/checksum, and generates a
+    GitHub/Sigstore SLSA build provenance attestation with `actions/attest@v4`.
+    This is SLSA-verifiable provenance preparation, not external SLSA
+    certification.
 
 ## First Serious Version
 

@@ -126,6 +126,35 @@ The provenance gate verifies:
 The schema is documented at
 [schemas/release-provenance.v1.md](schemas/release-provenance.v1.md).
 
+## SLSA Build Provenance
+
+Atlas now includes a GitHub Actions workflow for SLSA-verifiable release
+artifacts:
+
+```text
+.github/workflows/release-slsa.yml
+```
+
+That workflow builds a source release artifact from the exact Git commit, runs
+the local QA gate, checks v1 readiness, uploads the artifact and checksum, and
+generates a GitHub/Sigstore SLSA build provenance attestation with
+`actions/attest@v4`.
+
+Consumers verify the artifact with:
+
+```bash
+gh attestation verify <artifact>.tar.gz \
+  --repo rodriguezaa22ar-boop/atlas-trust-infrastructure
+```
+
+The SLSA workflow is documented at
+[atlas/SLSA_PROVENANCE.md](atlas/SLSA_PROVENANCE.md), and the readiness
+contract is documented at
+[schemas/slsa-provenance.v1.md](schemas/slsa-provenance.v1.md).
+
+This is SLSA-verifiable provenance preparation. It is not external SLSA
+certification.
+
 ## Release Artifact Manifest
 
 `atlas release manifest` writes a metadata-only JSON index of the retained

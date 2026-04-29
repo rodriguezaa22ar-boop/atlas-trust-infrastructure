@@ -11,6 +11,12 @@ Workflow file:
 .github/workflows/qa.yml
 ```
 
+The SLSA release-artifact workflow lives at:
+
+```text
+.github/workflows/release-slsa.yml
+```
+
 ## Current CI Checks
 
 The workflow runs on pushes to `main`, pull requests targeting `main`, and
@@ -55,6 +61,16 @@ release-promotion contract even when retained release evidence reports
 The CI gate also does not run live target assessments, external web tests, or
 router/device tests.
 
+## SLSA Release Artifact Workflow
+
+`release-slsa.yml` runs on manual dispatch and release-style tags. It performs
+the local QA gate, checks Atlas v1 readiness, builds a source release artifact
+from the exact Git commit with `git archive`, uploads the artifact/checksum,
+and asks GitHub Artifact Attestations to generate SLSA build provenance through
+`actions/attest@v4`.
+
+The workflow is preparation for SLSA-verifiable release artifacts. It does not claim external SLSA certification.
+
 ## Future CI Gates
 
 Future hardening can add:
@@ -63,4 +79,5 @@ Future hardening can add:
 - production dry-run artifact checks
 - schema drift checks
 - signed tag/provenance checks
+- `gh attestation verify` policy checks for release artifacts
 - replay verification from a clean checkout

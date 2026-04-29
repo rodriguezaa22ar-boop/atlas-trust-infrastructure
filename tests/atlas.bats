@@ -122,6 +122,7 @@ make_repo_clean_and_synced() {
   grep -q 'docs/atlas/TRUST_INFRASTRUCTURE_DIRECTION.md' "$readme"
   grep -q 'docs/atlas/TRUST_OBJECT_MODEL.md' "$readme"
   grep -q 'docs/atlas/RELEASE_ARTIFACT_MANIFEST.md' "$readme"
+  grep -q 'docs/atlas/SLSA_PROVENANCE.md' "$readme"
   grep -q 'docs/OPERATOR_GUIDE.md' "$readme"
   grep -q 'docs/RELEASE_TRUST.md' "$readme"
   grep -q 'docs/WEB_ASSESSMENT.md' "$readme"
@@ -136,6 +137,7 @@ make_repo_clean_and_synced() {
   grep -q 'atlas/TRUST_INFRASTRUCTURE_DIRECTION.md' "$docs_index"
   grep -q 'atlas/TRUST_OBJECT_MODEL.md' "$docs_index"
   grep -q 'atlas/RELEASE_ARTIFACT_MANIFEST.md' "$docs_index"
+  grep -q 'atlas/SLSA_PROVENANCE.md' "$docs_index"
   grep -q 'atlas/BUSINESS_FLOW_EVIDENCE.md' "$docs_index"
   grep -q 'Milestones' "$docs_index"
   grep -q 'Agent guidance' "$docs_index"
@@ -157,6 +159,7 @@ make_repo_clean_and_synced() {
   grep -q '^# Operator Guide$' "$operator_guide"
   grep -q '^# Release Trust$' "$release_trust"
   grep -q 'atlas.release_provenance.v1' "$release_trust"
+  grep -q 'SLSA Build Provenance' "$release_trust"
   grep -q 'RELEASE_ARTIFACT_MANIFEST.md' "$docs_index"
   grep -q '^# Web Assessment$' "$web_assessment"
   grep -q 'atlas web assess' "$web_assessment"
@@ -189,6 +192,7 @@ make_repo_clean_and_synced() {
   grep -q '^## Objects$' "$trust_direction"
   grep -q 'business flow' "$trust_direction"
   grep -q 'release provenance packet' "$trust_direction"
+  grep -q 'SLSA provenance attestation reference' "$trust_direction"
   grep -q 'schema contract' "$trust_direction"
   grep -q '^## Guarantees$' "$trust_direction"
   grep -q 'Scope:' "$trust_direction"
@@ -201,6 +205,7 @@ make_repo_clean_and_synced() {
   grep -q 'no external production certification' "$trust_direction"
   grep -q 'no autonomous exploitation' "$trust_direction"
   grep -q 'no cryptographic immutability' "$trust_direction"
+  grep -q 'no external SLSA certification yet' "$trust_direction"
   grep -q '^## Metadata Boundary$' "$trust_direction"
   grep -q 'Do not store' "$trust_direction"
   grep -q 'tokens' "$trust_direction"
@@ -216,6 +221,8 @@ make_repo_clean_and_synced() {
   grep -q 'Do not jump to Atlas OS' "$trust_direction"
 
   [ -f "$trust_object_model" ]
+  grep -q 'SLSA provenance attestation' "$trust_object_model"
+  grep -q '.github/workflows/release-slsa.yml' "$trust_object_model"
   grep -q 'trust infrastructure lane' "$roadmap"
   grep -q 'Trust object model and schema consolidation' "$roadmap"
   grep -q 'Metadata-only Business Flow Evidence packets' "$roadmap"
@@ -1874,6 +1881,7 @@ EOF
   release_schema="$schemas_dir/release-trust.v1.md"
   provenance_schema="$schemas_dir/release-provenance.v1.md"
   release_manifest_schema="$schemas_dir/release-artifact-manifest.v1.md"
+  slsa_schema="$schemas_dir/slsa-provenance.v1.md"
   production_schema="$schemas_dir/production-readiness.v1.md"
   trust_chain_schema="$schemas_dir/operation-trust-chain.v1.md"
   handoff_schema="$schemas_dir/handoff-packet.v1.md"
@@ -1891,6 +1899,7 @@ EOF
   [ -f "$release_schema" ]
   [ -f "$provenance_schema" ]
   [ -f "$release_manifest_schema" ]
+  [ -f "$slsa_schema" ]
   [ -f "$production_schema" ]
   [ -f "$trust_chain_schema" ]
   [ -f "$handoff_schema" ]
@@ -1907,6 +1916,7 @@ EOF
   grep -q 'atlas.release_trust.v1' "$index_file"
   grep -q 'atlas.release_provenance.v1' "$index_file"
   grep -q 'atlas.release_artifact_manifest.v1' "$index_file"
+  grep -q 'atlas.slsa_provenance.v1' "$index_file"
   grep -q 'atlas.production_readiness.v1' "$index_file"
   grep -q 'atlas.operation_trust_chain.v1' "$index_file"
   grep -q 'atlas.handoff_packet.v1' "$index_file"
@@ -1953,6 +1963,19 @@ EOF
   grep -q 'forbidden raw-content markers' "$release_manifest_schema"
   grep -q 'raw runtime artifacts' "$release_manifest_schema"
   grep -q 'SLSA certification' "$release_manifest_schema"
+
+  grep -q '^# `atlas.slsa_provenance.v1`$' "$slsa_schema"
+  grep -q '.github/workflows/release-slsa.yml' "$slsa_schema"
+  grep -q 'GitHub Artifact Attestations' "$slsa_schema"
+  grep -q '`schema_version`: `atlas.slsa_provenance.v1`' "$slsa_schema"
+  grep -q '`metadata_only`: `true`' "$slsa_schema"
+  grep -q 'actions/attest@v4' "$slsa_schema"
+  grep -q 'subject-path' "$slsa_schema"
+  grep -q 'id-token: write' "$slsa_schema"
+  grep -q 'attestations: write' "$slsa_schema"
+  grep -q 'artifact-metadata: write' "$slsa_schema"
+  grep -q 'gh attestation verify' "$slsa_schema"
+  grep -q 'External SLSA certification' "$slsa_schema"
 
   grep -q '^# `atlas.production_readiness.v1`$' "$production_schema"
   grep -q 'atlas production status --json' "$production_schema"
@@ -2124,10 +2147,14 @@ EOF
 
 @test "ci workflow mirrors local Atlas QA gate" {
   workflow="$TEST_ROOT/toolkit/.github/workflows/qa.yml"
+  slsa_workflow="$TEST_ROOT/toolkit/.github/workflows/release-slsa.yml"
   ci_doc="$TEST_ROOT/toolkit/docs/CI.md"
+  slsa_doc="$TEST_ROOT/toolkit/docs/atlas/SLSA_PROVENANCE.md"
 
   [ -f "$workflow" ]
+  [ -f "$slsa_workflow" ]
   [ -f "$ci_doc" ]
+  [ -f "$slsa_doc" ]
 
   grep -q '^name: QA$' "$workflow"
   grep -q 'pull_request:' "$workflow"
@@ -2149,6 +2176,38 @@ EOF
   grep -q 'does not claim production readiness' "$ci_doc"
   grep -q 'does not run live target assessments' "$ci_doc"
   grep -q 'replay verification from a clean checkout' "$ci_doc"
+
+  grep -q '^name: Release SLSA Provenance$' "$slsa_workflow"
+  grep -q 'workflow_dispatch:' "$slsa_workflow"
+  grep -q "'atlas-v\\*'" "$slsa_workflow"
+  grep -q "'atlas-release-\\*'" "$slsa_workflow"
+  grep -q 'contents: read' "$slsa_workflow"
+  grep -q 'id-token: write' "$slsa_workflow"
+  grep -q 'attestations: write' "$slsa_workflow"
+  grep -q 'artifact-metadata: write' "$slsa_workflow"
+  grep -q 'actions/checkout@v4' "$slsa_workflow"
+  grep -q 'fetch-depth: 0' "$slsa_workflow"
+  grep -q 'fetch-tags: true' "$slsa_workflow"
+  grep -q 'cachix/install-nix-action@v31' "$slsa_workflow"
+  grep -q "nix-shell --run './bin/dev-qa'" "$slsa_workflow"
+  grep -q "nix-shell --run './tools/atlas/bin/atlas v1 status --strict'" "$slsa_workflow"
+  grep -q 'git archive' "$slsa_workflow"
+  grep -q 'sha256sum "$artifact_path"' "$slsa_workflow"
+  grep -q 'actions/upload-artifact@v4' "$slsa_workflow"
+  grep -q 'actions/attest@v4' "$slsa_workflow"
+  grep -q 'subject-path: ${{ env.artifact }}' "$slsa_workflow"
+
+  grep -q '^# Atlas SLSA Provenance$' "$slsa_doc"
+  grep -q '.github/workflows/release-slsa.yml' "$slsa_doc"
+  grep -q 'actions/attest@v4' "$slsa_doc"
+  grep -q 'gh attestation verify <artifact>.tar.gz' "$slsa_doc"
+  grep -q 'not external SLSA certification' "$slsa_doc"
+  grep -q 'metadata-only' "$slsa_doc"
+  grep -q 'raw operation evidence bodies' "$slsa_doc"
+  grep -q 'atlas release slsa-verify' "$slsa_doc"
+  grep -q '.github/workflows/release-slsa.yml' "$ci_doc"
+  grep -q 'GitHub Artifact Attestations' "$ci_doc"
+  grep -q 'does not claim external SLSA certification' "$ci_doc"
 }
 
 @test "atlas help groups target-first workflow and story commands" {

@@ -69,6 +69,7 @@ Packets are metadata-only records that anchor trust state at a point in time.
 | Archive packet | Records retained operation archive metadata. |
 | Release packet | Records release commit, branch, tag state, readiness, QA, and retained notes. |
 | Release provenance packet | Binds a release packet hash to a signed Git tag and retained public key. |
+| SLSA provenance attestation | GitHub/Sigstore build provenance for a concrete release artifact. |
 | Release artifact manifest | Indexes retained release packet, provenance, signing key, dry-run note, signed tag, and optional milestone note hashes. |
 | Production dry-run note | Records local production-contract dry-run evidence. |
 | Advisor packet | Carries metadata-only AI Advisor context. |
@@ -168,6 +169,8 @@ Current Atlas replay support includes:
 - release packet verification with `atlas release verify`
 - clean-checkout release replay with `atlas release replay`
 - release artifact manifest verification with `atlas release manifest-verify`
+- SLSA release-artifact provenance generation through
+  `.github/workflows/release-slsa.yml`
 - operation trust-chain replay during release verification
 - clean-checkout release replay procedure documented in
   `docs/retention/releases/REPLAY_VERIFICATION.md`
