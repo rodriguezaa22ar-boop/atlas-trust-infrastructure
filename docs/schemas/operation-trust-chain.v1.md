@@ -45,8 +45,25 @@ preserving the read-only behavior of the text trust-chain command.
 - `retention_links`: count of `flow_retention.ndjson` records.
 - `markdown_packets`: count of retained Markdown flow packets.
 - `json_packets`: count of retained JSON flow packets.
+- `assurance`: aggregate read-only assurance summary for linked flows.
 - `artifacts`: paths to the flow link files and packet directories.
 - `required`: must be `false` at the current maturity stage.
+
+The `assurance` object contains:
+
+- `total`: linked flow records assessed.
+- `current`: linked flows whose aggregate assurance prerequisites are present.
+- `attention_required`: linked flows with evidence, control, finding,
+  validation, retention, or packet gaps.
+- `blocked`: linked flows with malformed links or missing flow records.
+- `not_recorded`: nonzero when no business-flow links exist for the operation.
+- `flows`: metadata-only per-flow summaries.
+
+Each `flows[]` item may include flow ID, flow slug, status, detail,
+criticality, link counts, open finding count, validation gap count, declared
+control count, retention count, and matching packet count. It must not embed
+raw business data, evidence bodies, finding bodies, validation reasons,
+approval reasons, operator notes, or retained artifact contents.
 
 ## Verification Rules
 

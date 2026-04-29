@@ -1401,6 +1401,10 @@ EOF
   [[ "$output" == *"Retention Links: 0"* ]]
   [[ "$output" == *"Markdown Packets: 1"* ]]
   [[ "$output" == *"JSON Packets: 1"* ]]
+  [[ "$output" == *"Assurance Total: 1"* ]]
+  [[ "$output" == *"Assurance Current: 0"* ]]
+  [[ "$output" == *"Assurance Attention Required: 1"* ]]
+  [[ "$output" == *"Assurance Blocked: 0"* ]]
 
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op trust-chain flow-trust-op --json
   [ "$status" -eq 0 ]
@@ -1418,6 +1422,14 @@ EOF
       .business_flow_evidence.retention_links == 0 and
       .business_flow_evidence.markdown_packets == 1 and
       .business_flow_evidence.json_packets == 1 and
+      .business_flow_evidence.assurance.total == 1 and
+      .business_flow_evidence.assurance.current == 0 and
+      .business_flow_evidence.assurance.attention_required == 1 and
+      .business_flow_evidence.assurance.blocked == 0 and
+      .business_flow_evidence.assurance.flows[0].flow_slug == "customer-signup" and
+      .business_flow_evidence.assurance.flows[0].status == "attention-required" and
+      .business_flow_evidence.assurance.flows[0].control_objectives == 1 and
+      .business_flow_evidence.assurance.flows[0].matching_packets == 2 and
       (.business_flow_evidence.artifacts.operation_links | endswith("business_flows.ndjson")) and
       (.business_flow_evidence.artifacts.retention_links | endswith("flow_retention.ndjson")) and
       (.business_flow_evidence.artifacts.json_packets | endswith("flow_packets_json"))
@@ -1822,6 +1834,8 @@ EOF
   grep -q 'business_flow_evidence' "$trust_chain_schema"
   grep -q 'flow_approvals.ndjson' "$trust_chain_schema"
   grep -q 'flow_retention.ndjson' "$trust_chain_schema"
+  grep -q '`assurance`: aggregate read-only assurance summary' "$trust_chain_schema"
+  grep -q '`attention_required`: linked flows with evidence, control, finding' "$trust_chain_schema"
   grep -q '`required`: must be `false`' "$trust_chain_schema"
   grep -q 'must be replayed' "$trust_chain_schema"
   grep -q 'from current retained operation state' "$trust_chain_schema"
