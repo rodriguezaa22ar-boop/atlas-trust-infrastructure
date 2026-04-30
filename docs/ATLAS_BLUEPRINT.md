@@ -634,6 +634,14 @@ The near-term roadmap is:
     commit, artifact digest, optional artifact entry, and embedded metadata
     parity. SLSA remains optional and this does not claim external SLSA
     certification.
+100. Verify retained SLSA references directly. `atlas release slsa-verify`
+     now checks retained metadata-only `atlas.slsa_provenance.v1` references
+     for schema, metadata-only flags, forbidden-content markers, source
+     identity, source commit, artifact digest, workflow path, GitHub run URL,
+     recorded attestation verification status, known limitations, and
+     no-certification-overclaim flags. The command is local and read-only; it
+     does not download artifacts, query GitHub, or claim external SLSA
+     certification.
 
 ## First Serious Version
 
