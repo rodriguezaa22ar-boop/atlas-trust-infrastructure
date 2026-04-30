@@ -170,7 +170,7 @@ the release under review.
 
 ## What This Proves
 
-This proves that Atlas can retain and re-check a release proof chain made of:
+This demonstrates that Atlas can retain and re-check a release proof chain made of:
 
 - a named release commit
 - local QA status
