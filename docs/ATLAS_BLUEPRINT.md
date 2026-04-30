@@ -662,6 +662,13 @@ The near-term roadmap is:
      local artifact digest, executed `gh attestation verify`, and retained that
      online verification result in the metadata-only SLSA reference. Independent
      third-party review remains the next external assurance step.
+104. Package independent review evidence. Atlas now retains
+     `docs/retention/reviews/atlas-v0.4.0-rc1-review-packet.md`, an executable
+     reviewer packet for the release candidate. It lists the release artifact,
+     checksums, GitHub attestation, official SLSA generic provenance, retained
+     SLSA reference, exact verification commands, local release-trust baseline
+     checks, expected reviewer output, and non-claims. This prepares the work
+     for independent review without claiming that review is complete.
 
 ## First Serious Version
 

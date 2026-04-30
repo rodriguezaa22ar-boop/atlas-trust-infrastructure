@@ -97,9 +97,15 @@ An independent review should verify:
 - the claim language remains bounded to SLSA-verifiable readiness unless a
   third-party review explicitly grants a stronger conclusion
 
+The retained review packet for this release candidate is:
+
+```text
+docs/retention/reviews/atlas-v0.4.0-rc1-review-packet.md
+```
+
 ## Next External Step
 
 The remaining official step is independent review. Submit the release packet,
-artifact, provenance, manifest, SLSA reference, and claim packet to a reviewer
-who can independently rerun `gh attestation verify`, `slsa-verifier
-verify-artifact`, and Atlas release verification.
+artifact, provenance, manifest, SLSA reference, claim packet, and retained
+review packet to a reviewer who can independently rerun `gh attestation
+verify`, `slsa-verifier verify-artifact`, and Atlas release verification.

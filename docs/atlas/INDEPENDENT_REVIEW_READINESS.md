@@ -25,6 +25,12 @@ A reviewer packet should include:
 - known limitations
 - this claim document: `docs/atlas/SLSA_CLAIM.md`
 
+The retained reviewer packet for `atlas-v0.4.0-rc1` lives at:
+
+```text
+docs/retention/reviews/atlas-v0.4.0-rc1-review-packet.md
+```
+
 ## Review Questions
 
 The reviewer should answer:
@@ -68,6 +74,6 @@ stating:
 
 ## Current Status
 
-Atlas is ready to assemble a reviewer packet for release-trust and
-SLSA-verifiable artifact evidence. It still needs an actual independent reviewer
-to perform the review before any third-party review claim is made.
+Atlas has assembled a reviewer packet for `atlas-v0.4.0-rc1` release-trust and
+SLSA-verifiable artifact evidence. It still needs an actual independent
+reviewer to perform the review before any third-party review claim is made.

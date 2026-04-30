@@ -44,6 +44,9 @@ repository in filesystem order.
   artifact claim and evidence checklist.
 - [atlas/INDEPENDENT_REVIEW_READINESS.md](atlas/INDEPENDENT_REVIEW_READINESS.md):
   reviewer packet expectations for an external release-trust review.
+- [retention/reviews/atlas-v0.4.0-rc1-review-packet.md](retention/reviews/atlas-v0.4.0-rc1-review-packet.md):
+  executable independent-review packet for the retained v0.4.0-rc1 SLSA
+  evidence.
 - [retention/releases/REPLAY_VERIFICATION.md](retention/releases/REPLAY_VERIFICATION.md):
   clean-checkout replay procedure.
 - [atlas/PRODUCTION_READINESS.md](atlas/PRODUCTION_READINESS.md): local

@@ -20,7 +20,8 @@ means ready-to-refine, not production-certified.
 - Atlas has an Official SLSA Generic Provenance workflow and a retained
   `atlas-v0.4.0-rc1` release-candidate SLSA reference. Authenticated
   `gh attestation verify` has passed through Atlas for the release candidate,
-  but independent review is not complete.
+  and an independent review packet is retained, but independent review is not
+  complete.
 - Production dry-run evidence is retained locally; it is not an independent
   external validation.
 - Replay verification is local-first and repository-backed.

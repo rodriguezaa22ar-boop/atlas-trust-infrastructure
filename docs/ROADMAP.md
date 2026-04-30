@@ -39,6 +39,7 @@ Atlas is in the trust infrastructure lane:
 - optional online SLSA attestation verification
 - retained release-candidate SLSA evidence
 - authenticated online SLSA attestation verification
+- independent review packet
 
 ## Near-Term Milestones
 
@@ -128,6 +129,11 @@ Atlas is in the trust infrastructure lane:
     `atlas release slsa-verify --artifact --online` after GitHub CLI
     authentication and retaining the successful online attestation result in
     `docs/retention/releases/atlas-v0.4.0-rc1.slsa.json`.
+30. Independent review packet. Implemented as
+    `docs/retention/reviews/atlas-v0.4.0-rc1-review-packet.md`, an executable
+    reviewer checklist with artifact links, hashes, commands, expected output,
+    local release-trust baseline checks, and no-certification-overclaim
+    boundaries.
 
 ## Later Control-Plane Work
 

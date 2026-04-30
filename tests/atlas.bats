@@ -2372,6 +2372,47 @@ EOF
   grep -q 'gh attestation verify' "$evidence_packet"
 }
 
+@test "independent review packet makes v0.4.0-rc1 externally reviewable without overclaiming" {
+  review_packet="$TEST_ROOT/toolkit/docs/retention/reviews/atlas-v0.4.0-rc1-review-packet.md"
+  review_doc="$TEST_ROOT/toolkit/docs/atlas/INDEPENDENT_REVIEW_READINESS.md"
+  claim_doc="$TEST_ROOT/toolkit/docs/atlas/SLSA_CLAIM.md"
+  docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
+  limitations_doc="$TEST_ROOT/toolkit/docs/KNOWN_LIMITATIONS.md"
+  roadmap_doc="$TEST_ROOT/toolkit/docs/ROADMAP.md"
+
+  [ -f "$review_packet" ]
+
+  grep -q '^# Atlas v0.4.0-rc1 Independent Review Packet$' "$review_packet"
+  grep -q 'metadata-only' "$review_packet"
+  grep -q 'Release artifact commit' "$review_packet"
+  grep -q '59667bf875871c1e27dbd72de20c983ac262b43b' "$review_packet"
+  grep -q 'Retained evidence commit' "$review_packet"
+  grep -q '23bc8353b4e56beb30fc157f22323951e389c117' "$review_packet"
+  grep -q 'atlas-trust-infrastructure-atlas-v0.4.0-rc1-59667bf87587.tar.gz' "$review_packet"
+  grep -q 'a6fad42ced88648e49b8cbb9fcfe90533e2e389145277482f1000449108d0805' "$review_packet"
+  grep -q '54e0f5f070192c2716d6923868fd43b2eeab64e588caad6ec11342fdb3d046e5' "$review_packet"
+  grep -q 'https://github.com/rodriguezaa22ar-boop/atlas-trust-infrastructure/attestations/26040322' "$review_packet"
+  grep -q 'gh attestation verify' "$review_packet"
+  grep -q 'slsa-verifier verify-artifact' "$review_packet"
+  grep -q 'atlas release slsa-verify' "$review_packet"
+  grep -q "nix-shell --run './bin/dev-qa'" "$review_packet"
+  grep -q 'atlas release verify' "$review_packet"
+  grep -q 'atlas release manifest-verify' "$review_packet"
+  grep -q 'docs/retention/releases/atlas-m93-business-flow-assurance.json' "$review_packet"
+  grep -q 'docs/retention/releases/atlas-m93-business-flow-assurance.manifest.json' "$review_packet"
+  grep -q 'Reviewer:' "$review_packet"
+  grep -q 'pass / pass with notes / fail' "$review_packet"
+  grep -q 'external SLSA certification' "$review_packet"
+  grep -q 'does not include secrets' "$review_packet"
+  grep -q 'review is limited to the release-trust and SLSA-verifiable evidence listed' "$review_packet"
+
+  grep -q 'docs/retention/reviews/atlas-v0.4.0-rc1-review-packet.md' "$review_doc"
+  grep -q 'docs/retention/reviews/atlas-v0.4.0-rc1-review-packet.md' "$claim_doc"
+  grep -q 'retention/reviews/atlas-v0.4.0-rc1-review-packet.md' "$docs_index"
+  grep -q 'independent review packet is retained' "$limitations_doc"
+  grep -q 'Independent review packet' "$roadmap_doc"
+}
+
 @test "atlas help groups target-first workflow and story commands" {
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" help
 
