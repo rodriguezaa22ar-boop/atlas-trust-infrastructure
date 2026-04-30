@@ -129,6 +129,7 @@ write_test_slsa_reference() {
 
 @test "root README stays a concise landing page with dedicated docs" {
   readme="$TEST_ROOT/toolkit/README.md"
+  index_html="$TEST_ROOT/toolkit/index.html"
   docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
   one_page="$TEST_ROOT/toolkit/docs/ATLAS_ONE_PAGE.md"
   command_ref="$TEST_ROOT/toolkit/docs/COMMAND_REFERENCE.md"
@@ -141,6 +142,7 @@ write_test_slsa_reference() {
   web_assessment="$TEST_ROOT/toolkit/docs/WEB_ASSESSMENT.md"
 
   [ -f "$readme" ]
+  [ -f "$index_html" ]
   [ -f "$docs_index" ]
   [ -f "$one_page" ]
   [ -f "$command_ref" ]
@@ -153,6 +155,12 @@ write_test_slsa_reference() {
   [ -f "$web_assessment" ]
 
   [ "$(wc -l < "$readme")" -le 150 ]
+  grep -q '^# Atlas Trust Infrastructure$' "$readme"
+  grep -q '^## Public Repository Purpose$' "$readme"
+  grep -q 'private `atlas-lab-toolkit` repository remains the implementation home' "$readme"
+  grep -q '^## Start Here By Role$' "$readme"
+  grep -Fq 'New reader: [docs/ATLAS_ONE_PAGE.md]' "$readme"
+  grep -Fq 'SLSA reviewer: [docs/atlas/SLSA_CLAIM.md]' "$readme"
   grep -q '^## Quick Start$' "$readme"
   grep -q '^## Safety Boundary$' "$readme"
   grep -q '^## Current Maturity$' "$readme"
@@ -170,10 +178,17 @@ write_test_slsa_reference() {
   grep -q 'docs/RELEASE_TRUST.md' "$readme"
   grep -q 'docs/WEB_ASSESSMENT.md' "$readme"
   grep -q 'docs/atlas/BUSINESS_FLOW_EVIDENCE.md' "$readme"
+  grep -q 'production-ready under the local Atlas contract' "$readme"
   ! grep -q '^## Shared Intel$' "$readme"
+
+  grep -q '<title>Atlas Trust Infrastructure</title>' "$index_html"
+  grep -q 'Atlas does not replace scanners or automate exploitation' "$index_html"
+  grep -q 'records the trust chain around authorized work' "$index_html"
 
   grep -q '^# Atlas Documentation Index$' "$docs_index"
   grep -q 'Start here' "$docs_index"
+  grep -q 'Start here by role' "$docs_index"
+  grep -q 'SLSA reviewer' "$docs_index"
   grep -q 'Operator workflow' "$docs_index"
   grep -q 'Release trust' "$docs_index"
   grep -q 'Production readiness' "$docs_index"
@@ -2318,6 +2333,11 @@ EOF
   grep -q 'SLSA Build Level 3 alignment target' "$claim_doc"
   grep -q 'Claimed' "$claim_doc"
   grep -q 'Not Claimed' "$claim_doc"
+  grep -q '^## Claim Matrix$' "$claim_doc"
+  grep -Fq '| Claim | Required Evidence | Verification Command | Non-Claim |' "$claim_doc"
+  grep -q 'Artifact digest matches retained metadata' "$claim_doc"
+  grep -Fq 'gh attestation verify <artifact>.tar.gz --repo rodriguezaa22ar-boop/atlas-trust-infrastructure' "$claim_doc"
+  grep -q 'Does not claim external SLSA certification' "$claim_doc"
   grep -q 'Official SLSA generic generator' "$claim_doc"
   grep -q 'independent review' "$claim_doc"
 

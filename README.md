@@ -1,13 +1,21 @@
-# Native Lab Toolkit
+# Atlas Trust Infrastructure
 
-Native Lab Toolkit is a local-first, shell-native toolkit for authorized
-security assessment workflows. It keeps operator state, target records, shared
-intel, evidence, findings, validation, reports, retention packets, and release
-trust artifacts in an inspectable file-backed tree.
+Atlas Trust Infrastructure is the public-facing trust model and documentation
+surface for Atlas: a metadata-first trust control plane for authorized security
+workflows, evidence retention, release trust, and business-flow proof.
 
-Atlas is evolving into metadata-first trust infrastructure: a control plane for
-security-operation proof, business-flow evidence, release trust, auditability,
-retention, verification, and later business/process assurance.
+Atlas originated inside Native Lab Toolkit, a local-first, shell-native
+environment for authorized security assessment workflows. Native Lab Toolkit
+keeps operator state, target records, shared intel, evidence, findings,
+validation, reports, retention packets, and release trust artifacts in an
+inspectable file-backed tree.
+
+## Public Repository Purpose
+
+This public repository explains Atlas' trust infrastructure model, safety
+boundary, release evidence, business-flow evidence, and readiness language. The
+private `atlas-lab-toolkit` repository remains the implementation home for
+retained engineering context and operator runtime history.
 
 `atlas` is the main operator control plane. It does not replace the domain
 tools; it coordinates them:
@@ -18,6 +26,16 @@ tools; it coordinates them:
 - `vector`: ranked action lanes, bounded validation, sessions, and outcomes
 - `intelctl`: direct shared-intel inspection
 - `labctl`: build, release, target, and administration workflows
+
+## Start Here By Role
+
+- New reader: [docs/ATLAS_ONE_PAGE.md](docs/ATLAS_ONE_PAGE.md)
+- Security operator: [docs/OPERATOR_GUIDE.md](docs/OPERATOR_GUIDE.md)
+- Business owner: [docs/atlas/BUSINESS_FLOW_EVIDENCE.md](docs/atlas/BUSINESS_FLOW_EVIDENCE.md)
+- Release reviewer: [docs/RELEASE_TRUST.md](docs/RELEASE_TRUST.md)
+- SLSA reviewer: [docs/atlas/SLSA_CLAIM.md](docs/atlas/SLSA_CLAIM.md)
+- Contributor: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Security reporter: [SECURITY.md](SECURITY.md)
 
 ## Quick Start
 
@@ -49,8 +67,8 @@ required, ledger events, and evidence handling.
 
 ## Current Maturity
 
-Atlas can report `production-ready` under its local production contract when
-all retained release evidence verifies for the current retained release commit:
+Atlas can report `production-ready under the local Atlas contract` when all
+retained release evidence verifies for the current retained release commit:
 
 - v1 internal readiness is ready
 - repository state is clean and synced
@@ -107,17 +125,6 @@ means the local Atlas gates pass against retained evidence.
 | [docs/CI.md](docs/CI.md) | GitHub Actions and local QA parity. |
 | [SECURITY.md](SECURITY.md) | Public vulnerability reporting and authorized-use boundary. |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution rules, QA expectations, and no-secrets policy. |
-
-## Repository Layout
-
-- `bin/`: top-level entrypoints and development helpers
-- `lib/`: shared shell helpers
-- `tools/`: native tool modules
-- `targets/`: target records
-- `sessions/`: per-session workspaces
-- `reports/`: generated operation reports
-- `state/`: shared state, run history, and cross-tool intel
-- `docs/`: architecture, operator, trust, release, and retention docs
 
 ## Development
 

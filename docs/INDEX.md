@@ -12,6 +12,16 @@ repository in filesystem order.
 - [../README.md](../README.md): short landing page with quick start, safety
   boundary, current maturity, and docs map.
 
+## Start here by role
+
+- New reader: [ATLAS_ONE_PAGE.md](ATLAS_ONE_PAGE.md)
+- Security operator: [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md)
+- Business owner: [atlas/BUSINESS_FLOW_EVIDENCE.md](atlas/BUSINESS_FLOW_EVIDENCE.md)
+- Release reviewer: [RELEASE_TRUST.md](RELEASE_TRUST.md)
+- SLSA reviewer: [atlas/SLSA_CLAIM.md](atlas/SLSA_CLAIM.md)
+- Contributor: [../CONTRIBUTING.md](../CONTRIBUTING.md)
+- Security reporter: [../SECURITY.md](../SECURITY.md)
+
 ## Operator workflow
 
 - [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md): end-to-end operator workflow.
