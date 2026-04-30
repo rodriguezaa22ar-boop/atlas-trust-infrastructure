@@ -62,6 +62,7 @@ nix-shell --run './bin/dev-qa'
 ./tools/atlas/bin/atlas release verify atlas-current
 ./tools/atlas/bin/atlas release replay atlas-current
 ./tools/atlas/bin/atlas release manifest atlas-current
+./tools/atlas/bin/atlas release manifest atlas-current --slsa docs/retention/releases/atlas-current.slsa.json
 ./tools/atlas/bin/atlas release manifest-verify atlas-current
 ```
 

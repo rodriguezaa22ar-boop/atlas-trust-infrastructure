@@ -15,9 +15,10 @@ provenance packet, retained signing public key, production dry-run note, signed
 tag metadata, and optional milestone note.
 
 The manifest is metadata-only. It stores paths, SHA-256 hashes, commit IDs, tag
-IDs, verification states, and known limitations. It does not embed release
-packet bodies, raw runtime artifacts, target secrets, session contents, packet
-captures, credential material, private keys, tokens, or evidence bodies.
+IDs, SLSA attestation references, verification states, and known limitations.
+It does not embed release packet bodies, raw runtime artifacts, target secrets,
+session contents, packet captures, credential material, private keys, tokens,
+or evidence bodies.
 
 ## Required Fields
 
@@ -48,11 +49,21 @@ captures, credential material, private keys, tokens, or evidence bodies.
 - `signing_public_key.path`
 - `signing_public_key.sha256`
 - `signing_public_key.verified`: expected `true`
+- `slsa_provenance`: optional object for a verified
+  `atlas.slsa_provenance.v1` reference
+- `slsa_provenance.path`: retained SLSA reference JSON path when present
+- `slsa_provenance.sha256`: retained SLSA reference JSON SHA-256 when present
+- `slsa_provenance.schema_version`: expected `atlas.slsa_provenance.v1` when
+  present
+- `slsa_provenance.verified`: expected `true` when present
+- `slsa_provenance.no_certification_overclaim`: expected `true` when present
 - `artifacts[]`: kind/path/SHA-256/required records for retained files
 - `contract.schema_document`: expected
   `docs/schemas/release-artifact-manifest.v1.md`
 - `contract.guidance_document`: expected
   `docs/atlas/RELEASE_ARTIFACT_MANIFEST.md`
+- `contract.slsa_schema_document`: expected
+  `docs/schemas/slsa-provenance.v1.md`
 - `contract.known_limitations_reference`: expected `known_limitations`
 - `metadata_boundary.excludes`
 - `known_limitations`
@@ -68,6 +79,7 @@ Required artifact classes:
 Optional artifact classes:
 
 - `milestone_note`
+- `slsa_provenance`
 
 ## Verification Rules
 
@@ -84,8 +96,10 @@ Optional artifact classes:
 - required artifact classes
 - required artifact paths
 - schema and guidance document references
+- optional SLSA schema document reference
 - known limitations reference
 - SHA-256 hash for each listed artifact
+- optional SLSA provenance reference validation
 - release packet verification with `atlas release verify`
 - provenance verification with retained public key and signed tag
 - production dry-run note contract

@@ -1958,8 +1958,13 @@ EOF
   grep -q '`schema_version`: must be `atlas.release_artifact_manifest.v1`' "$release_manifest_schema"
   grep -q '`metadata_only`: must be `true`' "$release_manifest_schema"
   grep -q '`raw_artifacts_embedded`: must be `false`' "$release_manifest_schema"
+  grep -q '`slsa_provenance`' "$release_manifest_schema"
+  grep -q '`slsa_provenance.path`' "$release_manifest_schema"
+  grep -q '`slsa_provenance.verified`' "$release_manifest_schema"
   grep -q '`contract.schema_document`' "$release_manifest_schema"
+  grep -q '`contract.slsa_schema_document`' "$release_manifest_schema"
   grep -q 'required artifact classes' "$release_manifest_schema"
+  grep -q 'slsa_provenance' "$release_manifest_schema"
   grep -q 'forbidden raw-content markers' "$release_manifest_schema"
   grep -q 'raw runtime artifacts' "$release_manifest_schema"
   grep -q 'SLSA certification' "$release_manifest_schema"
@@ -2288,6 +2293,7 @@ EOF
   [[ "$output" == *"production:"* ]]
   [[ "$output" == *"release:"* ]]
   [[ "$output" == *"atlas release manifest [manifest-name] [--packet packet]"* ]]
+  [[ "$output" == *"[--slsa slsa-reference]"* ]]
   [[ "$output" == *"atlas release manifest-verify [manifest] [--commit sha]"* ]]
   [[ "$output" == *"atlas target story <target>"* ]]
   [[ "$output" == *"atlas target cycle <target>"* ]]
@@ -3306,6 +3312,103 @@ EOF
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release manifest-verify "$TEST_ROOT/bad-manifest-metadata.json" --commit "$release_commit"
   [ "$status" -ne 0 ]
   [[ "$output" == *"Metadata Boundary: fail"* ]]
+}
+
+@test "atlas release manifest records optional SLSA provenance references" {
+  make_repo_clean_and_synced
+
+  release_commit="$(jq -r '.commit' "$TEST_ROOT/toolkit/docs/retention/releases/atlas-m93-business-flow-assurance.provenance.json")"
+  slsa_ref="$TEST_ROOT/toolkit/docs/retention/releases/test-release.slsa.json"
+  artifact_sha="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+
+  jq -n \
+    --arg commit "$release_commit" \
+    --arg artifact_sha "$artifact_sha" \
+    '{
+      schema_version: "atlas.slsa_provenance.v1",
+      metadata_only: true,
+      artifact: {
+        path: "dist/atlas-test-release.tar.gz",
+        sha256: $artifact_sha
+      },
+      source: {
+        repository: "rodriguezaa22ar-boop/atlas-trust-infrastructure",
+        commit: $commit,
+        ref: "refs/tags/atlas-test-release"
+      },
+      workflow: {
+        name: "Release SLSA Provenance",
+        path: ".github/workflows/release-slsa.yml",
+        run_id: "12345",
+        run_url: "https://github.com/rodriguezaa22ar-boop/atlas-trust-infrastructure/actions/runs/12345"
+      },
+      attestation: {
+        subject_digest: ("sha256:" + $artifact_sha),
+        url: "https://github.com/rodriguezaa22ar-boop/atlas-trust-infrastructure/attestations/123",
+        rekor_log_url: "https://search.sigstore.dev?logIndex=123",
+        verification_command: "gh attestation verify dist/atlas-test-release.tar.gz --repo rodriguezaa22ar-boop/atlas-trust-infrastructure",
+        verification_status: "verified"
+      },
+      known_limitations: [
+        "This is a metadata-only SLSA reference.",
+        "This does not claim external SLSA certification."
+      ],
+      no_certification_overclaim: true
+    }' >"$slsa_ref"
+  git -C "$TEST_ROOT/toolkit" add -f "$slsa_ref"
+  git -C "$TEST_ROOT/toolkit" commit -m "retain test slsa reference" >/dev/null
+  git -C "$TEST_ROOT/toolkit" update-ref refs/remotes/origin/main HEAD
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release manifest m99-slsa-manifest --slsa "$slsa_ref"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"release artifact manifest written"* ]]
+  manifest_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "release_manifest" { print $2; exit }')"
+  [ -f "$manifest_path" ]
+
+  jq -e --arg slsa_path "docs/retention/releases/test-release.slsa.json" --arg artifact_sha "$artifact_sha" '
+    .slsa_provenance.schema_version == "atlas.slsa_provenance.v1" and
+    .slsa_provenance.path == $slsa_path and
+    .slsa_provenance.verified == true and
+    .slsa_provenance.artifact.sha256 == $artifact_sha and
+    .slsa_provenance.attestation.subject_digest == ("sha256:" + $artifact_sha) and
+    .slsa_provenance.attestation.verification_status == "verified" and
+    .slsa_provenance.no_certification_overclaim == true and
+    .contract.slsa_schema_document == "docs/schemas/slsa-provenance.v1.md" and
+    any(.artifacts[]; .kind == "slsa_provenance" and .path == $slsa_path and .required == false)
+  ' "$manifest_path"
+
+  release_commit="$(jq -r '.release.commit' "$manifest_path")"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release manifest-verify "$manifest_path" --commit "$release_commit"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"SLSA Schema Reference: ok"* ]]
+  [[ "$output" == *"Artifact slsa_provenance: ok"* ]]
+  [[ "$output" == *"SLSA Provenance: ok verified"* ]]
+  [[ "$output" == *"release artifact manifest verified"* ]]
+
+  jq '.slsa_provenance.verified = false' "$manifest_path" >"$TEST_ROOT/slsa-not-verified.manifest.json"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release manifest-verify "$TEST_ROOT/slsa-not-verified.manifest.json" --commit "$release_commit"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"SLSA Provenance: fail"* ]]
+
+  jq 'del(.artifacts[] | select(.kind == "slsa_provenance"))' "$manifest_path" >"$TEST_ROOT/slsa-missing-artifact.manifest.json"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release manifest-verify "$TEST_ROOT/slsa-missing-artifact.manifest.json" --commit "$release_commit"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"SLSA Provenance: fail"* ]]
+
+  jq '.slsa_provenance.source.commit = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"' "$manifest_path" >"$TEST_ROOT/slsa-tampered-manifest-metadata.manifest.json"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release manifest-verify "$TEST_ROOT/slsa-tampered-manifest-metadata.manifest.json" --commit "$release_commit"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"SLSA Provenance: fail"* ]]
+
+  bad_slsa_ref="$TEST_ROOT/toolkit/docs/retention/releases/bad-test-release.slsa.json"
+  jq '.attestation.verification_status = "pending"' "$slsa_ref" >"$bad_slsa_ref"
+  git -C "$TEST_ROOT/toolkit" add -f "$bad_slsa_ref"
+  git -C "$TEST_ROOT/toolkit" commit -m "retain bad slsa reference" >/dev/null
+  git -C "$TEST_ROOT/toolkit" update-ref refs/remotes/origin/main HEAD
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release manifest bad-slsa-manifest --slsa "$bad_slsa_ref"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"release manifest requires a verified SLSA provenance reference"* ]]
 }
 
 @test "atlas release manifest verification fails closed on completeness gaps" {

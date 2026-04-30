@@ -209,12 +209,14 @@ checkout beyond the packet's retained note set.
 `atlas release manifest [manifest-name]` writes a metadata-only
 `atlas.release_artifact_manifest.v1` JSON index for retained release evidence.
 It records the release packet, signed provenance packet, retained signing public
-key, production dry-run note, signed tag metadata, and optional milestone note
-with SHA-256 hashes. `atlas release manifest-verify [manifest]` checks those
-hashes, re-verifies the release packet, validates signed provenance with the
-retained public key, checks the production dry-run note, and verifies the signed
-tag. The manifest is local trust evidence, not external audit or deployment
-certification.
+key, production dry-run note, signed tag metadata, optional milestone note, and
+optional SLSA provenance reference with SHA-256 hashes. Pass
+`--slsa <reference>` to include a retained `atlas.slsa_provenance.v1` reference.
+`atlas release manifest-verify [manifest]` checks those hashes, re-verifies the
+release packet, validates signed provenance with the retained public key, checks
+the production dry-run note, verifies the signed tag, and validates any recorded
+SLSA reference. The manifest is local trust evidence, not external audit,
+external SLSA certification, or deployment certification.
 
 `atlas production status` treats the latest verified release artifact manifest
 as a required local production gate. That binds the retained release packet,

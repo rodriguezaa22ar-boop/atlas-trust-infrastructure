@@ -118,8 +118,9 @@ Milestone 98 records a successful tag-triggered SLSA smoke run:
   `https://search.sigstore.dev?logIndex=1404516311`
 
 This proves the current workflow can build, upload, and attest a release-style
-artifact. It does not mean external SLSA certification, and Atlas release
-manifests do not yet record verified SLSA attestation references.
+artifact. It does not mean external SLSA certification. Atlas release manifests
+can now record verified SLSA attestation references with
+`atlas release manifest --slsa <reference>`.
 
 ## Relationship To Atlas Release Trust
 
@@ -191,7 +192,6 @@ GitHub/Sigstore-backed SLSA provenance attestation for release artifacts.
 
 ## Next Hardening
 
-- Record verified SLSA attestation references in Atlas release manifests.
 - Add an `atlas release slsa-verify` wrapper for `gh attestation verify`.
 - Add policy checks for expected workflow identity, tag, commit, and artifact
   digest.

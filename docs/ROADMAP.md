@@ -101,10 +101,12 @@ Atlas is in the trust infrastructure lane:
     `atlas.slsa_provenance.v1`. This prepares GitHub/Sigstore provenance for
     release artifacts without claiming external SLSA certification. A
     tag-triggered smoke run has verified artifact upload and attestation.
+25. SLSA references in release manifests. Implemented as optional
+    `atlas release manifest --slsa <reference>` support and manifest
+    verification for retained `atlas.slsa_provenance.v1` references.
 
 ## Later Control-Plane Work
 
-- record verified SLSA attestation references in Atlas release manifests
 - add `atlas release slsa-verify` as a local verification wrapper
 - read-only dashboard planning
 - node runtime planning

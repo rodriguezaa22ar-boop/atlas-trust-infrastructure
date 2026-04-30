@@ -544,7 +544,7 @@ atlas_release_latest_packet() {
   local packet_dir="$LAB_DOCS_DIR/retention/releases"
 
   [ -d "$packet_dir" ] || return 0
-  find "$packet_dir" -maxdepth 1 -type f \( -name '*.md' -o -name '*.json' \) ! -name '*.provenance.json' ! -name '*.manifest.json' 2>/dev/null |
+  find "$packet_dir" -maxdepth 1 -type f \( -name '*.md' -o -name '*.json' \) ! -name '*.provenance.json' ! -name '*.manifest.json' ! -name '*.slsa.json' 2>/dev/null |
     sort |
     tail -n 1
 }
@@ -563,6 +563,15 @@ atlas_release_latest_provenance_packet() {
 
   [ -d "$packet_dir" ] || return 0
   find "$packet_dir" -maxdepth 1 -type f -name '*.provenance.json' 2>/dev/null |
+    sort |
+    tail -n 1
+}
+
+atlas_release_latest_slsa_reference() {
+  local packet_dir="$LAB_DOCS_DIR/retention/releases"
+
+  [ -d "$packet_dir" ] || return 0
+  find "$packet_dir" -maxdepth 1 -type f -name '*.slsa.json' 2>/dev/null |
     sort |
     tail -n 1
 }
@@ -625,6 +634,49 @@ atlas_release_full_commit() {
 
   [ -n "$commit" ] || return 1
   git -C "$LAB_ROOT" rev-parse "$commit^{commit}" 2>/dev/null || return 1
+}
+
+atlas_release_slsa_reference_valid() {
+  local slsa_file="$1"
+  local expected_commit="$2"
+  local source_commit
+  local artifact_sha
+  local subject_digest
+  local workflow_path
+
+  [ -n "$slsa_file" ] || return 1
+  [ -f "$slsa_file" ] || return 1
+  [ -n "$expected_commit" ] || return 1
+
+  jq -e '
+    .schema_version == "atlas.slsa_provenance.v1" and
+    .metadata_only == true and
+    .no_certification_overclaim == true and
+    ((.artifact.path // "") | type == "string" and length > 0) and
+    ((.artifact.sha256 // "") | test("^[a-f0-9]{64}$")) and
+    ((.source.repository // "") | type == "string" and length > 0) and
+    ((.source.commit // "") | type == "string" and length > 0) and
+    ((.source.ref // "") | type == "string" and length > 0) and
+    ((.workflow.name // "") | type == "string" and length > 0) and
+    ((.workflow.path // "") | type == "string" and length > 0) and
+    ((.workflow.run_id // "") | tostring | length > 0) and
+    ((.workflow.run_url // "") | type == "string" and startswith("https://github.com/")) and
+    ((.attestation.subject_digest // "") | type == "string" and length > 0) and
+    ((.attestation.verification_command // "") | type == "string" and contains("gh attestation verify")) and
+    .attestation.verification_status == "verified" and
+    (((.known_limitations // []) | type) == "array" and ((.known_limitations // []) | length > 0))
+  ' "$slsa_file" >/dev/null 2>&1 || return 1
+
+  source_commit="$(jq -r '.source.commit // ""' "$slsa_file")"
+  atlas_release_commit_matches "$source_commit" "$expected_commit" || return 1
+
+  artifact_sha="$(jq -r '.artifact.sha256 // ""' "$slsa_file")"
+  subject_digest="$(jq -r '.attestation.subject_digest // ""' "$slsa_file")"
+  subject_digest="${subject_digest#sha256:}"
+  [ "$artifact_sha" = "$subject_digest" ] || return 1
+
+  workflow_path="$(jq -r '.workflow.path // ""' "$slsa_file")"
+  atlas_release_resolve_repo_file "$workflow_path" >/dev/null 2>&1 || return 1
 }
 
 atlas_release_manifest_verify_failures=0
@@ -739,11 +791,28 @@ atlas_release_manifest_write() {
   local dry_run_note="$5"
   local milestone_note="$6"
   local tag_name="$7"
+  local slsa_file="${8:-}"
   local generated
   local packet_rel
   local provenance_rel
   local dry_run_rel
   local milestone_rel=""
+  local slsa_present=0
+  local slsa_rel=""
+  local slsa_sha=""
+  local slsa_artifact_path=""
+  local slsa_artifact_sha=""
+  local slsa_source_repository=""
+  local slsa_source_commit=""
+  local slsa_source_ref=""
+  local slsa_workflow_name=""
+  local slsa_workflow_path=""
+  local slsa_workflow_run_id=""
+  local slsa_workflow_run_url=""
+  local slsa_attestation_subject_digest=""
+  local slsa_attestation_url=""
+  local slsa_attestation_rekor_log_url=""
+  local slsa_attestation_verification_command=""
   local public_key_path
   local public_key_file
   local public_key_rel
@@ -804,6 +873,27 @@ atlas_release_manifest_write() {
   atlas_production_verify_signed_tag "$tag_name" "$public_key_file" ||
     fail "release manifest requires signed tag verification with retained public key: $tag_name"
 
+  if [ -n "$slsa_file" ]; then
+    atlas_release_slsa_reference_valid "$slsa_file" "$release_commit_full" ||
+      fail "release manifest requires a verified SLSA provenance reference matching release commit: $(atlas_release_display_path "$slsa_file")"
+    slsa_present=1
+    slsa_rel="$(atlas_release_display_path "$slsa_file")"
+    slsa_sha="$(atlas_release_file_sha256 "$slsa_file")"
+    slsa_artifact_path="$(jq -r '.artifact.path // ""' "$slsa_file")"
+    slsa_artifact_sha="$(jq -r '.artifact.sha256 // ""' "$slsa_file")"
+    slsa_source_repository="$(jq -r '.source.repository // ""' "$slsa_file")"
+    slsa_source_commit="$(jq -r '.source.commit // ""' "$slsa_file")"
+    slsa_source_ref="$(jq -r '.source.ref // ""' "$slsa_file")"
+    slsa_workflow_name="$(jq -r '.workflow.name // ""' "$slsa_file")"
+    slsa_workflow_path="$(jq -r '.workflow.path // ""' "$slsa_file")"
+    slsa_workflow_run_id="$(jq -r '.workflow.run_id // ""' "$slsa_file")"
+    slsa_workflow_run_url="$(jq -r '.workflow.run_url // ""' "$slsa_file")"
+    slsa_attestation_subject_digest="$(jq -r '.attestation.subject_digest // ""' "$slsa_file")"
+    slsa_attestation_url="$(jq -r '.attestation.url // ""' "$slsa_file")"
+    slsa_attestation_rekor_log_url="$(jq -r '.attestation.rekor_log_url // ""' "$slsa_file")"
+    slsa_attestation_verification_command="$(jq -r '.attestation.verification_command // ""' "$slsa_file")"
+  fi
+
   jq -n \
     --arg schema_version "atlas.release_artifact_manifest.v1" \
     --arg generated "$generated" \
@@ -825,7 +915,23 @@ atlas_release_manifest_write() {
     --arg public_key_sha "$public_key_sha" \
     --arg tag_name "$tag_name" \
     --arg tag_target "$tag_target" \
-    --arg tag_object "$tag_object" '
+    --arg tag_object "$tag_object" \
+    --arg slsa_present "$slsa_present" \
+    --arg slsa_path "$slsa_rel" \
+    --arg slsa_sha "$slsa_sha" \
+    --arg slsa_artifact_path "$slsa_artifact_path" \
+    --arg slsa_artifact_sha "$slsa_artifact_sha" \
+    --arg slsa_source_repository "$slsa_source_repository" \
+    --arg slsa_source_commit "$slsa_source_commit" \
+    --arg slsa_source_ref "$slsa_source_ref" \
+    --arg slsa_workflow_name "$slsa_workflow_name" \
+    --arg slsa_workflow_path "$slsa_workflow_path" \
+    --arg slsa_workflow_run_id "$slsa_workflow_run_id" \
+    --arg slsa_workflow_run_url "$slsa_workflow_run_url" \
+    --arg slsa_attestation_subject_digest "$slsa_attestation_subject_digest" \
+    --arg slsa_attestation_url "$slsa_attestation_url" \
+    --arg slsa_attestation_rekor_log_url "$slsa_attestation_rekor_log_url" \
+    --arg slsa_attestation_verification_command "$slsa_attestation_verification_command" '
       {
         schema_version: $schema_version,
         generated: $generated,
@@ -867,6 +973,39 @@ atlas_release_manifest_write() {
           sha256: $public_key_sha,
           verified: true
         },
+        slsa_provenance: (
+          if $slsa_present == "1" then {
+            path: $slsa_path,
+            sha256: $slsa_sha,
+            schema_version: "atlas.slsa_provenance.v1",
+            verified: true,
+            artifact: {
+              path: $slsa_artifact_path,
+              sha256: $slsa_artifact_sha
+            },
+            source: {
+              repository: $slsa_source_repository,
+              commit: $slsa_source_commit,
+              ref: $slsa_source_ref
+            },
+            workflow: {
+              name: $slsa_workflow_name,
+              path: $slsa_workflow_path,
+              run_id: $slsa_workflow_run_id,
+              run_url: $slsa_workflow_run_url
+            },
+            attestation: {
+              subject_digest: $slsa_attestation_subject_digest,
+              url: $slsa_attestation_url,
+              rekor_log_url: $slsa_attestation_rekor_log_url,
+              verification_command: $slsa_attestation_verification_command,
+              verification_status: "verified"
+            },
+            no_certification_overclaim: true
+          }
+          else null
+          end
+        ),
         milestone_note: (
           if $milestone_path == "" then null
           else {
@@ -883,7 +1022,8 @@ atlas_release_manifest_write() {
             {kind: "production_dry_run", path: $dry_run_path, sha256: $dry_run_sha, required: true},
             {kind: "signing_public_key", path: $public_key_path, sha256: $public_key_sha, required: true}
           ] +
-          (if $milestone_path == "" then [] else [{kind: "milestone_note", path: $milestone_path, sha256: $milestone_sha, required: false}] end)
+          (if $milestone_path == "" then [] else [{kind: "milestone_note", path: $milestone_path, sha256: $milestone_sha, required: false}] end) +
+          (if $slsa_present == "1" then [{kind: "slsa_provenance", path: $slsa_path, sha256: $slsa_sha, required: false}] else [] end)
         ),
         metadata_boundary: {
           stores: ["paths", "sha256 hashes", "commit ids", "tag ids", "verification states", "known limitations"],
@@ -892,10 +1032,12 @@ atlas_release_manifest_write() {
         contract: {
           schema_document: "docs/schemas/release-artifact-manifest.v1.md",
           guidance_document: "docs/atlas/RELEASE_ARTIFACT_MANIFEST.md",
+          slsa_schema_document: "docs/schemas/slsa-provenance.v1.md",
           known_limitations_reference: "known_limitations"
         },
         known_limitations: [
           "Release artifact manifests are metadata-only local release indexes, not external audit attestations.",
+          "SLSA provenance references record verification metadata only and do not claim external SLSA certification.",
           "Artifact files are hash-bound by this manifest but are not individually signed.",
           "Signed tag verification depends on the retained public key and local Git object availability.",
           "This manifest does not claim deployment certification, enterprise certification, or legal compliance."
@@ -1028,6 +1170,7 @@ atlas_release_manifest_verify_contract_refs() {
   local manifest_file="$1"
   local schema_doc
   local guidance_doc
+  local slsa_schema_doc
   local known_ref
 
   schema_doc="$(jq -r '.contract.schema_document // ""' "$manifest_file")"
@@ -1044,11 +1187,74 @@ atlas_release_manifest_verify_contract_refs() {
     atlas_release_manifest_verify_row "Manifest Contract Reference" "fail" "missing path=${guidance_doc:-missing}"
   fi
 
+  slsa_schema_doc="$(jq -r '.contract.slsa_schema_document // ""' "$manifest_file")"
+  if [ -n "$slsa_schema_doc" ]; then
+    if atlas_release_resolve_repo_file "$slsa_schema_doc" >/dev/null 2>&1; then
+      atlas_release_manifest_verify_row "SLSA Schema Reference" "ok" "$slsa_schema_doc"
+    else
+      atlas_release_manifest_verify_row "SLSA Schema Reference" "fail" "missing path=$slsa_schema_doc"
+    fi
+  fi
+
   known_ref="$(jq -r '.contract.known_limitations_reference // ""' "$manifest_file")"
   if [ "$known_ref" = "known_limitations" ] && jq -e '((.known_limitations // []) | length > 0)' "$manifest_file" >/dev/null 2>&1; then
     atlas_release_manifest_verify_row "Known Limitations Reference" "ok" "$known_ref"
   else
     atlas_release_manifest_verify_row "Known Limitations Reference" "fail" "missing reference=${known_ref:-missing}"
+  fi
+}
+
+atlas_release_manifest_verify_slsa_reference() {
+  local manifest_file="$1"
+  local expected_commit="$2"
+  local slsa_path
+  local slsa_sha
+  local slsa_file
+  local actual_sha
+
+  if ! jq -e '.slsa_provenance != null' "$manifest_file" >/dev/null 2>&1; then
+    atlas_release_manifest_verify_row "SLSA Provenance" "ok" "not-recorded optional"
+    return 0
+  fi
+
+  slsa_path="$(jq -r '.slsa_provenance.path // ""' "$manifest_file")"
+  slsa_sha="$(jq -r '.slsa_provenance.sha256 // ""' "$manifest_file")"
+  slsa_file="$(atlas_release_resolve_repo_file "$slsa_path" 2>/dev/null || true)"
+  if [ -z "$slsa_file" ]; then
+    atlas_release_manifest_verify_row "SLSA Provenance" "fail" "missing path=${slsa_path:-missing}"
+    return 0
+  fi
+
+  actual_sha="$(atlas_release_file_sha256 "$slsa_file")"
+  if [ "$actual_sha" != "$slsa_sha" ]; then
+    atlas_release_manifest_verify_row "SLSA Provenance" "fail" "expected_sha=$slsa_sha actual_sha=$actual_sha path=$slsa_path"
+    return 0
+  fi
+
+  if jq -e --arg path "$slsa_path" --arg sha "$slsa_sha" '
+      .slsa_provenance.schema_version == "atlas.slsa_provenance.v1" and
+      .slsa_provenance.verified == true and
+      .slsa_provenance.no_certification_overclaim == true and
+      .slsa_provenance.attestation.verification_status == "verified" and
+      ([.artifacts[]? | select(.kind == "slsa_provenance" and .required == false and .path == $path and .sha256 == $sha)] | length == 1)
+    ' "$manifest_file" >/dev/null 2>&1 &&
+    jq -e --slurpfile slsa "$slsa_file" '
+      ($slsa[0]) as $reference |
+      .slsa_provenance.schema_version == $reference.schema_version and
+      .slsa_provenance.no_certification_overclaim == $reference.no_certification_overclaim and
+      .slsa_provenance.artifact == $reference.artifact and
+      .slsa_provenance.source == $reference.source and
+      .slsa_provenance.workflow == $reference.workflow and
+      .slsa_provenance.attestation.subject_digest == $reference.attestation.subject_digest and
+      .slsa_provenance.attestation.url == ($reference.attestation.url // "") and
+      .slsa_provenance.attestation.rekor_log_url == ($reference.attestation.rekor_log_url // "") and
+      .slsa_provenance.attestation.verification_command == $reference.attestation.verification_command and
+      .slsa_provenance.attestation.verification_status == $reference.attestation.verification_status
+    ' "$manifest_file" >/dev/null 2>&1 &&
+    atlas_release_slsa_reference_valid "$slsa_file" "$expected_commit"; then
+    atlas_release_manifest_verify_row "SLSA Provenance" "ok" "verified path=$slsa_path"
+  else
+    atlas_release_manifest_verify_row "SLSA Provenance" "fail" "verification failed path=$slsa_path"
   fi
 }
 
@@ -1156,6 +1362,7 @@ atlas_release_manifest_verify_packet() {
   atlas_release_manifest_verify_path_field "$manifest_file" "Signing Public Key Path" '.signing_public_key.path // ""'
   atlas_release_manifest_verify_contract_refs "$manifest_file"
   atlas_release_manifest_verify_artifact_hashes "$manifest_file"
+  atlas_release_manifest_verify_slsa_reference "$manifest_file" "$expected_commit"
 
   packet_path="$(jq -r '.release_packet.path // ""' "$manifest_file")"
   packet_file="$(atlas_release_resolve_repo_file "$packet_path" 2>/dev/null || true)"
@@ -1733,6 +1940,7 @@ cmd_release_manifest() {
   local provenance_arg=""
   local dry_run_arg=""
   local milestone_arg=""
+  local slsa_arg=""
   local tag_name=""
   local allow_dirty=0
   local allow_unsynced=0
@@ -1743,33 +1951,39 @@ cmd_release_manifest() {
   local provenance_file
   local dry_run_note
   local milestone_note=""
+  local slsa_file=""
   local clean_state
   local sync_state
 
   while [ "$#" -gt 0 ]; do
     case "$1" in
     --packet)
-      [ "$#" -ge 2 ] || fail "release manifest [manifest-name] [--packet packet] [--provenance provenance] [--dry-run note] [--milestone-note note] [--tag tag]"
+      [ "$#" -ge 2 ] || fail "release manifest [manifest-name] [--packet packet] [--provenance provenance] [--dry-run note] [--milestone-note note] [--slsa slsa-reference] [--tag tag]"
       packet_arg="$2"
       shift 2
       ;;
     --provenance)
-      [ "$#" -ge 2 ] || fail "release manifest [manifest-name] [--packet packet] [--provenance provenance] [--dry-run note] [--milestone-note note] [--tag tag]"
+      [ "$#" -ge 2 ] || fail "release manifest [manifest-name] [--packet packet] [--provenance provenance] [--dry-run note] [--milestone-note note] [--slsa slsa-reference] [--tag tag]"
       provenance_arg="$2"
       shift 2
       ;;
     --dry-run)
-      [ "$#" -ge 2 ] || fail "release manifest [manifest-name] [--packet packet] [--provenance provenance] [--dry-run note] [--milestone-note note] [--tag tag]"
+      [ "$#" -ge 2 ] || fail "release manifest [manifest-name] [--packet packet] [--provenance provenance] [--dry-run note] [--milestone-note note] [--slsa slsa-reference] [--tag tag]"
       dry_run_arg="$2"
       shift 2
       ;;
     --milestone-note)
-      [ "$#" -ge 2 ] || fail "release manifest [manifest-name] [--packet packet] [--provenance provenance] [--dry-run note] [--milestone-note note] [--tag tag]"
+      [ "$#" -ge 2 ] || fail "release manifest [manifest-name] [--packet packet] [--provenance provenance] [--dry-run note] [--milestone-note note] [--slsa slsa-reference] [--tag tag]"
       milestone_arg="$2"
       shift 2
       ;;
+    --slsa)
+      [ "$#" -ge 2 ] || fail "release manifest [manifest-name] [--packet packet] [--provenance provenance] [--dry-run note] [--milestone-note note] [--slsa slsa-reference] [--tag tag]"
+      slsa_arg="$2"
+      shift 2
+      ;;
     --tag)
-      [ "$#" -ge 2 ] || fail "release manifest [manifest-name] [--packet packet] [--provenance provenance] [--dry-run note] [--milestone-note note] [--tag tag]"
+      [ "$#" -ge 2 ] || fail "release manifest [manifest-name] [--packet packet] [--provenance provenance] [--dry-run note] [--milestone-note note] [--slsa slsa-reference] [--tag tag]"
       tag_name="$2"
       shift 2
       ;;
@@ -1786,7 +2000,7 @@ cmd_release_manifest() {
       ;;
     *)
       if [ -n "$manifest_name" ]; then
-        fail "release manifest [manifest-name] [--packet packet] [--provenance provenance] [--dry-run note] [--milestone-note note] [--tag tag]"
+        fail "release manifest [manifest-name] [--packet packet] [--provenance provenance] [--dry-run note] [--milestone-note note] [--slsa slsa-reference] [--tag tag]"
       fi
       manifest_name="$1"
       shift
@@ -1825,10 +2039,13 @@ cmd_release_manifest() {
   else
     milestone_note="$(atlas_release_latest_milestone_note)"
   fi
+  if [ -n "$slsa_arg" ]; then
+    slsa_file="$(atlas_release_resolve_repo_file "$slsa_arg")" || fail "unknown SLSA provenance reference: $slsa_arg"
+  fi
 
   mkdir -p "$manifest_dir"
   manifest_file="$manifest_dir/$manifest_slug.manifest.json"
-  atlas_release_manifest_write "$manifest_file" "$manifest_name" "$packet_file" "$provenance_file" "$dry_run_note" "$milestone_note" "$tag_name"
+  atlas_release_manifest_write "$manifest_file" "$manifest_name" "$packet_file" "$provenance_file" "$dry_run_note" "$milestone_note" "$tag_name" "$slsa_file"
   chmod 600 "$manifest_file" 2>/dev/null || true
 
   ui_ok "release artifact manifest written"

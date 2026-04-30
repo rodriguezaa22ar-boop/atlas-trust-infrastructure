@@ -4,8 +4,9 @@
 
 The release artifact manifest is the metadata-only index for retained Atlas
 release evidence. It binds the release packet, signed provenance packet,
-retained signing public key, production dry-run note, signed tag metadata, and
-optional milestone note into one verifiable local release artifact set.
+retained signing public key, production dry-run note, signed tag metadata,
+optional milestone note, and optional verified SLSA provenance reference into
+one verifiable local release artifact set.
 
 The manifest supports Atlas' trust-infrastructure direction: retained release
 claims should be replayable, hash-bound, and inspectable without embedding
@@ -43,6 +44,7 @@ Every manifest must include exactly one required artifact entry for each class:
 The optional artifact class is:
 
 - `milestone_note`
+- `slsa_provenance`
 
 Each artifact entry must include:
 
@@ -68,6 +70,8 @@ Required manifest fields include:
 - provenance packet path, SHA-256, and verification state
 - production dry-run note path, SHA-256, and verification state
 - retained signing public key path, SHA-256, and verification state
+- optional SLSA provenance reference path, SHA-256, verification state,
+  artifact digest, workflow identity, attestation URL, and verification command
 - artifact list
 - schema document reference
 - manifest guidance document reference
@@ -93,6 +97,7 @@ Required manifest fields include:
 - schema and guidance document references
 - known limitations reference
 - retained artifact SHA-256 hashes
+- optional SLSA provenance reference validation
 - release packet verification
 - signed provenance verification
 - production dry-run note contract
@@ -121,6 +126,21 @@ The manifest must not embed:
 
 The manifest may mention these classes only as excluded content in the metadata
 boundary or known limitations.
+
+## Relationship To SLSA Provenance
+
+`atlas release manifest --slsa <reference>` records a retained
+`atlas.slsa_provenance.v1` reference inside the release artifact manifest.
+
+The SLSA block is optional. When present, `atlas release manifest-verify` checks
+that the reference file exists, its SHA-256 matches the manifest, it uses the
+expected schema, it reports `verification_status: verified`, its subject digest
+matches the artifact SHA-256, its source commit matches the manifest release
+commit, and the manifest contains a matching optional `slsa_provenance` artifact
+entry.
+
+This records verified GitHub/Sigstore provenance metadata. It does not make
+Atlas externally SLSA-certified.
 
 ## Relationship To Release Packet
 
