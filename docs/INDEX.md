@@ -44,6 +44,8 @@ repository in filesystem order.
 
 ## Release trust
 
+- [case-studies/CASE_STUDY_RELEASE_TRUST.md](case-studies/CASE_STUDY_RELEASE_TRUST.md):
+  public case study for release trust as a metadata-first proof layer.
 - [RELEASE_TRUST.md](RELEASE_TRUST.md): release packet, verify, replay,
   signing, and provenance.
 - [atlas/RELEASE_ARTIFACT_MANIFEST.md](atlas/RELEASE_ARTIFACT_MANIFEST.md):
