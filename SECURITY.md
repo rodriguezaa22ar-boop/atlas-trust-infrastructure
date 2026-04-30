@@ -45,6 +45,12 @@ Security reports should preserve the project boundary: metadata-only evidence,
 scope enforcement, operator control, approval gates where required, append-only
 ledger semantics, and verifiable retention.
 
+## Automated Code Scanning
+
+CodeQL runs as an automated code scanning signal for tracked public source. It
+does not replace manual review, external audit, runtime testing, or Atlas'
+retained trust-packet verification.
+
 ## Supported Surface
 
 The public repository supports reports against tracked source, tests,

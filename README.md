@@ -83,6 +83,10 @@ does not claim external audit, enterprise certification, SLSA certification,
 deployment certification, immutable storage, or tamper-proof infrastructure. It
 means the local Atlas gates pass against retained evidence.
 
+CodeQL is used as an automated code scanning signal for tracked public source.
+It does not replace manual review, external audit, runtime testing, or Atlas'
+own retained trust-packet verification.
+
 ## Top 10 Commands
 
 ```bash

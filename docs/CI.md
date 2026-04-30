@@ -23,6 +23,12 @@ The official SLSA generic-generator workflow lives at:
 .github/workflows/release-slsa-generic.yml
 ```
 
+The CodeQL code scanning workflow lives at:
+
+```text
+.github/workflows/codeql.yml
+```
+
 ## Current CI Checks
 
 The workflow runs on pushes to `main`, pull requests targeting `main`, and
@@ -37,6 +43,8 @@ It checks:
 - repository whitespace with `git diff --check`
 - the full local QA gate with `nix-shell --run './bin/dev-qa'`
 - Atlas internal readiness with `nix-shell --run './tools/atlas/bin/atlas v1 status --strict'`
+- CodeQL scanning for tracked GitHub Actions workflow YAML and
+  JavaScript/TypeScript-compatible public source
 
 `./bin/dev-qa` includes:
 
@@ -68,6 +76,14 @@ release-promotion contract even when retained release evidence reports
 
 The CI gate also does not run live target assessments, external web tests, or
 router/device tests.
+
+CodeQL is used as an automated code scanning signal for tracked public source.
+The workflow is scoped to `rodriguezaa22ar-boop/atlas-trust-infrastructure`
+so private mirrors can skip it cleanly if repository code scanning is not
+enabled there. It does not replace manual review, external audit, runtime
+testing, or Atlas' own retained trust-packet verification. Shell-heavy Atlas
+runtime behavior still depends on the local QA gate, shell linting, Bats
+coverage, review, and retained packet verification.
 
 ## SLSA Release Artifact Workflow
 

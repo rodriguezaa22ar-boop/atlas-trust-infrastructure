@@ -2215,14 +2215,20 @@ EOF
 
 @test "ci workflow mirrors local Atlas QA gate" {
   workflow="$TEST_ROOT/toolkit/.github/workflows/qa.yml"
+  codeql_workflow="$TEST_ROOT/toolkit/.github/workflows/codeql.yml"
   slsa_workflow="$TEST_ROOT/toolkit/.github/workflows/release-slsa.yml"
   ci_doc="$TEST_ROOT/toolkit/docs/CI.md"
   slsa_doc="$TEST_ROOT/toolkit/docs/atlas/SLSA_PROVENANCE.md"
+  readme="$TEST_ROOT/toolkit/README.md"
+  security_policy="$TEST_ROOT/toolkit/SECURITY.md"
 
   [ -f "$workflow" ]
+  [ -f "$codeql_workflow" ]
   [ -f "$slsa_workflow" ]
   [ -f "$ci_doc" ]
   [ -f "$slsa_doc" ]
+  [ -f "$readme" ]
+  [ -f "$security_policy" ]
 
   grep -q '^name: QA$' "$workflow"
   grep -q 'pull_request:' "$workflow"
@@ -2244,6 +2250,35 @@ EOF
   grep -q 'does not claim production readiness' "$ci_doc"
   grep -q 'does not run live target assessments' "$ci_doc"
   grep -q 'replay verification from a clean checkout' "$ci_doc"
+
+  grep -q '^name: CodeQL$' "$codeql_workflow"
+  grep -q 'pull_request:' "$codeql_workflow"
+  grep -q 'schedule:' "$codeql_workflow"
+  grep -q 'workflow_dispatch:' "$codeql_workflow"
+  grep -q 'security-events: write' "$codeql_workflow"
+  grep -q 'actions/checkout@v6' "$codeql_workflow"
+  grep -q 'github/codeql-action/init@v4' "$codeql_workflow"
+  grep -q 'github/codeql-action/analyze@v4' "$codeql_workflow"
+  grep -q "github.repository == 'rodriguezaa22ar-boop/atlas-trust-infrastructure'" "$codeql_workflow"
+  grep -q 'language: actions' "$codeql_workflow"
+  grep -q 'language: javascript-typescript' "$codeql_workflow"
+  grep -q 'build-mode: none' "$codeql_workflow"
+  grep -q 'security-extended,security-and-quality' "$codeql_workflow"
+  grep -q 'category: "/language:${{ matrix.language }}"' "$codeql_workflow"
+
+  grep -q '.github/workflows/codeql.yml' "$ci_doc"
+  grep -q 'CodeQL scanning for tracked GitHub Actions workflow YAML' "$ci_doc"
+  grep -q 'JavaScript/TypeScript-compatible public source' "$ci_doc"
+  grep -q 'automated code scanning signal for tracked public source' "$ci_doc"
+  grep -q 'private mirrors can skip it cleanly' "$ci_doc"
+  grep -q 'does not replace manual review, external audit, runtime' "$ci_doc"
+  grep -q 'Shell-heavy Atlas' "$ci_doc"
+  grep -q 'runtime behavior still depends on the local QA gate' "$ci_doc"
+  grep -q 'automated code scanning signal for tracked public source' "$readme"
+  grep -q "does not replace manual review, external audit, runtime testing, or Atlas'" "$readme"
+  grep -q '^## Automated Code Scanning$' "$security_policy"
+  grep -q 'automated code scanning signal for tracked public source' "$security_policy"
+  grep -q "does not replace manual review, external audit, runtime testing, or Atlas'" "$security_policy"
 
   grep -q '^name: Release SLSA Provenance$' "$slsa_workflow"
   grep -q 'workflow_dispatch:' "$slsa_workflow"
