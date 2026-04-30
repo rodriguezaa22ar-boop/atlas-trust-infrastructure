@@ -1,0 +1,41 @@
+{
+  "schema_version": "atlas.slsa_provenance.v1",
+  "metadata_only": true,
+  "artifact": {
+    "path": "dist/atlas-trust-infrastructure-atlas-v0.4.0-rc1-59667bf87587.tar.gz",
+    "sha256": "a6fad42ced88648e49b8cbb9fcfe90533e2e389145277482f1000449108d0805"
+  },
+  "source": {
+    "repository": "rodriguezaa22ar-boop/atlas-trust-infrastructure",
+    "commit": "59667bf875871c1e27dbd72de20c983ac262b43b",
+    "ref": "refs/tags/atlas-v0.4.0-rc1"
+  },
+  "workflow": {
+    "name": "Release SLSA Provenance",
+    "path": ".github/workflows/release-slsa.yml",
+    "run_id": "25153272091",
+    "run_url": "https://github.com/rodriguezaa22ar-boop/atlas-trust-infrastructure/actions/runs/25153272091"
+  },
+  "attestation": {
+    "subject_digest": "sha256:a6fad42ced88648e49b8cbb9fcfe90533e2e389145277482f1000449108d0805",
+    "url": "https://github.com/rodriguezaa22ar-boop/atlas-trust-infrastructure/attestations/26040322",
+    "rekor_log_url": "",
+    "verification_command": "gh attestation verify dist/atlas-trust-infrastructure-atlas-v0.4.0-rc1-59667bf87587.tar.gz --repo rodriguezaa22ar-boop/atlas-trust-infrastructure",
+    "verification_status": "verified"
+  },
+  "official_slsa_generic": {
+    "workflow_path": ".github/workflows/release-slsa-generic.yml",
+    "workflow_run_url": "https://github.com/rodriguezaa22ar-boop/atlas-trust-infrastructure/actions/runs/25153272179",
+    "provenance_asset": "atlas-trust-infrastructure-atlas-v0.4.0-rc1-59667bf87587.intoto.jsonl",
+    "provenance_sha256": "54e0f5f070192c2716d6923868fd43b2eeab64e588caad6ec11342fdb3d046e5",
+    "verification_command": "slsa-verifier verify-artifact atlas-trust-infrastructure-atlas-v0.4.0-rc1-59667bf87587.tar.gz --provenance-path atlas-trust-infrastructure-atlas-v0.4.0-rc1-59667bf87587.intoto.jsonl --source-uri github.com/rodriguezaa22ar-boop/atlas-trust-infrastructure --source-tag atlas-v0.4.0-rc1",
+    "verification_status": "verified",
+    "builder_id": "https://github.com/slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@refs/tags/v2.1.0"
+  },
+  "known_limitations": [
+    "This is a metadata-only SLSA reference for the atlas-v0.4.0-rc1 release candidate.",
+    "This records GitHub/Sigstore attestation metadata and official generic-generator provenance metadata, not external SLSA certification.",
+    "Independent third-party review is not yet complete."
+  ],
+  "no_certification_overclaim": true
+}

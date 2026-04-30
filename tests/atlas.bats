@@ -2336,6 +2336,37 @@ EOF
   grep -q 'slsa-framework/slsa-github-generator' "$ci_doc"
 }
 
+@test "retained release candidate SLSA reference records real artifact evidence" {
+  slsa_ref="$TEST_ROOT/toolkit/docs/retention/releases/atlas-v0.4.0-rc1.slsa.json"
+  slsa_doc="$TEST_ROOT/toolkit/docs/atlas/SLSA_PROVENANCE.md"
+  evidence_packet="$TEST_ROOT/toolkit/docs/retention/releases/atlas-m101-slsa-claim-evidence.md"
+
+  [ -f "$slsa_ref" ]
+  jq -e '
+    .schema_version == "atlas.slsa_provenance.v1" and
+    .metadata_only == true and
+    .artifact.path == "dist/atlas-trust-infrastructure-atlas-v0.4.0-rc1-59667bf87587.tar.gz" and
+    .artifact.sha256 == "a6fad42ced88648e49b8cbb9fcfe90533e2e389145277482f1000449108d0805" and
+    .source.commit == "59667bf875871c1e27dbd72de20c983ac262b43b" and
+    .source.ref == "refs/tags/atlas-v0.4.0-rc1" and
+    .workflow.run_url == "https://github.com/rodriguezaa22ar-boop/atlas-trust-infrastructure/actions/runs/25153272091" and
+    .attestation.url == "https://github.com/rodriguezaa22ar-boop/atlas-trust-infrastructure/attestations/26040322" and
+    .attestation.verification_status == "verified" and
+    .official_slsa_generic.workflow_run_url == "https://github.com/rodriguezaa22ar-boop/atlas-trust-infrastructure/actions/runs/25153272179" and
+    .official_slsa_generic.provenance_sha256 == "54e0f5f070192c2716d6923868fd43b2eeab64e588caad6ec11342fdb3d046e5" and
+    .official_slsa_generic.verification_status == "verified" and
+    (.known_limitations | length) > 0 and
+    .no_certification_overclaim == true
+  ' "$slsa_ref" >/dev/null
+
+  grep -q 'atlas-v0.4.0-rc1' "$slsa_doc"
+  grep -q 'a6fad42ced88648e49b8cbb9fcfe90533e2e389145277482f1000449108d0805' "$slsa_doc"
+  grep -q '26040322' "$slsa_doc"
+  grep -q 'slsa-verifier verify-artifact` passed' "$slsa_doc"
+  grep -q 'atlas-v0.4.0-rc1' "$evidence_packet"
+  grep -q 'Authenticate GitHub CLI' "$evidence_packet"
+}
+
 @test "atlas help groups target-first workflow and story commands" {
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" help
 

@@ -17,9 +17,10 @@ means ready-to-refine, not production-certified.
   `--online`, it can run `gh attestation verify`, but Atlas still does not
   download artifacts automatically.
 - Atlas is not externally SLSA-certified.
-- Atlas has an Official SLSA Generic Provenance workflow prepared, but a real
-  release-candidate artifact still needs to be published, verified, retained,
-  and independently reviewed before Atlas claims third-party review.
+- Atlas has an Official SLSA Generic Provenance workflow and a retained
+  `atlas-v0.4.0-rc1` release-candidate SLSA reference. Authenticated
+  `gh attestation verify` still needs to be run from a logged-in reviewer
+  workstation, and independent review is not complete.
 - Production dry-run evidence is retained locally; it is not an independent
   external validation.
 - Replay verification is local-first and repository-backed.

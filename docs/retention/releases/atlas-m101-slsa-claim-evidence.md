@@ -33,6 +33,19 @@ Atlas has a release-artifact path prepared for SLSA-verifiable evidence:
 - Milestone 101 adds official generic-generator workflow alignment, local
   artifact digest checks, online `gh attestation verify` execution support, and
   independent-review readiness documentation.
+- Release candidate `atlas-v0.4.0-rc1` was published from commit
+  `59667bf875871c1e27dbd72de20c983ac262b43b`.
+- `Release SLSA Provenance` succeeded:
+  `https://github.com/rodriguezaa22ar-boop/atlas-trust-infrastructure/actions/runs/25153272091`.
+- `Official SLSA Generic Provenance` succeeded:
+  `https://github.com/rodriguezaa22ar-boop/atlas-trust-infrastructure/actions/runs/25153272179`.
+- The retained release-candidate SLSA reference is
+  `docs/retention/releases/atlas-v0.4.0-rc1.slsa.json`.
+- The downloaded release artifact SHA-256 was verified as
+  `a6fad42ced88648e49b8cbb9fcfe90533e2e389145277482f1000449108d0805`.
+- `slsa-verifier verify-artifact` passed against the downloaded `.intoto.jsonl`
+  provenance and identified the builder as
+  `slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@refs/tags/v2.1.0`.
 
 ## Verification Commands
 
@@ -57,7 +70,7 @@ This packet does not claim:
 
 ## Remaining External Step
 
-Publish a real release candidate tag, retain the downloaded artifact and
-provenance references, run online verification, and provide the reviewer packet
-defined in `docs/atlas/INDEPENDENT_REVIEW_READINESS.md` to an independent
-reviewer.
+Authenticate GitHub CLI on a reviewer workstation, run
+`atlas release slsa-verify --artifact --online`, and provide the reviewer
+packet defined in `docs/atlas/INDEPENDENT_REVIEW_READINESS.md` to an
+independent reviewer.

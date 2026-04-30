@@ -147,6 +147,36 @@ Retained SLSA references can be checked locally with:
 atlas release slsa-verify <reference>.slsa.json --commit <sha>
 ```
 
+## Retained Release Candidate
+
+Release candidate `atlas-v0.4.0-rc1` records the first retained
+release-candidate SLSA reference:
+
+```text
+docs/retention/releases/atlas-v0.4.0-rc1.slsa.json
+```
+
+Evidence:
+
+- Commit: `59667bf875871c1e27dbd72de20c983ac262b43b`
+- Artifact:
+  `atlas-trust-infrastructure-atlas-v0.4.0-rc1-59667bf87587.tar.gz`
+- Artifact SHA-256:
+  `a6fad42ced88648e49b8cbb9fcfe90533e2e389145277482f1000449108d0805`
+- GitHub Artifact Attestation:
+  `https://github.com/rodriguezaa22ar-boop/atlas-trust-infrastructure/attestations/26040322`
+- GitHub attestation workflow:
+  `https://github.com/rodriguezaa22ar-boop/atlas-trust-infrastructure/actions/runs/25153272091`
+- Official generic-generator workflow:
+  `https://github.com/rodriguezaa22ar-boop/atlas-trust-infrastructure/actions/runs/25153272179`
+- Official generic-generator provenance SHA-256:
+  `54e0f5f070192c2716d6923868fd43b2eeab64e588caad6ec11342fdb3d046e5`
+
+`slsa-verifier verify-artifact` passed for the downloaded release artifact and
+`.intoto.jsonl` provenance. The GitHub CLI online verification path is
+implemented, but `gh attestation verify` requires an authenticated GitHub CLI
+session on the verifying workstation.
+
 This command verifies the metadata-only reference contract, recorded
 `gh attestation verify` status, source commit, artifact digest, workflow path,
 GitHub run URL, known limitations, and no-certification-overclaim flag. It does

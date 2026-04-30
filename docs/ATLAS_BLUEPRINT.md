@@ -649,6 +649,14 @@ The near-term roadmap is:
      hash checks and optional `gh attestation verify`, and retains bounded
      SLSA claim, evidence, and independent-review readiness documents. This is
      a SLSA-verifiable release path, not a completed external certification.
+102. Retain release-candidate SLSA evidence. Atlas published
+     `atlas-v0.4.0-rc1`, verified both release workflows succeeded, downloaded
+     the source artifact and official `.intoto.jsonl` provenance, retained
+     `docs/retention/releases/atlas-v0.4.0-rc1.slsa.json`, verified the local
+     artifact digest with `atlas release slsa-verify --artifact`, and verified
+     official generic-generator provenance with `slsa-verifier
+     verify-artifact`. Authenticated `gh attestation verify` remains a reviewer
+     workstation step because this machine has no GitHub CLI login.
 
 ## First Serious Version
 

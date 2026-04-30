@@ -99,6 +99,7 @@ An independent review should verify:
 
 ## Next External Step
 
-The remaining official step is to publish a real release candidate artifact,
-retain its SLSA reference, run online verification, and submit the release
-packet, artifact, provenance, manifest, and claim packet for independent review.
+The remaining official step is to authenticate GitHub CLI on a reviewer
+workstation, run `atlas release slsa-verify --artifact --online`, and submit
+the release packet, artifact, provenance, manifest, and claim packet for
+independent review.
