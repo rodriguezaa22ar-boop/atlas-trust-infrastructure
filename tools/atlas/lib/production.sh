@@ -353,7 +353,7 @@ atlas_production_latest_dry_run_note() {
 
   [ -d "$production_dir" ] || return 0
 
-  find "$production_dir" -maxdepth 1 -type f -name 'PRODUCTION_DRY_RUN_*.md' | sort | tail -n 1
+  find "$production_dir" -maxdepth 1 -type f -name 'PRODUCTION_DRY_RUN_*.md' | sort -V | tail -n 1
 }
 
 atlas_production_dry_run_note_valid() {
@@ -379,7 +379,7 @@ atlas_production_latest_provenance_packet() {
 
   [ -d "$release_dir" ] || return 0
 
-  find "$release_dir" -maxdepth 1 -type f -name '*.provenance.json' | sort | tail -n 1
+  find "$release_dir" -maxdepth 1 -type f -name '*.provenance.json' | sort -V | tail -n 1
 }
 
 atlas_production_resolve_release_path() {

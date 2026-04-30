@@ -545,7 +545,7 @@ atlas_release_latest_packet() {
 
   [ -d "$packet_dir" ] || return 0
   find "$packet_dir" -maxdepth 1 -type f \( -name '*.md' -o -name '*.json' \) ! -name '*.provenance.json' ! -name '*.manifest.json' ! -name '*.slsa.json' 2>/dev/null |
-    sort |
+    sort -V |
     tail -n 1
 }
 
@@ -554,7 +554,7 @@ atlas_release_latest_manifest() {
 
   [ -d "$packet_dir" ] || return 0
   find "$packet_dir" -maxdepth 1 -type f -name '*.manifest.json' 2>/dev/null |
-    sort |
+    sort -V |
     tail -n 1
 }
 
@@ -563,7 +563,7 @@ atlas_release_latest_provenance_packet() {
 
   [ -d "$packet_dir" ] || return 0
   find "$packet_dir" -maxdepth 1 -type f -name '*.provenance.json' 2>/dev/null |
-    sort |
+    sort -V |
     tail -n 1
 }
 
@@ -572,7 +572,7 @@ atlas_release_latest_slsa_reference() {
 
   [ -d "$packet_dir" ] || return 0
   find "$packet_dir" -maxdepth 1 -type f -name '*.slsa.json' 2>/dev/null |
-    sort |
+    sort -V |
     tail -n 1
 }
 
@@ -624,15 +624,82 @@ atlas_release_latest_dry_run_note() {
 
   [ -d "$production_dir" ] || return 0
   find "$production_dir" -maxdepth 1 -type f -name 'PRODUCTION_DRY_RUN_*.md' 2>/dev/null |
-    sort |
+    sort -V |
     tail -n 1
+}
+
+atlas_release_find_packet_by_commit() {
+  local expected_commit="$1"
+  local packet_dir="$LAB_DOCS_DIR/retention/releases"
+  local candidate
+  local packet_commit
+  local packet_commit_full
+
+  [ -n "$expected_commit" ] || return 1
+  [ -d "$packet_dir" ] || return 1
+
+  while IFS= read -r candidate; do
+    [ -n "$candidate" ] || continue
+    packet_commit="$(atlas_release_packet_commit "$candidate")"
+    [ -n "$packet_commit" ] || continue
+    packet_commit_full="$(atlas_release_full_commit "$packet_commit" 2>/dev/null || true)"
+    if [ "$packet_commit" = "$expected_commit" ] || [ "$packet_commit_full" = "$expected_commit" ]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done < <(find "$packet_dir" -maxdepth 1 -type f \( -name '*.md' -o -name '*.json' \) ! -name '*.provenance.json' ! -name '*.manifest.json' ! -name '*.slsa.json' 2>/dev/null | sort -Vr)
+
+  return 1
+}
+
+atlas_release_find_provenance_by_commit() {
+  local expected_commit="$1"
+  local packet_dir="$LAB_DOCS_DIR/retention/releases"
+  local candidate
+  local provenance_commit
+  local provenance_commit_full
+
+  [ -n "$expected_commit" ] || return 1
+  [ -d "$packet_dir" ] || return 1
+
+  while IFS= read -r candidate; do
+    [ -n "$candidate" ] || continue
+    provenance_commit="$(jq -r '.commit // ""' "$candidate" 2>/dev/null || true)"
+    [ -n "$provenance_commit" ] || continue
+    provenance_commit_full="$(atlas_release_full_commit "$provenance_commit" 2>/dev/null || true)"
+    if [ "$provenance_commit" = "$expected_commit" ] || [ "$provenance_commit_full" = "$expected_commit" ]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done < <(find "$packet_dir" -maxdepth 1 -type f -name '*.provenance.json' 2>/dev/null | sort -Vr)
+
+  return 1
+}
+
+atlas_release_find_dry_run_note_by_commit() {
+  local expected_commit="$1"
+  local production_dir="$LAB_DOCS_DIR/retention/production"
+  local candidate
+
+  [ -n "$expected_commit" ] || return 1
+  [ -d "$production_dir" ] || return 1
+
+  while IFS= read -r candidate; do
+    [ -n "$candidate" ] || continue
+    if grep -q "^Commit: $expected_commit$" "$candidate"; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done < <(find "$production_dir" -maxdepth 1 -type f -name 'PRODUCTION_DRY_RUN_*.md' 2>/dev/null | sort -Vr)
+
+  return 1
 }
 
 atlas_release_latest_milestone_note() {
   local notes_dir="$LAB_DOCS_DIR/retention/milestones"
 
   [ -d "$notes_dir" ] || return 0
-  find "$notes_dir" -maxdepth 1 -type f -name 'MILESTONE_*.md' | sort | tail -n 1
+  find "$notes_dir" -maxdepth 1 -type f -name 'MILESTONE_*.md' | sort -V | tail -n 1
 }
 
 atlas_release_resolve_repo_file() {
@@ -2177,6 +2244,9 @@ cmd_release_manifest() {
   local dry_run_note
   local milestone_note=""
   local slsa_file=""
+  local slsa_commit=""
+  local release_commit=""
+  local release_commit_full=""
   local clean_state
   local sync_state
 
@@ -2246,17 +2316,39 @@ cmd_release_manifest() {
     fail "release manifest requires synced upstream state; push/pull first, or pass --allow-unsynced"
   fi
 
-  packet_file="$(atlas_release_resolve_packet "$packet_arg")"
+  if [ -n "$slsa_arg" ]; then
+    slsa_file="$(atlas_release_resolve_repo_file "$slsa_arg")" || fail "unknown SLSA provenance reference: $slsa_arg"
+    slsa_commit="$(jq -r '.source.commit // ""' "$slsa_file" 2>/dev/null || true)"
+    if [ -n "$slsa_commit" ]; then
+      slsa_commit="$(atlas_release_full_commit "$slsa_commit" 2>/dev/null || printf '%s\n' "$slsa_commit")"
+    fi
+  fi
+
+  if [ -n "$packet_arg" ]; then
+    packet_file="$(atlas_release_resolve_packet "$packet_arg")"
+  elif [ -n "$slsa_commit" ]; then
+    packet_file="$(atlas_release_find_packet_by_commit "$slsa_commit" || true)"
+    [ -n "$packet_file" ] || fail "no release trust packet found for SLSA provenance commit: $slsa_commit"
+  else
+    packet_file="$(atlas_release_resolve_packet "$packet_arg")"
+  fi
+
+  release_commit="$(atlas_release_packet_commit "$packet_file")"
+  [ -n "$release_commit" ] || fail "release manifest could not determine release packet commit"
+  release_commit_full="$(atlas_release_full_commit "$release_commit")" || fail "release manifest could not resolve release packet commit: $release_commit"
+
   if [ -n "$provenance_arg" ]; then
     provenance_file="$(atlas_release_resolve_repo_file "$provenance_arg")" || fail "unknown release provenance packet: $provenance_arg"
   else
-    provenance_file="$(atlas_release_latest_provenance_packet)"
+    provenance_file="$(atlas_release_find_provenance_by_commit "$release_commit_full" || true)"
+    [ -n "$provenance_file" ] || provenance_file="$(atlas_release_latest_provenance_packet)"
     [ -n "$provenance_file" ] || fail "no release provenance packet found"
   fi
   if [ -n "$dry_run_arg" ]; then
     dry_run_note="$(atlas_release_resolve_repo_file "$dry_run_arg")" || fail "unknown production dry-run note: $dry_run_arg"
   else
-    dry_run_note="$(atlas_release_latest_dry_run_note)"
+    dry_run_note="$(atlas_release_find_dry_run_note_by_commit "$release_commit_full" || true)"
+    [ -n "$dry_run_note" ] || dry_run_note="$(atlas_release_latest_dry_run_note)"
     [ -n "$dry_run_note" ] || fail "no production dry-run note found"
   fi
   if [ -n "$milestone_arg" ]; then
@@ -2264,10 +2356,6 @@ cmd_release_manifest() {
   else
     milestone_note="$(atlas_release_latest_milestone_note)"
   fi
-  if [ -n "$slsa_arg" ]; then
-    slsa_file="$(atlas_release_resolve_repo_file "$slsa_arg")" || fail "unknown SLSA provenance reference: $slsa_arg"
-  fi
-
   mkdir -p "$manifest_dir"
   manifest_file="$manifest_dir/$manifest_slug.manifest.json"
   atlas_release_manifest_write "$manifest_file" "$manifest_name" "$packet_file" "$provenance_file" "$dry_run_note" "$milestone_note" "$tag_name" "$slsa_file"
