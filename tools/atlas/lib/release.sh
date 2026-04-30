@@ -542,11 +542,17 @@ atlas_release_packet_json() {
 
 atlas_release_latest_packet() {
   local packet_dir="$LAB_DOCS_DIR/retention/releases"
+  local candidate
 
   [ -d "$packet_dir" ] || return 0
-  find "$packet_dir" -maxdepth 1 -type f \( -name '*.md' -o -name '*.json' \) ! -name '*.provenance.json' ! -name '*.manifest.json' ! -name '*.slsa.json' 2>/dev/null |
-    sort -V |
-    tail -n 1
+
+  while IFS= read -r candidate; do
+    [ -n "$candidate" ] || continue
+    if [ -n "$(atlas_release_packet_commit "$candidate")" ]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done < <(find "$packet_dir" -maxdepth 1 -type f \( -name '*.md' -o -name '*.json' \) ! -name '*.provenance.json' ! -name '*.manifest.json' ! -name '*.slsa.json' 2>/dev/null | sort -Vr)
 }
 
 atlas_release_latest_manifest() {
