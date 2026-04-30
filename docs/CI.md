@@ -32,6 +32,8 @@ It checks:
 
 - a full Git checkout, including tags, so retained release provenance and
   release artifact manifests can verify signed tags
+- current `actions/checkout@v6` checkout plumbing to avoid the Node 20
+  deprecation path for GitHub-hosted Actions
 - repository whitespace with `git diff --check`
 - the full local QA gate with `nix-shell --run './bin/dev-qa'`
 - Atlas internal readiness with `nix-shell --run './tools/atlas/bin/atlas v1 status --strict'`
