@@ -40,6 +40,9 @@ It checks:
   release artifact manifests can verify signed tags
 - current `actions/checkout@v6` checkout plumbing to avoid the Node 20
   deprecation path for GitHub-hosted Actions
+- pull request branch context that tracks `origin/main`, so Atlas release-gate
+  tests have the same upstream comparison contract they expect in local
+  development
 - repository whitespace with `git diff --check`
 - the full local QA gate with `nix-shell --run './bin/dev-qa'`
 - Atlas internal readiness with `nix-shell --run './tools/atlas/bin/atlas v1 status --strict'`
@@ -58,6 +61,11 @@ Before pushing, run:
 ```bash
 nix-shell --run './bin/dev-qa'
 ```
+
+For `pull_request` events, GitHub checks out a merge ref. The QA workflow
+creates a local branch at that checked-out commit and sets it to track
+`origin/main` before running Atlas gates. That keeps release trust tests that
+use upstream state aligned with the local branch workflow.
 
 For focused checks:
 

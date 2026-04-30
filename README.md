@@ -111,6 +111,7 @@ own retained trust-packet verification.
 | [docs/OPERATOR_GUIDE.md](docs/OPERATOR_GUIDE.md) | End-to-end operator workflow. |
 | [docs/COMMAND_REFERENCE.md](docs/COMMAND_REFERENCE.md) | Full command reference moved out of the README. |
 | [docs/TRUST_LIFECYCLE.md](docs/TRUST_LIFECYCLE.md) | Scope-to-release trust chain explanation. |
+| [docs/case-studies/CASE_STUDY_RELEASE_TRUST.md](docs/case-studies/CASE_STUDY_RELEASE_TRUST.md) | Public release-trust case study. |
 | [docs/atlas/TRUST_INFRASTRUCTURE_DIRECTION.md](docs/atlas/TRUST_INFRASTRUCTURE_DIRECTION.md) | Atlas trust-infrastructure direction. |
 | [docs/atlas/TRUST_OBJECT_MODEL.md](docs/atlas/TRUST_OBJECT_MODEL.md) | Actors, objects, packets, schemas, freshness, verification, and replay. |
 | [docs/RELEASE_TRUST.md](docs/RELEASE_TRUST.md) | Release packets, verification, replay, signing, and provenance. |
