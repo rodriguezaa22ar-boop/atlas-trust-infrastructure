@@ -626,6 +626,14 @@ The near-term roadmap is:
     artifact/checksum/metadata bundle, and successfully creates a
     GitHub/Sigstore Build Provenance attestation for
     `atlas-release-m101-slsa-smoke`.
+99. Record SLSA references in release artifact manifests. `atlas release
+    manifest --slsa <reference>` now records an optional metadata-only
+    `atlas.slsa_provenance.v1` reference inside
+    `atlas.release_artifact_manifest.v1`, and `atlas release manifest-verify`
+    checks the reference path, hash, schema, verification status, source
+    commit, artifact digest, optional artifact entry, and embedded metadata
+    parity. SLSA remains optional and this does not claim external SLSA
+    certification.
 
 ## First Serious Version
 
