@@ -43,8 +43,7 @@ It checks:
 - repository whitespace with `git diff --check`
 - the full local QA gate with `nix-shell --run './bin/dev-qa'`
 - Atlas internal readiness with `nix-shell --run './tools/atlas/bin/atlas v1 status --strict'`
-- CodeQL scanning for tracked GitHub Actions workflow YAML and
-  JavaScript/TypeScript-compatible public source
+- CodeQL scanning for tracked GitHub Actions workflow YAML
 
 `./bin/dev-qa` includes:
 
@@ -84,6 +83,10 @@ enabled there. It does not replace manual review, external audit, runtime
 testing, or Atlas' own retained trust-packet verification. Shell-heavy Atlas
 runtime behavior still depends on the local QA gate, shell linting, Bats
 coverage, review, and retained packet verification.
+
+JavaScript/TypeScript CodeQL analysis should be added only when the public
+repository contains tracked JavaScript or TypeScript source. Until then, the
+CodeQL gate intentionally covers the GitHub Actions workflow surface.
 
 ## SLSA Release Artifact Workflow
 
