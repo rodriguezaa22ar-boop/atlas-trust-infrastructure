@@ -1,0 +1,36 @@
+{
+  "schema_version": "atlas.release_provenance.v1",
+  "generated": "2026-04-30T10:40:11Z",
+  "metadata_only": true,
+  "commit": "576ec1620680c4dab5885e394fc3a47f52134f86",
+  "signed_tag": {
+    "name": "atlas-production-candidate-m106",
+    "target": "576ec1620680c4dab5885e394fc3a47f52134f86",
+    "tag_object": "0e475a15b857c01e9270d28b35a834c0b863a644",
+    "verification": "verified",
+    "signer_fingerprint": "24B1E00EEB286B966F9FCE0C9C6439E15BBFD290",
+    "public_key_path": "docs/retention/releases/atlas-m67-release-signing-public-key.asc",
+    "public_key_sha256": "c08e7454ee3ab72a39286f61efd4deca8fbe0ef3fe20844771ff5735da6a79d5"
+  },
+  "release_packet": {
+    "path": "docs/retention/releases/atlas-m106-tightened-current.json",
+    "sha256": "09c02e17234e5e05e95cab527488c6b11ca9d834ad7079d633b42eac1ddbd32f"
+  },
+  "qa": {
+    "status": "pass",
+    "command": "nix-shell --run './bin/dev-qa'",
+    "note": "dev-qa passed with 107/107 tests, lint ok, and stress ok before M106 release packet"
+  },
+  "production_status": {
+    "observed": "not-ready",
+    "note": "release artifact manifest and retention note were pending before retaining this packet set"
+  },
+  "known_limitations": [
+    "local signed-tag provenance is not an external audit",
+    "release packet files are hash-bound by provenance but are not individually signed",
+    "release artifact manifests are metadata-only local indexes, not immutable transparency logs",
+    "Atlas production status is a local contract, not deployment certification",
+    "M106 accepts the Ascend DNS finding as an operational risk; it does not claim DNS remediation"
+  ],
+  "no_production_overclaim": true
+}
