@@ -366,7 +366,7 @@ release:
   atlas release replay [packet] [--skip-qa] [--keep-worktree]
   atlas release manifest [manifest-name] [--packet packet] [--provenance provenance] [--dry-run note] [--milestone-note note] [--slsa slsa-reference] [--tag tag]
   atlas release manifest-verify [manifest] [--commit sha]
-  atlas release slsa-verify [reference] [--commit sha]
+  atlas release slsa-verify [reference] [--commit sha] [--artifact path] [--online] [--repo owner/repo]
 
 web:
   atlas web assess <url> [assessment-name] [--target name] [--scope-status status] [--criticality level] [--owner owner] [--timeout seconds] [--api-path path] [--cors-origin origin] [--skip-api]

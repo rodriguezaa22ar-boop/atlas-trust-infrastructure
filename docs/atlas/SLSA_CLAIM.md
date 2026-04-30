@@ -1,0 +1,104 @@
+# Atlas SLSA Claim
+
+## Purpose
+
+This document states the current Atlas SLSA claim in precise terms so a
+reviewer can separate implemented evidence from future certification work.
+
+Atlas is targeting SLSA-verifiable release artifacts. The current claim is a
+SLSA Build Level 3 alignment target for GitHub-built source artifacts, not an
+external SLSA certification.
+
+## Claimed
+
+Atlas claims:
+
+- release artifacts are built by GitHub Actions from a resolved Git commit
+- release-style tags must point at `origin/main`
+- local Atlas QA and strict v1 readiness run before artifact creation
+- release artifacts are SHA-256 hashed
+- GitHub Artifact Attestations can produce provenance for the artifact
+- an Official SLSA Generic Provenance workflow is available through the
+  `slsa-framework/slsa-github-generator` generic generator
+- retained Atlas SLSA references are metadata-only and locally verifiable with
+  `atlas release slsa-verify`
+- optional online verification can run `gh attestation verify` against a
+  downloaded artifact
+
+## Not Claimed
+
+Atlas does not claim:
+
+- external SLSA certification
+- third-party audit completion
+- enterprise deployment certification
+- tamper-proof local state
+- immutable release storage
+- legal compliance
+- that every historical Atlas artifact has official SLSA generator provenance
+
+## Evidence
+
+Current evidence includes:
+
+- `.github/workflows/release-slsa.yml`
+- `.github/workflows/release-slsa-generic.yml`
+- `docs/atlas/SLSA_PROVENANCE.md`
+- `docs/schemas/slsa-provenance.v1.md`
+- `atlas release slsa-verify`
+- retained SLSA smoke-run evidence in `docs/retention/milestones/MILESTONE_98.md`
+- retained claim/evidence packet in
+  `docs/retention/releases/atlas-m101-slsa-claim-evidence.md`
+
+## Verification Commands
+
+Local metadata reference verification:
+
+```bash
+atlas release slsa-verify <reference>.slsa.json --commit <sha>
+```
+
+Local artifact digest verification:
+
+```bash
+atlas release slsa-verify <reference>.slsa.json \
+  --commit <sha> \
+  --artifact <artifact>.tar.gz
+```
+
+Online GitHub attestation verification:
+
+```bash
+atlas release slsa-verify <reference>.slsa.json \
+  --commit <sha> \
+  --artifact <artifact>.tar.gz \
+  --online
+```
+
+Official SLSA generic generator provenance verification, when the `.intoto.jsonl`
+file is published with a release:
+
+```bash
+slsa-verifier verify-artifact <artifact>.tar.gz \
+  --provenance-path <artifact>.intoto.jsonl \
+  --source-uri github.com/rodriguezaa22ar-boop/atlas-trust-infrastructure \
+  --source-tag <tag>
+```
+
+## Independent Review
+
+An independent review should verify:
+
+- the workflow identities match this repository
+- the artifact digest matches the retained reference
+- the attestation or in-toto provenance verifies
+- retained Atlas release packets and release manifests still verify
+- no packet embeds secrets, credentials, raw evidence bodies, or customer data
+- the claim language remains bounded to SLSA-verifiable readiness unless a
+  third-party review explicitly grants a stronger conclusion
+
+## Next External Step
+
+The remaining official step is to publish a real release candidate artifact,
+retain its SLSA reference, run online verification, and submit the release
+packet, artifact, provenance, manifest, and claim packet for independent review.

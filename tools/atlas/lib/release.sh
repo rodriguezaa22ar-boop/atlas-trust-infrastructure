@@ -763,12 +763,16 @@ atlas_release_slsa_verify_row() {
 atlas_release_slsa_verify_reference() {
   local slsa_file="$1"
   local expected_commit="$2"
+  local artifact_file="${3:-}"
+  local online_verify="${4:-0}"
+  local repository_override="${5:-}"
   local display_path
   local source_commit
   local source_repository
   local source_ref
   local artifact_path
   local artifact_sha
+  local local_artifact_sha
   local subject_digest
   local workflow_path
   local workflow_run_url
@@ -776,6 +780,9 @@ atlas_release_slsa_verify_reference() {
   local verification_status
   local known_count
   local forbidden
+  local online_repository
+  local gh_output
+  local gh_detail
 
   [ -f "$slsa_file" ] || fail "SLSA provenance reference is not a file: $slsa_file"
   intel_require_jq
@@ -863,6 +870,43 @@ atlas_release_slsa_verify_reference() {
     atlas_release_slsa_verify_row "Known Limitations" "ok" "count=$known_count"
   else
     atlas_release_slsa_verify_row "Known Limitations" "fail" "missing"
+  fi
+
+  if [ -n "$artifact_file" ]; then
+    if [ ! -f "$artifact_file" ]; then
+      atlas_release_slsa_verify_row "Local Artifact" "fail" "missing path=$artifact_file"
+    else
+      local_artifact_sha="$(atlas_release_file_sha256 "$artifact_file")"
+      if [ "$local_artifact_sha" = "$artifact_sha" ]; then
+        atlas_release_slsa_verify_row "Local Artifact" "ok" "sha256=$local_artifact_sha path=$artifact_file"
+      else
+        atlas_release_slsa_verify_row "Local Artifact" "fail" "expected_sha=$artifact_sha actual_sha=$local_artifact_sha path=$artifact_file"
+      fi
+    fi
+  fi
+
+  if [ "$online_verify" = "1" ]; then
+    if [ -z "$artifact_file" ]; then
+      atlas_release_slsa_verify_row "Online Attestation" "fail" "--online requires --artifact <path>"
+    elif [ ! -f "$artifact_file" ]; then
+      atlas_release_slsa_verify_row "Online Attestation" "fail" "artifact missing path=$artifact_file"
+    elif ! command -v gh >/dev/null 2>&1; then
+      atlas_release_slsa_verify_row "Online Attestation" "fail" "missing gh"
+    else
+      online_repository="${repository_override:-$source_repository}"
+      if [ -z "$online_repository" ]; then
+        atlas_release_slsa_verify_row "Online Attestation" "fail" "missing source.repository"
+      else
+        gh_output="$(mktemp)"
+        if gh attestation verify "$artifact_file" --repo "$online_repository" >"$gh_output" 2>&1; then
+          atlas_release_slsa_verify_row "Online Attestation" "ok" "gh attestation verify repo=$online_repository"
+        else
+          gh_detail="$(head -n 1 "$gh_output" 2>/dev/null || true)"
+          atlas_release_slsa_verify_row "Online Attestation" "fail" "repo=$online_repository ${gh_detail:-gh attestation verify failed}"
+        fi
+        rm -f "$gh_output"
+      fi
+    fi
   fi
 
   if atlas_release_slsa_reference_valid "$slsa_file" "$expected_commit"; then
@@ -2265,13 +2309,30 @@ cmd_release_manifest_verify() {
 cmd_release_slsa_verify() {
   local slsa_arg=""
   local expected_commit=""
+  local artifact_arg=""
+  local online_verify=0
+  local repository_override=""
   local slsa_file
 
   while [ "$#" -gt 0 ]; do
     case "$1" in
     --commit)
-      [ "$#" -ge 2 ] || fail "release slsa-verify [reference] [--commit sha]"
+      [ "$#" -ge 2 ] || fail "release slsa-verify [reference] [--commit sha] [--artifact path] [--online] [--repo owner/repo]"
       expected_commit="$2"
+      shift 2
+      ;;
+    --artifact)
+      [ "$#" -ge 2 ] || fail "release slsa-verify [reference] [--commit sha] [--artifact path] [--online] [--repo owner/repo]"
+      artifact_arg="$2"
+      shift 2
+      ;;
+    --online)
+      online_verify=1
+      shift
+      ;;
+    --repo)
+      [ "$#" -ge 2 ] || fail "release slsa-verify [reference] [--commit sha] [--artifact path] [--online] [--repo owner/repo]"
+      repository_override="$2"
       shift 2
       ;;
     -*)
@@ -2279,7 +2340,7 @@ cmd_release_slsa_verify() {
       ;;
     *)
       if [ -n "$slsa_arg" ]; then
-        fail "release slsa-verify [reference] [--commit sha]"
+        fail "release slsa-verify [reference] [--commit sha] [--artifact path] [--online] [--repo owner/repo]"
       fi
       slsa_arg="$1"
       shift
@@ -2288,7 +2349,7 @@ cmd_release_slsa_verify() {
   done
 
   slsa_file="$(atlas_release_resolve_slsa_reference "$slsa_arg")"
-  atlas_release_slsa_verify_reference "$slsa_file" "$expected_commit"
+  atlas_release_slsa_verify_reference "$slsa_file" "$expected_commit" "$artifact_arg" "$online_verify" "$repository_override"
 }
 
 cmd_release_replay() {

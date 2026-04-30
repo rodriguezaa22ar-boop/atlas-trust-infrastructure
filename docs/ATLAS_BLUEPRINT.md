@@ -642,6 +642,13 @@ The near-term roadmap is:
      no-certification-overclaim flags. The command is local and read-only; it
      does not download artifacts, query GitHub, or claim external SLSA
      certification.
+101. Tighten the official SLSA and external-review path. Atlas now carries
+     `.github/workflows/release-slsa-generic.yml` for the official
+     `slsa-framework/slsa-github-generator` generic workflow, adds
+     `atlas release slsa-verify --artifact --online` for downloaded artifact
+     hash checks and optional `gh attestation verify`, and retains bounded
+     SLSA claim, evidence, and independent-review readiness documents. This is
+     a SLSA-verifiable release path, not a completed external certification.
 
 ## First Serious Version
 

@@ -40,6 +40,10 @@ repository in filesystem order.
   retained release artifact manifest contract and verification rules.
 - [atlas/SLSA_PROVENANCE.md](atlas/SLSA_PROVENANCE.md): GitHub/Sigstore SLSA
   provenance workflow and verification contract for Atlas release artifacts.
+- [atlas/SLSA_CLAIM.md](atlas/SLSA_CLAIM.md): bounded SLSA-verifiable release
+  artifact claim and evidence checklist.
+- [atlas/INDEPENDENT_REVIEW_READINESS.md](atlas/INDEPENDENT_REVIEW_READINESS.md):
+  reviewer packet expectations for an external release-trust review.
 - [retention/releases/REPLAY_VERIFICATION.md](retention/releases/REPLAY_VERIFICATION.md):
   clean-checkout replay procedure.
 - [atlas/PRODUCTION_READINESS.md](atlas/PRODUCTION_READINESS.md): local

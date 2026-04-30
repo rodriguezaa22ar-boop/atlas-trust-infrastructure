@@ -2279,6 +2279,63 @@ EOF
   grep -q 'does not claim external SLSA certification' "$ci_doc"
 }
 
+@test "official SLSA generic workflow and claim docs define external verification path" {
+  official_workflow="$TEST_ROOT/toolkit/.github/workflows/release-slsa-generic.yml"
+  slsa_doc="$TEST_ROOT/toolkit/docs/atlas/SLSA_PROVENANCE.md"
+  claim_doc="$TEST_ROOT/toolkit/docs/atlas/SLSA_CLAIM.md"
+  review_doc="$TEST_ROOT/toolkit/docs/atlas/INDEPENDENT_REVIEW_READINESS.md"
+  evidence_packet="$TEST_ROOT/toolkit/docs/retention/releases/atlas-m101-slsa-claim-evidence.md"
+  ci_doc="$TEST_ROOT/toolkit/docs/CI.md"
+
+  [ -f "$official_workflow" ]
+  [ -f "$claim_doc" ]
+  [ -f "$review_doc" ]
+  [ -f "$evidence_packet" ]
+
+  grep -q '^name: Official SLSA Generic Provenance$' "$official_workflow"
+  grep -q 'workflow_dispatch:' "$official_workflow"
+  grep -q "'atlas-v\\*'" "$official_workflow"
+  grep -q "'atlas-release-\\*'" "$official_workflow"
+  grep -q 'git rev-parse "${GITHUB_SHA}^{commit}"' "$official_workflow"
+  grep -q 'Tagged commit does not match origin/main' "$official_workflow"
+  grep -q "nix-shell --run './bin/dev-qa'" "$official_workflow"
+  grep -q "nix-shell --run './tools/atlas/bin/atlas v1 status --strict'" "$official_workflow"
+  grep -q 'git archive' "$official_workflow"
+  grep -q 'sha256sum "$artifact_path"' "$official_workflow"
+  grep -q 'base64-subjects: "${{ needs.build.outputs.hashes }}"' "$official_workflow"
+  grep -q 'slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0' "$official_workflow"
+  grep -q 'upload-assets: true' "$official_workflow"
+  grep -q 'provenance-name: "${{ needs.build.outputs.artifact_base }}.intoto.jsonl"' "$official_workflow"
+  grep -q 'softprops/action-gh-release@v2' "$official_workflow"
+
+  grep -q 'Official SLSA Generic Provenance' "$slsa_doc"
+  grep -q 'slsa-framework/slsa-github-generator' "$slsa_doc"
+  grep -q 'slsa-verifier verify-artifact' "$slsa_doc"
+  grep -q 'atlas release slsa-verify <reference>.slsa.json --artifact <artifact>.tar.gz --online' "$slsa_doc"
+
+  grep -q '^# Atlas SLSA Claim$' "$claim_doc"
+  grep -q 'SLSA Build Level 3 alignment target' "$claim_doc"
+  grep -q 'Claimed' "$claim_doc"
+  grep -q 'Not Claimed' "$claim_doc"
+  grep -q 'Official SLSA generic generator' "$claim_doc"
+  grep -q 'independent review' "$claim_doc"
+
+  grep -q '^# Atlas Independent Review Readiness$' "$review_doc"
+  grep -q 'Reviewer Packet' "$review_doc"
+  grep -q 'no secrets' "$review_doc"
+  grep -q 'third-party review' "$review_doc"
+
+  grep -q '^# Atlas SLSA Claim/Evidence Packet$' "$evidence_packet"
+  grep -q 'metadata-only' "$evidence_packet"
+  grep -q 'atlas release slsa-verify' "$evidence_packet"
+  grep -q 'gh attestation verify' "$evidence_packet"
+  grep -q 'slsa-verifier verify-artifact' "$evidence_packet"
+
+  grep -q '.github/workflows/release-slsa-generic.yml' "$ci_doc"
+  grep -q 'Official SLSA Generic Provenance' "$ci_doc"
+  grep -q 'slsa-framework/slsa-github-generator' "$ci_doc"
+}
+
 @test "atlas help groups target-first workflow and story commands" {
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" help
 
@@ -2340,7 +2397,7 @@ EOF
   [[ "$output" == *"atlas release manifest [manifest-name] [--packet packet]"* ]]
   [[ "$output" == *"[--slsa slsa-reference]"* ]]
   [[ "$output" == *"atlas release manifest-verify [manifest] [--commit sha]"* ]]
-  [[ "$output" == *"atlas release slsa-verify [reference] [--commit sha]"* ]]
+  [[ "$output" == *"atlas release slsa-verify [reference] [--commit sha] [--artifact path] [--online] [--repo owner/repo]"* ]]
   [[ "$output" == *"atlas target story <target>"* ]]
   [[ "$output" == *"atlas target cycle <target>"* ]]
   [[ "$output" == *"atlas op cycle [name]"* ]]
@@ -3474,6 +3531,60 @@ EOF
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release slsa-verify "$TEST_ROOT/bad-slsa-malformed.json" --commit "$release_commit"
   [ "$status" -ne 0 ]
   [[ "$output" == *"Schema: fail"* ]]
+}
+
+@test "atlas release slsa-verify checks local artifacts and optional online attestations" {
+  make_repo_clean_and_synced
+
+  release_commit="$(jq -r '.commit' "$TEST_ROOT/toolkit/docs/retention/releases/atlas-m93-business-flow-assurance.provenance.json")"
+  slsa_ref="$TEST_ROOT/toolkit/docs/retention/releases/test-online-release.slsa.json"
+  artifact="$TEST_ROOT/atlas-test-release.tar.gz"
+  bad_artifact="$TEST_ROOT/atlas-test-release-bad.tar.gz"
+
+  printf 'atlas release artifact\n' >"$artifact"
+  printf 'tampered release artifact\n' >"$bad_artifact"
+  artifact_sha="$(sha256sum "$artifact" | awk '{ print $1 }')"
+  write_test_slsa_reference "$slsa_ref" "$release_commit" "$artifact_sha"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release slsa-verify "$slsa_ref" --commit "$release_commit" --artifact "$artifact"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Local Artifact: ok sha256=$artifact_sha"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release slsa-verify "$slsa_ref" --commit "$release_commit" --artifact "$bad_artifact"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Local Artifact: fail"* ]]
+
+  mkdir -p "$TEST_ROOT/bin"
+  cat >"$TEST_ROOT/bin/gh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+[ "$1" = "attestation" ]
+[ "$2" = "verify" ]
+[ -f "$3" ]
+[ "$4" = "--repo" ]
+[ "$5" = "rodriguezaa22ar-boop/atlas-trust-infrastructure" ]
+printf 'Verified attestations for %s\n' "$3"
+EOF
+  chmod +x "$TEST_ROOT/bin/gh"
+
+  run env PATH="$TEST_ROOT/bin:$PATH" "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release slsa-verify "$slsa_ref" --commit "$release_commit" --artifact "$artifact" --online
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Online Attestation: ok gh attestation verify repo=rodriguezaa22ar-boop/atlas-trust-infrastructure"* ]]
+
+  cat >"$TEST_ROOT/bin/gh" <<'EOF'
+#!/usr/bin/env bash
+printf 'attestation rejected\n' >&2
+exit 7
+EOF
+  chmod +x "$TEST_ROOT/bin/gh"
+
+  run env PATH="$TEST_ROOT/bin:$PATH" "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release slsa-verify "$slsa_ref" --commit "$release_commit" --artifact "$artifact" --online --repo rodriguezaa22ar-boop/atlas-trust-infrastructure
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Online Attestation: fail repo=rodriguezaa22ar-boop/atlas-trust-infrastructure attestation rejected"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release slsa-verify "$slsa_ref" --commit "$release_commit" --online
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Online Attestation: fail --online requires --artifact <path>"* ]]
 }
 
 @test "atlas release manifest verification fails closed on completeness gaps" {

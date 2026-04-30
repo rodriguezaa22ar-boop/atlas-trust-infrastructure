@@ -27,6 +27,7 @@ atlas release replay atlas-current
 atlas release manifest atlas-current
 atlas release manifest-verify atlas-current
 atlas release slsa-verify docs/retention/releases/atlas-current.slsa.json --commit <sha>
+atlas release slsa-verify docs/retention/releases/atlas-current.slsa.json --artifact <artifact>.tar.gz --online
 atlas web assess https://example.com example-web-review --scope-status in-scope --api-path /api/auth/me --cors-origin https://example.net
 atlas web validation-plan --all
 atlas web validation-approve --all --reason "approved bounded web validation"
@@ -218,6 +219,15 @@ release packet, validates signed provenance with the retained public key, checks
 the production dry-run note, verifies the signed tag, and validates any recorded
 SLSA reference. The manifest is local trust evidence, not external audit,
 external SLSA certification, or deployment certification.
+
+`atlas release slsa-verify [reference] [--commit sha] [--artifact path]
+[--online]` checks a retained metadata-only SLSA reference. With `--artifact`,
+it verifies the downloaded artifact's SHA-256 against the retained reference.
+With `--online`, it runs `gh attestation verify` for the artifact and expected
+repository. The official generic-generator path is documented in
+`docs/atlas/SLSA_PROVENANCE.md`; it uses
+`slsa-framework/slsa-github-generator` and is still not an external
+certification claim.
 
 `atlas production status` treats the latest verified release artifact manifest
 as a required local production gate. That binds the retained release packet,

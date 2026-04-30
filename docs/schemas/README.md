@@ -19,7 +19,7 @@ documented at [../atlas/TRUST_OBJECT_MODEL.md](../atlas/TRUST_OBJECT_MODEL.md).
 | `atlas.release_trust.v1` | `atlas release packet --json` | [release-trust.v1.md](release-trust.v1.md) |
 | `atlas.release_provenance.v1` | `docs/retention/releases/*.provenance.json` | [release-provenance.v1.md](release-provenance.v1.md) |
 | `atlas.release_artifact_manifest.v1` | `atlas release manifest` | [release-artifact-manifest.v1.md](release-artifact-manifest.v1.md) |
-| `atlas.slsa_provenance.v1` | `.github/workflows/release-slsa.yml` and GitHub Artifact Attestations | [slsa-provenance.v1.md](slsa-provenance.v1.md) |
+| `atlas.slsa_provenance.v1` | `.github/workflows/release-slsa.yml`, `.github/workflows/release-slsa-generic.yml`, GitHub Artifact Attestations, and official SLSA generic provenance | [slsa-provenance.v1.md](slsa-provenance.v1.md) |
 | `atlas.production_readiness.v1` | `atlas production status --json` | [production-readiness.v1.md](production-readiness.v1.md) |
 | `atlas.operation_trust_chain.v1` | `atlas op trust-chain --json` | [operation-trust-chain.v1.md](operation-trust-chain.v1.md) |
 | `atlas.handoff_packet.v1` | `atlas op handoff --json` | [handoff-packet.v1.md](handoff-packet.v1.md) |
@@ -75,10 +75,14 @@ are not stable command outputs yet for JSON.
   `atlas.slsa_provenance.v1` references by checking schema, metadata-only
   flags, forbidden-content markers, source commit, artifact digest, workflow
   path, GitHub run URL, recorded attestation verification status, and known
-  limitations.
+  limitations. With `--artifact`, it checks the downloaded artifact's SHA-256;
+  with `--online`, it runs `gh attestation verify`.
 - `atlas production status` reports `atlas.production_readiness.v1` and
   verifies `atlas.release_artifact_manifest.v1` and
   `atlas.release_provenance.v1` when production trust evidence is required.
 - `.github/workflows/release-slsa.yml` prepares release artifacts for
   GitHub/Sigstore SLSA provenance verification. Atlas does not treat that as
   external SLSA certification.
+- `.github/workflows/release-slsa-generic.yml` prepares release artifacts for
+  official `slsa-framework/slsa-github-generator` generic provenance. Atlas
+  does not treat that as external SLSA certification.

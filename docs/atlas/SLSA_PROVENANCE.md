@@ -17,6 +17,12 @@ The release artifact workflow lives at:
 .github/workflows/release-slsa.yml
 ```
 
+A parallel official generic-generator workflow lives at:
+
+```text
+.github/workflows/release-slsa-generic.yml
+```
+
 It runs on:
 
 - manual `workflow_dispatch`
@@ -62,6 +68,19 @@ with:
 
 By default, `actions/attest` generates a SLSA build provenance attestation for
 the subject artifact.
+
+The `Official SLSA Generic Provenance` workflow follows the same QA,
+readiness, tag, and artifact rules, then passes the artifact subject hash to:
+
+```yaml
+uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
+with:
+  base64-subjects: "${{ needs.build.outputs.hashes }}"
+  upload-assets: true
+```
+
+That workflow is intended for release tags and publishes an `.intoto.jsonl`
+provenance file beside the release artifact.
 
 ## Required Workflow Permissions
 
@@ -131,7 +150,40 @@ atlas release slsa-verify <reference>.slsa.json --commit <sha>
 This command verifies the metadata-only reference contract, recorded
 `gh attestation verify` status, source commit, artifact digest, workflow path,
 GitHub run URL, known limitations, and no-certification-overclaim flag. It does
-not download artifacts or query GitHub.
+not download artifacts.
+
+When a release artifact has been downloaded, the local artifact hash can also be
+checked:
+
+```bash
+atlas release slsa-verify <reference>.slsa.json \
+  --commit <sha> \
+  --artifact <artifact>.tar.gz
+```
+
+When the GitHub CLI is installed and the artifact is available locally, Atlas
+can also run online attestation verification:
+
+```bash
+atlas release slsa-verify <reference>.slsa.json --artifact <artifact>.tar.gz --online
+```
+
+The direct GitHub command remains:
+
+```bash
+gh attestation verify <artifact>.tar.gz \
+  --repo rodriguezaa22ar-boop/atlas-trust-infrastructure
+```
+
+For official generic-generator provenance, verify the downloaded `.intoto.jsonl`
+file with `slsa-verifier`:
+
+```bash
+slsa-verifier verify-artifact <artifact>.tar.gz \
+  --provenance-path <artifact>.intoto.jsonl \
+  --source-uri github.com/rodriguezaa22ar-boop/atlas-trust-infrastructure \
+  --source-tag <tag>
+```
 
 ## Relationship To Atlas Release Trust
 
@@ -158,6 +210,14 @@ Git tag / workflow dispatch
 -> Atlas release packet
 -> Atlas release artifact manifest
 -> Atlas production status
+```
+
+The claim boundary is retained in:
+
+```text
+docs/atlas/SLSA_CLAIM.md
+docs/atlas/INDEPENDENT_REVIEW_READINESS.md
+docs/retention/releases/atlas-m101-slsa-claim-evidence.md
 ```
 
 ## Metadata Boundary
@@ -203,8 +263,10 @@ GitHub/Sigstore-backed SLSA provenance attestation for release artifacts.
 
 ## Next Hardening
 
-- Add optional online verification that can run `gh attestation verify` against
-  a downloaded artifact when `gh` and the artifact are available.
-- Add stricter policy checks for expected workflow identity, tag, and
-  repository owner.
-- Publish SLSA verification commands with each release.
+- Publish a real release candidate tag and retain its downloaded artifact,
+  attestation, SLSA reference, release packet, and release artifact manifest.
+- Run `atlas release slsa-verify --artifact --online` against that release
+  candidate.
+- Run `slsa-verifier verify-artifact` for the official generic-generator
+  `.intoto.jsonl` file.
+- Send the retained reviewer packet to an independent reviewer.

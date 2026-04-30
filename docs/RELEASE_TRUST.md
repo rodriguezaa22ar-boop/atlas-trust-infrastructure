@@ -23,6 +23,7 @@ target secrets, private keys, tokens, packet captures, or evidence bodies.
 ./tools/atlas/bin/atlas release manifest <name>
 ./tools/atlas/bin/atlas release manifest-verify <name>
 ./tools/atlas/bin/atlas release slsa-verify <reference> --commit <sha>
+./tools/atlas/bin/atlas release slsa-verify <reference> --artifact <artifact>.tar.gz --online
 ```
 
 ## Release Packet
@@ -134,12 +135,18 @@ artifacts:
 
 ```text
 .github/workflows/release-slsa.yml
+.github/workflows/release-slsa-generic.yml
 ```
 
 That workflow builds a source release artifact from the exact Git commit, runs
 the local QA gate, checks v1 readiness, uploads the artifact and checksum, and
 generates a GitHub/Sigstore SLSA build provenance attestation with
 `actions/attest@v4`.
+
+The generic workflow is the official SLSA generator path. It passes artifact
+subject hashes to
+`slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0`
+and publishes `.intoto.jsonl` provenance for release tags.
 
 Consumers verify the artifact with:
 
@@ -158,7 +165,18 @@ contract is documented at
 metadata-only flags, forbidden-content guardrail, source commit, artifact
 digest, workflow path, GitHub run URL, recorded `gh attestation verify` status,
 known limitations, and no-certification-overclaim flag. It does not query
-GitHub or download release artifacts.
+GitHub or download release artifacts unless `--online` is passed with a local
+`--artifact` path. With `--artifact`, it also checks the downloaded artifact's
+SHA-256 against the retained SLSA reference.
+
+Official generic-generator provenance can be checked with:
+
+```bash
+slsa-verifier verify-artifact <artifact>.tar.gz \
+  --provenance-path <artifact>.intoto.jsonl \
+  --source-uri github.com/rodriguezaa22ar-boop/atlas-trust-infrastructure \
+  --source-tag <tag>
+```
 
 This is SLSA-verifiable provenance preparation. It is not external SLSA
 certification.

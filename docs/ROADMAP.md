@@ -35,6 +35,8 @@ Atlas is in the trust infrastructure lane:
 - release artifact manifest hardening
 - SLSA-verifiable release artifact workflow
 - retained SLSA reference verification
+- official SLSA generic-generator alignment
+- optional online SLSA attestation verification
 
 ## Near-Term Milestones
 
@@ -109,10 +111,19 @@ Atlas is in the trust infrastructure lane:
     a read-only local verifier for retained metadata-only SLSA references,
     expected source commits, artifact digests, workflow metadata, recorded
     attestation verification status, and no-certification-overclaim flags.
+27. Official SLSA and online verification path. Implemented as
+    `.github/workflows/release-slsa-generic.yml`, `docs/atlas/SLSA_CLAIM.md`,
+    `docs/atlas/INDEPENDENT_REVIEW_READINESS.md`, and
+    `atlas release slsa-verify --artifact --online`. This tightens the
+    official builder path and makes the external verification/review steps
+    explicit without claiming certification.
 
 ## Later Control-Plane Work
 
-- add optional online SLSA artifact verification with `gh attestation verify`
+- publish a real release-candidate artifact and retain its SLSA reference
+- run `gh attestation verify` and `slsa-verifier verify-artifact` against the
+  release-candidate artifact
+- get an independent release-trust review
 - read-only dashboard planning
 - node runtime planning
 - reproducible runtime profile

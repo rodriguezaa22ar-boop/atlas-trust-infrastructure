@@ -1,0 +1,177 @@
+name: Official SLSA Generic Provenance
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_name:
+        description: Release artifact name without extension
+        required: false
+        default: atlas-trust-infrastructure
+  push:
+    tags:
+      - 'atlas-v*'
+      - 'atlas-release-*'
+
+concurrency:
+  group: release-slsa-generic-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build release artifact for official SLSA generator
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      hashes: ${{ steps.subjects.outputs.hashes }}
+      artifact_base: ${{ steps.package.outputs.artifact_base }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Resolve release commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_commit="$(git rev-parse "${GITHUB_SHA}^{commit}")"
+          printf 'ATLAS_RELEASE_COMMIT=%s\n' "$release_commit" >>"$GITHUB_ENV"
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - name: Prepare release branch context
+        if: github.ref_type == 'tag'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin '+refs/heads/main:refs/remotes/origin/main'
+
+          origin_main="$(git rev-parse origin/main)"
+          if [ "$ATLAS_RELEASE_COMMIT" != "$origin_main" ]; then
+            printf 'Tagged commit does not match origin/main\n' >&2
+            printf 'tag commit: %s\n' "$ATLAS_RELEASE_COMMIT" >&2
+            printf 'origin/main: %s\n' "$origin_main" >&2
+            exit 1
+          fi
+
+          git checkout -B main "$ATLAS_RELEASE_COMMIT"
+          git branch --set-upstream-to=origin/main main
+
+      - name: Check whitespace
+        run: git diff --check
+
+      - name: Run local QA gate
+        run: nix-shell --run './bin/dev-qa'
+
+      - name: Check Atlas v1 readiness
+        run: nix-shell --run './tools/atlas/bin/atlas v1 status --strict'
+
+      - name: Build source release artifact
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+
+          ref_name="${GITHUB_REF_NAME:-manual}"
+          base_name="${{ inputs.release_name }}"
+          if [ -z "$base_name" ]; then
+            base_name="atlas-trust-infrastructure"
+          fi
+          artifact_base="${base_name}-${ref_name}-${ATLAS_RELEASE_COMMIT::12}"
+          artifact_path="dist/${artifact_base}.tar.gz"
+
+          git archive \
+            --format=tar \
+            --prefix="${artifact_base}/" \
+            "$ATLAS_RELEASE_COMMIT" |
+            gzip -n >"$artifact_path"
+
+          sha256sum "$artifact_path" >"${artifact_path}.sha256"
+          artifact_sha="$(awk '{ print $1 }' "${artifact_path}.sha256")"
+          {
+            printf 'artifact=%s\n' "$artifact_path"
+            printf 'artifact_base=%s\n' "$artifact_base"
+            printf 'artifact_sha=%s\n' "$artifact_sha"
+          } >>"$GITHUB_ENV"
+          {
+            printf 'artifact_base=%s\n' "$artifact_base"
+            printf 'artifact_path=%s\n' "$artifact_path"
+            printf 'artifact_sha=%s\n' "$artifact_sha"
+          } >>"$GITHUB_OUTPUT"
+
+      - name: Record artifact metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            printf 'commit=%s\n' "$ATLAS_RELEASE_COMMIT"
+            printf 'github_sha=%s\n' "$GITHUB_SHA"
+            printf 'ref=%s\n' "$GITHUB_REF"
+            printf 'ref_name=%s\n' "$GITHUB_REF_NAME"
+            printf 'workflow=%s\n' "$GITHUB_WORKFLOW"
+            printf 'run_id=%s\n' "$GITHUB_RUN_ID"
+            printf 'official_slsa_generator=slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0\n'
+            printf 'artifact=%s\n' "$artifact"
+            printf 'sha256=%s\n' "$artifact_sha"
+          } >"dist/${artifact_base}.metadata.env"
+
+      - name: Generate official SLSA subject hashes
+        id: subjects
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "hashes=$(sha256sum "$artifact" | base64 -w0)" >>"$GITHUB_OUTPUT"
+
+      - name: Upload release artifact bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.artifact_base }}
+          path: |
+            ${{ env.artifact }}
+            ${{ env.artifact }}.sha256
+            dist/${{ env.artifact_base }}.metadata.env
+          if-no-files-found: error
+
+  provenance:
+    name: Generate official SLSA generic provenance
+    if: github.ref_type == 'tag'
+    needs: [build]
+    permissions:
+      actions: read
+      id-token: write
+      contents: write
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
+    with:
+      base64-subjects: "${{ needs.build.outputs.hashes }}"
+      upload-assets: true
+      provenance-name: "${{ needs.build.outputs.artifact_base }}.intoto.jsonl"
+
+  release-artifacts:
+    name: Publish source artifact to GitHub release
+    if: github.ref_type == 'tag'
+    needs: [build, provenance]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download release artifact bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build.outputs.artifact_base }}
+          path: dist
+
+      - name: Publish release artifact assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.tar.gz
+            dist/*.tar.gz.sha256
+            dist/*.metadata.env

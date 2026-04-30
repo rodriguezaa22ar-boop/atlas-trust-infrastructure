@@ -17,6 +17,12 @@ The SLSA release-artifact workflow lives at:
 .github/workflows/release-slsa.yml
 ```
 
+The official SLSA generic-generator workflow lives at:
+
+```text
+.github/workflows/release-slsa-generic.yml
+```
+
 ## Current CI Checks
 
 The workflow runs on pushes to `main`, pull requests targeting `main`, and
@@ -71,6 +77,16 @@ and asks GitHub Artifact Attestations to generate SLSA build provenance through
 `origin/main`, resolve annotated tags to their underlying Git commit, and run QA
 from a local `main` branch tracking `origin/main`.
 
+`release-slsa-generic.yml` is the `Official SLSA Generic Provenance` path. It
+runs the same local QA/readiness checks, builds the same source artifact, passes
+base64-encoded subject hashes to
+`slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0`,
+and publishes the source artifact/checksum plus official generic provenance for
+release tags.
+
+These workflows are preparation for SLSA-verifiable release artifacts. They do
+not claim external SLSA certification.
+
 The workflow is preparation for SLSA-verifiable release artifacts. It does not claim external SLSA certification.
 
 ## Future CI Gates
@@ -82,4 +98,6 @@ Future hardening can add:
 - schema drift checks
 - signed tag/provenance checks
 - `gh attestation verify` policy checks for release artifacts
+- `slsa-verifier verify-artifact` policy checks for official generic
+  provenance
 - replay verification from a clean checkout
