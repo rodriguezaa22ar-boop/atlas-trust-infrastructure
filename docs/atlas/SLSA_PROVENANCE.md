@@ -173,9 +173,9 @@ Evidence:
   `54e0f5f070192c2716d6923868fd43b2eeab64e588caad6ec11342fdb3d046e5`
 
 `slsa-verifier verify-artifact` passed for the downloaded release artifact and
-`.intoto.jsonl` provenance. The GitHub CLI online verification path is
-implemented, but `gh attestation verify` requires an authenticated GitHub CLI
-session on the verifying workstation.
+`.intoto.jsonl` provenance. After GitHub CLI authentication, Atlas also ran
+`atlas release slsa-verify --artifact --online` successfully, which executed
+`gh attestation verify` through the Atlas verifier.
 
 This command verifies the metadata-only reference contract, recorded
 `gh attestation verify` status, source commit, artifact digest, workflow path,

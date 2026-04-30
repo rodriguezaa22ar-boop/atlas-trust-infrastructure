@@ -99,7 +99,7 @@ An independent review should verify:
 
 ## Next External Step
 
-The remaining official step is to authenticate GitHub CLI on a reviewer
-workstation, run `atlas release slsa-verify --artifact --online`, and submit
-the release packet, artifact, provenance, manifest, and claim packet for
-independent review.
+The remaining official step is independent review. Submit the release packet,
+artifact, provenance, manifest, SLSA reference, and claim packet to a reviewer
+who can independently rerun `gh attestation verify`, `slsa-verifier
+verify-artifact`, and Atlas release verification.

@@ -46,6 +46,9 @@ Atlas has a release-artifact path prepared for SLSA-verifiable evidence:
 - `slsa-verifier verify-artifact` passed against the downloaded `.intoto.jsonl`
   provenance and identified the builder as
   `slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@refs/tags/v2.1.0`.
+- After GitHub CLI authentication, `atlas release slsa-verify --artifact
+  --online` passed and executed `gh attestation verify` for
+  `rodriguezaa22ar-boop/atlas-trust-infrastructure`.
 
 ## Verification Commands
 
@@ -70,7 +73,7 @@ This packet does not claim:
 
 ## Remaining External Step
 
-Authenticate GitHub CLI on a reviewer workstation, run
-`atlas release slsa-verify --artifact --online`, and provide the reviewer
-packet defined in `docs/atlas/INDEPENDENT_REVIEW_READINESS.md` to an
-independent reviewer.
+Provide the reviewer packet defined in
+`docs/atlas/INDEPENDENT_REVIEW_READINESS.md` to an independent reviewer so the
+reviewer can rerun the GitHub attestation, official SLSA verifier, and Atlas
+release checks independently.

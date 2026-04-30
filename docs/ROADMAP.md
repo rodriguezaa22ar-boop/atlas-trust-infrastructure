@@ -38,6 +38,7 @@ Atlas is in the trust infrastructure lane:
 - official SLSA generic-generator alignment
 - optional online SLSA attestation verification
 - retained release-candidate SLSA evidence
+- authenticated online SLSA attestation verification
 
 ## Near-Term Milestones
 
@@ -123,11 +124,13 @@ Atlas is in the trust infrastructure lane:
     `docs/retention/releases/atlas-v0.4.0-rc1.slsa.json`, and retained
     `slsa-verifier verify-artifact` evidence for the official generic
     generator provenance.
+29. Authenticated online SLSA attestation verification. Implemented by running
+    `atlas release slsa-verify --artifact --online` after GitHub CLI
+    authentication and retaining the successful online attestation result in
+    `docs/retention/releases/atlas-v0.4.0-rc1.slsa.json`.
 
 ## Later Control-Plane Work
 
-- run authenticated `gh attestation verify` against the release-candidate
-  artifact from a reviewer workstation
 - get an independent release-trust review
 - read-only dashboard planning
 - node runtime planning

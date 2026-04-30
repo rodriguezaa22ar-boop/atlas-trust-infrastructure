@@ -2352,6 +2352,9 @@ EOF
     .workflow.run_url == "https://github.com/rodriguezaa22ar-boop/atlas-trust-infrastructure/actions/runs/25153272091" and
     .attestation.url == "https://github.com/rodriguezaa22ar-boop/atlas-trust-infrastructure/attestations/26040322" and
     .attestation.verification_status == "verified" and
+    .attestation.online_verification.status == "verified" and
+    .attestation.online_verification.repository == "rodriguezaa22ar-boop/atlas-trust-infrastructure" and
+    (.attestation.online_verification.command | contains("--online")) and
     .official_slsa_generic.workflow_run_url == "https://github.com/rodriguezaa22ar-boop/atlas-trust-infrastructure/actions/runs/25153272179" and
     .official_slsa_generic.provenance_sha256 == "54e0f5f070192c2716d6923868fd43b2eeab64e588caad6ec11342fdb3d046e5" and
     .official_slsa_generic.verification_status == "verified" and
@@ -2363,8 +2366,10 @@ EOF
   grep -q 'a6fad42ced88648e49b8cbb9fcfe90533e2e389145277482f1000449108d0805' "$slsa_doc"
   grep -q '26040322' "$slsa_doc"
   grep -q 'slsa-verifier verify-artifact` passed' "$slsa_doc"
+  grep -q 'gh attestation verify` through the Atlas verifier' "$slsa_doc"
   grep -q 'atlas-v0.4.0-rc1' "$evidence_packet"
-  grep -q 'Authenticate GitHub CLI' "$evidence_packet"
+  grep -q 'atlas release slsa-verify --artifact' "$evidence_packet"
+  grep -q 'gh attestation verify' "$evidence_packet"
 }
 
 @test "atlas help groups target-first workflow and story commands" {

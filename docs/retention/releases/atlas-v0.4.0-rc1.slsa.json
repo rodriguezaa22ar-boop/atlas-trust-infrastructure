@@ -21,7 +21,14 @@
     "url": "https://github.com/rodriguezaa22ar-boop/atlas-trust-infrastructure/attestations/26040322",
     "rekor_log_url": "",
     "verification_command": "gh attestation verify dist/atlas-trust-infrastructure-atlas-v0.4.0-rc1-59667bf87587.tar.gz --repo rodriguezaa22ar-boop/atlas-trust-infrastructure",
-    "verification_status": "verified"
+    "verification_status": "verified",
+    "online_verification": {
+      "command": "atlas release slsa-verify docs/retention/releases/atlas-v0.4.0-rc1.slsa.json --commit 59667bf875871c1e27dbd72de20c983ac262b43b --artifact atlas-trust-infrastructure-atlas-v0.4.0-rc1-59667bf87587.tar.gz --online",
+      "status": "verified",
+      "repository": "rodriguezaa22ar-boop/atlas-trust-infrastructure",
+      "verified_at": "2026-04-30",
+      "verifier": "GitHub CLI gh attestation verify via Atlas"
+    }
   },
   "official_slsa_generic": {
     "workflow_path": ".github/workflows/release-slsa-generic.yml",

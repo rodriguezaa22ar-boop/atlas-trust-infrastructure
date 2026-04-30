@@ -655,8 +655,13 @@ The near-term roadmap is:
      `docs/retention/releases/atlas-v0.4.0-rc1.slsa.json`, verified the local
      artifact digest with `atlas release slsa-verify --artifact`, and verified
      official generic-generator provenance with `slsa-verifier
-     verify-artifact`. Authenticated `gh attestation verify` remains a reviewer
-     workstation step because this machine has no GitHub CLI login.
+     verify-artifact`.
+103. Complete authenticated online SLSA attestation verification. After GitHub
+     CLI authentication, Atlas ran `atlas release slsa-verify --artifact
+     --online` for the retained `atlas-v0.4.0-rc1` SLSA reference, verified the
+     local artifact digest, executed `gh attestation verify`, and retained that
+     online verification result in the metadata-only SLSA reference. Independent
+     third-party review remains the next external assurance step.
 
 ## First Serious Version
 
