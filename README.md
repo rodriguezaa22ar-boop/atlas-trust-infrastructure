@@ -49,8 +49,8 @@ required, ledger events, and evidence handling.
 
 ## Current Maturity
 
-Atlas currently reports `production-ready` under its local production contract
-when all retained release evidence verifies:
+Atlas can report `production-ready` under its local production contract when
+all retained release evidence verifies for the current retained release commit:
 
 - v1 internal readiness is ready
 - repository state is clean and synced

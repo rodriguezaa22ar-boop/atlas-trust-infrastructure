@@ -86,10 +86,8 @@ base64-encoded subject hashes to
 and publishes the source artifact/checksum plus official generic provenance for
 release tags.
 
-These workflows are preparation for SLSA-verifiable release artifacts. They do
-not claim external SLSA certification.
-
-The workflow is preparation for SLSA-verifiable release artifacts. It does not claim external SLSA certification.
+These workflows are preparation for SLSA-verifiable release artifacts and the
+workflow does not claim external SLSA certification.
 
 ## Future CI Gates
 

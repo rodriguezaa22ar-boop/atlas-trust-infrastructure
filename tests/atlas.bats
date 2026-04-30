@@ -5564,6 +5564,12 @@ EOF
   review_json_verify_events_after="$(wc -l < "$TEST_ROOT/toolkit/sessions/review-queue-op/ledger.ndjson" | tr -d ' ')"
   [ "$review_json_verify_events_after" = "$review_json_verify_events_before" ]
 
+  run env ATLAS_TODAY=2026-04-27 "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" op archive review-queue-op
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Accepted Risk Review Packet Freshness: current"* ]]
+  [[ "$output" == *"Accepted Risk Review Packet Verification: verified"* ]]
+  [[ "$output" == *"Latest Accepted Risk Review Packet: $review_packet_json_path"* ]]
+
   sleep 1
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" finding review "$due_soon_id" \
     --reason "owner renewed near-term lab risk" \

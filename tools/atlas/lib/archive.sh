@@ -38,7 +38,7 @@ atlas_archive_review_packet_verification_status() {
     return 0
   fi
 
-  if (atlas_findings_verify_review_packet "$packet_path" >/dev/null 2>&1); then
+  if (atlas_findings_verify_review_packet_any "$packet_path" >/dev/null 2>&1); then
     printf 'verified\t%s\n' "$packet_path"
   else
     printf 'attention-required\t%s\n' "$packet_path"
