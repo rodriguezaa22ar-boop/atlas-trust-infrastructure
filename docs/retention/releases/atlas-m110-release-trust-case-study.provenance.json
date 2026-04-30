@@ -1,0 +1,35 @@
+{
+  "schema_version": "atlas.release_provenance.v1",
+  "generated": "2026-04-30T23:26:42Z",
+  "metadata_only": true,
+  "commit": "ce8405de5f6dae90ae5438f7af8a6f60349274e6",
+  "signed_tag": {
+    "name": "atlas-production-candidate-m110",
+    "target": "ce8405de5f6dae90ae5438f7af8a6f60349274e6",
+    "tag_object": "f7a1c1ccf9daf894d37ffe62e80e77371d7e90a7",
+    "verification": "verified",
+    "signer_fingerprint": "24B1E00EEB286B966F9FCE0C9C6439E15BBFD290",
+    "public_key_path": "docs/retention/releases/atlas-m67-release-signing-public-key.asc",
+    "public_key_sha256": "c08e7454ee3ab72a39286f61efd4deca8fbe0ef3fe20844771ff5735da6a79d5"
+  },
+  "release_packet": {
+    "path": "docs/retention/releases/atlas-m110-release-trust-case-study.json",
+    "sha256": "4468aaca41ca1c3399a5fcd1136c6ad4cc742a3694ee9e9236b42be7e6e97acc"
+  },
+  "qa": {
+    "status": "pass",
+    "command": "nix-shell --run './bin/dev-qa'",
+    "note": "dev-qa passed with 107/107 tests, lint ok, and stress ok after M110 merge; public PR QA run 25194026999 and CodeQL run 25194026977 passed"
+  },
+  "production_status": {
+    "observed": "not-ready",
+    "note": "release artifact manifest and milestone retention note were pending before retaining this packet set"
+  },
+  "known_limitations": [
+    "The release trust case study is a public explanation artifact, not an external audit",
+    "Atlas connects release evidence into a metadata-first proof chain and does not replace CI/CD, SLSA tooling, signing tools, artifact registries, scanners, SIEMs, or GRC tools",
+    "SLSA language remains bounded to SLSA-verifiable artifacts and does not claim external SLSA certification",
+    "Atlas production status is a local contract, not deployment certification"
+  ],
+  "no_production_overclaim": true
+}
