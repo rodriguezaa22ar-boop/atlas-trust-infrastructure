@@ -28,6 +28,15 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
+      - name: Prepare pull request branch context
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin '+refs/heads/main:refs/remotes/origin/main'
+          git checkout -B "${GITHUB_HEAD_REF:-pull-request}" HEAD
+          git branch --set-upstream-to=origin/main "${GITHUB_HEAD_REF:-pull-request}"
+
       - name: Install Nix
         uses: cachix/install-nix-action@v31
         with:
