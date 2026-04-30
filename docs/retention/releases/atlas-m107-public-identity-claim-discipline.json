@@ -1,0 +1,316 @@
+{
+  "schema_version": "atlas.release_trust.v1",
+  "generated": "2026-04-30T17:55:25Z",
+  "packet": "atlas-m107-public-identity-claim-discipline",
+  "root": "/home/ao/Desktop/hp-native-toolkit",
+  "commit": "1ff2a82",
+  "branch": "main",
+  "upstream": "origin/main",
+  "repository": {
+    "state_before_packet": "clean",
+    "upstream_sync_before_packet": "synced"
+  },
+  "runtime_target": "local-usb",
+  "metadata_only": true,
+  "qa": {
+    "status": "pass",
+    "command": "nix-shell --run './bin/dev-qa'",
+    "note": "dev-qa passed with 107/107 tests, lint ok, and stress ok before M107 release packet"
+  },
+  "tags": [
+    "atlas-production-candidate-m107"
+  ],
+  "retention_notes": [
+    "docs/retention/MILESTONE_30.md",
+    "docs/retention/milestones/MILESTONE_100.md",
+    "docs/retention/milestones/MILESTONE_101.md",
+    "docs/retention/milestones/MILESTONE_102.md",
+    "docs/retention/milestones/MILESTONE_103.md",
+    "docs/retention/milestones/MILESTONE_104.md",
+    "docs/retention/milestones/MILESTONE_105.md",
+    "docs/retention/milestones/MILESTONE_106.md",
+    "docs/retention/milestones/MILESTONE_31.md",
+    "docs/retention/milestones/MILESTONE_32.md",
+    "docs/retention/milestones/MILESTONE_33.md",
+    "docs/retention/milestones/MILESTONE_34.md",
+    "docs/retention/milestones/MILESTONE_35.md",
+    "docs/retention/milestones/MILESTONE_36.md",
+    "docs/retention/milestones/MILESTONE_37.md",
+    "docs/retention/milestones/MILESTONE_38.md",
+    "docs/retention/milestones/MILESTONE_39.md",
+    "docs/retention/milestones/MILESTONE_40.md",
+    "docs/retention/milestones/MILESTONE_41.md",
+    "docs/retention/milestones/MILESTONE_42.md",
+    "docs/retention/milestones/MILESTONE_43.md",
+    "docs/retention/milestones/MILESTONE_44.md",
+    "docs/retention/milestones/MILESTONE_45.md",
+    "docs/retention/milestones/MILESTONE_46.md",
+    "docs/retention/milestones/MILESTONE_47.md",
+    "docs/retention/milestones/MILESTONE_48.md",
+    "docs/retention/milestones/MILESTONE_49.md",
+    "docs/retention/milestones/MILESTONE_50.md",
+    "docs/retention/milestones/MILESTONE_51.md",
+    "docs/retention/milestones/MILESTONE_52.md",
+    "docs/retention/milestones/MILESTONE_53.md",
+    "docs/retention/milestones/MILESTONE_54.md",
+    "docs/retention/milestones/MILESTONE_55.md",
+    "docs/retention/milestones/MILESTONE_56.md",
+    "docs/retention/milestones/MILESTONE_57.md",
+    "docs/retention/milestones/MILESTONE_58.md",
+    "docs/retention/milestones/MILESTONE_59.md",
+    "docs/retention/milestones/MILESTONE_60.md",
+    "docs/retention/milestones/MILESTONE_61.md",
+    "docs/retention/milestones/MILESTONE_62.md",
+    "docs/retention/milestones/MILESTONE_63.md",
+    "docs/retention/milestones/MILESTONE_64.md",
+    "docs/retention/milestones/MILESTONE_65.md",
+    "docs/retention/milestones/MILESTONE_66.md",
+    "docs/retention/milestones/MILESTONE_67.md",
+    "docs/retention/milestones/MILESTONE_68.md",
+    "docs/retention/milestones/MILESTONE_69.md",
+    "docs/retention/milestones/MILESTONE_70.md",
+    "docs/retention/milestones/MILESTONE_71.md",
+    "docs/retention/milestones/MILESTONE_72.md",
+    "docs/retention/milestones/MILESTONE_73.md",
+    "docs/retention/milestones/MILESTONE_74.md",
+    "docs/retention/milestones/MILESTONE_75.md",
+    "docs/retention/milestones/MILESTONE_76.md",
+    "docs/retention/milestones/MILESTONE_77.md",
+    "docs/retention/milestones/MILESTONE_78.md",
+    "docs/retention/milestones/MILESTONE_79.md",
+    "docs/retention/milestones/MILESTONE_80.md",
+    "docs/retention/milestones/MILESTONE_81.md",
+    "docs/retention/milestones/MILESTONE_82.md",
+    "docs/retention/milestones/MILESTONE_83.md",
+    "docs/retention/milestones/MILESTONE_84.md",
+    "docs/retention/milestones/MILESTONE_85.md",
+    "docs/retention/milestones/MILESTONE_86.md",
+    "docs/retention/milestones/MILESTONE_87.md",
+    "docs/retention/milestones/MILESTONE_88.md",
+    "docs/retention/milestones/MILESTONE_89.md",
+    "docs/retention/milestones/MILESTONE_90.md",
+    "docs/retention/milestones/MILESTONE_91.md",
+    "docs/retention/milestones/MILESTONE_92.md",
+    "docs/retention/milestones/MILESTONE_93.md",
+    "docs/retention/milestones/MILESTONE_94.md",
+    "docs/retention/milestones/MILESTONE_95.md",
+    "docs/retention/milestones/MILESTONE_96.md",
+    "docs/retention/milestones/MILESTONE_97.md",
+    "docs/retention/milestones/MILESTONE_98.md",
+    "docs/retention/milestones/MILESTONE_99.md"
+  ],
+  "known_limitations": [
+    {
+      "pillar": "Core CLI",
+      "limitation": "shell-native interface; no multi-user server yet"
+    },
+    {
+      "pillar": "Target Registry",
+      "limitation": "env-record storage remains intentionally simple"
+    },
+    {
+      "pillar": "Recon",
+      "limitation": "network probing still depends on operator authorization and local backends"
+    },
+    {
+      "pillar": "Action Planner",
+      "limitation": "execution remains manual and approval-gated"
+    },
+    {
+      "pillar": "Intel Graph",
+      "limitation": "graph is file-backed NDJSON, not a graph database"
+    },
+    {
+      "pillar": "Evidence",
+      "limitation": "no cryptographic signing yet"
+    },
+    {
+      "pillar": "Ledger",
+      "limitation": "append-only file semantics, not immutable storage"
+    },
+    {
+      "pillar": "ScopeGuard",
+      "limitation": "policy model remains profile/env based"
+    },
+    {
+      "pillar": "Findings",
+      "limitation": "finding records are NDJSON files; accepted-risk expiry is checked during operation readiness"
+    },
+    {
+      "pillar": "Validation",
+      "limitation": "validation execution is bounded by configured local backends"
+    },
+    {
+      "pillar": "Reports",
+      "limitation": "Markdown reports are not digitally signed"
+    },
+    {
+      "pillar": "Retention",
+      "limitation": "no cryptographic signing yet"
+    },
+    {
+      "pillar": "Business Flow Evidence",
+      "limitation": "optional non-blocking pillar; no automatic flow discovery yet"
+    },
+    {
+      "pillar": "AI Advisor",
+      "limitation": "external model execution is outside Atlas"
+    }
+  ],
+  "operation_trust_chain": null,
+  "readiness": {
+    "overall": "ready",
+    "commit": "1ff2a82",
+    "root": "/home/ao/Desktop/hp-native-toolkit",
+    "runtime_target": "local-usb",
+    "strict": false,
+    "operation": null,
+    "counts": {
+      "blocked": 0,
+      "warning": 0,
+      "required_not_ready": 0
+    },
+    "pillars": {
+      "core_cli": {
+        "label": "Core CLI",
+        "required": true,
+        "status": "ready",
+        "reason": "shell-native atlas entrypoint is executable",
+        "tests": "tests/atlas.bats help and v1 status tests",
+        "commands": "atlas help; atlas v1 status",
+        "artifacts": "tools/atlas/bin/atlas",
+        "limitations": "shell-native interface; no multi-user server yet"
+      },
+      "target_registry": {
+        "label": "Target Registry",
+        "required": true,
+        "status": "ready",
+        "reason": "target env records and scope metadata directory are writable",
+        "tests": "tests/atlas.bats target metadata tests",
+        "commands": "atlas target add; atlas target update; atlas target show",
+        "artifacts": "/home/ao/Desktop/hp-native-toolkit/targets",
+        "limitations": "env-record storage remains intentionally simple"
+      },
+      "recon": {
+        "label": "Recon",
+        "required": true,
+        "status": "ready",
+        "reason": "wiremap adapter is available for operation-aware recon",
+        "tests": "tests/atlas.bats wiremap workflow tests",
+        "commands": "atlas op recon; atlas recon workflow",
+        "artifacts": "/home/ao/Desktop/hp-native-toolkit/tools/wiremap/bin/wiremap",
+        "limitations": "network probing still depends on operator authorization and local backends"
+      },
+      "action_planner": {
+        "label": "Action Planner",
+        "required": true,
+        "status": "ready",
+        "reason": "vector adapter is available for ranked lanes and bounded outcomes",
+        "tests": "tests/atlas.bats vector lane and action tests",
+        "commands": "atlas action candidates; atlas op action plan",
+        "artifacts": "/home/ao/Desktop/hp-native-toolkit/tools/vector/bin/vector",
+        "limitations": "execution remains manual and approval-gated"
+      },
+      "intel_graph": {
+        "label": "Intel Graph",
+        "required": true,
+        "status": "ready",
+        "reason": "intelctl adapter is available for graph and path views",
+        "tests": "tests/atlas.bats intel graph and paths tests",
+        "commands": "atlas intel graph; atlas intel paths",
+        "artifacts": "/home/ao/Desktop/hp-native-toolkit/state/intel",
+        "limitations": "graph is file-backed NDJSON, not a graph database"
+      },
+      "evidence": {
+        "label": "Evidence",
+        "required": true,
+        "status": "ready",
+        "reason": "hashing backend is available for artifact integrity",
+        "tests": "tests/atlas.bats evidence vault and bundle tests",
+        "commands": "atlas evidence add; atlas evidence bundle; atlas evidence hash",
+        "artifacts": "operation evidence directory and bundle manifests",
+        "limitations": "no cryptographic signing yet"
+      },
+      "ledger": {
+        "label": "Ledger",
+        "required": true,
+        "status": "ready",
+        "reason": "operation directories can hold append-only ledgers",
+        "tests": "tests/atlas.bats operation lifecycle tests",
+        "commands": "atlas op audit; atlas op status",
+        "artifacts": "/home/ao/Desktop/hp-native-toolkit/sessions",
+        "limitations": "append-only file semantics, not immutable storage"
+      },
+      "scopeguard": {
+        "label": "ScopeGuard",
+        "required": true,
+        "status": "ready",
+        "reason": "scope profiles, approvals, and preflight state directory are available",
+        "tests": "tests/atlas.bats scopeguard tests",
+        "commands": "atlas scope status; atlas scope check",
+        "artifacts": "/home/ao/Desktop/hp-native-toolkit/state/atlas",
+        "limitations": "policy model remains profile/env based"
+      },
+      "findings": {
+        "label": "Findings",
+        "required": true,
+        "status": "ready",
+        "reason": "finding lifecycle commands are available",
+        "tests": "tests/atlas.bats finding lifecycle and accepted-risk tests",
+        "commands": "atlas finding add; atlas finding update; atlas finding accept; atlas finding review; atlas finding review-queue; atlas finding review-packet; atlas finding review-verify; atlas finding resolve",
+        "artifacts": "operation finding index and accepted-risk review packets",
+        "limitations": "finding records are NDJSON files; accepted-risk expiry is checked during operation readiness"
+      },
+      "validation": {
+        "label": "Validation",
+        "required": true,
+        "status": "ready",
+        "reason": "approval-gated validation commands are available",
+        "tests": "tests/atlas.bats validation plan, run, and retest tests",
+        "commands": "atlas validation plan; atlas validation approve; atlas validation retest",
+        "artifacts": "operation validation plan index",
+        "limitations": "validation execution is bounded by configured local backends"
+      },
+      "reports": {
+        "label": "Reports",
+        "required": true,
+        "status": "ready",
+        "reason": "report generation commands are available",
+        "tests": "tests/atlas.bats report and story tests",
+        "commands": "atlas op report; atlas op readiness",
+        "artifacts": "/home/ao/Desktop/hp-native-toolkit/reports",
+        "limitations": "Markdown reports are not digitally signed"
+      },
+      "retention": {
+        "label": "Retention",
+        "required": true,
+        "status": "ready",
+        "reason": "handoff, closeout, audit, archive, release trust, and freshness commands are available",
+        "tests": "tests/atlas.bats retention, archive, and release packet tests",
+        "commands": "atlas op closeout; atlas op audit-packet; atlas op archive-verify; atlas release packet; atlas release verify",
+        "artifacts": "closeout manifest, audit packet, archive packet, release trust packet",
+        "limitations": "no cryptographic signing yet"
+      },
+      "business_flow_evidence": {
+        "label": "Business Flow Evidence",
+        "required": false,
+        "status": "ready",
+        "reason": "optional metadata-only flow commands, retention links, packet generation, and verification are available; flow_records=2",
+        "tests": "tests/atlas.bats business-flow records, links, packets, verify, and readiness tests",
+        "commands": "atlas flow add; atlas flow list; atlas flow show; atlas flow link-evidence; atlas flow link-finding; atlas flow link-validation; atlas flow link-approval; atlas flow link-retention; atlas flow packet; atlas flow packet --json; atlas flow verify; atlas flow verify --json; atlas flow assurance; atlas flow assurance --json; atlas flow trust-chain; atlas flow trust-chain --json",
+        "artifacts": "state/atlas/flows",
+        "limitations": "optional non-blocking pillar; no automatic flow discovery yet"
+      },
+      "ai_advisor": {
+        "label": "AI Advisor",
+        "required": false,
+        "status": "ready",
+        "reason": "metadata-only advisor brief and prompt packet commands are available",
+        "tests": "tests/atlas.bats advisor brief and prompt tests",
+        "commands": "atlas advisor brief; atlas advisor prompt",
+        "artifacts": "advisor prompt packet",
+        "limitations": "external model execution is outside Atlas"
+      }
+    }
+  }
+}
