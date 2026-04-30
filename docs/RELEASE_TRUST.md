@@ -22,6 +22,7 @@ target secrets, private keys, tokens, packet captures, or evidence bodies.
 ./tools/atlas/bin/atlas release replay <name>
 ./tools/atlas/bin/atlas release manifest <name>
 ./tools/atlas/bin/atlas release manifest-verify <name>
+./tools/atlas/bin/atlas release slsa-verify <reference> --commit <sha>
 ```
 
 ## Release Packet
@@ -151,6 +152,13 @@ The SLSA workflow is documented at
 [atlas/SLSA_PROVENANCE.md](atlas/SLSA_PROVENANCE.md), and the readiness
 contract is documented at
 [schemas/slsa-provenance.v1.md](schemas/slsa-provenance.v1.md).
+
+`atlas release slsa-verify` checks a retained metadata-only
+`atlas.slsa_provenance.v1` reference. It verifies the recorded schema,
+metadata-only flags, forbidden-content guardrail, source commit, artifact
+digest, workflow path, GitHub run URL, recorded `gh attestation verify` status,
+known limitations, and no-certification-overclaim flag. It does not query
+GitHub or download release artifacts.
 
 This is SLSA-verifiable provenance preparation. It is not external SLSA
 certification.

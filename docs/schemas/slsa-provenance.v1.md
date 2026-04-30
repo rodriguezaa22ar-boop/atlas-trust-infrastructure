@@ -5,6 +5,7 @@
 ```text
 .github/workflows/release-slsa.yml
 GitHub Artifact Attestations
+atlas release slsa-verify
 docs/atlas/SLSA_PROVENANCE.md
 ```
 
@@ -12,7 +13,8 @@ docs/atlas/SLSA_PROVENANCE.md
 
 `atlas.slsa_provenance.v1` documents the Atlas release-artifact provenance
 contract for SLSA-verifiable builds. It is a readiness and verification
-contract, not an Atlas-emitted packet yet.
+contract for retained metadata-only SLSA references, not an Atlas-emitted
+packet.
 
 The workflow builds a source release artifact from a Git commit, uploads the
 artifact and checksum, and asks GitHub Artifact Attestations to generate a SLSA
@@ -20,7 +22,7 @@ build provenance attestation for the artifact.
 
 ## Required Fields For Retained References
 
-When Atlas records SLSA provenance references later, the record should include:
+When Atlas records SLSA provenance references, the record must include:
 
 - `schema_version`: `atlas.slsa_provenance.v1`
 - `metadata_only`: `true`
@@ -73,6 +75,8 @@ Consumers should verify:
 - the repository owner and repository name are expected
 - the workflow identity is expected
 - the commit or tag matches the intended Atlas release
+- `atlas release slsa-verify <reference> --commit <sha>` passes for the
+  retained metadata-only reference
 - Atlas release packet and release artifact manifest verification still pass
 
 ## Metadata-Only Boundary

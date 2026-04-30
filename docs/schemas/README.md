@@ -71,6 +71,11 @@ are not stable command outputs yet for JSON.
   required artifact classes, required paths, schema references, release packet
   verification, signed provenance, the retained public key, the production
   dry-run note, and forbidden raw-content markers.
+- `atlas release slsa-verify` validates retained
+  `atlas.slsa_provenance.v1` references by checking schema, metadata-only
+  flags, forbidden-content markers, source commit, artifact digest, workflow
+  path, GitHub run URL, recorded attestation verification status, and known
+  limitations.
 - `atlas production status` reports `atlas.production_readiness.v1` and
   verifies `atlas.release_artifact_manifest.v1` and
   `atlas.release_provenance.v1` when production trust evidence is required.

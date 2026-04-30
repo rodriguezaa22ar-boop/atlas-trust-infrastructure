@@ -12,7 +12,9 @@ means ready-to-refine, not production-certified.
 - Release provenance currently uses local signed Git tags for Atlas production
   status; GitHub/Sigstore SLSA provenance is prepared and smoke-verified for
   release artifacts, and release artifact manifests can record verified SLSA
-  references when provided.
+  references when provided. `atlas release slsa-verify` checks retained SLSA
+  reference metadata locally, but it does not download artifacts or query
+  GitHub.
 - Atlas is not externally SLSA-certified.
 - Production dry-run evidence is retained locally; it is not an independent
   external validation.

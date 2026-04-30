@@ -34,6 +34,7 @@ Atlas is in the trust infrastructure lane:
 - advisor prompt packet JSON parity
 - release artifact manifest hardening
 - SLSA-verifiable release artifact workflow
+- retained SLSA reference verification
 
 ## Near-Term Milestones
 
@@ -104,10 +105,14 @@ Atlas is in the trust infrastructure lane:
 25. SLSA references in release manifests. Implemented as optional
     `atlas release manifest --slsa <reference>` support and manifest
     verification for retained `atlas.slsa_provenance.v1` references.
+26. SLSA reference verification. Implemented as `atlas release slsa-verify`,
+    a read-only local verifier for retained metadata-only SLSA references,
+    expected source commits, artifact digests, workflow metadata, recorded
+    attestation verification status, and no-certification-overclaim flags.
 
 ## Later Control-Plane Work
 
-- add `atlas release slsa-verify` as a local verification wrapper
+- add optional online SLSA artifact verification with `gh attestation verify`
 - read-only dashboard planning
 - node runtime planning
 - reproducible runtime profile

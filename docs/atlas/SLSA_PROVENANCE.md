@@ -122,6 +122,17 @@ artifact. It does not mean external SLSA certification. Atlas release manifests
 can now record verified SLSA attestation references with
 `atlas release manifest --slsa <reference>`.
 
+Retained SLSA references can be checked locally with:
+
+```bash
+atlas release slsa-verify <reference>.slsa.json --commit <sha>
+```
+
+This command verifies the metadata-only reference contract, recorded
+`gh attestation verify` status, source commit, artifact digest, workflow path,
+GitHub run URL, known limitations, and no-certification-overclaim flag. It does
+not download artifacts or query GitHub.
+
 ## Relationship To Atlas Release Trust
 
 Atlas already has local release trust artifacts:
@@ -192,7 +203,8 @@ GitHub/Sigstore-backed SLSA provenance attestation for release artifacts.
 
 ## Next Hardening
 
-- Add an `atlas release slsa-verify` wrapper for `gh attestation verify`.
-- Add policy checks for expected workflow identity, tag, commit, and artifact
-  digest.
+- Add optional online verification that can run `gh attestation verify` against
+  a downloaded artifact when `gh` and the artifact are available.
+- Add stricter policy checks for expected workflow identity, tag, and
+  repository owner.
 - Publish SLSA verification commands with each release.

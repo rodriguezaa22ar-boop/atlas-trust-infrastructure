@@ -576,6 +576,49 @@ atlas_release_latest_slsa_reference() {
     tail -n 1
 }
 
+atlas_release_resolve_slsa_reference() {
+  local slsa_arg="$1"
+  local packet_dir="$LAB_DOCS_DIR/retention/releases"
+  local candidate
+  local slsa_base
+  local slsa_slug
+
+  if [ -z "$slsa_arg" ]; then
+    candidate="$(atlas_release_latest_slsa_reference)"
+    [ -n "$candidate" ] || fail "no SLSA provenance reference found"
+    printf '%s\n' "$candidate"
+    return 0
+  fi
+
+  if [ -f "$slsa_arg" ]; then
+    readlink -f "$slsa_arg"
+    return 0
+  fi
+
+  candidate="$(atlas_release_resolve_repo_file "$slsa_arg" 2>/dev/null || true)"
+  if [ -n "$candidate" ]; then
+    printf '%s\n' "$candidate"
+    return 0
+  fi
+
+  candidate="$packet_dir/$slsa_arg"
+  if [ -f "$candidate" ]; then
+    readlink -f "$candidate"
+    return 0
+  fi
+
+  slsa_base="${slsa_arg%.slsa.json}"
+  slsa_base="${slsa_base%.json}"
+  slsa_slug="$(slugify "$slsa_base")"
+  candidate="$packet_dir/$slsa_slug.slsa.json"
+  if [ -f "$candidate" ]; then
+    readlink -f "$candidate"
+    return 0
+  fi
+
+  fail "unknown SLSA provenance reference: $slsa_arg"
+}
+
 atlas_release_latest_dry_run_note() {
   local production_dir="$LAB_DOCS_DIR/retention/production"
 
@@ -636,6 +679,31 @@ atlas_release_full_commit() {
   git -C "$LAB_ROOT" rev-parse "$commit^{commit}" 2>/dev/null || return 1
 }
 
+atlas_release_json_forbidden_content_paths() {
+  local json_file="$1"
+
+  jq -r '
+    def pathstr($p): $p | map(tostring) | join(".");
+    def ignored($p): (($p[0] // "") == "metadata_boundary") or (($p[0] // "") == "known_limitations");
+    def bad_key: test("^(raw_runtime_artifacts|target_secrets|session_contents|packet_captures|credential_material|private_keys|tokens|password|passwd|api_key|secret|authorization|cookie|session)$"; "i");
+    def bad_value: test("password=|passwd=|api_key=|secret=|token=|authorization:|bearer[[:space:]]|set-cookie:|BEGIN RSA|BEGIN OPENSSH|session=|cookie="; "i");
+    (
+      [
+        paths as $p
+        | select(($p | length) > 0 and (ignored($p) | not))
+        | select((($p[-1] | type) == "string") and (($p[-1] | tostring) | bad_key))
+        | pathstr($p)
+      ] +
+      [
+        paths(scalars) as $p
+        | select(ignored($p) | not)
+        | select(((getpath($p) | type) == "string") and (getpath($p) | bad_value))
+        | pathstr($p)
+      ]
+    ) | unique | .[]
+  ' "$json_file" 2>/dev/null || true
+}
+
 atlas_release_slsa_reference_valid() {
   local slsa_file="$1"
   local expected_commit="$2"
@@ -667,6 +735,8 @@ atlas_release_slsa_reference_valid() {
     (((.known_limitations // []) | type) == "array" and ((.known_limitations // []) | length > 0))
   ' "$slsa_file" >/dev/null 2>&1 || return 1
 
+  [ -z "$(atlas_release_json_forbidden_content_paths "$slsa_file")" ] || return 1
+
   source_commit="$(jq -r '.source.commit // ""' "$slsa_file")"
   atlas_release_commit_matches "$source_commit" "$expected_commit" || return 1
 
@@ -677,6 +747,136 @@ atlas_release_slsa_reference_valid() {
 
   workflow_path="$(jq -r '.workflow.path // ""' "$slsa_file")"
   atlas_release_resolve_repo_file "$workflow_path" >/dev/null 2>&1 || return 1
+}
+
+atlas_release_slsa_verify_failures=0
+
+atlas_release_slsa_verify_row() {
+  local label="$1"
+  local status="$2"
+  local detail="$3"
+
+  ui_kv "$label" "$status $detail"
+  [ "$status" = "ok" ] || atlas_release_slsa_verify_failures=$((atlas_release_slsa_verify_failures + 1))
+}
+
+atlas_release_slsa_verify_reference() {
+  local slsa_file="$1"
+  local expected_commit="$2"
+  local display_path
+  local source_commit
+  local source_repository
+  local source_ref
+  local artifact_path
+  local artifact_sha
+  local subject_digest
+  local workflow_path
+  local workflow_run_url
+  local verification_command
+  local verification_status
+  local known_count
+  local forbidden
+
+  [ -f "$slsa_file" ] || fail "SLSA provenance reference is not a file: $slsa_file"
+  intel_require_jq
+
+  display_path="$(atlas_release_display_path "$slsa_file")"
+  source_commit="$(jq -r '.source.commit // ""' "$slsa_file" 2>/dev/null || true)"
+  [ -n "$expected_commit" ] || expected_commit="$source_commit"
+  [ -n "$expected_commit" ] || fail "SLSA provenance reference is missing source.commit: $display_path"
+
+  atlas_release_slsa_verify_failures=0
+
+  ui_heading "Atlas SLSA Provenance Reference Verification"
+  ui_rule
+  ui_kv "Reference" "$display_path"
+  ui_kv "Commit" "$expected_commit"
+
+  if jq -e '.schema_version == "atlas.slsa_provenance.v1"' "$slsa_file" >/dev/null 2>&1; then
+    atlas_release_slsa_verify_row "Schema" "ok" "atlas.slsa_provenance.v1"
+  else
+    atlas_release_slsa_verify_row "Schema" "fail" "expected=atlas.slsa_provenance.v1"
+  fi
+
+  if jq -e '.metadata_only == true and .no_certification_overclaim == true' "$slsa_file" >/dev/null 2>&1; then
+    atlas_release_slsa_verify_row "Metadata Boundary" "ok" "metadata_only=true no_certification_overclaim=true"
+  else
+    atlas_release_slsa_verify_row "Metadata Boundary" "fail" "expected metadata_only=true no_certification_overclaim=true"
+  fi
+
+  forbidden="$(atlas_release_json_forbidden_content_paths "$slsa_file")"
+  if [ -z "$forbidden" ]; then
+    atlas_release_slsa_verify_row "Forbidden Content" "ok" "no forbidden raw-content markers"
+  else
+    atlas_release_slsa_verify_row "Forbidden Content" "fail" "$(printf '%s' "$forbidden" | paste -sd, -)"
+  fi
+
+  source_repository="$(jq -r '.source.repository // ""' "$slsa_file" 2>/dev/null || true)"
+  source_ref="$(jq -r '.source.ref // ""' "$slsa_file" 2>/dev/null || true)"
+  if [ -n "$source_repository" ] && [ -n "$source_ref" ]; then
+    atlas_release_slsa_verify_row "Source Identity" "ok" "repository=$source_repository ref=$source_ref"
+  else
+    atlas_release_slsa_verify_row "Source Identity" "fail" "repository=${source_repository:-missing} ref=${source_ref:-missing}"
+  fi
+
+  if atlas_release_commit_matches "$source_commit" "$expected_commit"; then
+    atlas_release_slsa_verify_row "Source Commit" "ok" "$source_commit"
+  else
+    atlas_release_slsa_verify_row "Source Commit" "fail" "expected=$expected_commit actual=${source_commit:-missing}"
+  fi
+
+  artifact_path="$(jq -r '.artifact.path // ""' "$slsa_file" 2>/dev/null || true)"
+  artifact_sha="$(jq -r '.artifact.sha256 // ""' "$slsa_file" 2>/dev/null || true)"
+  subject_digest="$(jq -r '.attestation.subject_digest // ""' "$slsa_file" 2>/dev/null || true)"
+  subject_digest="${subject_digest#sha256:}"
+  if [ -n "$artifact_path" ] &&
+    [[ "$artifact_sha" =~ ^[a-f0-9]{64}$ ]] &&
+    [ "$artifact_sha" = "$subject_digest" ]; then
+    atlas_release_slsa_verify_row "Artifact Digest" "ok" "path=$artifact_path sha256=$artifact_sha"
+  else
+    atlas_release_slsa_verify_row "Artifact Digest" "fail" "path=${artifact_path:-missing} artifact_sha=${artifact_sha:-missing} subject_sha=${subject_digest:-missing}"
+  fi
+
+  workflow_path="$(jq -r '.workflow.path // ""' "$slsa_file" 2>/dev/null || true)"
+  workflow_run_url="$(jq -r '.workflow.run_url // ""' "$slsa_file" 2>/dev/null || true)"
+  if atlas_release_resolve_repo_file "$workflow_path" >/dev/null 2>&1; then
+    atlas_release_slsa_verify_row "Workflow Path" "ok" "$workflow_path"
+  else
+    atlas_release_slsa_verify_row "Workflow Path" "fail" "missing path=${workflow_path:-missing}"
+  fi
+  if [ -n "$workflow_run_url" ] && [[ "$workflow_run_url" == https://github.com/* ]]; then
+    atlas_release_slsa_verify_row "Workflow Run" "ok" "$workflow_run_url"
+  else
+    atlas_release_slsa_verify_row "Workflow Run" "fail" "expected GitHub run URL actual=${workflow_run_url:-missing}"
+  fi
+
+  verification_command="$(jq -r '.attestation.verification_command // ""' "$slsa_file" 2>/dev/null || true)"
+  verification_status="$(jq -r '.attestation.verification_status // ""' "$slsa_file" 2>/dev/null || true)"
+  if [ "$verification_status" = "verified" ] && [[ "$verification_command" == *"gh attestation verify"* ]]; then
+    atlas_release_slsa_verify_row "Attestation Verification" "ok" "$verification_status"
+  else
+    atlas_release_slsa_verify_row "Attestation Verification" "fail" "status=${verification_status:-missing}"
+  fi
+
+  known_count="$(jq -r '((.known_limitations // []) | length)' "$slsa_file" 2>/dev/null || printf '0')"
+  if [ "$known_count" -gt 0 ] 2>/dev/null; then
+    atlas_release_slsa_verify_row "Known Limitations" "ok" "count=$known_count"
+  else
+    atlas_release_slsa_verify_row "Known Limitations" "fail" "missing"
+  fi
+
+  if atlas_release_slsa_reference_valid "$slsa_file" "$expected_commit"; then
+    atlas_release_slsa_verify_row "Reference Contract" "ok" "verified"
+  else
+    atlas_release_slsa_verify_row "Reference Contract" "fail" "verification failed"
+  fi
+
+  if [ "$atlas_release_slsa_verify_failures" -gt 0 ]; then
+    fail "SLSA provenance reference verification failed: $display_path"
+  fi
+
+  ui_ok "SLSA provenance reference verified"
+  printf 'slsa_reference: %s\n' "$slsa_file"
 }
 
 atlas_release_manifest_verify_failures=0
@@ -1262,26 +1462,7 @@ atlas_release_manifest_verify_forbidden_content() {
   local manifest_file="$1"
   local forbidden
 
-  forbidden="$(jq -r '
-    def pathstr($p): $p | map(tostring) | join(".");
-    def ignored($p): (($p[0] // "") == "metadata_boundary") or (($p[0] // "") == "known_limitations");
-    def bad_key: test("^(raw_runtime_artifacts|target_secrets|session_contents|packet_captures|credential_material|private_keys|tokens|password|passwd|api_key|secret|authorization|cookie|session)$"; "i");
-    def bad_value: test("password=|passwd=|api_key=|secret=|authorization:|bearer[[:space:]]|set-cookie:|BEGIN RSA|BEGIN OPENSSH|session=|cookie="; "i");
-    (
-      [
-        paths as $p
-        | select(($p | length) > 0 and (ignored($p) | not))
-        | select((($p[-1] | type) == "string") and (($p[-1] | tostring) | bad_key))
-        | pathstr($p)
-      ] +
-      [
-        paths(scalars) as $p
-        | select(ignored($p) | not)
-        | select(((getpath($p) | type) == "string") and (getpath($p) | bad_value))
-        | pathstr($p)
-      ]
-    ) | unique | .[]
-  ' "$manifest_file" 2>/dev/null || true)"
+  forbidden="$(atlas_release_json_forbidden_content_paths "$manifest_file")"
 
   if [ -z "$forbidden" ]; then
     atlas_release_manifest_verify_row "Forbidden Content" "ok" "no forbidden raw-content markers"
@@ -2079,6 +2260,35 @@ cmd_release_manifest_verify() {
 
   manifest_file="$(atlas_release_resolve_manifest "$manifest_arg")"
   atlas_release_manifest_verify_packet "$manifest_file" "$expected_commit"
+}
+
+cmd_release_slsa_verify() {
+  local slsa_arg=""
+  local expected_commit=""
+  local slsa_file
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+    --commit)
+      [ "$#" -ge 2 ] || fail "release slsa-verify [reference] [--commit sha]"
+      expected_commit="$2"
+      shift 2
+      ;;
+    -*)
+      fail "unknown release slsa-verify option: $1"
+      ;;
+    *)
+      if [ -n "$slsa_arg" ]; then
+        fail "release slsa-verify [reference] [--commit sha]"
+      fi
+      slsa_arg="$1"
+      shift
+      ;;
+    esac
+  done
+
+  slsa_file="$(atlas_release_resolve_slsa_reference "$slsa_arg")"
+  atlas_release_slsa_verify_reference "$slsa_file" "$expected_commit"
 }
 
 cmd_release_replay() {

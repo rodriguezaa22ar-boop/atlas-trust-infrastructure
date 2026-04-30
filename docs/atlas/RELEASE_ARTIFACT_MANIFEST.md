@@ -139,6 +139,9 @@ matches the artifact SHA-256, its source commit matches the manifest release
 commit, and the manifest contains a matching optional `slsa_provenance` artifact
 entry.
 
+The same retained reference can be checked directly with
+`atlas release slsa-verify <reference> --commit <sha>`.
+
 This records verified GitHub/Sigstore provenance metadata. It does not make
 Atlas externally SLSA-certified.
 

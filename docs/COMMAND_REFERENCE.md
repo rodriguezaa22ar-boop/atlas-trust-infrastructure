@@ -64,6 +64,7 @@ nix-shell --run './bin/dev-qa'
 ./tools/atlas/bin/atlas release manifest atlas-current
 ./tools/atlas/bin/atlas release manifest atlas-current --slsa docs/retention/releases/atlas-current.slsa.json
 ./tools/atlas/bin/atlas release manifest-verify atlas-current
+./tools/atlas/bin/atlas release slsa-verify docs/retention/releases/atlas-current.slsa.json --commit <sha>
 ```
 
 ## Atlas Targets And Profiles

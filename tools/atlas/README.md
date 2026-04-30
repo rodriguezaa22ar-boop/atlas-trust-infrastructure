@@ -26,6 +26,7 @@ atlas release verify atlas-current
 atlas release replay atlas-current
 atlas release manifest atlas-current
 atlas release manifest-verify atlas-current
+atlas release slsa-verify docs/retention/releases/atlas-current.slsa.json --commit <sha>
 atlas web assess https://example.com example-web-review --scope-status in-scope --api-path /api/auth/me --cors-origin https://example.net
 atlas web validation-plan --all
 atlas web validation-approve --all --reason "approved bounded web validation"

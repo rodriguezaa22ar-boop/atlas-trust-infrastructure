@@ -38,6 +38,49 @@ make_repo_clean_and_synced() {
   git -C "$TEST_ROOT/toolkit" update-ref refs/remotes/origin/main HEAD
 }
 
+write_test_slsa_reference() {
+  local slsa_ref="$1"
+  local release_commit="$2"
+  local artifact_sha="$3"
+  local verification_status="${4:-verified}"
+
+  jq -n \
+    --arg commit "$release_commit" \
+    --arg artifact_sha "$artifact_sha" \
+    --arg verification_status "$verification_status" \
+    '{
+      schema_version: "atlas.slsa_provenance.v1",
+      metadata_only: true,
+      artifact: {
+        path: "dist/atlas-test-release.tar.gz",
+        sha256: $artifact_sha
+      },
+      source: {
+        repository: "rodriguezaa22ar-boop/atlas-trust-infrastructure",
+        commit: $commit,
+        ref: "refs/tags/atlas-test-release"
+      },
+      workflow: {
+        name: "Release SLSA Provenance",
+        path: ".github/workflows/release-slsa.yml",
+        run_id: "12345",
+        run_url: "https://github.com/rodriguezaa22ar-boop/atlas-trust-infrastructure/actions/runs/12345"
+      },
+      attestation: {
+        subject_digest: ("sha256:" + $artifact_sha),
+        url: "https://github.com/rodriguezaa22ar-boop/atlas-trust-infrastructure/attestations/123",
+        rekor_log_url: "https://search.sigstore.dev?logIndex=123",
+        verification_command: "gh attestation verify dist/atlas-test-release.tar.gz --repo rodriguezaa22ar-boop/atlas-trust-infrastructure",
+        verification_status: $verification_status
+      },
+      known_limitations: [
+        "This is a metadata-only SLSA reference.",
+        "This does not claim external SLSA certification."
+      ],
+      no_certification_overclaim: true
+    }' >"$slsa_ref"
+}
+
 @test "root AGENTS guidance preserves Atlas agent safety contract" {
   agents_file="$TEST_ROOT/toolkit/AGENTS.md"
 
@@ -1984,6 +2027,7 @@ EOF
   grep -q 'tagged commit matches' "$slsa_schema"
   grep -q 'local `main` branch tracking' "$slsa_schema"
   grep -q 'gh attestation verify' "$slsa_schema"
+  grep -q 'atlas release slsa-verify' "$slsa_schema"
   grep -q 'External SLSA certification' "$slsa_schema"
 
   grep -q '^# `atlas.production_readiness.v1`$' "$production_schema"
@@ -2249,6 +2293,7 @@ EOF
   [[ "$output" == *"atlas release replay [packet]"* ]]
   [[ "$output" == *"atlas release manifest [manifest-name]"* ]]
   [[ "$output" == *"atlas release manifest-verify [manifest]"* ]]
+  [[ "$output" == *"atlas release slsa-verify [reference]"* ]]
   [[ "$output" == *"atlas flow add <flow-name>"* ]]
   [[ "$output" == *"atlas flow list"* ]]
   [[ "$output" == *"atlas flow show <flow>"* ]]
@@ -2295,6 +2340,7 @@ EOF
   [[ "$output" == *"atlas release manifest [manifest-name] [--packet packet]"* ]]
   [[ "$output" == *"[--slsa slsa-reference]"* ]]
   [[ "$output" == *"atlas release manifest-verify [manifest] [--commit sha]"* ]]
+  [[ "$output" == *"atlas release slsa-verify [reference] [--commit sha]"* ]]
   [[ "$output" == *"atlas target story <target>"* ]]
   [[ "$output" == *"atlas target cycle <target>"* ]]
   [[ "$output" == *"atlas op cycle [name]"* ]]
@@ -3321,40 +3367,7 @@ EOF
   slsa_ref="$TEST_ROOT/toolkit/docs/retention/releases/test-release.slsa.json"
   artifact_sha="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 
-  jq -n \
-    --arg commit "$release_commit" \
-    --arg artifact_sha "$artifact_sha" \
-    '{
-      schema_version: "atlas.slsa_provenance.v1",
-      metadata_only: true,
-      artifact: {
-        path: "dist/atlas-test-release.tar.gz",
-        sha256: $artifact_sha
-      },
-      source: {
-        repository: "rodriguezaa22ar-boop/atlas-trust-infrastructure",
-        commit: $commit,
-        ref: "refs/tags/atlas-test-release"
-      },
-      workflow: {
-        name: "Release SLSA Provenance",
-        path: ".github/workflows/release-slsa.yml",
-        run_id: "12345",
-        run_url: "https://github.com/rodriguezaa22ar-boop/atlas-trust-infrastructure/actions/runs/12345"
-      },
-      attestation: {
-        subject_digest: ("sha256:" + $artifact_sha),
-        url: "https://github.com/rodriguezaa22ar-boop/atlas-trust-infrastructure/attestations/123",
-        rekor_log_url: "https://search.sigstore.dev?logIndex=123",
-        verification_command: "gh attestation verify dist/atlas-test-release.tar.gz --repo rodriguezaa22ar-boop/atlas-trust-infrastructure",
-        verification_status: "verified"
-      },
-      known_limitations: [
-        "This is a metadata-only SLSA reference.",
-        "This does not claim external SLSA certification."
-      ],
-      no_certification_overclaim: true
-    }' >"$slsa_ref"
+  write_test_slsa_reference "$slsa_ref" "$release_commit" "$artifact_sha"
   git -C "$TEST_ROOT/toolkit" add -f "$slsa_ref"
   git -C "$TEST_ROOT/toolkit" commit -m "retain test slsa reference" >/dev/null
   git -C "$TEST_ROOT/toolkit" update-ref refs/remotes/origin/main HEAD
@@ -3409,6 +3422,58 @@ EOF
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release manifest bad-slsa-manifest --slsa "$bad_slsa_ref"
   [ "$status" -ne 0 ]
   [[ "$output" == *"release manifest requires a verified SLSA provenance reference"* ]]
+}
+
+@test "atlas release slsa-verify checks retained SLSA provenance references" {
+  make_repo_clean_and_synced
+
+  release_commit="$(jq -r '.commit' "$TEST_ROOT/toolkit/docs/retention/releases/atlas-m93-business-flow-assurance.provenance.json")"
+  slsa_ref="$TEST_ROOT/toolkit/docs/retention/releases/test-release.slsa.json"
+  artifact_sha="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+
+  write_test_slsa_reference "$slsa_ref" "$release_commit" "$artifact_sha"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release slsa-verify "$slsa_ref" --commit "$release_commit"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Atlas SLSA Provenance Reference Verification"* ]]
+  [[ "$output" == *"Schema: ok atlas.slsa_provenance.v1"* ]]
+  [[ "$output" == *"Metadata Boundary: ok metadata_only=true"* ]]
+  [[ "$output" == *"Forbidden Content: ok"* ]]
+  [[ "$output" == *"Source Commit: ok $release_commit"* ]]
+  [[ "$output" == *"Artifact Digest: ok"* ]]
+  [[ "$output" == *"Workflow Path: ok .github/workflows/release-slsa.yml"* ]]
+  [[ "$output" == *"Attestation Verification: ok verified"* ]]
+  [[ "$output" == *"Reference Contract: ok verified"* ]]
+  [[ "$output" == *"SLSA provenance reference verified"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release slsa-verify --commit "$release_commit"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"SLSA provenance reference verified"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release slsa-verify "$slsa_ref" --commit deadbeefdeadbeefdeadbeefdeadbeefdeadbeef
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Source Commit: fail"* ]]
+  [[ "$output" == *"SLSA provenance reference verification failed"* ]]
+
+  jq '.attestation.subject_digest = "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"' "$slsa_ref" >"$TEST_ROOT/bad-slsa-digest.json"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release slsa-verify "$TEST_ROOT/bad-slsa-digest.json" --commit "$release_commit"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Artifact Digest: fail"* ]]
+
+  jq '.attestation.verification_status = "pending"' "$slsa_ref" >"$TEST_ROOT/bad-slsa-status.json"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release slsa-verify "$TEST_ROOT/bad-slsa-status.json" --commit "$release_commit"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Attestation Verification: fail"* ]]
+
+  jq '.attestation.verification_command += " token=abc123"' "$slsa_ref" >"$TEST_ROOT/bad-slsa-forbidden.json"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release slsa-verify "$TEST_ROOT/bad-slsa-forbidden.json" --commit "$release_commit"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Forbidden Content: fail"* ]]
+
+  printf '{' >"$TEST_ROOT/bad-slsa-malformed.json"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release slsa-verify "$TEST_ROOT/bad-slsa-malformed.json" --commit "$release_commit"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Schema: fail"* ]]
 }
 
 @test "atlas release manifest verification fails closed on completeness gaps" {
