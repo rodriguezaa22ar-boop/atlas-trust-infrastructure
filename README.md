@@ -112,6 +112,7 @@ own retained trust-packet verification.
 | [docs/COMMAND_REFERENCE.md](docs/COMMAND_REFERENCE.md) | Full command reference moved out of the README. |
 | [docs/TRUST_LIFECYCLE.md](docs/TRUST_LIFECYCLE.md) | Scope-to-release trust chain explanation. |
 | [docs/case-studies/CASE_STUDY_RELEASE_TRUST.md](docs/case-studies/CASE_STUDY_RELEASE_TRUST.md) | Public release-trust case study. |
+| [docs/case-studies/CASE_STUDY_VENDOR_PAYMENT_CHANGE.md](docs/case-studies/CASE_STUDY_VENDOR_PAYMENT_CHANGE.md) | Public business-flow case study. |
 | [docs/atlas/TRUST_INFRASTRUCTURE_DIRECTION.md](docs/atlas/TRUST_INFRASTRUCTURE_DIRECTION.md) | Atlas trust-infrastructure direction. |
 | [docs/atlas/TRUST_OBJECT_MODEL.md](docs/atlas/TRUST_OBJECT_MODEL.md) | Actors, objects, packets, schemas, freshness, verification, and replay. |
 | [docs/RELEASE_TRUST.md](docs/RELEASE_TRUST.md) | Release packets, verification, replay, signing, and provenance. |
@@ -120,7 +121,6 @@ own retained trust-packet verification.
 | [docs/atlas/RELEASE_ARTIFACT_MANIFEST.md](docs/atlas/RELEASE_ARTIFACT_MANIFEST.md) | Release artifact manifest contract and completeness checks. |
 | [docs/WEB_ASSESSMENT.md](docs/WEB_ASSESSMENT.md) | `atlas web assess` flow and boundaries. |
 | [docs/atlas/BUSINESS_FLOW_EVIDENCE.md](docs/atlas/BUSINESS_FLOW_EVIDENCE.md) | Optional metadata-only business-flow evidence model, retention links, packet path, assurance view, trust-chain view, verification, and non-blocking readiness integration. |
-| [docs/ATLAS_BLUEPRINT.md](docs/ATLAS_BLUEPRINT.md) | Product architecture and milestone history. |
 | [docs/atlas/V1_PILLAR_READINESS.md](docs/atlas/V1_PILLAR_READINESS.md) | v1 pillar readiness contract. |
 | [docs/atlas/PRODUCTION_READINESS.md](docs/atlas/PRODUCTION_READINESS.md) | Local production readiness contract. |
 | [docs/TRUST_MODEL.md](docs/TRUST_MODEL.md) | Trust model and verification pattern. |
