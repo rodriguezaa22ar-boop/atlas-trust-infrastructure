@@ -188,6 +188,11 @@ over marketing language.
 who need to understand why Atlas is ready or not ready under the local Atlas
 contract without reading every retained packet first.
 
+The GitHub Actions release-trust gate runs this explain mode inside a
+temporary worktree at the latest retained `atlas-retention-m*` tag. That CI
+workflow verifies retained release evidence without treating every pull request
+or normal source commit as a new production candidate.
+
 Passing explain output includes:
 
 - overall status using `production-ready under the local Atlas contract`

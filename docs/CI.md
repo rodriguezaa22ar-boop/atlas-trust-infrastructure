@@ -29,6 +29,12 @@ The CodeQL code scanning workflow lives at:
 .github/workflows/codeql.yml
 ```
 
+The retained release-trust workflow lives at:
+
+```text
+.github/workflows/release-trust.yml
+```
+
 ## Current CI Checks
 
 The workflow runs on pushes to `main`, pull requests targeting `main`, and
@@ -74,12 +80,57 @@ git diff --check
 nix-shell --run 'bats --filter "<test name>" tests/atlas.bats'
 ```
 
+## Release Trust Gate
+
+`release-trust.yml` runs on pushes to `main`, pull requests targeting `main`,
+and manual dispatch. It is separate from `qa.yml` because QA answers whether
+the current source tree passes the development gate, while release trust
+answers whether the latest retained production-candidate evidence still
+verifies.
+
+The release-trust gate checks out full history and tags, installs Nix, locates
+the latest `atlas-retention-m*` tag, and creates a temporary retained-release
+worktree at that tag. Inside that retained-release worktree it verifies:
+
+- the latest retained release packet with `atlas release verify`
+- the latest retained release artifact manifest with
+  `atlas release manifest-verify`
+- release replay JSON with `atlas release replay --json`
+- the latest production-candidate signed tag with `git tag -v`
+- reviewer-readable production status with
+  `atlas production status --strict --explain`
+
+The retained-release worktree uses a synthetic
+`origin/release-trust-retained` upstream reference so production status can
+verify the retained evidence contract without requiring every pull request or
+docs-only commit to be a new production candidate.
+
+The release-trust workflow pins third-party GitHub Actions to immutable commit
+SHAs. Human-readable comments record the upstream version tags, but mutable
+tags are not the trust anchor for this retained-evidence gate.
+
+The release-trust gate is an automated retained-evidence verification signal.
+It does not claim:
+
+- not external audit
+- not certification
+- not legal compliance
+- not tamper-proof infrastructure
+- not enterprise deployment approval
+- not external SLSA certification
+- not proof of runtime safety or production deployability
+
 ## Non-Goals
 
-The current CI gate does not claim production readiness and does not yet block
-on `atlas production status`. Production status remains a separate local
+The QA CI gate does not claim production readiness and does not block on
+`atlas production status`. Production status remains a separate local
 release-promotion contract even when retained release evidence reports
 `production-ready`.
+
+The release-trust gate runs production explainability only inside the latest
+retained-release worktree. It verifies retained evidence and does not certify
+the active pull request or source commit as production-ready under the local
+Atlas contract.
 
 The CI gate also does not run live target assessments, external web tests, or
 router/device tests.
@@ -120,11 +171,9 @@ workflow does not claim external SLSA certification.
 
 Future hardening can add:
 
-- release packet smoke verification
 - production dry-run artifact checks
 - schema drift checks
-- signed tag/provenance checks
 - `gh attestation verify` policy checks for release artifacts
 - `slsa-verifier verify-artifact` policy checks for official generic
   provenance
-- replay verification from a clean checkout
+- stricter release-trust gating for externally reviewed release candidates
