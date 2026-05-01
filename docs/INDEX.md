@@ -19,6 +19,7 @@ repository in filesystem order.
 - Business owner: [atlas/BUSINESS_FLOW_EVIDENCE.md](atlas/BUSINESS_FLOW_EVIDENCE.md)
 - Release reviewer: [RELEASE_TRUST.md](RELEASE_TRUST.md)
 - SLSA reviewer: [atlas/SLSA_CLAIM.md](atlas/SLSA_CLAIM.md)
+- External reviewer: [atlas/EXTERNAL_REVIEWER_PACKAGE.md](atlas/EXTERNAL_REVIEWER_PACKAGE.md)
 - Contributor: [../CONTRIBUTING.md](../CONTRIBUTING.md)
 - Security reporter: [../SECURITY.md](../SECURITY.md)
 
@@ -63,6 +64,8 @@ repository in filesystem order.
   artifact claim and evidence checklist.
 - [atlas/INDEPENDENT_REVIEW_READINESS.md](atlas/INDEPENDENT_REVIEW_READINESS.md):
   reviewer packet expectations for an external release-trust review.
+- [atlas/EXTERNAL_REVIEWER_PACKAGE.md](atlas/EXTERNAL_REVIEWER_PACKAGE.md):
+  generated metadata-only reviewer package contract and contents.
 - [retention/reviews/atlas-v0.4.0-rc1-review-packet.md](retention/reviews/atlas-v0.4.0-rc1-review-packet.md):
   executable independent-review packet for the retained v0.4.0-rc1 SLSA
   evidence.
@@ -106,6 +109,8 @@ repository in filesystem order.
   machine-readable single-flow trust-chain status contract.
 - [schemas/release-artifact-manifest.v1.md](schemas/release-artifact-manifest.v1.md):
   metadata-only release artifact manifest contract.
+- [schemas/external-reviewer-package.v1.md](schemas/external-reviewer-package.v1.md):
+  metadata-only external reviewer package manifest contract.
 - [schemas/slsa-provenance.v1.md](schemas/slsa-provenance.v1.md):
   SLSA provenance readiness contract for release artifacts.
 - [schemas/handoff-packet.v1.md](schemas/handoff-packet.v1.md):
