@@ -1,0 +1,35 @@
+{
+  "schema_version": "atlas.release_provenance.v1",
+  "generated": "2026-05-01T22:05:54Z",
+  "metadata_only": true,
+  "commit": "fdcec1de1acf91a27f3f3ac58f2381fe9fe43d66",
+  "signed_tag": {
+    "name": "atlas-production-candidate-m116",
+    "target": "fdcec1de1acf91a27f3f3ac58f2381fe9fe43d66",
+    "tag_object": "48fb8e9ef64e593c8dee093ba987bedc54c91e10",
+    "verification": "verified",
+    "signer_fingerprint": "24B1E00EEB286B966F9FCE0C9C6439E15BBFD290",
+    "public_key_path": "docs/retention/releases/atlas-m67-release-signing-public-key.asc",
+    "public_key_sha256": "c08e7454ee3ab72a39286f61efd4deca8fbe0ef3fe20844771ff5735da6a79d5"
+  },
+  "release_packet": {
+    "path": "docs/retention/releases/atlas-m116-business-flow-evidence-deepening.json",
+    "sha256": "11547872c6968870811a335ffe09be34ce420b99a5c1f0ea341f463540555e97"
+  },
+  "qa": {
+    "status": "pass",
+    "command": "nix-shell --run './bin/dev-qa'",
+    "note": "dev-qa passed with 109/109 tests, lint ok, and stress ok after M116 merge; public main QA run 25234968670, CodeQL workflow run 25234968681, Release Trust run 25234968669, and Pages run 25234968421 passed"
+  },
+  "production_status": {
+    "observed": "not-ready",
+    "note": "release artifact manifest and milestone retention note were pending before retaining this packet set"
+  },
+  "known_limitations": [
+    "Business Flow Evidence remains optional-ready and non-blocking for core v1 and production readiness",
+    "Link health verifies metadata references, paths, and hashes; it is not a DLP system or external assurance result",
+    "Control coverage remains aggregate-flow-v1 and does not claim per-control evidence mapping",
+    "Atlas production status remains a local contract, not external audit, certification, legal compliance, or enterprise deployment approval"
+  ],
+  "no_production_overclaim": true
+}
