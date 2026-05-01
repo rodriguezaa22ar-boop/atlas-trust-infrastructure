@@ -109,6 +109,8 @@ repository in filesystem order.
   machine-readable single-flow trust-chain status contract.
 - [schemas/release-artifact-manifest.v1.md](schemas/release-artifact-manifest.v1.md):
   metadata-only release artifact manifest contract.
+- [schemas/release-replay.v1.md](schemas/release-replay.v1.md):
+  machine-readable release replay result contract.
 - [schemas/external-reviewer-package.v1.md](schemas/external-reviewer-package.v1.md):
   metadata-only external reviewer package manifest contract.
 - [schemas/slsa-provenance.v1.md](schemas/slsa-provenance.v1.md):

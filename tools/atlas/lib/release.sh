@@ -1726,6 +1726,117 @@ atlas_release_replay_run() {
   return 1
 }
 
+atlas_release_replay_run_silent() {
+  local log_file="$1"
+  shift
+
+  if "$@" >"$log_file" 2>&1; then
+    return 0
+  fi
+
+  sed -n '1,160p' "$log_file" >&2
+  return 1
+}
+
+atlas_release_replay_write_json() {
+  local packet_file="$1"
+  local commit="$2"
+  local replay_branch="$3"
+  local replay_checkout="$4"
+  local keep_worktree="$5"
+  local cleanup_status="$6"
+  local qa_status="$7"
+  local v1_status="$8"
+  local verify_status="$9"
+  local generated
+  local keep_worktree_json="false"
+
+  generated="$(timestamp)"
+  if [ "$keep_worktree" = "1" ]; then
+    keep_worktree_json="true"
+  fi
+
+  jq -n \
+    --arg schema_version "atlas.release_replay.v1" \
+    --arg generated "$generated" \
+    --arg packet_path "$(atlas_release_display_path "$packet_file")" \
+    --arg commit "$commit" \
+    --arg replay_branch "$replay_branch" \
+    --arg replay_checkout "$replay_checkout" \
+    --arg cleanup_status "$cleanup_status" \
+    --arg qa_status "$qa_status" \
+    --arg v1_status "$v1_status" \
+    --arg verify_status "$verify_status" \
+    --argjson keep_worktree "$keep_worktree_json" \
+    '{
+      schema_version: $schema_version,
+      generated: $generated,
+      metadata_only: true,
+      raw_artifacts_embedded: false,
+      overall: "verified",
+      packet: {
+        path: $packet_path,
+        commit: $commit
+      },
+      replay_checkout: {
+        branch: $replay_branch,
+        path: $replay_checkout,
+        keep_worktree: $keep_worktree,
+        cleanup: $cleanup_status
+      },
+      checks: {
+        checkout: {
+          status: "ok",
+          commit: $commit
+        },
+        qa: {
+          status: $qa_status,
+          command: "nix-shell --run ./bin/dev-qa"
+        },
+        v1_status: {
+          status: $v1_status,
+          command: "./tools/atlas/bin/atlas v1 status --strict"
+        },
+        release_verify: {
+          status: $verify_status,
+          command: ("./tools/atlas/bin/atlas release verify " + $packet_path + " --commit " + $commit)
+        }
+      },
+      metadata_boundary: {
+        stores: [
+          "packet path",
+          "commit",
+          "replay checkout path",
+          "replay branch",
+          "check statuses",
+          "cleanup status",
+          "timestamps"
+        ],
+        excludes: [
+          "raw runtime artifacts",
+          "target secrets",
+          "private keys",
+          "tokens",
+          "packet captures",
+          "evidence bodies",
+          "full QA logs"
+        ]
+      },
+      non_guarantees: [
+        "not external audit",
+        "not certification",
+        "not legal compliance",
+        "not tamper-proof infrastructure",
+        "not external SLSA certification"
+      ],
+      known_limitations: [
+        "Replay checks the retained release packet against the packet commit in an isolated checkout.",
+        "Skipped QA is recorded as skipped and is not equivalent to full replay.",
+        "The JSON result records statuses only and does not embed command logs or raw runtime artifacts."
+      ]
+    }'
+}
+
 atlas_release_replay_clean_env() {
   env \
     -u LAB_ROOT \
@@ -2449,15 +2560,21 @@ cmd_release_slsa_verify() {
 cmd_release_replay() {
   local packet_arg=""
   local packet_file
+  local packet_commit
   local commit
   local run_qa=1
   local keep_worktree=0
+  local json=0
   local replay_parent=""
   local replay_checkout=""
   local replay_branch=""
   local qa_log
   local v1_log
   local verify_log
+  local cleanup_status="pending"
+  local qa_status="pending"
+  local v1_status="pending"
+  local verify_status="pending"
 
   while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -2469,12 +2586,16 @@ cmd_release_replay() {
       keep_worktree=1
       shift
       ;;
+    --json)
+      json=1
+      shift
+      ;;
     -*)
       fail "unknown release replay option: $1"
       ;;
     *)
       if [ -n "$packet_arg" ]; then
-        fail "release replay [packet] [--skip-qa] [--keep-worktree]"
+        fail "release replay [packet] [--skip-qa] [--keep-worktree] [--json]"
       fi
       packet_arg="$1"
       shift
@@ -2485,10 +2606,10 @@ cmd_release_replay() {
   atlas_release_git_available || fail "release replay requires a git checkout"
 
   packet_file="$(atlas_release_resolve_packet "$packet_arg")"
-  commit="$(atlas_release_packet_commit "$packet_file")"
-  [ -n "$commit" ] || fail "release replay could not determine packet commit"
-  git -C "$LAB_ROOT" rev-parse --verify "$commit^{commit}" >/dev/null 2>&1 ||
-    fail "release replay commit is not available locally: $commit"
+  packet_commit="$(atlas_release_packet_commit "$packet_file")"
+  [ -n "$packet_commit" ] || fail "release replay could not determine packet commit"
+  commit="$(git -C "$LAB_ROOT" rev-parse --verify "$packet_commit^{commit}" 2>/dev/null)" ||
+    fail "release replay commit is not available locally: $packet_commit"
 
   replay_parent="$(mktemp -d)"
   replay_checkout="$replay_parent/checkout"
@@ -2502,13 +2623,15 @@ cmd_release_replay() {
     trap atlas_release_replay_cleanup EXIT
   fi
 
-  ui_heading "Atlas Release Replay"
-  ui_rule
-  ui_kv "Packet" "$packet_file"
-  ui_kv "Commit" "$commit"
-  ui_kv "Branch" "$replay_branch"
-  ui_kv "Checkout" "$replay_checkout"
-  ui_rule
+  if [ "$json" = "0" ]; then
+    ui_heading "Atlas Release Replay"
+    ui_rule
+    ui_kv "Packet" "$packet_file"
+    ui_kv "Commit" "$commit"
+    ui_kv "Branch" "$replay_branch"
+    ui_kv "Checkout" "$replay_checkout"
+    ui_rule
+  fi
 
   git clone --no-local --quiet "$LAB_ROOT" "$replay_checkout" >/dev/null 2>&1 ||
     fail "release replay could not create isolated replay checkout"
@@ -2520,26 +2643,58 @@ cmd_release_replay() {
 
   if [ "$run_qa" = "1" ]; then
     command -v nix-shell >/dev/null 2>&1 || fail "release replay requires nix-shell for QA; pass --skip-qa for metadata-only replay"
-    atlas_release_replay_run "QA" "$qa_log" atlas_release_replay_clean_env bash -c "cd \"\$1\" && nix-shell --run './bin/dev-qa'" _ "$replay_checkout" ||
-      return 1
+    if [ "$json" = "1" ]; then
+      atlas_release_replay_run_silent "$qa_log" atlas_release_replay_clean_env bash -c "cd \"\$1\" && nix-shell --run './bin/dev-qa'" _ "$replay_checkout" ||
+        return 1
+    else
+      atlas_release_replay_run "QA" "$qa_log" atlas_release_replay_clean_env bash -c "cd \"\$1\" && nix-shell --run './bin/dev-qa'" _ "$replay_checkout" ||
+        return 1
+    fi
+    qa_status="ok"
   else
-    ui_kv "QA" "skipped"
+    qa_status="skipped"
+    if [ "$json" = "0" ]; then
+      ui_kv "QA" "skipped"
+    fi
   fi
 
-  atlas_release_replay_run "V1 Status" "$v1_log" atlas_release_replay_clean_env "$replay_checkout/tools/atlas/bin/atlas" v1 status --strict ||
-    return 1
-  atlas_release_replay_run "Release Verify" "$verify_log" atlas_release_replay_clean_env "$replay_checkout/tools/atlas/bin/atlas" release verify "$packet_file" --commit "$commit" ||
-    return 1
+  if [ "$json" = "1" ]; then
+    atlas_release_replay_run_silent "$v1_log" atlas_release_replay_clean_env "$replay_checkout/tools/atlas/bin/atlas" v1 status --strict ||
+      return 1
+  else
+    atlas_release_replay_run "V1 Status" "$v1_log" atlas_release_replay_clean_env "$replay_checkout/tools/atlas/bin/atlas" v1 status --strict ||
+      return 1
+  fi
+  v1_status="ok"
+
+  if [ "$json" = "1" ]; then
+    atlas_release_replay_run_silent "$verify_log" atlas_release_replay_clean_env "$replay_checkout/tools/atlas/bin/atlas" release verify "$packet_file" --commit "$commit" ||
+      return 1
+  else
+    atlas_release_replay_run "Release Verify" "$verify_log" atlas_release_replay_clean_env "$replay_checkout/tools/atlas/bin/atlas" release verify "$packet_file" --commit "$commit" ||
+      return 1
+  fi
+  verify_status="ok"
 
   if [ "$keep_worktree" = "1" ]; then
-    ui_kv "Cleanup" "kept checkout=$replay_checkout"
+    cleanup_status="kept"
+    if [ "$json" = "0" ]; then
+      ui_kv "Cleanup" "kept checkout=$replay_checkout"
+    fi
   else
     rm -rf "$replay_parent"
     atlas_release_replay_cleanup_parent=""
     trap - EXIT
-    ui_kv "Cleanup" "removed"
+    cleanup_status="removed"
+    if [ "$json" = "0" ]; then
+      ui_kv "Cleanup" "removed"
+    fi
   fi
 
-  ui_rule
-  ui_ok "release replay verified"
+  if [ "$json" = "1" ]; then
+    atlas_release_replay_write_json "$packet_file" "$commit" "$replay_branch" "$replay_checkout" "$keep_worktree" "$cleanup_status" "$qa_status" "$v1_status" "$verify_status"
+  else
+    ui_rule
+    ui_ok "release replay verified"
+  fi
 }

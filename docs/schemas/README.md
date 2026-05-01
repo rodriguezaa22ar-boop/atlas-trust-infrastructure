@@ -17,6 +17,7 @@ documented at [../atlas/TRUST_OBJECT_MODEL.md](../atlas/TRUST_OBJECT_MODEL.md).
 | Schema | Surface | Contract |
 | --- | --- | --- |
 | `atlas.release_trust.v1` | `atlas release packet --json` | [release-trust.v1.md](release-trust.v1.md) |
+| `atlas.release_replay.v1` | `atlas release replay --json` | [release-replay.v1.md](release-replay.v1.md) |
 | `atlas.release_provenance.v1` | `docs/retention/releases/*.provenance.json` | [release-provenance.v1.md](release-provenance.v1.md) |
 | `atlas.release_artifact_manifest.v1` | `atlas release manifest` | [release-artifact-manifest.v1.md](release-artifact-manifest.v1.md) |
 | `atlas.external_reviewer_package.v1` | `atlas reviewer package` | [external-reviewer-package.v1.md](external-reviewer-package.v1.md) |
@@ -63,10 +64,11 @@ are not stable command outputs yet for JSON.
 ## Release Trust Consumers
 
 - `atlas release verify` validates `atlas.release_trust.v1`.
-- `atlas release replay` validates `atlas.release_trust.v1` from a detached
+- `atlas release replay` validates `atlas.release_trust.v1` from an isolated
   checkout of the packet commit.
-- Release replay verification checks `atlas.release_trust.v1` against the
-  packet's recorded commit from a clean checkout.
+- Release replay verification can be reported with `atlas release replay
+  --json` as `atlas.release_replay.v1`, recording metadata-only replay check
+  statuses without embedding QA logs or raw runtime artifacts.
 - `atlas release manifest-verify` validates
   `atlas.release_artifact_manifest.v1` by checking retained artifact hashes,
   required artifact classes, required paths, schema references, release packet

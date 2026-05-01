@@ -20,6 +20,7 @@ target secrets, private keys, tokens, packet captures, or evidence bodies.
 ./tools/atlas/bin/atlas release packet <name> --json --operation <operation> --qa-status pass
 ./tools/atlas/bin/atlas release verify <name>
 ./tools/atlas/bin/atlas release replay <name>
+./tools/atlas/bin/atlas release replay <name> --json --skip-qa
 ./tools/atlas/bin/atlas release manifest <name>
 ./tools/atlas/bin/atlas release manifest-verify <name>
 ./tools/atlas/bin/atlas release slsa-verify <reference> --commit <sha>
@@ -75,6 +76,12 @@ v1 readiness, verifying the release packet against the recorded commit, and
 removing the checkout. `--skip-qa` is available for a faster metadata replay,
 but skipped QA is not equivalent to full replay.
 
+`atlas release replay --json` emits `atlas.release_replay.v1`, a metadata-only
+replay result that records the packet commit, isolated checkout identity, check
+statuses, cleanup status, known limitations, and non-guarantees without
+embedding QA logs or raw runtime artifacts. The schema is documented at
+[schemas/release-replay.v1.md](schemas/release-replay.v1.md).
+
 The manual clean-checkout replay procedure lives at
 [retention/releases/REPLAY_VERIFICATION.md](retention/releases/REPLAY_VERIFICATION.md).
 
@@ -94,6 +101,7 @@ checks:
 The schema contracts that support those checks are:
 
 - `atlas.release_trust.v1`
+- `atlas.release_replay.v1`
 - `atlas.release_provenance.v1`
 - `atlas.release_artifact_manifest.v1`
 - `atlas.production_readiness.v1`
