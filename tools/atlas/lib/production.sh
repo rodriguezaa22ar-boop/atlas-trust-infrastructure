@@ -674,6 +674,178 @@ atlas_production_print_text() {
   ui_kv "Required Not Ready" "$atlas_production_required_not_ready"
 }
 
+atlas_production_explain_gate_field() {
+  local key="$1"
+  local field_index="$2"
+
+  awk -F'\t' -v wanted="$key" -v field_index="$field_index" '
+    $1 == wanted {
+      print $field_index
+      exit
+    }
+  ' "$atlas_production_rows_file"
+}
+
+atlas_production_explain_display() {
+  local path="$1"
+
+  if [ -z "$path" ]; then
+    printf 'missing\n'
+    return 0
+  fi
+
+  atlas_release_display_path "$path"
+}
+
+atlas_production_explain_release_path() {
+  local manifest_file="$1"
+  local jq_expr="$2"
+  local fallback_file="$3"
+  local rel=""
+
+  if [ -n "$manifest_file" ] && [ -f "$manifest_file" ]; then
+    rel="$(jq -r "$jq_expr // \"\"" "$manifest_file" 2>/dev/null || true)"
+  fi
+
+  if [ -n "$rel" ]; then
+    printf '%s\n' "$rel"
+  else
+    atlas_production_explain_display "$fallback_file"
+  fi
+}
+
+atlas_production_print_explain() {
+  local overall="$1"
+  local strict="$2"
+  local latest_packet
+  local latest_manifest
+  local latest_provenance
+  local latest_dry_run
+  local packet_display
+  local manifest_display
+  local provenance_display
+  local dry_run_display
+  local public_key_display
+  local release_commit=""
+  local tag_name=""
+  local v1_status
+  local v1_reason
+  local packet_cmd
+  local manifest_cmd
+  local tag_cmd
+  local replay_cmd
+
+  latest_packet="$(atlas_release_latest_packet)"
+  latest_manifest="$(atlas_release_latest_manifest)"
+  latest_provenance="$(atlas_production_latest_provenance_packet)"
+  latest_dry_run="$(atlas_production_latest_dry_run_note)"
+
+  packet_display="$(atlas_production_explain_release_path "$latest_manifest" '.release_packet.path' "$latest_packet")"
+  manifest_display="$(atlas_production_explain_display "$latest_manifest")"
+  provenance_display="$(atlas_production_explain_release_path "$latest_manifest" '.provenance.path' "$latest_provenance")"
+  dry_run_display="$(atlas_production_explain_release_path "$latest_manifest" '.production_dry_run.path' "$latest_dry_run")"
+  public_key_display="$(atlas_production_explain_release_path "$latest_manifest" '.signing_public_key.path' "")"
+
+  if [ -n "$latest_packet" ] && [ -f "$latest_packet" ]; then
+    release_commit="$(atlas_release_packet_commit "$latest_packet")"
+    if [ -n "$release_commit" ]; then
+      release_commit="$(atlas_release_full_commit "$release_commit" 2>/dev/null || printf '%s\n' "$release_commit")"
+    fi
+  fi
+  if [ -z "$release_commit" ] && [ -n "$latest_manifest" ] && [ -f "$latest_manifest" ]; then
+    release_commit="$(jq -r '.release.commit // ""' "$latest_manifest" 2>/dev/null || true)"
+  fi
+
+  if [ -n "$latest_manifest" ] && [ -f "$latest_manifest" ]; then
+    tag_name="$(jq -r '.signed_tag.name // ""' "$latest_manifest" 2>/dev/null || true)"
+  fi
+  if [ -z "$tag_name" ] && [ -n "$latest_provenance" ] && [ -f "$latest_provenance" ]; then
+    tag_name="$(jq -r '.signed_tag.name // ""' "$latest_provenance" 2>/dev/null || true)"
+  fi
+
+  v1_status="$(atlas_production_explain_gate_field v1_internal_readiness 4)"
+  v1_reason="$(atlas_production_explain_gate_field v1_internal_readiness 5)"
+
+  if [ "$packet_display" != "missing" ] && [ -n "$release_commit" ]; then
+    packet_cmd="./tools/atlas/bin/atlas release verify $packet_display --commit $release_commit"
+    replay_cmd="./tools/atlas/bin/atlas release replay $packet_display --json"
+  else
+    packet_cmd="unavailable - release packet missing"
+    replay_cmd="unavailable - release packet missing"
+  fi
+
+  if [ "$manifest_display" != "missing" ] && [ -n "$release_commit" ]; then
+    manifest_cmd="./tools/atlas/bin/atlas release manifest-verify $manifest_display --commit $release_commit"
+  else
+    manifest_cmd="unavailable - release artifact manifest missing"
+  fi
+
+  if [ -n "$tag_name" ]; then
+    tag_cmd="git tag -v $tag_name"
+  else
+    tag_cmd="unavailable - signed tag missing"
+  fi
+
+  ui_heading "Atlas Production Status Explanation"
+  ui_rule
+  ui_kv "Root" "$LAB_ROOT"
+  ui_kv "Commit" "$(atlas_release_commit)"
+  ui_kv "Runtime Target" "$LAB_RUNTIME_TARGET"
+  if [ "$strict" -eq 1 ]; then
+    ui_kv "Strict" "yes"
+  else
+    ui_kv "Strict" "no"
+  fi
+  if [ "$overall" = "production-ready" ]; then
+    ui_kv "Overall" "production-ready under the local Atlas contract"
+  else
+    ui_kv "Overall" "$overall"
+  fi
+  ui_kv "V1 Readiness" "${v1_status:-missing} - ${v1_reason:-missing}"
+  ui_rule
+
+  ui_subheading "Retained Evidence"
+  ui_kv "Release Packet" "$packet_display"
+  ui_kv "Release Artifact Manifest" "$manifest_display"
+  ui_kv "Signed Provenance" "$provenance_display"
+  ui_kv "Signed Tag" "${tag_name:-missing}"
+  ui_kv "Signing Public Key" "$public_key_display"
+  ui_kv "Production Dry-Run Note" "$dry_run_display"
+  ui_rule
+
+  ui_subheading "Verification Commands"
+  ui_kv "V1 Readiness" "./tools/atlas/bin/atlas v1 status --strict"
+  ui_kv "Release Packet Verify" "$packet_cmd"
+  ui_kv "Manifest Verify" "$manifest_cmd"
+  ui_kv "Signed Tag Verify" "$tag_cmd"
+  ui_kv "Release Replay" "$replay_cmd"
+  ui_kv "Production Status JSON" "./tools/atlas/bin/atlas production status --json"
+  ui_rule
+
+  ui_subheading "Gate Details"
+  printf '%-28s %-16s %-10s %s\n' "GATE" "STATUS" "REQUIRED" "REASON"
+  awk -F'\t' '{
+    required = ($3 == "1" ? "yes" : "no")
+    printf "%-28s %-16s %-10s %s\n", $2, $4, required, $5
+  }' "$atlas_production_rows_file"
+  ui_rule
+
+  ui_subheading "Known Limitations"
+  printf -- '- Production readiness is a local Atlas contract based on retained metadata evidence.\n'
+  printf -- '- Explain output is a reviewer aid, not an external certification result.\n'
+  printf -- '- Release replay re-checks retained release trust evidence; it does not prove runtime safety or production deployability.\n'
+  printf -- '- Metadata-only packets do not embed raw runtime artifacts, secrets, customer data, packet captures, request or response bodies, payment data, raw business records, or unredacted evidence bodies.\n'
+  ui_rule
+
+  ui_subheading "Non-Guarantees"
+  printf -- '- not external audit\n'
+  printf -- '- not certification\n'
+  printf -- '- not legal compliance\n'
+  printf -- '- not tamper-proof infrastructure\n'
+  printf -- '- not enterprise deployment approval\n'
+  printf -- '- not external SLSA certification\n'
+}
+
 atlas_production_print_json() {
   local overall="$1"
   local strict="$2"
@@ -724,6 +896,7 @@ atlas_production_print_json() {
 cmd_production_status() {
   local strict=0
   local json=0
+  local explain=0
   local overall
   local exit_status=0
 
@@ -737,6 +910,10 @@ cmd_production_status() {
       json=1
       shift
       ;;
+    --explain)
+      explain=1
+      shift
+      ;;
     --)
       shift
       break
@@ -745,11 +922,14 @@ cmd_production_status() {
       fail "unknown production status option: $1"
       ;;
     *)
-      fail "production status [--strict] [--json]"
+      fail "production status [--strict] [--json] [--explain]"
       ;;
     esac
   done
-  [ "$#" -eq 0 ] || fail "production status [--strict] [--json]"
+  [ "$#" -eq 0 ] || fail "production status [--strict] [--json] [--explain]"
+  if [ "$json" -eq 1 ] && [ "$explain" -eq 1 ]; then
+    fail "production status cannot combine --json and --explain"
+  fi
 
   atlas_production_rows_file="$(mktemp)"
   atlas_production_collect
@@ -757,6 +937,8 @@ cmd_production_status() {
 
   if [ "$json" -eq 1 ]; then
     atlas_production_print_json "$overall" "$strict"
+  elif [ "$explain" -eq 1 ]; then
+    atlas_production_print_explain "$overall" "$strict"
   else
     atlas_production_print_text "$overall" "$strict"
   fi

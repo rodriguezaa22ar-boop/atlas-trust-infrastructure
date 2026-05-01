@@ -101,7 +101,7 @@ usage:
   atlas help
   atlas doctor
   atlas v1 status [name] [--strict] [--json]
-  atlas production status [--strict] [--json]
+  atlas production status [--strict] [--json] [--explain]
   atlas reviewer package <name>
   atlas release packet [packet-name] [--json] [--operation name]
   atlas release verify [packet]
@@ -363,7 +363,7 @@ v1:
   atlas v1 status [name] [--strict] [--json]
 
 production:
-  atlas production status [--strict] [--json]
+  atlas production status [--strict] [--json] [--explain]
 
 reviewer:
   atlas reviewer package <name>
