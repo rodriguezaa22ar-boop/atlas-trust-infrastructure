@@ -29,6 +29,13 @@ repository in filesystem order.
 - [WEB_ASSESSMENT.md](WEB_ASSESSMENT.md): bounded `atlas web assess` workflow.
 - [demo/DEMO_OPERATION.md](demo/DEMO_OPERATION.md): local demo operation.
 
+## Case studies
+
+- [case-studies/CASE_STUDY_RELEASE_TRUST.md](case-studies/CASE_STUDY_RELEASE_TRUST.md):
+  public case study for release trust as a metadata-first proof layer.
+- [case-studies/CASE_STUDY_VENDOR_PAYMENT_CHANGE.md](case-studies/CASE_STUDY_VENDOR_PAYMENT_CHANGE.md):
+  public business-flow case study for vendor payment change review.
+
 ## Trust lifecycle
 
 - [TRUST_LIFECYCLE.md](TRUST_LIFECYCLE.md): scope-to-release trust chain.
