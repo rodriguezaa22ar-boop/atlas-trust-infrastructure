@@ -1,0 +1,114 @@
+{
+  "schema_version": "atlas.release_artifact_manifest.v1",
+  "generated": "2026-05-01T02:35:07Z",
+  "manifest": "atlas-m112-external-reviewer-package",
+  "metadata_only": true,
+  "raw_artifacts_embedded": false,
+  "release": {
+    "commit": "9def8ac3c3e4eff76d059ecc70ff9fd710eb5718",
+    "retained_by_commit": "9def8ac3c3e4eff76d059ecc70ff9fd710eb5718",
+    "branch_at_manifest": "main"
+  },
+  "repository": {
+    "state_before_manifest": "dirty",
+    "upstream_sync_before_manifest": "synced"
+  },
+  "signed_tag": {
+    "name": "atlas-production-candidate-m112",
+    "target": "9def8ac3c3e4eff76d059ecc70ff9fd710eb5718",
+    "tag_object": "bec5c806d0cf4d64c04a713e52033ea014cbd46d",
+    "verification": "verified"
+  },
+  "release_packet": {
+    "path": "docs/retention/releases/atlas-m112-external-reviewer-package.json",
+    "sha256": "a09d4a187f884815974e79941a00162fac68c097b7abb4717bddb6d8d0e43700",
+    "verified": true
+  },
+  "provenance": {
+    "path": "docs/retention/releases/atlas-m112-external-reviewer-package.provenance.json",
+    "sha256": "79545f6487be6ed1d2e647bacc77cbb2144b220e31fba17139ae0d4cfa736588",
+    "verified": true
+  },
+  "production_dry_run": {
+    "path": "docs/retention/production/PRODUCTION_DRY_RUN_2026-05-01_M112.md",
+    "sha256": "fb3cf3f520731b6e0df4db20d9142b07dab9279119b1bd38bf40c68217a76b66",
+    "verified": true
+  },
+  "signing_public_key": {
+    "path": "docs/retention/releases/atlas-m67-release-signing-public-key.asc",
+    "sha256": "c08e7454ee3ab72a39286f61efd4deca8fbe0ef3fe20844771ff5735da6a79d5",
+    "verified": true
+  },
+  "slsa_provenance": null,
+  "milestone_note": {
+    "path": "docs/retention/milestones/MILESTONE_112.md",
+    "sha256": "ccd473510acf76aa11d5bc0815aadf214e321bfe562d05d2ccd46f9eb4fc7892",
+    "retained": true
+  },
+  "artifacts": [
+    {
+      "kind": "release_packet",
+      "path": "docs/retention/releases/atlas-m112-external-reviewer-package.json",
+      "sha256": "a09d4a187f884815974e79941a00162fac68c097b7abb4717bddb6d8d0e43700",
+      "required": true
+    },
+    {
+      "kind": "release_provenance",
+      "path": "docs/retention/releases/atlas-m112-external-reviewer-package.provenance.json",
+      "sha256": "79545f6487be6ed1d2e647bacc77cbb2144b220e31fba17139ae0d4cfa736588",
+      "required": true
+    },
+    {
+      "kind": "production_dry_run",
+      "path": "docs/retention/production/PRODUCTION_DRY_RUN_2026-05-01_M112.md",
+      "sha256": "fb3cf3f520731b6e0df4db20d9142b07dab9279119b1bd38bf40c68217a76b66",
+      "required": true
+    },
+    {
+      "kind": "signing_public_key",
+      "path": "docs/retention/releases/atlas-m67-release-signing-public-key.asc",
+      "sha256": "c08e7454ee3ab72a39286f61efd4deca8fbe0ef3fe20844771ff5735da6a79d5",
+      "required": true
+    },
+    {
+      "kind": "milestone_note",
+      "path": "docs/retention/milestones/MILESTONE_112.md",
+      "sha256": "ccd473510acf76aa11d5bc0815aadf214e321bfe562d05d2ccd46f9eb4fc7892",
+      "required": false
+    }
+  ],
+  "metadata_boundary": {
+    "stores": [
+      "paths",
+      "sha256 hashes",
+      "commit ids",
+      "tag ids",
+      "verification states",
+      "known limitations"
+    ],
+    "excludes": [
+      "raw runtime artifacts",
+      "target secrets",
+      "session contents",
+      "packet captures",
+      "credential material",
+      "private keys",
+      "tokens",
+      "evidence bodies"
+    ]
+  },
+  "contract": {
+    "schema_document": "docs/schemas/release-artifact-manifest.v1.md",
+    "guidance_document": "docs/atlas/RELEASE_ARTIFACT_MANIFEST.md",
+    "slsa_schema_document": "docs/schemas/slsa-provenance.v1.md",
+    "known_limitations_reference": "known_limitations"
+  },
+  "known_limitations": [
+    "Release artifact manifests are metadata-only local release indexes, not external audit attestations.",
+    "SLSA provenance references record verification metadata only and do not claim external SLSA certification.",
+    "Artifact files are hash-bound by this manifest but are not individually signed.",
+    "Signed tag verification depends on the retained public key and local Git object availability.",
+    "This manifest does not claim deployment certification, enterprise certification, or legal compliance."
+  ],
+  "no_production_overclaim": true
+}
