@@ -87,15 +87,20 @@ The `Official SLSA Generic Provenance` workflow follows the same QA,
 readiness, tag, and artifact rules, then passes the artifact subject hash to:
 
 ```yaml
-# slsa-framework/slsa-github-generator v2.1.0 pinned to immutable commit.
-uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@f7dd8c54c2067bafc12ca7a55595d5ee9b75204a
+# Official SLSA generator v2.1.0 must use the tag ref; the generator
+# rejects commit SHA refs. Resolved tag commit:
+# f7dd8c54c2067bafc12ca7a55595d5ee9b75204a.
+uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
 with:
   base64-subjects: "${{ needs.build.outputs.hashes }}"
   upload-assets: true
 ```
 
 That workflow is intended for release tags and publishes an `.intoto.jsonl`
-provenance file beside the release artifact. The publish path also pins
+provenance file beside the release artifact. The official generator requires
+the `v2.1.0` tag ref for its internal builder validation, so Atlas records the
+resolved tag commit while treating the tag ref as a documented exception to the
+normal action-pinning rule. The publish path still pins
 `actions/download-artifact` and `softprops/action-gh-release` to immutable
 commit SHAs.
 

@@ -22,8 +22,10 @@ Atlas claims:
 - GitHub Artifact Attestations can produce provenance for the artifact
 - an Official SLSA Generic Provenance workflow is available through the
   `slsa-framework/slsa-github-generator` generic generator
-- SLSA-related GitHub Actions and reusable workflows are pinned to immutable
-  commit SHAs in the release artifact path
+- SLSA-related GitHub Actions are pinned to immutable commit SHAs in the
+  release artifact path
+- the official SLSA generic reusable workflow uses the upstream-required
+  `v2.1.0` tag ref, with its resolved commit recorded in workflow metadata
 - retained Atlas SLSA references are metadata-only and locally verifiable with
   `atlas release slsa-verify`
 - optional online verification can run `gh attestation verify` against a

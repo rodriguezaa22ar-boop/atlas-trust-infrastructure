@@ -138,8 +138,9 @@ jobs:
             printf 'ref_name=%s\n' "$GITHUB_REF_NAME"
             printf 'workflow=%s\n' "$GITHUB_WORKFLOW"
             printf 'run_id=%s\n' "$GITHUB_RUN_ID"
-            printf 'official_slsa_generator=slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@f7dd8c54c2067bafc12ca7a55595d5ee9b75204a\n'
+            printf 'official_slsa_generator=slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0\n'
             printf 'official_slsa_generator_version=v2.1.0\n'
+            printf 'official_slsa_generator_resolved_commit=f7dd8c54c2067bafc12ca7a55595d5ee9b75204a\n'
             printf 'artifact=%s\n' "$artifact"
             printf 'contents_manifest=%s\n' "$contents_manifest"
             printf 'metadata_boundary=public-metadata-only\n'
@@ -173,8 +174,10 @@ jobs:
       actions: read
       id-token: write
       contents: write
-    # slsa-framework/slsa-github-generator v2.1.0 pinned to immutable commit.
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@f7dd8c54c2067bafc12ca7a55595d5ee9b75204a
+    # Official SLSA generator v2.1.0 must use the tag ref; the generator
+    # rejects commit SHA refs. Resolved tag commit:
+    # f7dd8c54c2067bafc12ca7a55595d5ee9b75204a.
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
     with:
       base64-subjects: "${{ needs.build.outputs.hashes }}"
       upload-assets: true

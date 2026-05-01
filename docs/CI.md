@@ -167,9 +167,13 @@ base64-encoded subject hashes to
 and publishes the source artifact/checksum plus official generic provenance for
 release tags.
 
-These workflows pin third-party Actions and the official SLSA reusable workflow
-to immutable commit SHAs. Human-readable comments record upstream version tags,
-but mutable tags are not the trust anchor for the SLSA release artifact path.
+These workflows pin third-party Actions to immutable commit SHAs. The official
+SLSA generic reusable workflow is a narrow exception: the upstream generator
+requires the `v2.1.0` tag ref for its internal builder validation, so Atlas
+records the resolved tag commit
+`f7dd8c54c2067bafc12ca7a55595d5ee9b75204a` in workflow metadata and tests the
+exception explicitly. Human-readable comments record upstream version tags, but
+mutable tags are not the trust anchor for normal SLSA release artifact actions.
 
 These workflows create SLSA-verifiable release artifact candidates. They do not
 claim external SLSA certification.

@@ -24,8 +24,11 @@ build provenance attestation for the artifact.
 
 Atlas also carries an official SLSA generic-generator workflow that sends
 base64-encoded subject hashes to
-`slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@f7dd8c54c2067bafc12ca7a55595d5ee9b75204a`
-for release tags.
+`slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0`
+for release tags. The official generator validates that its own builder ref is
+a version tag, so Atlas records the resolved `v2.1.0` commit
+`f7dd8c54c2067bafc12ca7a55595d5ee9b75204a` as metadata instead of using the
+commit SHA directly in the reusable workflow `uses:` line.
 
 ## Required Fields For Retained References
 
@@ -73,7 +76,9 @@ The release SLSA workflow should include:
 - `actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26`
 - `subject-path` pointing to the generated release artifact
 - optional official generic-generator workflow:
-  - `slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@f7dd8c54c2067bafc12ca7a55595d5ee9b75204a`
+  - `slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0`
+  - resolved generator tag commit
+    `f7dd8c54c2067bafc12ca7a55595d5ee9b75204a`
   - `base64-subjects`
   - `upload-assets: true`
   - `.intoto.jsonl` provenance output
