@@ -511,6 +511,9 @@ write_test_slsa_reference() {
   grep -Fq 'atlas flow verify [--json] <flow> [packet-name]' "$flow_doc"
   grep -Fq 'atlas flow assurance [--json] <flow> [packet-name]' "$flow_doc"
   grep -Fq 'atlas flow trust-chain [--json] <flow> [packet-name]' "$flow_doc"
+  grep -q 'M116 Reviewability Deepening' "$flow_doc"
+  grep -q 'Reference health' "$flow_doc"
+  grep -q 'optional-ready' "$flow_doc"
   grep -q 'state/atlas/flows/<flow-slug>.env' "$flow_doc"
   grep -q 'sessions/<operation>/flow_evidence.ndjson' "$flow_doc"
   grep -q 'sessions/<operation>/flow_findings.ndjson' "$flow_doc"
@@ -615,6 +618,8 @@ write_test_slsa_reference() {
   grep -q '`validation_gaps`' "$assurance_schema"
   grep -q '`coverage_model`' "$assurance_schema"
   grep -q '`controls`' "$assurance_schema"
+  grep -q '`link_health`' "$assurance_schema"
+  grep -q 'missing evidence' "$assurance_schema"
   grep -q 'aggregate-flow-v1' "$assurance_schema"
   grep -q 'The command is read-only' "$assurance_schema"
 
@@ -1806,8 +1811,18 @@ EOF
       .status == "linked" and
       .required == false and
       .metadata_only == true and
+      .flow.owner == "product" and
+      .flow.criticality == "high" and
+      (.flow.systems | index("web_app")) and
+      (.flow.data_classes | index("email")) and
+      (.flow.control_objectives | index("audit_logging")) and
       .links.operation_links == 1 and
       .links.evidence_links == 1 and
+      .links.control_objectives == 1 and
+      .link_health.overall == "ok" and
+      .link_health.evidence.status == "ok" and
+      .review_summary.control_objectives == 1 and
+      .review_summary.reference_health == "ok" and
       .packets.json.exists == false
     '
 
@@ -1835,6 +1850,9 @@ EOF
       .verification.status == "current" and
       .verification.packet_format == "json" and
       .links.evidence_links == 1 and
+      .links.controls_with_aggregate_evidence == 1 and
+      .link_health.overall == "ok" and
+      .review_summary.controls_with_aggregate_evidence == 1 and
       (.artifacts.evidence_links | endswith("flow_evidence.ndjson"))
     '
 
@@ -1856,6 +1874,22 @@ EOF
       .status == "attention-required" and
       .verification.status == "stale" and
       any(.verification.checks[]; .check == "Evidence Count" and .status == "stale")
+    '
+
+  flow_links="$TEST_ROOT/toolkit/sessions/flow-specific-trust-op/flow_evidence.ndjson"
+  tmp_links="$flow_links.tmp"
+  jq 'if .evidence_id == "'"$second_evidence_id"'" then .evidence_id = "ev_missing_reference" else . end' \
+    "$flow_links" > "$tmp_links"
+  mv "$tmp_links" "$flow_links"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow trust-chain --json customer-signup customer-signup-flow
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" |
+    jq -e '
+      .status == "attention-required" and
+      .link_health.overall == "blocked" and
+      .link_health.evidence.missing_records == 1 and
+      .review_summary.reference_defects == 1
     '
 }
 
@@ -1918,6 +1952,7 @@ EOF
   [[ "$output" == *"Control Objectives: 1"* ]]
   [[ "$output" == *"Aggregate Evidence-Covered Controls: 1"* ]]
   [[ "$output" == *"Validation-Covered Controls: 0"* ]]
+  [[ "$output" == *"Reference Health: ok defects=0"* ]]
   [[ "$output" == *"audit_logging"* ]]
   [[ "$output" == *"evidence-linked"* ]]
   [[ "$output" == *"Status: current"* ]]
@@ -1945,8 +1980,16 @@ EOF
       .controls[0].control_objective == "audit_logging" and
       .controls[0].coverage_model == "aggregate-flow-v1" and
       .controls[0].status == "evidence-linked" and
+      .controls[0].finding_links == 0 and
+      .controls[0].approval_links == 0 and
+      .controls[0].retention_links == 1 and
+      .controls[0].reference_health == "ok" and
+      .link_health.overall == "ok" and
+      .link_health.evidence.status == "ok" and
+      .link_health.retention.status == "ok" and
       .packet.status == "current" and
       .packet.format == "json" and
+      any(.checks[]; .check == "Reference Health" and .status == "ok") and
       any(.checks[]; .check == "Control Objectives" and .status == "ok") and
       any(.checks[]; .check == "Control Coverage" and .status == "ok") and
       any(.checks[]; .check == "Packet Verification" and .status == "ok")
@@ -1977,10 +2020,29 @@ EOF
       .counts.validation_gaps == 1 and
       .counts.control_objectives == 1 and
       .controls[0].status == "attention-required" and
+      .controls[0].finding_links == 1 and
+      .controls[0].reference_health == "ok" and
+      .link_health.overall == "ok" and
       .packet.status == "stale" and
       any(.checks[]; .check == "Open Findings" and .status == "warning") and
       any(.checks[]; .check == "Validation Coverage" and .status == "warning") and
       any(.checks[]; .check == "Packet Verification" and .status == "warning")
+    '
+
+  finding_links="$TEST_ROOT/toolkit/sessions/flow-assurance-op/flow_findings.ndjson"
+  tmp_links="$finding_links.tmp"
+  jq 'if .finding_id == "'"$finding_id"'" then .finding_id = "finding_missing_reference" else . end' \
+    "$finding_links" > "$tmp_links"
+  mv "$tmp_links" "$finding_links"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" flow assurance --json customer-signup customer-signup-flow
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" |
+    jq -e '
+      .overall == "blocked" and
+      .link_health.overall == "blocked" and
+      .link_health.findings.missing_records == 1 and
+      any(.checks[]; .check == "Reference Health" and .status == "blocked")
     '
 }
 
@@ -2275,9 +2337,12 @@ EOF
   grep -q 'atlas flow assurance --json' "$business_assurance_schema"
   grep -q '`open_findings`' "$business_assurance_schema"
   grep -q '`validation_gaps`' "$business_assurance_schema"
+  grep -q '`link_health`' "$business_assurance_schema"
   grep -q '^# `atlas.business_flow_trust_chain.v1`$' "$business_trust_chain_schema"
   grep -q 'atlas flow trust-chain --json <flow>' "$business_trust_chain_schema"
   grep -q '`status`: `not-recorded`, `linked`, `current`, or `attention-required`' "$business_trust_chain_schema"
+  grep -q '`review_summary`' "$business_trust_chain_schema"
+  grep -q '`link_health`' "$business_trust_chain_schema"
   grep -q 'The command must not write ledger events' "$business_trust_chain_schema"
 }
 

@@ -3634,6 +3634,385 @@ atlas_flow_validation_gap_count() {
   printf '%s\n' "$count"
 }
 
+atlas_flow_link_health_status() {
+  local links="$1"
+  local malformed="$2"
+  local missing_records="$3"
+  local missing_files="$4"
+  local hash_mismatches="$5"
+  local metadata_mismatches="${6:-0}"
+
+  if [ "$links" -eq 0 ]; then
+    printf 'not-recorded\n'
+  elif [ "$malformed" -gt 0 ] ||
+    [ "$missing_records" -gt 0 ] ||
+    [ "$missing_files" -gt 0 ] ||
+    [ "$hash_mismatches" -gt 0 ] ||
+    [ "$metadata_mismatches" -gt 0 ]; then
+    printf 'blocked\n'
+  else
+    printf 'ok\n'
+  fi
+}
+
+atlas_flow_reference_health_json() {
+  local evidence_file="$1"
+  local finding_file="$2"
+  local validation_file="$3"
+  local approval_file="$4"
+  local retention_file="$5"
+  local flow_id="$6"
+  local operation="$7"
+  local link_json
+  local evidence_links=0
+  local evidence_malformed=0
+  local evidence_missing_records=0
+  local evidence_missing_files=0
+  local evidence_hash_mismatches=0
+  local evidence_metadata_mismatches=0
+  local finding_links=0
+  local finding_malformed=0
+  local finding_missing_records=0
+  local finding_metadata_mismatches=0
+  local validation_links=0
+  local validation_malformed=0
+  local validation_missing_records=0
+  local validation_metadata_mismatches=0
+  local approval_links=0
+  local approval_malformed=0
+  local approval_missing_records=0
+  local approval_metadata_mismatches=0
+  local retention_links=0
+  local retention_malformed=0
+  local retention_missing_files=0
+  local retention_hash_mismatches=0
+  local evidence_id
+  local finding_id
+  local validation_id
+  local approval_ref
+  local retention_kind
+  local link_path
+  local link_sha
+  local link_classification
+  local link_redacted
+  local link_title
+  local link_level
+  local link_severity
+  local link_confidence
+  local link_status
+  local link_lane
+  local link_capability
+  local link_finding_id
+  local link_result_status
+  local link_tier
+  local link_approved_by
+  local link_approval_ts
+  local record
+  local record_path
+  local record_sha
+  local record_classification
+  local record_redacted
+  local record_title
+  local record_level
+  local record_severity
+  local record_confidence
+  local record_status
+  local record_lane
+  local record_capability
+  local record_finding_id
+  local record_result_status
+  local record_tier
+  local record_approved_by
+  local record_approval_ts
+  local artifact_file
+  local actual_sha
+  local evidence_status
+  local finding_status
+  local validation_status
+  local approval_status
+  local retention_status
+  local overall
+  local defects
+
+  if [ -s "$evidence_file" ]; then
+    while IFS= read -r link_json; do
+      [ -n "$link_json" ] || continue
+      evidence_links=$((evidence_links + 1))
+      evidence_id="$(printf '%s\n' "$link_json" | jq -r '.evidence_id // ""')"
+      link_path="$(printf '%s\n' "$link_json" | jq -r '.evidence_path // ""')"
+      link_sha="$(printf '%s\n' "$link_json" | jq -r '.evidence_sha256 // ""')"
+      link_classification="$(printf '%s\n' "$link_json" | jq -r '.evidence_classification // "unknown"')"
+      link_redacted="$(printf '%s\n' "$link_json" | jq -r '(.evidence_redacted // false) | tostring')"
+      if [ -z "$evidence_id" ]; then
+        evidence_malformed=$((evidence_malformed + 1))
+        continue
+      fi
+      record="$(atlas_evidence_latest_record "$evidence_id" || true)"
+      if [ -z "$record" ]; then
+        evidence_missing_records=$((evidence_missing_records + 1))
+        continue
+      fi
+      record_path="$(printf '%s\n' "$record" | jq -r '.path // ""')"
+      record_sha="$(printf '%s\n' "$record" | jq -r '.sha256 // ""')"
+      record_classification="$(printf '%s\n' "$record" | jq -r '.classification // "unknown"')"
+      record_redacted="$(printf '%s\n' "$record" | jq -r '(.redacted // false) | tostring')"
+      if [ "$record_path" != "$link_path" ] ||
+        [ "$record_sha" != "$link_sha" ] ||
+        [ "$record_classification" != "$link_classification" ] ||
+        [ "$record_redacted" != "$link_redacted" ]; then
+        evidence_metadata_mismatches=$((evidence_metadata_mismatches + 1))
+      fi
+      artifact_file="$ATLAS_OP_DIR/$record_path"
+      if [ ! -f "$artifact_file" ]; then
+        evidence_missing_files=$((evidence_missing_files + 1))
+        continue
+      fi
+      actual_sha="$(atlas_evidence_hash_path "$artifact_file")"
+      if [ "$actual_sha" != "$record_sha" ]; then
+        evidence_hash_mismatches=$((evidence_hash_mismatches + 1))
+      fi
+    done < <(
+      jq -c \
+        --arg flow_id "$flow_id" \
+        --arg operation "$operation" \
+        'select(.flow_id == $flow_id and .operation == $operation)' \
+        "$evidence_file"
+    )
+  fi
+
+  if [ -s "$finding_file" ]; then
+    while IFS= read -r link_json; do
+      [ -n "$link_json" ] || continue
+      finding_links=$((finding_links + 1))
+      finding_id="$(printf '%s\n' "$link_json" | jq -r '.finding_id // ""')"
+      link_title="$(printf '%s\n' "$link_json" | jq -r '.title // ""')"
+      link_level="$(printf '%s\n' "$link_json" | jq -r '.level // ""')"
+      link_severity="$(printf '%s\n' "$link_json" | jq -r '.severity // ""')"
+      link_confidence="$(printf '%s\n' "$link_json" | jq -r '.confidence // ""')"
+      link_status="$(printf '%s\n' "$link_json" | jq -r '.status // ""')"
+      if [ -z "$finding_id" ]; then
+        finding_malformed=$((finding_malformed + 1))
+        continue
+      fi
+      record="$(atlas_findings_latest_record "$finding_id" || true)"
+      if [ -z "$record" ]; then
+        finding_missing_records=$((finding_missing_records + 1))
+        continue
+      fi
+      record_title="$(printf '%s\n' "$record" | jq -r '.title // ""')"
+      record_level="$(printf '%s\n' "$record" | jq -r '.level // ""')"
+      record_severity="$(printf '%s\n' "$record" | jq -r '.severity // ""')"
+      record_confidence="$(printf '%s\n' "$record" | jq -r '.confidence // ""')"
+      record_status="$(printf '%s\n' "$record" | jq -r '.status // ""')"
+      if [ "$record_title" != "$link_title" ] ||
+        [ "$record_level" != "$link_level" ] ||
+        [ "$record_severity" != "$link_severity" ] ||
+        [ "$record_confidence" != "$link_confidence" ] ||
+        [ "$record_status" != "$link_status" ]; then
+        finding_metadata_mismatches=$((finding_metadata_mismatches + 1))
+      fi
+    done < <(
+      jq -c \
+        --arg flow_id "$flow_id" \
+        --arg operation "$operation" \
+        'select(.flow_id == $flow_id and .operation == $operation)' \
+        "$finding_file"
+    )
+  fi
+
+  if [ -s "$validation_file" ]; then
+    while IFS= read -r link_json; do
+      [ -n "$link_json" ] || continue
+      validation_links=$((validation_links + 1))
+      validation_id="$(printf '%s\n' "$link_json" | jq -r '.validation_id // ""')"
+      link_lane="$(printf '%s\n' "$link_json" | jq -r '.lane // ""')"
+      link_capability="$(printf '%s\n' "$link_json" | jq -r '.capability // ""')"
+      link_status="$(printf '%s\n' "$link_json" | jq -r '.status // ""')"
+      link_finding_id="$(printf '%s\n' "$link_json" | jq -r '.finding_id // ""')"
+      link_result_status="$(printf '%s\n' "$link_json" | jq -r '.result_status // ""')"
+      if [ -z "$validation_id" ]; then
+        validation_malformed=$((validation_malformed + 1))
+        continue
+      fi
+      record="$(atlas_validation_latest_record "$validation_id" || true)"
+      if [ -z "$record" ]; then
+        validation_missing_records=$((validation_missing_records + 1))
+        continue
+      fi
+      record_lane="$(printf '%s\n' "$record" | jq -r '.lane // ""')"
+      record_capability="$(printf '%s\n' "$record" | jq -r '.capability // ""')"
+      record_status="$(printf '%s\n' "$record" | jq -r '.status // ""')"
+      record_finding_id="$(printf '%s\n' "$record" | jq -r '.finding // ""')"
+      record_result_status="$(printf '%s\n' "$record" | jq -r '.result_status // ""')"
+      if [ "$record_lane" != "$link_lane" ] ||
+        [ "$record_capability" != "$link_capability" ] ||
+        [ "$record_status" != "$link_status" ] ||
+        [ "$record_finding_id" != "$link_finding_id" ] ||
+        [ "$record_result_status" != "$link_result_status" ]; then
+        validation_metadata_mismatches=$((validation_metadata_mismatches + 1))
+      fi
+    done < <(
+      jq -c \
+        --arg flow_id "$flow_id" \
+        --arg operation "$operation" \
+        'select(.flow_id == $flow_id and .operation == $operation)' \
+        "$validation_file"
+    )
+  fi
+
+  if [ -s "$approval_file" ]; then
+    while IFS= read -r link_json; do
+      [ -n "$link_json" ] || continue
+      approval_links=$((approval_links + 1))
+      approval_ref="$(printf '%s\n' "$link_json" | jq -r '.approval_ref // ""')"
+      link_capability="$(printf '%s\n' "$link_json" | jq -r '.capability // ""')"
+      link_tier="$(printf '%s\n' "$link_json" | jq -r '.tier // ""')"
+      link_status="$(printf '%s\n' "$link_json" | jq -r '.status // ""')"
+      link_approved_by="$(printf '%s\n' "$link_json" | jq -r '.approved_by // ""')"
+      link_approval_ts="$(printf '%s\n' "$link_json" | jq -r '.approval_ts // ""')"
+      if [ -z "$approval_ref" ] || [ -z "$link_capability" ] || [ -z "$link_approval_ts" ]; then
+        approval_malformed=$((approval_malformed + 1))
+        continue
+      fi
+      record="$(atlas_flow_approval_record_for_link "$link_capability" "$link_approval_ts" || true)"
+      if [ -z "$record" ]; then
+        approval_missing_records=$((approval_missing_records + 1))
+        continue
+      fi
+      record_tier="$(printf '%s\n' "$record" | jq -r '.tier // ""')"
+      record_status="$(printf '%s\n' "$record" | jq -r '.status // ""')"
+      record_approved_by="$(printf '%s\n' "$record" | jq -r '.approved_by // ""')"
+      record_approval_ts="$(printf '%s\n' "$record" | jq -r '.ts // ""')"
+      if [ "$record_tier" != "$link_tier" ] ||
+        [ "$record_status" != "$link_status" ] ||
+        [ "$record_approved_by" != "$link_approved_by" ] ||
+        [ "$record_approval_ts" != "$link_approval_ts" ]; then
+        approval_metadata_mismatches=$((approval_metadata_mismatches + 1))
+      fi
+    done < <(
+      jq -c \
+        --arg flow_id "$flow_id" \
+        --arg operation "$operation" \
+        'select(.flow_id == $flow_id and .operation == $operation)' \
+        "$approval_file"
+    )
+  fi
+
+  if [ -s "$retention_file" ]; then
+    while IFS= read -r link_json; do
+      [ -n "$link_json" ] || continue
+      retention_links=$((retention_links + 1))
+      retention_kind="$(printf '%s\n' "$link_json" | jq -r '.retention_kind // ""')"
+      link_path="$(printf '%s\n' "$link_json" | jq -r '.artifact_path // ""')"
+      link_sha="$(printf '%s\n' "$link_json" | jq -r '.artifact_sha256 // ""')"
+      if [ -z "$retention_kind" ] || [ -z "$link_path" ] || [ -z "$link_sha" ]; then
+        retention_malformed=$((retention_malformed + 1))
+        continue
+      fi
+      artifact_file="$(atlas_flow_retention_resolve_stored_path "$link_path")"
+      if [ ! -f "$artifact_file" ]; then
+        retention_missing_files=$((retention_missing_files + 1))
+        continue
+      fi
+      actual_sha="$(atlas_evidence_hash_path "$artifact_file")"
+      if [ "$actual_sha" != "$link_sha" ]; then
+        retention_hash_mismatches=$((retention_hash_mismatches + 1))
+      fi
+    done < <(
+      jq -c \
+        --arg flow_id "$flow_id" \
+        --arg operation "$operation" \
+        'select(.flow_id == $flow_id and .operation == $operation)' \
+        "$retention_file"
+    )
+  fi
+
+  evidence_status="$(atlas_flow_link_health_status "$evidence_links" "$evidence_malformed" "$evidence_missing_records" "$evidence_missing_files" "$evidence_hash_mismatches" "$evidence_metadata_mismatches")"
+  finding_status="$(atlas_flow_link_health_status "$finding_links" "$finding_malformed" "$finding_missing_records" 0 0 "$finding_metadata_mismatches")"
+  validation_status="$(atlas_flow_link_health_status "$validation_links" "$validation_malformed" "$validation_missing_records" 0 0 "$validation_metadata_mismatches")"
+  approval_status="$(atlas_flow_link_health_status "$approval_links" "$approval_malformed" "$approval_missing_records" 0 0 "$approval_metadata_mismatches")"
+  retention_status="$(atlas_flow_link_health_status "$retention_links" "$retention_malformed" 0 "$retention_missing_files" "$retention_hash_mismatches" 0)"
+
+  defects=$((evidence_malformed + evidence_missing_records + evidence_missing_files + evidence_hash_mismatches + evidence_metadata_mismatches + finding_malformed + finding_missing_records + finding_metadata_mismatches + validation_malformed + validation_missing_records + validation_metadata_mismatches + approval_malformed + approval_missing_records + approval_metadata_mismatches + retention_malformed + retention_missing_files + retention_hash_mismatches))
+  if [ "$defects" -gt 0 ]; then
+    overall="blocked"
+  else
+    overall="ok"
+  fi
+
+  jq -n \
+    --arg overall "$overall" \
+    --arg evidence_status "$evidence_status" \
+    --arg finding_status "$finding_status" \
+    --arg validation_status "$validation_status" \
+    --arg approval_status "$approval_status" \
+    --arg retention_status "$retention_status" \
+    --argjson defects "$defects" \
+    --argjson evidence_links "$evidence_links" \
+    --argjson evidence_malformed "$evidence_malformed" \
+    --argjson evidence_missing_records "$evidence_missing_records" \
+    --argjson evidence_missing_files "$evidence_missing_files" \
+    --argjson evidence_hash_mismatches "$evidence_hash_mismatches" \
+    --argjson evidence_metadata_mismatches "$evidence_metadata_mismatches" \
+    --argjson finding_links "$finding_links" \
+    --argjson finding_malformed "$finding_malformed" \
+    --argjson finding_missing_records "$finding_missing_records" \
+    --argjson finding_metadata_mismatches "$finding_metadata_mismatches" \
+    --argjson validation_links "$validation_links" \
+    --argjson validation_malformed "$validation_malformed" \
+    --argjson validation_missing_records "$validation_missing_records" \
+    --argjson validation_metadata_mismatches "$validation_metadata_mismatches" \
+    --argjson approval_links "$approval_links" \
+    --argjson approval_malformed "$approval_malformed" \
+    --argjson approval_missing_records "$approval_missing_records" \
+    --argjson approval_metadata_mismatches "$approval_metadata_mismatches" \
+    --argjson retention_links "$retention_links" \
+    --argjson retention_malformed "$retention_malformed" \
+    --argjson retention_missing_files "$retention_missing_files" \
+    --argjson retention_hash_mismatches "$retention_hash_mismatches" \
+    '{
+      overall: $overall,
+      defects: $defects,
+      evidence: {
+        status: $evidence_status,
+        links: $evidence_links,
+        malformed_links: $evidence_malformed,
+        missing_records: $evidence_missing_records,
+        missing_files: $evidence_missing_files,
+        hash_mismatches: $evidence_hash_mismatches,
+        metadata_mismatches: $evidence_metadata_mismatches
+      },
+      findings: {
+        status: $finding_status,
+        links: $finding_links,
+        malformed_links: $finding_malformed,
+        missing_records: $finding_missing_records,
+        metadata_mismatches: $finding_metadata_mismatches
+      },
+      validations: {
+        status: $validation_status,
+        links: $validation_links,
+        malformed_links: $validation_malformed,
+        missing_records: $validation_missing_records,
+        metadata_mismatches: $validation_metadata_mismatches
+      },
+      approvals: {
+        status: $approval_status,
+        links: $approval_links,
+        malformed_links: $approval_malformed,
+        missing_records: $approval_missing_records,
+        metadata_mismatches: $approval_metadata_mismatches
+      },
+      retention: {
+        status: $retention_status,
+        links: $retention_links,
+        malformed_links: $retention_malformed,
+        missing_files: $retention_missing_files,
+        hash_mismatches: $retention_hash_mismatches
+      }
+    }'
+}
+
 atlas_flow_control_objective_count() {
   local value="$1"
   local count=0
@@ -3659,6 +4038,10 @@ atlas_flow_control_coverage_json() {
   local open_findings="$4"
   local validation_links="$5"
   local validation_gaps="$6"
+  local finding_links="$7"
+  local approval_links="$8"
+  local retention_links="$9"
+  local reference_health="${10}"
   local item
   local status
   local detail
@@ -3692,8 +4075,12 @@ atlas_flow_control_coverage_json() {
       --arg coverage_model "aggregate-flow-v1" \
       --arg status "$status" \
       --arg detail "$detail" \
+      --arg reference_health "$reference_health" \
       --argjson evidence_links "$evidence_links" \
+      --argjson finding_links "$finding_links" \
       --argjson validation_links "$validation_links" \
+      --argjson approval_links "$approval_links" \
+      --argjson retention_links "$retention_links" \
       --argjson open_findings "$open_findings" \
       --argjson validation_gaps "$validation_gaps" \
       '{
@@ -3702,9 +4089,13 @@ atlas_flow_control_coverage_json() {
         coverage_model: $coverage_model,
         status: $status,
         evidence_links: $evidence_links,
+        finding_links: $finding_links,
         validation_links: $validation_links,
+        approval_links: $approval_links,
+        retention_links: $retention_links,
         open_findings: $open_findings,
         validation_gaps: $validation_gaps,
+        reference_health: $reference_health,
         detail: $detail
       }'
   done < <(printf '%s\n' "$value" | tr ',' '\n') | jq -s '.'
@@ -3755,6 +4146,9 @@ cmd_flow_assurance() {
   local controls_with_aggregate_evidence=0
   local controls_with_validation_coverage=0
   local controls_json="[]"
+  local link_health_json
+  local link_health_status="ok"
+  local link_health_defects=0
   local packet_status="missing"
   local packet_format="none"
   local packet_path=""
@@ -3831,7 +4225,10 @@ cmd_flow_assurance() {
     [ "$validation_gaps" -eq 0 ]; then
     controls_with_validation_coverage="$control_objectives"
   fi
-  controls_json="$(atlas_flow_control_coverage_json "$ATLAS_FLOW_CONTROL_OBJECTIVES" "$operation_links" "$evidence_links" "$open_findings" "$validation_links" "$validation_gaps")"
+  link_health_json="$(atlas_flow_reference_health_json "$evidence_links_file" "$finding_links_file" "$validation_links_file" "$approval_links_file" "$retention_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  link_health_status="$(printf '%s\n' "$link_health_json" | jq -r '.overall // "blocked"')"
+  link_health_defects="$(printf '%s\n' "$link_health_json" | jq -r '.defects // 0')"
+  controls_json="$(atlas_flow_control_coverage_json "$ATLAS_FLOW_CONTROL_OBJECTIVES" "$operation_links" "$evidence_links" "$open_findings" "$validation_links" "$validation_gaps" "$finding_links" "$approval_links" "$retention_links" "$link_health_status")"
 
   if [ "$operation_links" -eq 0 ]; then
     packet_status="not-recorded"
@@ -3870,6 +4267,12 @@ cmd_flow_assurance() {
     atlas_flow_assurance_add_check "$checks_file" "Validation Coverage" "warning" "linked findings without validation=$validation_gaps"
   else
     atlas_flow_assurance_add_check "$checks_file" "Validation Coverage" "ok" "validation_gaps=0"
+  fi
+
+  if [ "$link_health_status" = "blocked" ]; then
+    atlas_flow_assurance_add_check "$checks_file" "Reference Health" "blocked" "missing or mismatched linked references=$link_health_defects"
+  else
+    atlas_flow_assurance_add_check "$checks_file" "Reference Health" "ok" "missing or mismatched linked references=0"
   fi
 
   if [ "$operation_links" -gt 0 ] && [ "$retention_links" -eq 0 ]; then
@@ -3935,6 +4338,9 @@ cmd_flow_assurance() {
     if [ "$packet_status" = "blocked" ]; then
       overall="blocked"
       next_step="Resolve blocked packet verification checks before relying on this flow assurance state."
+    elif [ "$link_health_status" = "blocked" ]; then
+      overall="blocked"
+      next_step="Resolve missing or mismatched linked evidence, finding, validation, approval, or retention references before relying on this flow assurance state."
     elif [ "$evidence_links" -eq 0 ] ||
       [ "$control_objectives" -eq 0 ] ||
       [ "$open_findings" -gt 0 ] ||
@@ -3982,6 +4388,7 @@ cmd_flow_assurance() {
       --argjson controls_with_aggregate_evidence "$controls_with_aggregate_evidence" \
       --argjson controls_with_validation_coverage "$controls_with_validation_coverage" \
       --argjson controls "$controls_json" \
+      --argjson link_health "$link_health_json" \
       --argjson checks "$checks_json" \
       --argjson verification_checks "$verify_checks_json" \
       '{
@@ -4019,6 +4426,7 @@ cmd_flow_assurance() {
           controls_with_validation_coverage: $controls_with_validation_coverage
         },
         controls: $controls,
+        link_health: $link_health,
         packet: {
           status: $packet_status,
           format: $packet_format,
@@ -4059,6 +4467,7 @@ cmd_flow_assurance() {
   ui_kv "Control Objectives" "$control_objectives"
   ui_kv "Aggregate Evidence-Covered Controls" "$controls_with_aggregate_evidence"
   ui_kv "Validation-Covered Controls" "$controls_with_validation_coverage"
+  ui_kv "Reference Health" "$link_health_status defects=$link_health_defects"
   ui_rule
   ui_subheading "Control Coverage"
   if [ "$control_objectives" -eq 0 ]; then
@@ -4103,6 +4512,17 @@ cmd_flow_trust_chain() {
   local validation_links=0
   local approval_links=0
   local retention_links=0
+  local control_objectives=0
+  local controls_with_aggregate_evidence=0
+  local controls_with_validation_coverage=0
+  local open_findings=0
+  local validation_gaps=0
+  local systems_json="[]"
+  local data_classes_json="[]"
+  local control_objectives_json="[]"
+  local link_health_json
+  local link_health_status="ok"
+  local link_health_defects=0
   local markdown_packet_exists=false
   local json_packet_exists=false
   local verification_status="not-run"
@@ -4166,6 +4586,24 @@ cmd_flow_trust_chain() {
   validation_links="$(atlas_flow_validation_link_count "$validation_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
   approval_links="$(atlas_flow_approval_link_count "$approval_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
   retention_links="$(atlas_flow_retention_link_count "$retention_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  open_findings="$(atlas_flow_current_open_finding_count "$finding_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  validation_gaps="$(atlas_flow_validation_gap_count "$finding_links_file" "$validation_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  control_objectives="$(atlas_flow_control_objective_count "$ATLAS_FLOW_CONTROL_OBJECTIVES")"
+  systems_json="$(atlas_flow_csv_json_array "$ATLAS_FLOW_SYSTEMS")"
+  data_classes_json="$(atlas_flow_csv_json_array "$ATLAS_FLOW_DATA_CLASSES")"
+  control_objectives_json="$(atlas_flow_csv_json_array "$ATLAS_FLOW_CONTROL_OBJECTIVES")"
+  link_health_json="$(atlas_flow_reference_health_json "$evidence_links_file" "$finding_links_file" "$validation_links_file" "$approval_links_file" "$retention_links_file" "$ATLAS_FLOW_ID" "$ATLAS_OP_SLUG")"
+  link_health_status="$(printf '%s\n' "$link_health_json" | jq -r '.overall // "blocked"')"
+  link_health_defects="$(printf '%s\n' "$link_health_json" | jq -r '.defects // 0')"
+  if [ "$operation_links" -gt 0 ] && [ "$control_objectives" -gt 0 ] && [ "$evidence_links" -gt 0 ]; then
+    controls_with_aggregate_evidence="$control_objectives"
+  fi
+  if [ "$operation_links" -gt 0 ] &&
+    [ "$control_objectives" -gt 0 ] &&
+    [ "$validation_links" -gt 0 ] &&
+    [ "$validation_gaps" -eq 0 ]; then
+    controls_with_validation_coverage="$control_objectives"
+  fi
 
   if [ -f "$markdown_packet" ]; then
     markdown_packet_exists=true
@@ -4177,6 +4615,9 @@ cmd_flow_trust_chain() {
   if [ "$operation_links" -eq 0 ]; then
     status="not-recorded"
     next_step="Link the flow to operation evidence with atlas flow link-evidence."
+  elif [ "$link_health_status" = "blocked" ]; then
+    status="attention-required"
+    next_step="Resolve missing or mismatched linked references before regenerating the flow packet."
   elif [ "$evidence_links" -eq 0 ]; then
     status="linked"
     next_step="Link at least one evidence record before packetizing this flow."
@@ -4224,6 +4665,11 @@ cmd_flow_trust_chain() {
       --arg flow_id "$ATLAS_FLOW_ID" \
       --arg flow_slug "$ATLAS_FLOW_SLUG" \
       --arg flow_name "$ATLAS_FLOW_NAME" \
+      --arg flow_type "$ATLAS_FLOW_TYPE" \
+      --arg owner "$ATLAS_FLOW_OWNER" \
+      --arg criticality "$ATLAS_FLOW_CRITICALITY" \
+      --arg environment "$ATLAS_FLOW_ENVIRONMENT" \
+      --arg scope_status "$ATLAS_FLOW_SCOPE_STATUS" \
       --arg operation "$ATLAS_OP_SLUG" \
       --arg target "$ATLAS_OP_TARGET" \
       --arg status "$status" \
@@ -4243,18 +4689,35 @@ cmd_flow_trust_chain() {
       --argjson operation_links "$operation_links" \
       --argjson evidence_links "$evidence_links" \
       --argjson finding_links "$finding_links" \
+      --argjson open_findings "$open_findings" \
       --argjson validation_links "$validation_links" \
+      --argjson validation_gaps "$validation_gaps" \
       --argjson approval_links "$approval_links" \
       --argjson retention_links "$retention_links" \
+      --argjson control_objectives_count "$control_objectives" \
+      --argjson controls_with_aggregate_evidence "$controls_with_aggregate_evidence" \
+      --argjson controls_with_validation_coverage "$controls_with_validation_coverage" \
+      --argjson systems "$systems_json" \
+      --argjson data_classes "$data_classes_json" \
+      --argjson control_objectives "$control_objectives_json" \
       --argjson markdown_packet_exists "$markdown_packet_exists" \
       --argjson json_packet_exists "$json_packet_exists" \
+      --argjson link_health "$link_health_json" \
       --argjson verification_checks "$verification_checks_json" \
       '{
         schema_version: $schema_version,
         flow: {
           flow_id: $flow_id,
           flow_slug: $flow_slug,
-          flow_name: $flow_name
+          flow_name: $flow_name,
+          flow_type: $flow_type,
+          owner: $owner,
+          criticality: $criticality,
+          environment: $environment,
+          scope_status: $scope_status,
+          systems: $systems,
+          data_classes: $data_classes,
+          control_objectives: $control_objectives
         },
         operation: {
           slug: $operation,
@@ -4268,9 +4731,24 @@ cmd_flow_trust_chain() {
           operation_links: $operation_links,
           evidence_links: $evidence_links,
           finding_links: $finding_links,
+          open_findings: $open_findings,
           validation_links: $validation_links,
+          validation_gaps: $validation_gaps,
           approval_links: $approval_links,
-          retention_links: $retention_links
+          retention_links: $retention_links,
+          control_objectives: $control_objectives_count,
+          controls_with_aggregate_evidence: $controls_with_aggregate_evidence,
+          controls_with_validation_coverage: $controls_with_validation_coverage
+        },
+        link_health: $link_health,
+        review_summary: {
+          systems: ($systems | length),
+          data_classes: ($data_classes | length),
+          control_objectives: $control_objectives_count,
+          controls_with_aggregate_evidence: $controls_with_aggregate_evidence,
+          controls_with_validation_coverage: $controls_with_validation_coverage,
+          reference_health: ($link_health.overall // "blocked"),
+          reference_defects: ($link_health.defects // 0)
         },
         artifacts: {
           operation_links: $flow_links_file,
@@ -4305,6 +4783,9 @@ cmd_flow_trust_chain() {
   ui_heading "Atlas Business Flow Trust Chain"
   ui_rule
   ui_kv "Flow" "$ATLAS_FLOW_ID"
+  ui_kv "Flow Name" "$ATLAS_FLOW_NAME"
+  ui_kv "Owner" "$ATLAS_FLOW_OWNER"
+  ui_kv "Criticality" "$ATLAS_FLOW_CRITICALITY"
   ui_kv "Operation" "$ATLAS_OP_SLUG"
   ui_kv "Target" "$ATLAS_OP_TARGET"
   ui_kv "Status" "$status"
@@ -4314,9 +4795,15 @@ cmd_flow_trust_chain() {
   ui_kv "Operation Links" "$operation_links path=$flow_links_file"
   ui_kv "Evidence Links" "$evidence_links path=$evidence_links_file"
   ui_kv "Finding Links" "$finding_links path=$finding_links_file"
+  ui_kv "Open Findings" "$open_findings"
   ui_kv "Validation Links" "$validation_links path=$validation_links_file"
+  ui_kv "Validation Gaps" "$validation_gaps"
   ui_kv "Approval Links" "$approval_links path=$approval_links_file"
   ui_kv "Retention Links" "$retention_links path=$retention_links_file"
+  ui_kv "Control Objectives" "$control_objectives"
+  ui_kv "Aggregate Evidence-Covered Controls" "$controls_with_aggregate_evidence"
+  ui_kv "Validation-Covered Controls" "$controls_with_validation_coverage"
+  ui_kv "Reference Health" "$link_health_status defects=$link_health_defects"
   ui_rule
   ui_subheading "Packets"
   ui_kv "Markdown Packet" "$markdown_packet_exists path=$markdown_packet"

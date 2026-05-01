@@ -173,8 +173,10 @@ approval metadata references, retention references,
 freshness metadata, and known limitations. Flow verification checks packet
 metadata, evidence links, finding links, validation links, approval links,
 retention links, retained files, hashes, freshness, and forbidden-content
-markers. Flow trust-chain output summarizes one flow's link counts, packet
-presence, and verification state without mutating operation state.
+markers. Flow assurance and trust-chain output summarize one flow's link
+counts, control coverage counts, reference health, packet presence, and
+verification state without mutating operation state. Business Flow Evidence is
+optional-ready and non-blocking for core v1 and production readiness.
 
 ## Atlas Findings
 
