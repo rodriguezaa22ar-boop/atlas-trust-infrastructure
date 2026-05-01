@@ -78,10 +78,14 @@ The package must include:
 - `production_dry_run`
 - `milestone_note`
 
+The package conditionally requires:
+
+- `signing_public_key`, when referenced by the retained release artifact
+  manifest
+
 The package may include:
 
-- `signing_public_key`
-- `slsa_provenance`
+- `slsa_provenance`, when referenced by a release's SLSA verification path
 
 ## Verification Rules
 

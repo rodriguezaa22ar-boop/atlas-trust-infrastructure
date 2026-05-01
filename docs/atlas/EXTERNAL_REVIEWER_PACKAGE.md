@@ -57,6 +57,9 @@ The latest release artifact manifest is the source of truth for retained release
 evidence. The reviewer package reads that manifest and copies only the retained
 metadata artifacts it references.
 
+Referenced paths must resolve inside the repository. Package generation must
+reject path traversal or outside-repository references.
+
 Before writing the package, Atlas verifies:
 
 - retained release packet

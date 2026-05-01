@@ -29,6 +29,8 @@ teardown() {
 }
 
 make_repo_clean_and_synced() {
+  local branch
+
   git -C "$TEST_ROOT/toolkit" config user.email "atlas-tests@example.invalid"
   git -C "$TEST_ROOT/toolkit" config user.name "Atlas Tests"
   if [ -n "$(git -C "$TEST_ROOT/toolkit" status --short)" ]; then
@@ -36,6 +38,10 @@ make_repo_clean_and_synced() {
     git -C "$TEST_ROOT/toolkit" commit -m "test clean release state" >/dev/null
   fi
   git -C "$TEST_ROOT/toolkit" update-ref refs/remotes/origin/main HEAD
+  branch="$(git -C "$TEST_ROOT/toolkit" branch --show-current 2>/dev/null || true)"
+  if [ -n "$branch" ]; then
+    git -C "$TEST_ROOT/toolkit" branch --set-upstream-to=origin/main "$branch" >/dev/null 2>&1 || true
+  fi
 }
 
 write_test_slsa_reference() {
@@ -237,6 +243,7 @@ write_test_slsa_reference() {
   grep -q 'not certification' "$external_reviewer_package"
   grep -q 'not legal compliance' "$external_reviewer_package"
   grep -q 'not tamper-proof infrastructure' "$external_reviewer_package"
+  grep -q 'reject path traversal or outside-repository references' "$external_reviewer_package"
   grep -q '^# `atlas.external_reviewer_package.v1`$' "$external_reviewer_schema"
 
   grep -q '^# Trust Lifecycle$' "$trust_lifecycle"
@@ -2145,6 +2152,9 @@ EOF
   grep -q '`raw_artifacts_embedded`: must be `false`' "$external_reviewer_schema"
   grep -Fq '`files[].sha256`' "$external_reviewer_schema"
   grep -q 'Required File Classes' "$external_reviewer_schema"
+  grep -q 'The package conditionally requires' "$external_reviewer_schema"
+  grep -Fq '`signing_public_key`, when referenced by the retained release artifact' "$external_reviewer_schema"
+  grep -Fq "`slsa_provenance`, when referenced by a release's SLSA verification path" "$external_reviewer_schema"
   grep -q 'release_artifact_manifest' "$external_reviewer_schema"
   grep -q 'forbidden sensitive path markers' "$external_reviewer_schema"
   grep -q 'not tamper-proof infrastructure' "$external_reviewer_schema"
