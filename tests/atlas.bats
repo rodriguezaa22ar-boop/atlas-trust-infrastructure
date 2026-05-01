@@ -2364,16 +2364,20 @@ EOF
 @test "ci workflow mirrors local Atlas QA gate" {
   workflow="$TEST_ROOT/toolkit/.github/workflows/qa.yml"
   codeql_workflow="$TEST_ROOT/toolkit/.github/workflows/codeql.yml"
+  release_trust_workflow="$TEST_ROOT/toolkit/.github/workflows/release-trust.yml"
   slsa_workflow="$TEST_ROOT/toolkit/.github/workflows/release-slsa.yml"
   ci_doc="$TEST_ROOT/toolkit/docs/CI.md"
+  production_doc="$TEST_ROOT/toolkit/docs/atlas/PRODUCTION_READINESS.md"
   slsa_doc="$TEST_ROOT/toolkit/docs/atlas/SLSA_PROVENANCE.md"
   readme="$TEST_ROOT/toolkit/README.md"
   security_policy="$TEST_ROOT/toolkit/SECURITY.md"
 
   [ -f "$workflow" ]
   [ -f "$codeql_workflow" ]
+  [ -f "$release_trust_workflow" ]
   [ -f "$slsa_workflow" ]
   [ -f "$ci_doc" ]
+  [ -f "$production_doc" ]
   [ -f "$slsa_doc" ]
   [ -f "$readme" ]
   [ -f "$security_policy" ]
@@ -2404,7 +2408,25 @@ EOF
   grep -q "nix-shell --run './tools/atlas/bin/atlas v1 status --strict'" "$ci_doc"
   grep -q 'does not claim production readiness' "$ci_doc"
   grep -q 'does not run live target assessments' "$ci_doc"
-  grep -q 'replay verification from a clean checkout' "$ci_doc"
+  grep -q '.github/workflows/release-trust.yml' "$ci_doc"
+  grep -q '^## Release Trust Gate$' "$ci_doc"
+  grep -q 'latest retained production-candidate evidence still' "$ci_doc"
+  grep -q 'atlas release verify' "$ci_doc"
+  grep -q 'atlas release manifest-verify' "$ci_doc"
+  grep -q 'atlas release replay --json' "$ci_doc"
+  grep -q 'atlas production status --strict --explain' "$ci_doc"
+  grep -q 'separate from `qa.yml`' "$ci_doc"
+  grep -q 'without requiring every pull request or' "$ci_doc"
+  grep -q 'docs-only commit to be a new production candidate' "$ci_doc"
+  grep -q 'not external audit' "$ci_doc"
+  grep -q 'not certification' "$ci_doc"
+  grep -q 'not legal compliance' "$ci_doc"
+  grep -q 'not tamper-proof infrastructure' "$ci_doc"
+  grep -q 'not external SLSA certification' "$ci_doc"
+  ! grep -q '^production-ready$' "$ci_doc"
+
+  grep -q 'release-trust gate runs this explain mode' "$production_doc"
+  grep -q 'latest retained `atlas-retention-m\*` tag' "$production_doc"
 
   grep -q '^name: CodeQL$' "$codeql_workflow"
   grep -q 'pull_request:' "$codeql_workflow"
@@ -2435,6 +2457,35 @@ EOF
   grep -q '^## Automated Code Scanning$' "$security_policy"
   grep -q 'automated code scanning signal for tracked public source' "$security_policy"
   grep -q "does not replace manual review, external audit, runtime testing, or Atlas'" "$security_policy"
+
+  grep -q '^name: Release Trust$' "$release_trust_workflow"
+  grep -q 'pull_request:' "$release_trust_workflow"
+  grep -q 'workflow_dispatch:' "$release_trust_workflow"
+  grep -q 'actions/checkout v6 pinned to immutable commit' "$release_trust_workflow"
+  grep -q 'actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd' "$release_trust_workflow"
+  grep -q 'fetch-depth: 0' "$release_trust_workflow"
+  grep -q 'fetch-tags: true' "$release_trust_workflow"
+  grep -q 'cachix/install-nix-action v31 pinned to immutable commit' "$release_trust_workflow"
+  grep -q 'cachix/install-nix-action@ab739621df7a23f52766f9ccc97f38da6b7af14f' "$release_trust_workflow"
+  ! grep -q 'actions/checkout@v6' "$release_trust_workflow"
+  ! grep -q 'cachix/install-nix-action@v31' "$release_trust_workflow"
+  grep -q 'atlas-retention-m\*' "$release_trust_workflow"
+  grep -q 'git worktree add --detach' "$release_trust_workflow"
+  grep -q 'refs/remotes/origin/release-trust-retained' "$release_trust_workflow"
+  grep -q 'gpg --import "$public_key"' "$release_trust_workflow"
+  grep -q 'atlas release verify $release_packet --commit $release_commit' "$release_trust_workflow"
+  grep -q 'atlas release manifest-verify $latest_manifest --commit $release_commit' "$release_trust_workflow"
+  grep -q 'atlas release replay $release_packet --json' "$release_trust_workflow"
+  grep -q 'git tag -v "$release_tag"' "$release_trust_workflow"
+  grep -q 'atlas production status --strict --explain' "$release_trust_workflow"
+  grep -q 'production-ready under the local Atlas contract' "$release_trust_workflow"
+  grep -q 'not external audit' "$release_trust_workflow"
+  grep -q 'not external SLSA certification' "$release_trust_workflow"
+  ! grep -q -- '--skip-qa' "$release_trust_workflow"
+
+  grep -q 'pins third-party GitHub Actions to immutable commit' "$ci_doc"
+  grep -q 'mutable' "$ci_doc"
+  grep -q 'tags are not the trust anchor' "$ci_doc"
 
   grep -q '^name: Release SLSA Provenance$' "$slsa_workflow"
   grep -q 'workflow_dispatch:' "$slsa_workflow"

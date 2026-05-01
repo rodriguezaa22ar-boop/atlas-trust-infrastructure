@@ -1,0 +1,116 @@
+name: Release Trust
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-trust-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  retained-evidence:
+    name: Verify retained release trust evidence
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        # actions/checkout v6 pinned to immutable commit.
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Install Nix
+        # cachix/install-nix-action v31 pinned to immutable commit.
+        uses: cachix/install-nix-action@ab739621df7a23f52766f9ccc97f38da6b7af14f
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - name: Verify latest retained release trust chain
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          latest_retention_tag="$(git tag -l 'atlas-retention-m*' | sort -V | tail -n 1)"
+          if [ -z "$latest_retention_tag" ]; then
+            printf 'No atlas-retention-m* tag found\n' >&2
+            exit 1
+          fi
+
+          retention_commit="$(git rev-list -n 1 "$latest_retention_tag")"
+          release_worktree=".tmp/release-trust-check"
+          release_output_dir="$(mktemp -d)"
+          rm -rf "$release_worktree"
+          git worktree add --detach "$release_worktree" "$retention_commit"
+          trap 'git worktree remove --force "$release_worktree" >/dev/null 2>&1 || true; rm -rf "$release_output_dir"' EXIT
+
+          (
+            cd "$release_worktree"
+
+            git checkout -B release-trust-check "$retention_commit"
+            git update-ref refs/remotes/origin/release-trust-retained "$retention_commit"
+            git branch --set-upstream-to=origin/release-trust-retained release-trust-check
+
+            latest_manifest="$(find docs/retention/releases -maxdepth 1 -type f -name '*.manifest.json' 2>/dev/null | sort -V | tail -n 1)"
+            if [ -z "$latest_manifest" ]; then
+              printf 'No retained release artifact manifest found\n' >&2
+              exit 1
+            fi
+
+            release_packet="$(jq -r '.release_packet.path // empty' "$latest_manifest")"
+            release_commit="$(jq -r '.release.commit // empty' "$latest_manifest")"
+            release_tag="$(jq -r '.signed_tag.name // empty' "$latest_manifest")"
+            public_key="$(jq -r '.signing_public_key.path // empty' "$latest_manifest")"
+
+            for required_value in "$release_packet" "$release_commit" "$release_tag" "$public_key"; do
+              if [ -z "$required_value" ]; then
+                printf 'Latest release artifact manifest is missing required release-trust metadata\n' >&2
+                exit 1
+              fi
+            done
+
+            for required_file in "$latest_manifest" "$release_packet" "$public_key"; do
+              if [ ! -f "$required_file" ]; then
+                printf 'Required retained release-trust file is missing: %s\n' "$required_file" >&2
+                exit 1
+              fi
+            done
+
+            gpg --import "$public_key"
+
+            nix-shell --run "./tools/atlas/bin/atlas release verify $release_packet --commit $release_commit"
+            nix-shell --run "./tools/atlas/bin/atlas release manifest-verify $latest_manifest --commit $release_commit"
+
+            nix-shell --run "./tools/atlas/bin/atlas release replay $release_packet --json" |
+              awk 'BEGIN { json = 0 } /^\{/ { json = 1 } json { print }' |
+              tee "$release_output_dir/release-replay.json"
+            jq -e '
+              .schema_version == "atlas.release_replay.v1" and
+              .overall == "verified"
+            ' "$release_output_dir/release-replay.json" >/dev/null
+
+            git tag -v "$release_tag"
+
+            nix-shell --run './tools/atlas/bin/atlas production status --strict --explain' |
+              tee "$release_output_dir/production-explain.txt"
+            grep -q 'production-ready under the local Atlas contract' "$release_output_dir/production-explain.txt"
+            if grep -Fxq 'Overall: production-ready' "$release_output_dir/production-explain.txt"; then
+              printf 'Standalone production-ready claim found in explain output\n' >&2
+              exit 1
+            fi
+            grep -q 'not external audit' "$release_output_dir/production-explain.txt"
+            grep -q 'not certification' "$release_output_dir/production-explain.txt"
+            grep -q 'not legal compliance' "$release_output_dir/production-explain.txt"
+            grep -q 'not tamper-proof infrastructure' "$release_output_dir/production-explain.txt"
+            grep -q 'not enterprise deployment approval' "$release_output_dir/production-explain.txt"
+            grep -q 'not external SLSA certification' "$release_output_dir/production-explain.txt"
+          )
