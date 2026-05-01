@@ -19,6 +19,7 @@ documented at [../atlas/TRUST_OBJECT_MODEL.md](../atlas/TRUST_OBJECT_MODEL.md).
 | `atlas.release_trust.v1` | `atlas release packet --json` | [release-trust.v1.md](release-trust.v1.md) |
 | `atlas.release_provenance.v1` | `docs/retention/releases/*.provenance.json` | [release-provenance.v1.md](release-provenance.v1.md) |
 | `atlas.release_artifact_manifest.v1` | `atlas release manifest` | [release-artifact-manifest.v1.md](release-artifact-manifest.v1.md) |
+| `atlas.external_reviewer_package.v1` | `atlas reviewer package` | [external-reviewer-package.v1.md](external-reviewer-package.v1.md) |
 | `atlas.slsa_provenance.v1` | `.github/workflows/release-slsa.yml`, `.github/workflows/release-slsa-generic.yml`, GitHub Artifact Attestations, and official SLSA generic provenance | [slsa-provenance.v1.md](slsa-provenance.v1.md) |
 | `atlas.production_readiness.v1` | `atlas production status --json` | [production-readiness.v1.md](production-readiness.v1.md) |
 | `atlas.operation_trust_chain.v1` | `atlas op trust-chain --json` | [operation-trust-chain.v1.md](operation-trust-chain.v1.md) |
@@ -77,6 +78,10 @@ are not stable command outputs yet for JSON.
   path, GitHub run URL, recorded attestation verification status, and known
   limitations. With `--artifact`, it checks the downloaded artifact's SHA-256;
   with `--online`, it runs `gh attestation verify`.
+- `atlas reviewer package` emits `atlas.external_reviewer_package.v1` and
+  verifies the latest release packet, release artifact manifest, signed
+  provenance, production dry-run note, and retained milestone note before
+  building a metadata-only external review bundle.
 - `atlas production status` reports `atlas.production_readiness.v1` and
   verifies `atlas.release_artifact_manifest.v1` and
   `atlas.release_provenance.v1` when production trust evidence is required.

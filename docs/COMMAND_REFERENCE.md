@@ -57,6 +57,7 @@ nix-shell --run './bin/dev-qa'
 ./tools/atlas/bin/atlas production status
 ./tools/atlas/bin/atlas production status --strict
 ./tools/atlas/bin/atlas production status --json
+./tools/atlas/bin/atlas reviewer package atlas-current-review
 ./tools/atlas/bin/atlas release packet atlas-current --qa-status pass
 ./tools/atlas/bin/atlas release packet atlas-current --json --operation april-review --qa-status pass
 ./tools/atlas/bin/atlas release verify atlas-current

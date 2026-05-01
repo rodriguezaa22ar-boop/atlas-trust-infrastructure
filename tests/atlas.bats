@@ -29,6 +29,8 @@ teardown() {
 }
 
 make_repo_clean_and_synced() {
+  local branch
+
   git -C "$TEST_ROOT/toolkit" config user.email "atlas-tests@example.invalid"
   git -C "$TEST_ROOT/toolkit" config user.name "Atlas Tests"
   if [ -n "$(git -C "$TEST_ROOT/toolkit" status --short)" ]; then
@@ -36,6 +38,10 @@ make_repo_clean_and_synced() {
     git -C "$TEST_ROOT/toolkit" commit -m "test clean release state" >/dev/null
   fi
   git -C "$TEST_ROOT/toolkit" update-ref refs/remotes/origin/main HEAD
+  branch="$(git -C "$TEST_ROOT/toolkit" branch --show-current 2>/dev/null || true)"
+  if [ -n "$branch" ]; then
+    git -C "$TEST_ROOT/toolkit" branch --set-upstream-to=origin/main "$branch" >/dev/null 2>&1 || true
+  fi
 }
 
 write_test_slsa_reference() {
@@ -137,6 +143,8 @@ write_test_slsa_reference() {
   trust_direction="$TEST_ROOT/toolkit/docs/atlas/TRUST_INFRASTRUCTURE_DIRECTION.md"
   trust_object_model="$TEST_ROOT/toolkit/docs/atlas/TRUST_OBJECT_MODEL.md"
   release_manifest_doc="$TEST_ROOT/toolkit/docs/atlas/RELEASE_ARTIFACT_MANIFEST.md"
+  external_reviewer_package="$TEST_ROOT/toolkit/docs/atlas/EXTERNAL_REVIEWER_PACKAGE.md"
+  external_reviewer_schema="$TEST_ROOT/toolkit/docs/schemas/external-reviewer-package.v1.md"
   release_trust_case_study="$TEST_ROOT/toolkit/docs/case-studies/CASE_STUDY_RELEASE_TRUST.md"
   vendor_payment_case_study="$TEST_ROOT/toolkit/docs/case-studies/CASE_STUDY_VENDOR_PAYMENT_CHANGE.md"
   operator_guide="$TEST_ROOT/toolkit/docs/OPERATOR_GUIDE.md"
@@ -152,6 +160,8 @@ write_test_slsa_reference() {
   [ -f "$trust_direction" ]
   [ -f "$trust_object_model" ]
   [ -f "$release_manifest_doc" ]
+  [ -f "$external_reviewer_package" ]
+  [ -f "$external_reviewer_schema" ]
   [ -f "$release_trust_case_study" ]
   [ -f "$vendor_payment_case_study" ]
   [ -f "$operator_guide" ]
@@ -207,6 +217,8 @@ write_test_slsa_reference() {
   grep -q 'atlas/TRUST_INFRASTRUCTURE_DIRECTION.md' "$docs_index"
   grep -q 'atlas/TRUST_OBJECT_MODEL.md' "$docs_index"
   grep -q 'atlas/RELEASE_ARTIFACT_MANIFEST.md' "$docs_index"
+  grep -q 'atlas/EXTERNAL_REVIEWER_PACKAGE.md' "$docs_index"
+  grep -q 'schemas/external-reviewer-package.v1.md' "$docs_index"
   grep -q 'atlas/SLSA_PROVENANCE.md' "$docs_index"
   grep -q 'atlas/BUSINESS_FLOW_EVIDENCE.md' "$docs_index"
   grep -q 'Milestones' "$docs_index"
@@ -221,8 +233,18 @@ write_test_slsa_reference() {
 
   grep -q '^# Command Reference$' "$command_ref"
   grep -q './tools/atlas/bin/atlas release packet atlas-current --json' "$command_ref"
+  grep -q './tools/atlas/bin/atlas reviewer package atlas-current-review' "$command_ref"
   grep -q './tools/atlas/bin/atlas web assess <url>' "$command_ref"
   grep -q './tools/atlas/bin/atlas flow add customer-signup' "$command_ref"
+
+  grep -q '^# Atlas External Reviewer Package$' "$external_reviewer_package"
+  grep -q './tools/atlas/bin/atlas reviewer package atlas-current-review' "$external_reviewer_package"
+  grep -q 'not external audit' "$external_reviewer_package"
+  grep -q 'not certification' "$external_reviewer_package"
+  grep -q 'not legal compliance' "$external_reviewer_package"
+  grep -q 'not tamper-proof infrastructure' "$external_reviewer_package"
+  grep -q 'reject path traversal or outside-repository references' "$external_reviewer_package"
+  grep -q '^# `atlas.external_reviewer_package.v1`$' "$external_reviewer_schema"
 
   grep -q '^# Trust Lifecycle$' "$trust_lifecycle"
   grep -q 'signed release provenance' "$trust_lifecycle"
@@ -2045,6 +2067,7 @@ EOF
   business_verify_schema="$schemas_dir/business-flow-verify.v1.md"
   business_assurance_schema="$schemas_dir/business-flow-assurance.v1.md"
   business_trust_chain_schema="$schemas_dir/business-flow-trust-chain.v1.md"
+  external_reviewer_schema="$schemas_dir/external-reviewer-package.v1.md"
 
   [ -f "$index_file" ]
   [ -f "$release_schema" ]
@@ -2063,10 +2086,12 @@ EOF
   [ -f "$business_verify_schema" ]
   [ -f "$business_assurance_schema" ]
   [ -f "$business_trust_chain_schema" ]
+  [ -f "$external_reviewer_schema" ]
 
   grep -q 'atlas.release_trust.v1' "$index_file"
   grep -q 'atlas.release_provenance.v1' "$index_file"
   grep -q 'atlas.release_artifact_manifest.v1' "$index_file"
+  grep -q 'atlas.external_reviewer_package.v1' "$index_file"
   grep -q 'atlas.slsa_provenance.v1' "$index_file"
   grep -q 'atlas.production_readiness.v1' "$index_file"
   grep -q 'atlas.operation_trust_chain.v1' "$index_file"
@@ -2119,6 +2144,20 @@ EOF
   grep -q 'forbidden raw-content markers' "$release_manifest_schema"
   grep -q 'raw runtime artifacts' "$release_manifest_schema"
   grep -q 'SLSA certification' "$release_manifest_schema"
+
+  grep -q '^# `atlas.external_reviewer_package.v1`$' "$external_reviewer_schema"
+  grep -q 'atlas reviewer package <name>' "$external_reviewer_schema"
+  grep -q '`schema_version`: must be `atlas.external_reviewer_package.v1`' "$external_reviewer_schema"
+  grep -q '`metadata_only`: must be `true`' "$external_reviewer_schema"
+  grep -q '`raw_artifacts_embedded`: must be `false`' "$external_reviewer_schema"
+  grep -Fq '`files[].sha256`' "$external_reviewer_schema"
+  grep -q 'Required File Classes' "$external_reviewer_schema"
+  grep -q 'The package conditionally requires' "$external_reviewer_schema"
+  grep -Fq '`signing_public_key`, when referenced by the retained release artifact' "$external_reviewer_schema"
+  grep -Fq "`slsa_provenance`, when referenced by a release's SLSA verification path" "$external_reviewer_schema"
+  grep -q 'release_artifact_manifest' "$external_reviewer_schema"
+  grep -q 'forbidden sensitive path markers' "$external_reviewer_schema"
+  grep -q 'not tamper-proof infrastructure' "$external_reviewer_schema"
 
   grep -q '^# `atlas.slsa_provenance.v1`$' "$slsa_schema"
   grep -q '.github/workflows/release-slsa.yml' "$slsa_schema"
@@ -2578,6 +2617,7 @@ EOF
   [[ "$output" == *"atlas doctor"* ]]
   [[ "$output" == *"atlas v1 status"* ]]
   [[ "$output" == *"atlas production status"* ]]
+  [[ "$output" == *"atlas reviewer package <name>"* ]]
   [[ "$output" == *"atlas release packet [packet-name]"* ]]
   [[ "$output" == *"atlas release packet [packet-name] [--json]"* ]]
   [[ "$output" == *"atlas release verify [packet]"* ]]
@@ -2627,6 +2667,7 @@ EOF
   [[ "$output" == *"advisor:"* ]]
   [[ "$output" == *"v1:"* ]]
   [[ "$output" == *"production:"* ]]
+  [[ "$output" == *"reviewer:"* ]]
   [[ "$output" == *"release:"* ]]
   [[ "$output" == *"atlas release manifest [manifest-name] [--packet packet]"* ]]
   [[ "$output" == *"[--slsa slsa-reference]"* ]]
@@ -3881,6 +3922,97 @@ EOF
   [ "$status" -ne 0 ]
   [[ "$output" == *"Known Limitations Reference: fail"* ]]
   [[ "$output" == *"Known Limitations: fail"* ]]
+}
+
+@test "atlas reviewer package writes metadata-only external review bundle" {
+  make_repo_clean_and_synced
+
+  printf 'excluded sensitive placeholder\n' >"$TEST_ROOT/toolkit/docs/retention/releases/raw-invoice-token.txt"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" reviewer package m112-external-review
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"reviewer package written"* ]]
+
+  package_dir="$(printf '%s\n' "$output" | awk -F': ' '$1 == "reviewer_package" { print $2; exit }')"
+  manifest_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "reviewer_manifest" { print $2; exit }')"
+  commands_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "verification_commands" { print $2; exit }')"
+
+  [ -d "$package_dir" ]
+  [ -f "$package_dir/README.md" ]
+  [ -f "$commands_path" ]
+  [ -f "$manifest_path" ]
+  [ -f "$package_dir/files/README.md" ]
+  [ -f "$package_dir/files/docs/ATLAS_ONE_PAGE.md" ]
+  [ -f "$package_dir/files/docs/TRUST_LIFECYCLE.md" ]
+  [ -f "$package_dir/files/docs/RELEASE_TRUST.md" ]
+  [ -f "$package_dir/files/docs/atlas/SLSA_CLAIM.md" ]
+  [ -f "$package_dir/files/docs/atlas/PRODUCTION_READINESS.md" ]
+  [ -f "$package_dir/files/docs/KNOWN_LIMITATIONS.md" ]
+  [ -f "$package_dir/files/docs/RESPONSIBLE_USE.md" ]
+  [ -f "$package_dir/files/docs/case-studies/CASE_STUDY_RELEASE_TRUST.md" ]
+  [ -f "$package_dir/files/docs/case-studies/CASE_STUDY_VENDOR_PAYMENT_CHANGE.md" ]
+  [ -f "$package_dir/files/docs/atlas/EXTERNAL_REVIEWER_PACKAGE.md" ]
+  [ -f "$package_dir/files/docs/schemas/external-reviewer-package.v1.md" ]
+
+  jq -e '
+    .schema_version == "atlas.external_reviewer_package.v1" and
+    .metadata_only == true and
+    .raw_artifacts_embedded == false and
+    .no_external_audit_claim == true and
+    .no_certification_claim == true and
+    .no_legal_compliance_claim == true and
+    .no_tamper_proof_claim == true and
+    (.release.commit | test("^[a-f0-9]{40}$")) and
+    (.release.tag | length > 0) and
+    any(.files[]; .kind == "package_readme" and .required == true) and
+    any(.files[]; .kind == "verification_commands" and .required == true) and
+    any(.files[]; .kind == "public_readme" and .required == true) and
+    any(.files[]; .kind == "atlas_one_page" and .required == true) and
+    any(.files[]; .kind == "release_trust_case_study" and .required == true) and
+    any(.files[]; .kind == "vendor_payment_change_case_study" and .required == true) and
+    any(.files[]; .kind == "external_reviewer_package_schema" and .required == true) and
+    any(.files[]; .kind == "release_packet" and .required == true) and
+    any(.files[]; .kind == "release_provenance" and .required == true) and
+    any(.files[]; .kind == "release_artifact_manifest" and .required == true) and
+    any(.files[]; .kind == "production_dry_run" and .required == true) and
+    any(.files[]; .kind == "milestone_note" and .required == true) and
+    all(.files[]; (.sha256 | test("^[a-f0-9]{64}$"))) and
+    (.metadata_boundary.excludes | index("raw runtime artifacts")) and
+    (.non_guarantees | index("not external audit")) and
+    (.non_guarantees | index("not certification")) and
+    (.non_guarantees | index("not legal compliance")) and
+    (.non_guarantees | index("not tamper-proof infrastructure"))
+  ' "$manifest_path"
+
+  grep -q 'not external audit' "$package_dir/README.md"
+  grep -q 'not certification' "$package_dir/README.md"
+  grep -q 'not legal compliance' "$package_dir/README.md"
+  grep -q 'not tamper-proof infrastructure' "$package_dir/README.md"
+  grep -q './tools/atlas/bin/atlas release verify' "$commands_path"
+  grep -q './tools/atlas/bin/atlas release manifest-verify' "$commands_path"
+  grep -q 'git tag -v' "$commands_path"
+
+  ! find "$package_dir" -type f | grep -E 'raw-invoice|raw_contract|customer-data|payment-data|packet-capture|pcap|unredacted'
+  ! jq -e '.files[] | select(.source_path | test("raw-invoice|token|credential|packet-capture|pcap|unredacted"; "i"))' "$manifest_path" >/dev/null
+}
+
+@test "atlas reviewer package fails closed on missing retained release evidence" {
+  make_repo_clean_and_synced
+
+  latest_manifest="$(find "$TEST_ROOT/toolkit/docs/retention/releases" -maxdepth 1 -type f -name '*.manifest.json' | sort -V | tail -n 1)"
+  release_packet_rel="$(jq -r '.release_packet.path' "$latest_manifest")"
+  mv "$TEST_ROOT/toolkit/$release_packet_rel" "$TEST_ROOT/missing-release-packet.json"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" reviewer package missing-release-packet
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"reviewer package requires a retained release packet"* ]]
+
+  mv "$TEST_ROOT/missing-release-packet.json" "$TEST_ROOT/toolkit/$release_packet_rel"
+  find "$TEST_ROOT/toolkit/docs/retention/releases" -maxdepth 1 -type f -name '*.manifest.json' -exec mv {} "$TEST_ROOT" \;
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" reviewer package missing-manifest
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"reviewer package requires a retained release artifact manifest"* ]]
 }
 
 @test "atlas release replay checks release packet from replay worktree" {
