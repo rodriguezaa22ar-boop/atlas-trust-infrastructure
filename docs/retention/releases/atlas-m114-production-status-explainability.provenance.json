@@ -1,0 +1,35 @@
+{
+  "schema_version": "atlas.release_provenance.v1",
+  "generated": "2026-05-01T17:45:05Z",
+  "metadata_only": true,
+  "commit": "9b7682942db367aa023b103e67b6e6c418594bd5",
+  "signed_tag": {
+    "name": "atlas-production-candidate-m114",
+    "target": "9b7682942db367aa023b103e67b6e6c418594bd5",
+    "tag_object": "6be79383edf2ecbec21f1322d7237bd427a86222",
+    "verification": "verified",
+    "signer_fingerprint": "24B1E00EEB286B966F9FCE0C9C6439E15BBFD290",
+    "public_key_path": "docs/retention/releases/atlas-m67-release-signing-public-key.asc",
+    "public_key_sha256": "c08e7454ee3ab72a39286f61efd4deca8fbe0ef3fe20844771ff5735da6a79d5"
+  },
+  "release_packet": {
+    "path": "docs/retention/releases/atlas-m114-production-status-explainability.json",
+    "sha256": "ca9d0c6673a7643b55a254f41eb68e196554909d2fff965ba20f21cd1bf73bf0"
+  },
+  "qa": {
+    "status": "pass",
+    "command": "nix-shell --run './bin/dev-qa'",
+    "note": "dev-qa passed with 109/109 tests, lint ok, and stress ok after M114 merge; public PR QA run 25225121826 and CodeQL workflow run 25225121815 passed"
+  },
+  "production_status": {
+    "observed": "not-ready",
+    "note": "release artifact manifest and milestone retention note were pending before retaining this packet set"
+  },
+  "known_limitations": [
+    "Production explain output is a reviewer aid and does not change production readiness semantics",
+    "Production readiness remains a local Atlas contract, not external audit or certification",
+    "Explain output reports metadata-only paths, commands, statuses, reasons, known limitations, and non-guarantees",
+    "Atlas production status does not prove runtime safety, production deployability, legal compliance, or external SLSA certification"
+  ],
+  "no_production_overclaim": true
+}
