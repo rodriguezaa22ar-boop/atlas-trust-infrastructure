@@ -18,6 +18,7 @@ Atlas is not production-ready until this contract reports `production-ready`.
 atlas production status
 atlas production status --strict
 atlas production status --json
+atlas production status --strict --explain
 ```
 
 The command is read-only. It does not create packets, mutate operations, or
@@ -26,6 +27,13 @@ write ledger events.
 Default text output is for operators. JSON output uses schema
 `atlas.production_readiness.v1` so later CI, release, dashboard, or provenance
 work can consume the same contract.
+
+`--explain` is a human-readable reviewer aid. It reports the overall local
+contract status, the retained evidence paths, the verification commands, gate
+reasons, known limitations, and non-guarantees. It does not change the meaning
+of production readiness and does not create external audit, certification,
+legal compliance, enterprise deployment approval, tamper-proof infrastructure,
+or external SLSA certification.
 
 ## Overall Rule
 
@@ -36,6 +44,10 @@ disabled, warning, or not implemented.
 
 `--strict` is intended for future release promotion gates. It exits nonzero
 unless the overall state is `production-ready`.
+
+When explain output passes, it uses the exact phrase
+`production-ready under the local Atlas contract`. That phrase means only that
+the local Atlas production gates passed against retained metadata evidence.
 
 ## Required Gates
 
@@ -169,6 +181,51 @@ external audit, enterprise certification, or deployment certification.
 
 This is the correct state for a security control plane that values evidence
 over marketing language.
+
+## Explainability
+
+`atlas production status --strict --explain` is intended for external reviewers
+who need to understand why Atlas is ready or not ready under the local Atlas
+contract without reading every retained packet first.
+
+Passing explain output includes:
+
+- overall status using `production-ready under the local Atlas contract`
+- v1 readiness result
+- release packet path
+- release packet verification command
+- release artifact manifest path
+- manifest verification command
+- signed provenance path
+- signed tag name
+- signed tag verification command
+- production dry-run note path
+- release replay command
+- gate details
+- known limitations
+- non-guarantees
+
+Not-ready explain output keeps the same gate semantics as normal production
+status and reports the missing or failing evidence in the gate reasons. Common
+failures include missing release packets, missing release artifact manifests,
+missing signed provenance, missing production dry-run notes, v1 readiness gaps,
+repository drift, upstream sync drift, and verification failures.
+
+Explain output is metadata-only. It must not include raw runtime artifacts,
+secrets, credentials, tokens, packet captures, request or response bodies,
+customer data, payment data, raw business records, or unredacted evidence
+bodies.
+
+Explain output does not prove:
+
+- external audit
+- certification
+- legal compliance
+- tamper-proof infrastructure
+- enterprise deployment approval
+- external SLSA certification
+- runtime safety
+- production deployability outside the local Atlas contract
 
 ## Promotion Standard
 

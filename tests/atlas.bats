@@ -235,6 +235,7 @@ write_test_slsa_reference() {
   grep -q 'trust infrastructure' "$one_page"
 
   grep -q '^# Command Reference$' "$command_ref"
+  grep -q './tools/atlas/bin/atlas production status --strict --explain' "$command_ref"
   grep -q './tools/atlas/bin/atlas release packet atlas-current --json' "$command_ref"
   grep -q './tools/atlas/bin/atlas reviewer package atlas-current-review' "$command_ref"
   grep -q './tools/atlas/bin/atlas web assess <url>' "$command_ref"
@@ -2631,7 +2632,7 @@ EOF
   [[ "$output" == *"quick flow:"* ]]
   [[ "$output" == *"atlas doctor"* ]]
   [[ "$output" == *"atlas v1 status"* ]]
-  [[ "$output" == *"atlas production status"* ]]
+  [[ "$output" == *"atlas production status [--strict] [--json] [--explain]"* ]]
   [[ "$output" == *"atlas reviewer package <name>"* ]]
   [[ "$output" == *"atlas release packet [packet-name]"* ]]
   [[ "$output" == *"atlas release packet [packet-name] [--json]"* ]]
@@ -3230,6 +3231,7 @@ EOF
   rm -f \
     "$TEST_ROOT/toolkit/docs/retention/releases/"*.provenance.json \
     "$TEST_ROOT/toolkit/docs/retention/releases/"*release-signing-public-key.asc \
+    "$TEST_ROOT/toolkit/docs/retention/releases/"*.md \
     "$TEST_ROOT/toolkit/docs/retention/releases/"*.json
   make_repo_clean_and_synced
 
@@ -3249,6 +3251,27 @@ EOF
   [[ "$output" == *"Production Dry Run"* ]]
   [[ "$output" == *"Overall: not-ready"* ]]
   [[ "$output" == *"Required Not Ready:"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" production status --explain
+
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Atlas Production Status Explanation"* ]]
+  [[ "$output" == *"Overall: not-ready"* ]]
+  [[ "$output" == *"V1 Readiness: ready - v1 readiness is ready with no required pillar gaps"* ]]
+  [[ "$output" == *"Release Packet: missing"* ]]
+  [[ "$output" == *"Release Packet Verify: unavailable - release packet missing"* ]]
+  [[ "$output" == *"Release Replay: unavailable - release packet missing"* ]]
+  [[ "$output" == *"Release Trust Packet"* ]]
+  [[ "$output" == *"no release trust packet found"* ]]
+  [[ "$output" == *"not external audit"* ]]
+  [[ "$output" == *"not certification"* ]]
+  [[ "$output" == *"not legal compliance"* ]]
+  [[ "$output" == *"not tamper-proof infrastructure"* ]]
+  [[ "$output" == *"not enterprise deployment approval"* ]]
+  [[ "$output" == *"not external SLSA certification"* ]]
+  [[ "$output" == *"raw runtime artifacts"* ]]
+  [[ "$output" == *"secrets"* ]]
+  [[ "$output" == *"customer data"* ]]
 
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" production status --json
 
@@ -3472,6 +3495,32 @@ EOF
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"Overall: production-ready"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" production status --strict --explain
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Atlas Production Status Explanation"* ]]
+  [[ "$output" == *"Overall: production-ready under the local Atlas contract"* ]]
+  [[ "$output" != *$'Overall: production-ready\n'* ]]
+  [[ "$output" == *"V1 Readiness: ready - v1 readiness is ready with no required pillar gaps"* ]]
+  [[ "$output" == *"Release Packet: docs/retention/releases/production-signed.json"* ]]
+  [[ "$output" == *"Release Packet Verify: ./tools/atlas/bin/atlas release verify docs/retention/releases/production-signed.json --commit $signed_commit"* ]]
+  [[ "$output" == *"Release Artifact Manifest: docs/retention/releases/production-signed-manifest.manifest.json"* ]]
+  [[ "$output" == *"Manifest Verify: ./tools/atlas/bin/atlas release manifest-verify docs/retention/releases/production-signed-manifest.manifest.json --commit $signed_commit"* ]]
+  [[ "$output" == *"Signed Provenance: docs/retention/releases/production-signed.provenance.json"* ]]
+  [[ "$output" == *"Signed Tag: $tag_name"* ]]
+  [[ "$output" == *"Signed Tag Verify: git tag -v $tag_name"* ]]
+  [[ "$output" == *"Production Dry-Run Note: docs/retention/production/PRODUCTION_DRY_RUN_2026-04-27_SIGNED.md"* ]]
+  [[ "$output" == *"Release Replay: ./tools/atlas/bin/atlas release replay docs/retention/releases/production-signed.json --json"* ]]
+  [[ "$output" == *"Known Limitations"* ]]
+  [[ "$output" == *"Non-Guarantees"* ]]
+  [[ "$output" == *"not external audit"* ]]
+  [[ "$output" == *"not certification"* ]]
+  [[ "$output" == *"not legal compliance"* ]]
+  [[ "$output" == *"not tamper-proof infrastructure"* ]]
+  [[ "$output" == *"not enterprise deployment approval"* ]]
+  [[ "$output" == *"not external SLSA certification"* ]]
+  [[ "$output" == *"does not prove runtime safety or production deployability"* ]]
 }
 
 @test "atlas release packet writes and verifies metadata-only release trust packet" {
