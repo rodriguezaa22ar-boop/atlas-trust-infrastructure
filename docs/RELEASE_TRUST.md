@@ -147,13 +147,15 @@ artifacts:
 ```
 
 That workflow builds a source release artifact from the exact Git commit, runs
-the local QA gate, checks v1 readiness, uploads the artifact and checksum, and
-generates a GitHub/Sigstore SLSA build provenance attestation with
-`actions/attest@v4`.
+the local QA gate, checks v1 readiness, writes a checksum and contents
+manifest, checks for runtime-state paths and forbidden sensitive path markers,
+uploads the artifact metadata bundle, and generates a GitHub/Sigstore SLSA
+build provenance attestation with `actions/attest` pinned to an immutable
+commit SHA.
 
 The generic workflow is the official SLSA generator path. It passes artifact
 subject hashes to
-`slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0`
+`slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml`
 and publishes `.intoto.jsonl` provenance for release tags.
 
 Consumers verify the artifact with:

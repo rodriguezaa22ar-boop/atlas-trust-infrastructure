@@ -149,23 +149,36 @@ CodeQL gate intentionally covers the GitHub Actions workflow surface.
 
 ## SLSA Release Artifact Workflow
 
-`release-slsa.yml` runs on manual dispatch and release-style tags. It performs
-the local QA gate, checks Atlas v1 readiness, builds a source release artifact
-from the exact Git commit with `git archive`, uploads the artifact/checksum,
-and asks GitHub Artifact Attestations to generate SLSA build provenance through
-`actions/attest@v4`. Tag-triggered runs require the tagged commit to match
-`origin/main`, resolve annotated tags to their underlying Git commit, and run QA
-from a local `main` branch tracking `origin/main`.
+`release-slsa.yml` runs on manual dispatch and release-style tags. It is the
+SLSA-verifiable release artifact candidate path. It performs the local QA gate,
+checks Atlas v1 readiness, builds a source release artifact from the exact Git
+commit with `git archive`, writes a checksum, writes a contents manifest, checks
+the artifact for runtime-state paths and forbidden sensitive path markers,
+uploads the artifact/checksum/contents metadata, and asks GitHub Artifact
+Attestations to generate SLSA build provenance through `actions/attest`.
+Tag-triggered runs require the tagged commit to match `origin/main`, resolve
+annotated tags to their underlying Git commit, and run QA from a local `main`
+branch tracking `origin/main`.
 
 `release-slsa-generic.yml` is the `Official SLSA Generic Provenance` path. It
 runs the same local QA/readiness checks, builds the same source artifact, passes
 base64-encoded subject hashes to
-`slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0`,
+`slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml`,
 and publishes the source artifact/checksum plus official generic provenance for
 release tags.
 
-These workflows are preparation for SLSA-verifiable release artifacts and the
-workflow does not claim external SLSA certification.
+These workflows pin third-party Actions and the official SLSA reusable workflow
+to immutable commit SHAs. Human-readable comments record upstream version tags,
+but mutable tags are not the trust anchor for the SLSA release artifact path.
+
+These workflows create SLSA-verifiable release artifact candidates. They do not
+claim external SLSA certification.
+
+The workflow does not claim external SLSA certification; it produces artifacts
+and metadata that a reviewer can verify with standard tooling.
+
+GitHub Artifact Attestations are the hosted attestation mechanism for the
+`release-slsa.yml` path.
 
 ## Future CI Gates
 

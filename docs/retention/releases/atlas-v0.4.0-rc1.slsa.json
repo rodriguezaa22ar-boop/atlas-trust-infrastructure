@@ -20,6 +20,7 @@
     "subject_digest": "sha256:a6fad42ced88648e49b8cbb9fcfe90533e2e389145277482f1000449108d0805",
     "url": "https://github.com/rodriguezaa22ar-boop/atlas-trust-infrastructure/attestations/26040322",
     "rekor_log_url": "",
+    "issuer_identity": "https://token.actions.githubusercontent.com",
     "verification_command": "gh attestation verify dist/atlas-trust-infrastructure-atlas-v0.4.0-rc1-59667bf87587.tar.gz --repo rodriguezaa22ar-boop/atlas-trust-infrastructure",
     "verification_status": "verified",
     "online_verification": {
