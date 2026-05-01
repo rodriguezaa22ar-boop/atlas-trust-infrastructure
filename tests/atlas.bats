@@ -145,6 +145,7 @@ write_test_slsa_reference() {
   release_manifest_doc="$TEST_ROOT/toolkit/docs/atlas/RELEASE_ARTIFACT_MANIFEST.md"
   external_reviewer_package="$TEST_ROOT/toolkit/docs/atlas/EXTERNAL_REVIEWER_PACKAGE.md"
   external_reviewer_schema="$TEST_ROOT/toolkit/docs/schemas/external-reviewer-package.v1.md"
+  release_replay_schema="$TEST_ROOT/toolkit/docs/schemas/release-replay.v1.md"
   release_trust_case_study="$TEST_ROOT/toolkit/docs/case-studies/CASE_STUDY_RELEASE_TRUST.md"
   vendor_payment_case_study="$TEST_ROOT/toolkit/docs/case-studies/CASE_STUDY_VENDOR_PAYMENT_CHANGE.md"
   operator_guide="$TEST_ROOT/toolkit/docs/OPERATOR_GUIDE.md"
@@ -162,6 +163,7 @@ write_test_slsa_reference() {
   [ -f "$release_manifest_doc" ]
   [ -f "$external_reviewer_package" ]
   [ -f "$external_reviewer_schema" ]
+  [ -f "$release_replay_schema" ]
   [ -f "$release_trust_case_study" ]
   [ -f "$vendor_payment_case_study" ]
   [ -f "$operator_guide" ]
@@ -218,6 +220,7 @@ write_test_slsa_reference() {
   grep -q 'atlas/TRUST_OBJECT_MODEL.md' "$docs_index"
   grep -q 'atlas/RELEASE_ARTIFACT_MANIFEST.md' "$docs_index"
   grep -q 'atlas/EXTERNAL_REVIEWER_PACKAGE.md' "$docs_index"
+  grep -q 'schemas/release-replay.v1.md' "$docs_index"
   grep -q 'schemas/external-reviewer-package.v1.md' "$docs_index"
   grep -q 'atlas/SLSA_PROVENANCE.md' "$docs_index"
   grep -q 'atlas/BUSINESS_FLOW_EVIDENCE.md' "$docs_index"
@@ -2052,6 +2055,7 @@ EOF
   schemas_dir="$TEST_ROOT/toolkit/docs/schemas"
   index_file="$schemas_dir/README.md"
   release_schema="$schemas_dir/release-trust.v1.md"
+  release_replay_schema="$schemas_dir/release-replay.v1.md"
   provenance_schema="$schemas_dir/release-provenance.v1.md"
   release_manifest_schema="$schemas_dir/release-artifact-manifest.v1.md"
   slsa_schema="$schemas_dir/slsa-provenance.v1.md"
@@ -2071,6 +2075,7 @@ EOF
 
   [ -f "$index_file" ]
   [ -f "$release_schema" ]
+  [ -f "$release_replay_schema" ]
   [ -f "$provenance_schema" ]
   [ -f "$release_manifest_schema" ]
   [ -f "$slsa_schema" ]
@@ -2089,6 +2094,7 @@ EOF
   [ -f "$external_reviewer_schema" ]
 
   grep -q 'atlas.release_trust.v1' "$index_file"
+  grep -q 'atlas.release_replay.v1' "$index_file"
   grep -q 'atlas.release_provenance.v1' "$index_file"
   grep -q 'atlas.release_artifact_manifest.v1' "$index_file"
   grep -q 'atlas.external_reviewer_package.v1' "$index_file"
@@ -2109,6 +2115,7 @@ EOF
   grep -q 'Release Trust Consumers' "$index_file"
   grep -q 'atlas release verify' "$index_file"
   grep -q 'atlas release replay' "$index_file"
+  grep -q 'atlas release replay --json' "$index_file"
   grep -q 'Release replay verification' "$index_file"
 
   grep -q '^# `atlas.release_trust.v1`$' "$release_schema"
@@ -2118,6 +2125,14 @@ EOF
   grep -q 'operation trust-chain replay' "$release_schema"
   grep -q 'raw runtime artifacts' "$release_schema"
   grep -q 'Cryptographic signing' "$release_schema"
+
+  grep -q '^# Schema Contract: atlas.release_replay.v1$' "$release_replay_schema"
+  grep -q 'atlas release replay <packet> --json' "$release_replay_schema"
+  grep -q '`schema_version`: must be `atlas.release_replay.v1`' "$release_replay_schema"
+  grep -q '`metadata_only`: must be `true`' "$release_replay_schema"
+  grep -q '`raw_artifacts_embedded`: must be `false`' "$release_replay_schema"
+  grep -q 'full QA logs' "$release_replay_schema"
+  grep -q 'not external audit' "$release_replay_schema"
 
   grep -q '^# `atlas.release_provenance.v1`$' "$provenance_schema"
   grep -Fq 'docs/retention/releases/*.provenance.json' "$provenance_schema"
@@ -2621,7 +2636,8 @@ EOF
   [[ "$output" == *"atlas release packet [packet-name]"* ]]
   [[ "$output" == *"atlas release packet [packet-name] [--json]"* ]]
   [[ "$output" == *"atlas release verify [packet]"* ]]
-  [[ "$output" == *"atlas release replay [packet]"* ]]
+  [[ "$output" == *"atlas release replay [packet] [--json]"* ]]
+  [[ "$output" == *"atlas release replay [packet] [--skip-qa] [--keep-worktree] [--json]"* ]]
   [[ "$output" == *"atlas release manifest [manifest-name]"* ]]
   [[ "$output" == *"atlas release manifest-verify [manifest]"* ]]
   [[ "$output" == *"atlas release slsa-verify [reference]"* ]]
@@ -4036,6 +4052,30 @@ EOF
   [[ "$output" == *"Release Verify: ok"* ]]
   [[ "$output" == *"Cleanup: removed"* ]]
   [[ "$output" == *"release replay verified"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release replay "$json_packet_path" --skip-qa --json
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"Atlas Release Replay"* ]]
+  printf '%s\n' "$output" | jq -e '
+    .schema_version == "atlas.release_replay.v1" and
+    .metadata_only == true and
+    .raw_artifacts_embedded == false and
+    .overall == "verified" and
+    (.packet.commit | test("^[0-9a-f]{40}$")) and
+    (.replay_checkout.branch | test("^atlas-replay-")) and
+    .replay_checkout.keep_worktree == false and
+    .replay_checkout.cleanup == "removed" and
+    .checks.checkout.status == "ok" and
+    .checks.qa.status == "skipped" and
+    .checks.v1_status.status == "ok" and
+    .checks.release_verify.status == "ok" and
+    (.metadata_boundary.excludes | index("raw runtime artifacts")) and
+    (.metadata_boundary.excludes | index("full QA logs")) and
+    (.non_guarantees | index("not external audit")) and
+    (.non_guarantees | index("not certification")) and
+    (.non_guarantees | index("not external SLSA certification")) and
+    (.known_limitations | index("Skipped QA is recorded as skipped and is not equivalent to full replay."))
+  ' >/dev/null
 
   jq 'del(.commit)' "$json_packet_path" > "$TEST_ROOT/replay-missing-commit.json"
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release replay "$TEST_ROOT/replay-missing-commit.json" --skip-qa
