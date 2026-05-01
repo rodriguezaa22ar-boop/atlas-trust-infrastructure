@@ -3256,6 +3256,8 @@ EOF
 
   [ "$status" -ne 0 ]
   [[ "$output" == *"Atlas Production Status Explanation"* ]]
+  [[ "$output" == *"Strict: no"* ]]
+  [[ "$output" != *"Strict: 0"* ]]
   [[ "$output" == *"Overall: not-ready"* ]]
   [[ "$output" == *"V1 Readiness: ready - v1 readiness is ready with no required pillar gaps"* ]]
   [[ "$output" == *"Release Packet: missing"* ]]
@@ -3500,6 +3502,8 @@ EOF
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"Atlas Production Status Explanation"* ]]
+  [[ "$output" == *"Strict: yes"* ]]
+  [[ "$output" != *"Strict: 1"* ]]
   [[ "$output" == *"Overall: production-ready under the local Atlas contract"* ]]
   [[ "$output" != *$'Overall: production-ready\n'* ]]
   [[ "$output" == *"V1 Readiness: ready - v1 readiness is ready with no required pillar gaps"* ]]

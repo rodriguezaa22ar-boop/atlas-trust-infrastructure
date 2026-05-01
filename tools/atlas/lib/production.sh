@@ -791,7 +791,11 @@ atlas_production_print_explain() {
   ui_kv "Root" "$LAB_ROOT"
   ui_kv "Commit" "$(atlas_release_commit)"
   ui_kv "Runtime Target" "$LAB_RUNTIME_TARGET"
-  ui_kv "Strict" "$strict"
+  if [ "$strict" -eq 1 ]; then
+    ui_kv "Strict" "yes"
+  else
+    ui_kv "Strict" "no"
+  fi
   if [ "$overall" = "production-ready" ]; then
     ui_kv "Overall" "production-ready under the local Atlas contract"
   else
