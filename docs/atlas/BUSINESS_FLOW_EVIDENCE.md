@@ -272,18 +272,52 @@ finding counts, validation coverage gaps, approval links, retention links, and
 packet verification state. The current control coverage model is
 `aggregate-flow-v1`: Atlas reports whether declared controls have aggregate
 flow evidence and whether linked findings have validation coverage, but it does
-not yet claim per-control evidence mapping. With `--json`, it emits
-`atlas.business_flow_assurance.v1` without writing ledger events or mutating
-operation state. The command highlights `current`, `not-recorded`,
-`attention-required`, and `blocked` states; it is not production certification,
-payment verification, legal compliance evidence, or a third-party audit.
+not yet claim per-control evidence mapping. The assurance view also reports
+link health for evidence, finding, validation, approval, and retention
+references so stale or missing references fail clearly before a reviewer relies
+on the flow. With `--json`, it emits `atlas.business_flow_assurance.v1`
+without writing ledger events or mutating operation state. The command
+highlights `current`, `not-recorded`, `attention-required`, and `blocked`
+states; it is not production certification, payment verification, legal
+compliance evidence, or a third-party audit.
 
 `atlas flow trust-chain` requires an active operation and reports the trust
-state for one flow. It summarizes operation, evidence, finding, validation,
-approval, and retention link counts; Markdown and JSON packet presence; and
-verification state. With `--json`, it emits
-`atlas.business_flow_trust_chain.v1` without writing ledger events or mutating
-operation state.
+state for one flow. It summarizes flow identity, owner, criticality, system
+aliases, data class labels, control objective labels, operation, evidence,
+finding, validation, approval, and retention link counts, reference health,
+control coverage counts, Markdown and JSON packet presence, and verification
+state. With `--json`, it emits `atlas.business_flow_trust_chain.v1` without
+writing ledger events or mutating operation state.
+
+## M116 Reviewability Deepening
+
+Business Flow Evidence is optional-ready at this stage. M116 deepens
+reviewability without making flows a required v1 or production-readiness gate.
+
+The current assurance and trust-chain surfaces expose:
+
+- flow name, owner, criticality, environment, and scope labels
+- system aliases, data class labels, and declared control objectives
+- operation, evidence, finding, validation, approval, and retention link counts
+- open finding count and linked finding validation gaps
+- aggregate evidence-covered control count
+- validation-covered control count
+- packet path, packet format, packet verification status, and verifier checks
+- reference health for linked evidence, findings, validations, approvals, and
+  retention artifacts
+- known limitations and the metadata-only boundary
+
+Reference health is intentionally metadata-only. It checks whether linked IDs
+and retained paths still resolve and whether retained hashes still match. It
+does not embed raw evidence bodies, finding bodies, validation reasons,
+approval reasons, report bodies, customer data, payment data, request/response
+bodies, credentials, tokens, private keys, packet captures, or sensitive
+business records.
+
+Business Flow Evidence remains non-blocking for core readiness. A blocked or
+stale flow should guide remediation for that flow, not silently convert Atlas
+into a business workflow SaaS, accounting system, fraud-prevention product, or
+compliance certification engine.
 
 Operation trust-chain output can summarize flow link, retention link, and packet
 counts across the operation, and readiness integration remains optional and

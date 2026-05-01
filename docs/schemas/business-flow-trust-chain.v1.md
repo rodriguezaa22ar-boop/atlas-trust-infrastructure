@@ -17,6 +17,14 @@ the active operation. The output is read-only and metadata-only.
 - `flow.flow_id`
 - `flow.flow_slug`
 - `flow.flow_name`
+- `flow.flow_type`
+- `flow.owner`
+- `flow.criticality`
+- `flow.environment`
+- `flow.scope_status`
+- `flow.systems`
+- `flow.data_classes`
+- `flow.control_objectives`
 - `operation.slug`
 - `operation.target`
 - `status`: `not-recorded`, `linked`, `current`, or `attention-required`.
@@ -24,7 +32,12 @@ the active operation. The output is read-only and metadata-only.
 - `required`: must be `false` at the current maturity stage.
 - `metadata_only`: must be `true`.
 - `links`: counts for operation, evidence, finding, validation, approval, and
-  retention links.
+  retention links, plus open findings, validation gaps, and control coverage
+  counts.
+- `link_health`: current reference health for linked evidence, findings,
+  validation, approvals, and retention artifacts.
+- `review_summary`: compact counts for systems, data classes, controls,
+  control coverage, and reference defects.
 - `artifacts`: paths to flow link files and packet paths.
 - `packets`: Markdown and JSON packet path/existence state.
 - `verification`: current verification status, packet format, packet path, and
@@ -35,7 +48,20 @@ the active operation. The output is read-only and metadata-only.
 - `not-recorded`: the flow is not linked to the active operation.
 - `linked`: the flow has operation context but no verified packet yet.
 - `current`: the selected flow packet verifies cleanly.
-- `attention-required`: packet verification is stale or blocked.
+- `attention-required`: packet verification is stale or blocked, or link
+  health reports missing, malformed, mismatched, or hash-mismatched linked
+  references.
+
+## Link Health
+
+`link_health` mirrors the assurance view's reference integrity summary. It is
+read-only and metadata-only. It reports whether linked evidence, finding,
+validation, approval, and retention references still resolve, whether retained
+files still exist, and whether hashes still match.
+
+`review_summary.reference_health` must be `ok` or `blocked`.
+`review_summary.reference_defects` must count malformed, missing, mismatched,
+or hash-mismatched linked references.
 
 ## Verification Rules
 

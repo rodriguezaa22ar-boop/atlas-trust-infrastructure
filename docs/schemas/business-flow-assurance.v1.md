@@ -29,6 +29,7 @@ or production gate.
 | `next_step` | string | Operator action to improve the assurance state. |
 | `counts` | object | Link counts, open finding count, and validation gap count. |
 | `controls` | array | Declared control objectives interpreted against aggregate flow evidence state. |
+| `link_health` | object | Current reference health for linked evidence, findings, validation, approvals, and retention artifacts. |
 | `packet` | object | Selected packet name, path, format, verification status, and checks. |
 | `checks` | array | Assurance-level checks with status and detail. |
 | `known_limitations` | array | Non-goals and limits for this assurance view. |
@@ -66,13 +67,42 @@ record. The current model is aggregate, not per-control evidence mapping.
 | `status` | string | `not-recorded`, `missing-evidence`, `evidence-linked`, `validation-covered`, or `attention-required`. |
 | `evidence_links` | number | Aggregate evidence links for the flow. |
 | `validation_links` | number | Aggregate validation links for the flow. |
+| `finding_links` | number | Aggregate finding links for the flow. |
+| `approval_links` | number | Aggregate approval links for the flow. |
+| `retention_links` | number | Aggregate retention links for the flow. |
 | `open_findings` | number | Current open linked findings for the flow. |
 | `validation_gaps` | number | Linked findings without linked validation. |
+| `reference_health` | string | Overall link-health state for current linked references. |
 | `detail` | string | Human-readable explanation of the aggregate status. |
 
 This version intentionally does not claim that a specific evidence artifact
 proves a specific control objective. It reports whether declared controls have
 aggregate flow evidence and whether linked findings have validation coverage.
+
+## Link Health Object
+
+`link_health` is a read-only reference integrity summary. It helps reviewers
+understand whether current links still resolve before relying on a packet.
+
+It must include:
+
+- `overall`: `ok` or `blocked`.
+- `defects`: total malformed, missing, mismatched, or hash-mismatched linked
+  references.
+- `evidence`: status, link count, malformed link count, missing evidence
+  records, missing retained files, hash mismatches, and metadata mismatches.
+- `findings`: status, link count, malformed link count, missing finding
+  records, and metadata mismatches.
+- `validations`: status, link count, malformed link count, missing validation
+  records, and metadata mismatches.
+- `approvals`: status, link count, malformed link count, missing approval
+  records, and metadata mismatches.
+- `retention`: status, link count, malformed link count, missing retained
+  files, and hash mismatches.
+
+Statuses are metadata-only and do not embed linked artifact bodies. A
+nonzero `defects` value makes assurance `blocked` so missing evidence,
+finding, validation, approval, or retention references fail clearly.
 
 ## Packet Object
 
@@ -97,7 +127,8 @@ Each `checks` item contains:
 ## Overall Rules
 
 - `not-recorded`: the flow is not linked to the active operation.
-- `blocked`: packet verification is blocked.
+- `blocked`: packet verification is blocked, or link health reports missing,
+  malformed, mismatched, or hash-mismatched linked references.
 - `attention-required`: the flow has evidence, control objective, finding,
   validation, retention, or packet gaps, open linked findings, or stale packet
   state.
