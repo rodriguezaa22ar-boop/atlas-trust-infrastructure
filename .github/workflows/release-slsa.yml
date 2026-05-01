@@ -16,7 +16,6 @@ permissions:
   contents: read
   id-token: write
   attestations: write
-  artifact-metadata: write
 
 concurrency:
   group: release-slsa-${{ github.ref }}
@@ -29,7 +28,8 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        # actions/checkout v6 pinned to immutable commit.
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -42,7 +42,8 @@ jobs:
           printf 'ATLAS_RELEASE_COMMIT=%s\n' "$release_commit" >>"$GITHUB_ENV"
 
       - name: Install Nix
-        uses: cachix/install-nix-action@v31
+        # cachix/install-nix-action v31 pinned to immutable commit.
+        uses: cachix/install-nix-action@ab739621df7a23f52766f9ccc97f38da6b7af14f
         with:
           nix_path: nixpkgs=channel:nixos-unstable
 
@@ -99,6 +100,25 @@ jobs:
             printf 'artifact_base=%s\n' "$artifact_base"
           } >>"$GITHUB_ENV"
 
+      - name: Check release artifact metadata boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          contents_manifest="dist/${artifact_base}.contents.txt"
+          tar -tzf "$artifact" >"$contents_manifest"
+
+          if grep -E "^${artifact_base}/(sessions|state|shared|reports|logs|releases|targets|\\.tmp)(/|$)" "$contents_manifest"; then
+            printf 'Release artifact contains runtime state path\n' >&2
+            exit 1
+          fi
+
+          if grep -Ei '(secret|credential|token|private-key|private_key|session-cookie|packet-capture|pcap|raw-invoice|raw_invoice|raw-contract|raw_contract|customer-data|customer_data|payment-data|payment_data|request-body|request_body|response-body|response_body|runtime-artifact|runtime_artifact|unredacted)' "$contents_manifest"; then
+            printf 'Release artifact contains forbidden sensitive path marker\n' >&2
+            exit 1
+          fi
+
+          printf 'contents_manifest=%s\n' "$contents_manifest" >>"$GITHUB_ENV"
+
       - name: Record artifact metadata
         shell: bash
         run: |
@@ -111,21 +131,26 @@ jobs:
             printf 'workflow=%s\n' "$GITHUB_WORKFLOW"
             printf 'run_id=%s\n' "$GITHUB_RUN_ID"
             printf 'artifact=%s\n' "$artifact"
+            printf 'contents_manifest=%s\n' "$contents_manifest"
+            printf 'metadata_boundary=public-metadata-only\n'
             printf 'sha256='
             awk '{ print $1 }' "${artifact}.sha256"
           } >"dist/${artifact_base}.metadata.env"
 
       - name: Upload release artifact
-        uses: actions/upload-artifact@v4
+        # actions/upload-artifact v4 pinned to immutable commit.
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: ${{ env.artifact_base }}
           path: |
             ${{ env.artifact }}
             ${{ env.artifact }}.sha256
+            ${{ env.contents_manifest }}
             dist/${{ env.artifact_base }}.metadata.env
           if-no-files-found: error
 
       - name: Generate SLSA build provenance attestation
-        uses: actions/attest@v4
+        # actions/attest v4 pinned to immutable commit.
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26
         with:
           subject-path: ${{ env.artifact }}

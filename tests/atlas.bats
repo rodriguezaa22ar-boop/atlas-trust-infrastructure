@@ -76,6 +76,7 @@ write_test_slsa_reference() {
         subject_digest: ("sha256:" + $artifact_sha),
         url: "https://github.com/rodriguezaa22ar-boop/atlas-trust-infrastructure/attestations/123",
         rekor_log_url: "https://search.sigstore.dev?logIndex=123",
+        issuer_identity: "https://token.actions.githubusercontent.com",
         verification_command: "gh attestation verify dist/atlas-test-release.tar.gz --repo rodriguezaa22ar-boop/atlas-trust-infrastructure",
         verification_status: $verification_status
       },
@@ -2242,13 +2243,13 @@ EOF
   grep -q 'GitHub Artifact Attestations' "$slsa_schema"
   grep -q '`schema_version`: `atlas.slsa_provenance.v1`' "$slsa_schema"
   grep -q '`metadata_only`: `true`' "$slsa_schema"
-  grep -q 'actions/attest@v4' "$slsa_schema"
+  grep -q 'actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26' "$slsa_schema"
+  grep -q '`attestation.issuer_identity`' "$slsa_schema"
   grep -q 'subject-path' "$slsa_schema"
   grep -q '${GITHUB_SHA}^{commit}' "$slsa_schema"
   grep -q '$ATLAS_RELEASE_COMMIT' "$slsa_schema"
   grep -q 'id-token: write' "$slsa_schema"
   grep -q 'attestations: write' "$slsa_schema"
-  grep -q 'artifact-metadata: write' "$slsa_schema"
   grep -q 'tagged commit matches' "$slsa_schema"
   grep -q 'local `main` branch tracking' "$slsa_schema"
   grep -q 'gh attestation verify' "$slsa_schema"
@@ -2559,14 +2560,15 @@ EOF
   grep -q 'contents: read' "$slsa_workflow"
   grep -q 'id-token: write' "$slsa_workflow"
   grep -q 'attestations: write' "$slsa_workflow"
-  grep -q 'artifact-metadata: write' "$slsa_workflow"
-  grep -q 'actions/checkout@v6' "$slsa_workflow"
+  grep -q 'actions/checkout v6 pinned to immutable commit' "$slsa_workflow"
+  grep -q 'actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd' "$slsa_workflow"
   grep -q 'fetch-depth: 0' "$slsa_workflow"
   grep -q 'fetch-tags: true' "$slsa_workflow"
   grep -q 'Resolve release commit' "$slsa_workflow"
   grep -q 'ATLAS_RELEASE_COMMIT' "$slsa_workflow"
   grep -q 'git rev-parse "${GITHUB_SHA}^{commit}"' "$slsa_workflow"
-  grep -q 'cachix/install-nix-action@v31' "$slsa_workflow"
+  grep -q 'cachix/install-nix-action v31 pinned to immutable commit' "$slsa_workflow"
+  grep -q 'cachix/install-nix-action@ab739621df7a23f52766f9ccc97f38da6b7af14f' "$slsa_workflow"
   grep -q 'Prepare release branch context' "$slsa_workflow"
   grep -q "github.ref_type == 'tag'" "$slsa_workflow"
   grep -q '+refs/heads/main:refs/remotes/origin/main' "$slsa_workflow"
@@ -2578,24 +2580,36 @@ EOF
   grep -q 'git archive' "$slsa_workflow"
   grep -q '"$ATLAS_RELEASE_COMMIT"' "$slsa_workflow"
   grep -q 'sha256sum "$artifact_path"' "$slsa_workflow"
-  grep -q 'actions/upload-artifact@v4' "$slsa_workflow"
-  grep -q 'actions/attest@v4' "$slsa_workflow"
+  grep -q 'Check release artifact metadata boundary' "$slsa_workflow"
+  grep -q 'contents_manifest=' "$slsa_workflow"
+  grep -q 'metadata_boundary=public-metadata-only' "$slsa_workflow"
+  grep -q 'actions/upload-artifact v4 pinned to immutable commit' "$slsa_workflow"
+  grep -q 'actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02' "$slsa_workflow"
+  grep -q 'actions/attest v4 pinned to immutable commit' "$slsa_workflow"
+  grep -q 'actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26' "$slsa_workflow"
   grep -q 'subject-path: ${{ env.artifact }}' "$slsa_workflow"
+  ! grep -q 'actions/checkout@v6' "$slsa_workflow"
+  ! grep -q 'cachix/install-nix-action@v31' "$slsa_workflow"
+  ! grep -q 'actions/upload-artifact@v4' "$slsa_workflow"
+  ! grep -q 'actions/attest@v4' "$slsa_workflow"
 
   grep -q '^# Atlas SLSA Provenance$' "$slsa_doc"
   grep -q '.github/workflows/release-slsa.yml' "$slsa_doc"
-  grep -q 'actions/attest@v4' "$slsa_doc"
+  grep -q 'actions/attest v4 pinned to immutable commit' "$slsa_doc"
   grep -q 'gh attestation verify <artifact>.tar.gz' "$slsa_doc"
   grep -q 'ATLAS_RELEASE_COMMIT' "$slsa_doc"
   grep -q 'annotated tags' "$slsa_doc"
   grep -q 'tagged commit must match `origin/main`' "$slsa_doc"
   grep -q 'local `main` branch' "$slsa_doc"
+  grep -q 'contents manifest' "$slsa_doc"
+  grep -q 'issuer identity' "$slsa_doc"
   grep -q 'not external SLSA certification' "$slsa_doc"
   grep -q 'metadata-only' "$slsa_doc"
   grep -q 'raw operation evidence bodies' "$slsa_doc"
   grep -q 'atlas release slsa-verify' "$slsa_doc"
   grep -q '.github/workflows/release-slsa.yml' "$ci_doc"
   grep -q 'GitHub Artifact Attestations' "$ci_doc"
+  grep -q 'SLSA-verifiable release artifact candidate' "$ci_doc"
   grep -q 'annotated tags' "$ci_doc"
   grep -q 'tagged commit to match' "$ci_doc"
   grep -q 'does not claim external SLSA certification' "$ci_doc"
@@ -2618,26 +2632,45 @@ EOF
   grep -q 'workflow_dispatch:' "$official_workflow"
   grep -q "'atlas-v\\*'" "$official_workflow"
   grep -q "'atlas-release-\\*'" "$official_workflow"
-  grep -q 'actions/checkout@v6' "$official_workflow"
+  grep -q 'actions/checkout v6 pinned to immutable commit' "$official_workflow"
+  grep -q 'actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd' "$official_workflow"
+  grep -q 'cachix/install-nix-action v31 pinned to immutable commit' "$official_workflow"
+  grep -q 'cachix/install-nix-action@ab739621df7a23f52766f9ccc97f38da6b7af14f' "$official_workflow"
   grep -q 'git rev-parse "${GITHUB_SHA}^{commit}"' "$official_workflow"
   grep -q 'Tagged commit does not match origin/main' "$official_workflow"
   grep -q "nix-shell --run './bin/dev-qa'" "$official_workflow"
   grep -q "nix-shell --run './tools/atlas/bin/atlas v1 status --strict'" "$official_workflow"
   grep -q 'git archive' "$official_workflow"
   grep -q 'sha256sum "$artifact_path"' "$official_workflow"
+  grep -q 'Check release artifact metadata boundary' "$official_workflow"
+  grep -q 'contents_manifest=' "$official_workflow"
+  grep -q 'metadata_boundary=public-metadata-only' "$official_workflow"
+  grep -q 'actions/upload-artifact v4 pinned to immutable commit' "$official_workflow"
+  grep -q 'actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02' "$official_workflow"
   grep -q 'base64-subjects: "${{ needs.build.outputs.hashes }}"' "$official_workflow"
-  grep -q 'slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0' "$official_workflow"
+  grep -q 'slsa-framework/slsa-github-generator v2.1.0 pinned to immutable commit' "$official_workflow"
+  grep -q 'slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@f7dd8c54c2067bafc12ca7a55595d5ee9b75204a' "$official_workflow"
   grep -q 'upload-assets: true' "$official_workflow"
   grep -q 'provenance-name: "${{ needs.build.outputs.artifact_base }}.intoto.jsonl"' "$official_workflow"
-  grep -q 'softprops/action-gh-release@v2' "$official_workflow"
+  grep -q 'actions/download-artifact v4 pinned to immutable commit' "$official_workflow"
+  grep -q 'actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093' "$official_workflow"
+  grep -q 'softprops/action-gh-release v2 pinned to immutable commit' "$official_workflow"
+  grep -q 'softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65' "$official_workflow"
+  ! grep -q 'actions/checkout@v6' "$official_workflow"
+  ! grep -q 'cachix/install-nix-action@v31' "$official_workflow"
+  ! grep -q 'actions/upload-artifact@v4' "$official_workflow"
+  ! grep -q 'actions/download-artifact@v4' "$official_workflow"
+  ! grep -q 'softprops/action-gh-release@v2' "$official_workflow"
+  ! grep -q 'slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0' "$official_workflow"
 
   grep -q 'Official SLSA Generic Provenance' "$slsa_doc"
   grep -q 'slsa-framework/slsa-github-generator' "$slsa_doc"
+  grep -q 'pinned to immutable commit' "$slsa_doc"
   grep -q 'slsa-verifier verify-artifact' "$slsa_doc"
   grep -q 'atlas release slsa-verify <reference>.slsa.json --artifact <artifact>.tar.gz --online' "$slsa_doc"
 
   grep -q '^# Atlas SLSA Claim$' "$claim_doc"
-  grep -q 'SLSA Build Level 3 alignment target' "$claim_doc"
+  grep -q 'SLSA-verifiable release artifact candidate' "$claim_doc"
   grep -q 'Claimed' "$claim_doc"
   grep -q 'Not Claimed' "$claim_doc"
   grep -q '^## Claim Matrix$' "$claim_doc"
@@ -2679,6 +2712,7 @@ EOF
     .source.ref == "refs/tags/atlas-v0.4.0-rc1" and
     .workflow.run_url == "https://github.com/rodriguezaa22ar-boop/atlas-trust-infrastructure/actions/runs/25153272091" and
     .attestation.url == "https://github.com/rodriguezaa22ar-boop/atlas-trust-infrastructure/attestations/26040322" and
+    .attestation.issuer_identity == "https://token.actions.githubusercontent.com" and
     .attestation.verification_status == "verified" and
     .attestation.online_verification.status == "verified" and
     .attestation.online_verification.repository == "rodriguezaa22ar-boop/atlas-trust-infrastructure" and
@@ -3901,6 +3935,7 @@ EOF
     .slsa_provenance.verified == true and
     .slsa_provenance.artifact.sha256 == $artifact_sha and
     .slsa_provenance.attestation.subject_digest == ("sha256:" + $artifact_sha) and
+    .slsa_provenance.attestation.issuer_identity == "https://token.actions.githubusercontent.com" and
     .slsa_provenance.attestation.verification_status == "verified" and
     .slsa_provenance.no_certification_overclaim == true and
     .contract.slsa_schema_document == "docs/schemas/slsa-provenance.v1.md" and
@@ -3959,6 +3994,7 @@ EOF
   [[ "$output" == *"Source Commit: ok $release_commit"* ]]
   [[ "$output" == *"Artifact Digest: ok"* ]]
   [[ "$output" == *"Workflow Path: ok .github/workflows/release-slsa.yml"* ]]
+  [[ "$output" == *"Issuer Identity: ok https://token.actions.githubusercontent.com"* ]]
   [[ "$output" == *"Attestation Verification: ok verified"* ]]
   [[ "$output" == *"Reference Contract: ok verified"* ]]
   [[ "$output" == *"SLSA provenance reference verified"* ]]

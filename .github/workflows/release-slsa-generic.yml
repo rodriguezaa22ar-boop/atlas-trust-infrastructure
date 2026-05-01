@@ -28,7 +28,8 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        # actions/checkout v6 pinned to immutable commit.
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -41,7 +42,8 @@ jobs:
           printf 'ATLAS_RELEASE_COMMIT=%s\n' "$release_commit" >>"$GITHUB_ENV"
 
       - name: Install Nix
-        uses: cachix/install-nix-action@v31
+        # cachix/install-nix-action v31 pinned to immutable commit.
+        uses: cachix/install-nix-action@ab739621df7a23f52766f9ccc97f38da6b7af14f
         with:
           nix_path: nixpkgs=channel:nixos-unstable
 
@@ -106,6 +108,25 @@ jobs:
             printf 'artifact_sha=%s\n' "$artifact_sha"
           } >>"$GITHUB_OUTPUT"
 
+      - name: Check release artifact metadata boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          contents_manifest="dist/${artifact_base}.contents.txt"
+          tar -tzf "$artifact" >"$contents_manifest"
+
+          if grep -E "^${artifact_base}/(sessions|state|shared|reports|logs|releases|targets|\\.tmp)(/|$)" "$contents_manifest"; then
+            printf 'Release artifact contains runtime state path\n' >&2
+            exit 1
+          fi
+
+          if grep -Ei '(secret|credential|token|private-key|private_key|session-cookie|packet-capture|pcap|raw-invoice|raw_invoice|raw-contract|raw_contract|customer-data|customer_data|payment-data|payment_data|request-body|request_body|response-body|response_body|runtime-artifact|runtime_artifact|unredacted)' "$contents_manifest"; then
+            printf 'Release artifact contains forbidden sensitive path marker\n' >&2
+            exit 1
+          fi
+
+          printf 'contents_manifest=%s\n' "$contents_manifest" >>"$GITHUB_ENV"
+
       - name: Record artifact metadata
         shell: bash
         run: |
@@ -117,8 +138,11 @@ jobs:
             printf 'ref_name=%s\n' "$GITHUB_REF_NAME"
             printf 'workflow=%s\n' "$GITHUB_WORKFLOW"
             printf 'run_id=%s\n' "$GITHUB_RUN_ID"
-            printf 'official_slsa_generator=slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0\n'
+            printf 'official_slsa_generator=slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@f7dd8c54c2067bafc12ca7a55595d5ee9b75204a\n'
+            printf 'official_slsa_generator_version=v2.1.0\n'
             printf 'artifact=%s\n' "$artifact"
+            printf 'contents_manifest=%s\n' "$contents_manifest"
+            printf 'metadata_boundary=public-metadata-only\n'
             printf 'sha256=%s\n' "$artifact_sha"
           } >"dist/${artifact_base}.metadata.env"
 
@@ -130,12 +154,14 @@ jobs:
           echo "hashes=$(sha256sum "$artifact" | base64 -w0)" >>"$GITHUB_OUTPUT"
 
       - name: Upload release artifact bundle
-        uses: actions/upload-artifact@v4
+        # actions/upload-artifact v4 pinned to immutable commit.
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: ${{ env.artifact_base }}
           path: |
             ${{ env.artifact }}
             ${{ env.artifact }}.sha256
+            ${{ env.contents_manifest }}
             dist/${{ env.artifact_base }}.metadata.env
           if-no-files-found: error
 
@@ -147,7 +173,8 @@ jobs:
       actions: read
       id-token: write
       contents: write
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
+    # slsa-framework/slsa-github-generator v2.1.0 pinned to immutable commit.
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@f7dd8c54c2067bafc12ca7a55595d5ee9b75204a
     with:
       base64-subjects: "${{ needs.build.outputs.hashes }}"
       upload-assets: true
@@ -163,15 +190,18 @@ jobs:
 
     steps:
       - name: Download release artifact bundle
-        uses: actions/download-artifact@v4
+        # actions/download-artifact v4 pinned to immutable commit.
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: ${{ needs.build.outputs.artifact_base }}
           path: dist
 
       - name: Publish release artifact assets
-        uses: softprops/action-gh-release@v2
+        # softprops/action-gh-release v2 pinned to immutable commit.
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65
         with:
           files: |
             dist/*.tar.gz
             dist/*.tar.gz.sha256
+            dist/*.contents.txt
             dist/*.metadata.env

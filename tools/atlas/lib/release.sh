@@ -803,6 +803,7 @@ atlas_release_slsa_reference_valid() {
     ((.workflow.run_id // "") | tostring | length > 0) and
     ((.workflow.run_url // "") | type == "string" and startswith("https://github.com/")) and
     ((.attestation.subject_digest // "") | type == "string" and length > 0) and
+    ((.attestation.issuer_identity // "") | type == "string" and length > 0) and
     ((.attestation.verification_command // "") | type == "string" and contains("gh attestation verify")) and
     .attestation.verification_status == "verified" and
     (((.known_limitations // []) | type) == "array" and ((.known_limitations // []) | length > 0))
@@ -849,6 +850,7 @@ atlas_release_slsa_verify_reference() {
   local subject_digest
   local workflow_path
   local workflow_run_url
+  local issuer_identity
   local verification_command
   local verification_status
   local known_count
@@ -932,6 +934,12 @@ atlas_release_slsa_verify_reference() {
 
   verification_command="$(jq -r '.attestation.verification_command // ""' "$slsa_file" 2>/dev/null || true)"
   verification_status="$(jq -r '.attestation.verification_status // ""' "$slsa_file" 2>/dev/null || true)"
+  issuer_identity="$(jq -r '.attestation.issuer_identity // ""' "$slsa_file" 2>/dev/null || true)"
+  if [ -n "$issuer_identity" ]; then
+    atlas_release_slsa_verify_row "Issuer Identity" "ok" "$issuer_identity"
+  else
+    atlas_release_slsa_verify_row "Issuer Identity" "fail" "missing"
+  fi
   if [ "$verification_status" = "verified" ] && [[ "$verification_command" == *"gh attestation verify"* ]]; then
     atlas_release_slsa_verify_row "Attestation Verification" "ok" "$verification_status"
   else
@@ -1129,6 +1137,7 @@ atlas_release_manifest_write() {
   local slsa_attestation_subject_digest=""
   local slsa_attestation_url=""
   local slsa_attestation_rekor_log_url=""
+  local slsa_attestation_issuer_identity=""
   local slsa_attestation_verification_command=""
   local public_key_path
   local public_key_file
@@ -1208,6 +1217,7 @@ atlas_release_manifest_write() {
     slsa_attestation_subject_digest="$(jq -r '.attestation.subject_digest // ""' "$slsa_file")"
     slsa_attestation_url="$(jq -r '.attestation.url // ""' "$slsa_file")"
     slsa_attestation_rekor_log_url="$(jq -r '.attestation.rekor_log_url // ""' "$slsa_file")"
+    slsa_attestation_issuer_identity="$(jq -r '.attestation.issuer_identity // ""' "$slsa_file")"
     slsa_attestation_verification_command="$(jq -r '.attestation.verification_command // ""' "$slsa_file")"
   fi
 
@@ -1248,6 +1258,7 @@ atlas_release_manifest_write() {
     --arg slsa_attestation_subject_digest "$slsa_attestation_subject_digest" \
     --arg slsa_attestation_url "$slsa_attestation_url" \
     --arg slsa_attestation_rekor_log_url "$slsa_attestation_rekor_log_url" \
+    --arg slsa_attestation_issuer_identity "$slsa_attestation_issuer_identity" \
     --arg slsa_attestation_verification_command "$slsa_attestation_verification_command" '
       {
         schema_version: $schema_version,
@@ -1315,6 +1326,7 @@ atlas_release_manifest_write() {
               subject_digest: $slsa_attestation_subject_digest,
               url: $slsa_attestation_url,
               rekor_log_url: $slsa_attestation_rekor_log_url,
+              issuer_identity: $slsa_attestation_issuer_identity,
               verification_command: $slsa_attestation_verification_command,
               verification_status: "verified"
             },
@@ -1565,6 +1577,7 @@ atlas_release_manifest_verify_slsa_reference() {
       .slsa_provenance.attestation.subject_digest == $reference.attestation.subject_digest and
       .slsa_provenance.attestation.url == ($reference.attestation.url // "") and
       .slsa_provenance.attestation.rekor_log_url == ($reference.attestation.rekor_log_url // "") and
+      .slsa_provenance.attestation.issuer_identity == ($reference.attestation.issuer_identity // "") and
       .slsa_provenance.attestation.verification_command == $reference.attestation.verification_command and
       .slsa_provenance.attestation.verification_status == $reference.attestation.verification_status
     ' "$manifest_file" >/dev/null 2>&1 &&

@@ -24,7 +24,7 @@ build provenance attestation for the artifact.
 
 Atlas also carries an official SLSA generic-generator workflow that sends
 base64-encoded subject hashes to
-`slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0`
+`slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@f7dd8c54c2067bafc12ca7a55595d5ee9b75204a`
 for release tags.
 
 ## Required Fields For Retained References
@@ -43,6 +43,7 @@ When Atlas records SLSA provenance references, the record must include:
 - `workflow.run_id`
 - `workflow.run_url`
 - `attestation.subject_digest`
+- `attestation.issuer_identity`
 - `attestation.verification_command`
 - `attestation.verification_status`
 - `known_limitations`
@@ -63,19 +64,25 @@ The release SLSA workflow should include:
 - strict v1 readiness with `atlas v1 status --strict`
 - release artifact creation from `git archive` at `$ATLAS_RELEASE_COMMIT`
 - SHA-256 checksum generation
+- contents manifest generation from the release artifact tarball
+- path-level artifact boundary check that rejects runtime-state directories and
+  forbidden sensitive path markers before upload
 - artifact upload
-- `actions/attest@v4`
+- `actions/checkout`, `cachix/install-nix-action`, `actions/upload-artifact`,
+  and `actions/attest` pinned to immutable commit SHAs
+- `actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26`
 - `subject-path` pointing to the generated release artifact
 - optional official generic-generator workflow:
-  - `slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0`
+  - `slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@f7dd8c54c2067bafc12ca7a55595d5ee9b75204a`
   - `base64-subjects`
   - `upload-assets: true`
   - `.intoto.jsonl` provenance output
+  - pinned `actions/download-artifact` and `softprops/action-gh-release`
+    dependencies for the release asset publishing path
 - permissions:
   - `contents: read`
   - `id-token: write`
   - `attestations: write`
-  - `artifact-metadata: write`
 
 ## Verification Rules
 
@@ -88,6 +95,7 @@ Consumers should verify:
 - the attestation subject digest matches the artifact
 - the repository owner and repository name are expected
 - the workflow identity is expected
+- the issuer identity is recorded and expected
 - the commit or tag matches the intended Atlas release
 - `atlas release slsa-verify <reference> --commit <sha>` passes for the
   retained metadata-only reference
@@ -101,8 +109,10 @@ Allowed:
 
 - artifact names and paths
 - SHA-256 digests
+- contents manifest paths
 - commit and ref identifiers
 - workflow identity
+- issuer identity
 - run IDs and URLs
 - verification command and status
 - known limitations

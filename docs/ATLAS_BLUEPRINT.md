@@ -616,7 +616,7 @@ The near-term roadmap is:
 97. Prepare SLSA-verifiable release artifacts. `.github/workflows/release-slsa.yml`
     builds a source release artifact from the exact Git commit, runs local QA
     and v1 readiness, uploads the artifact/checksum, and generates a
-    GitHub/Sigstore SLSA build provenance attestation with `actions/attest@v4`.
+    GitHub/Sigstore SLSA build provenance attestation with `actions/attest`.
     This is SLSA-verifiable provenance preparation, not external SLSA
     certification.
 98. Smoke-verify SLSA release artifact provenance. The tag-triggered

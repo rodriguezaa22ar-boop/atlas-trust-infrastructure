@@ -50,6 +50,8 @@ Each package includes:
 - latest retained milestone note
 - retained signing public key when referenced by the manifest
 - retained SLSA provenance reference when referenced by the manifest
+- SLSA-verifiable artifact digest, attestation reference, issuer identity, and
+  verifier commands when a retained SLSA reference is present
 
 ## Source Of Truth
 
@@ -141,5 +143,7 @@ to a complete retained proof chain.
 - It does not query GitHub, download artifacts, or validate online attestations
   unless the reviewer separately runs those workflows.
 - It does not include raw runtime evidence by design.
+- It records SLSA artifact/provenance metadata when referenced, but it does not
+  download release artifacts or perform `gh attestation verify` by itself.
 - It does not replace manual review, legal review, compliance review, or an
   independent audit.

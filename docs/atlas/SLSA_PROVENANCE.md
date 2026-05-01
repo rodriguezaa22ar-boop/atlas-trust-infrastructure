@@ -9,6 +9,12 @@ GitHub/Sigstore SLSA build provenance for a release artifact.
 This is not external SLSA certification. It is a verifiable provenance
 readiness contract for Atlas release artifacts.
 
+M117 moves this surface from explanation toward an implementation-forward
+candidate: Atlas can build a public metadata-only release artifact in GitHub
+Actions, bind it to a SHA-256 digest, request GitHub-hosted provenance or
+attestation, and retain the expected source/workflow/issuer metadata for
+review.
+
 ## Current Workflow
 
 The release artifact workflow lives at:
@@ -55,32 +61,43 @@ The artifact is uploaded with:
 
 - the `.tar.gz` release artifact
 - a `.sha256` checksum file
+- a `.contents.txt` contents manifest generated from the tarball
 - a metadata env file containing commit, ref, workflow, run ID, artifact path,
-  and SHA-256
+  contents manifest path, metadata boundary, and SHA-256
+
+Before upload, the workflow checks the artifact contents manifest for root
+runtime-state directories and forbidden sensitive path markers. This is a
+path-level guardrail, not DLP and not an inspection of raw business contents.
 
 Finally, the workflow uses GitHub Artifact Attestations through:
 
 ```yaml
-uses: actions/attest@v4
+# actions/attest v4 pinned to immutable commit.
+uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26
 with:
   subject-path: ${{ env.artifact }}
 ```
 
 By default, `actions/attest` generates a SLSA build provenance attestation for
-the subject artifact.
+the subject artifact. The workflow also pins `actions/checkout`,
+`cachix/install-nix-action`, and `actions/upload-artifact` to immutable commit
+SHAs while preserving comments with the upstream version labels.
 
 The `Official SLSA Generic Provenance` workflow follows the same QA,
 readiness, tag, and artifact rules, then passes the artifact subject hash to:
 
 ```yaml
-uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
+# slsa-framework/slsa-github-generator v2.1.0 pinned to immutable commit.
+uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@f7dd8c54c2067bafc12ca7a55595d5ee9b75204a
 with:
   base64-subjects: "${{ needs.build.outputs.hashes }}"
   upload-assets: true
 ```
 
 That workflow is intended for release tags and publishes an `.intoto.jsonl`
-provenance file beside the release artifact.
+provenance file beside the release artifact. The publish path also pins
+`actions/download-artifact` and `softprops/action-gh-release` to immutable
+commit SHAs.
 
 ## Required Workflow Permissions
 
@@ -91,12 +108,10 @@ permissions:
   contents: read
   id-token: write
   attestations: write
-  artifact-metadata: write
 ```
 
 `id-token: write` lets the workflow request a short-lived signing identity.
-`attestations: write` stores the attestation. `artifact-metadata: write`
-supports GitHub's artifact metadata record.
+`attestations: write` stores the attestation.
 
 ## Verification
 
@@ -113,11 +128,12 @@ The verification should establish:
 - the subject digest matches the downloaded artifact
 - the source repository is `rodriguezaa22ar-boop/atlas-trust-infrastructure`
 - the workflow identity is expected
+- the issuer identity is GitHub Actions OIDC/Sigstore attestation identity
 - the commit/ref matches the intended release
 
 For policy-grade verification, record the expected subject SHA-256, source
-repository, builder/workflow identity, tag or commit, and run URL in the
-release notes or retained Atlas release manifest.
+repository, builder/workflow identity, issuer identity, tag or commit, and run
+URL in the release notes or retained Atlas release manifest.
 
 ## Retained Smoke Verification
 
@@ -179,8 +195,8 @@ Evidence:
 
 This command verifies the metadata-only reference contract, recorded
 `gh attestation verify` status, source commit, artifact digest, workflow path,
-GitHub run URL, known limitations, and no-certification-overclaim flag. It does
-not download artifacts.
+issuer identity, GitHub run URL, known limitations, and
+no-certification-overclaim flag. It does not download artifacts.
 
 When a release artifact has been downloaded, the local artifact hash can also be
 checked:

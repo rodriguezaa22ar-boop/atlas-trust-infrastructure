@@ -6,8 +6,8 @@ This document states the current Atlas SLSA claim in precise terms so a
 reviewer can separate implemented evidence from future certification work.
 
 Atlas is targeting SLSA-verifiable release artifacts. The current claim is a
-SLSA Build Level 3 alignment target for GitHub-built source artifacts, not an
-external SLSA certification.
+SLSA-verifiable release artifact candidate for GitHub-built source artifacts,
+not an external SLSA certification.
 
 ## Claimed
 
@@ -17,9 +17,13 @@ Atlas claims:
 - release-style tags must point at `origin/main`
 - local Atlas QA and strict v1 readiness run before artifact creation
 - release artifacts are SHA-256 hashed
+- release artifact contents are checked for runtime-state paths and forbidden
+  sensitive path markers before upload
 - GitHub Artifact Attestations can produce provenance for the artifact
 - an Official SLSA Generic Provenance workflow is available through the
   `slsa-framework/slsa-github-generator` generic generator
+- SLSA-related GitHub Actions and reusable workflows are pinned to immutable
+  commit SHAs in the release artifact path
 - retained Atlas SLSA references are metadata-only and locally verifiable with
   `atlas release slsa-verify`
 - optional online verification can run `gh attestation verify` against a
@@ -56,7 +60,7 @@ Current evidence includes:
 | --- | --- | --- | --- |
 | Release artifact was built from a named source ref. | Artifact path, source repository, source commit, source ref, and workflow path. | `gh run view <run-id>` or retained workflow metadata in `<reference>.slsa.json`. | Does not certify the repository or every historical artifact. |
 | Artifact digest matches retained metadata. | Artifact SHA-256 and retained `artifact.sha256`. | `atlas release slsa-verify <reference>.slsa.json --commit <sha> --artifact <artifact>.tar.gz`. | Does not prove runtime deployment integrity. |
-| GitHub attestation is verifiable for the artifact. | Attestation URL, issuer, repository, workflow, subject digest, and source ref. | `gh attestation verify <artifact>.tar.gz --repo rodriguezaa22ar-boop/atlas-trust-infrastructure`. | Does not claim external SLSA certification. |
+| GitHub attestation is verifiable for the artifact. | Attestation URL, issuer identity, repository, workflow, subject digest, and source ref. | `gh attestation verify <artifact>.tar.gz --repo rodriguezaa22ar-boop/atlas-trust-infrastructure`. | Does not claim external SLSA certification. |
 | Official SLSA generic-generator provenance verifies when published. | `.intoto.jsonl` provenance, source URI, source tag, and artifact digest. | `slsa-verifier verify-artifact <artifact>.tar.gz --provenance-path <artifact>.intoto.jsonl --source-uri github.com/rodriguezaa22ar-boop/atlas-trust-infrastructure --source-tag <tag>`. | Does not claim a stronger SLSA level unless a reviewer verifies that exact level. |
 | Atlas retained SLSA reference is metadata-only and locally checkable. | `atlas.slsa_provenance.v1` reference with known limitations and no-certification boundary. | `atlas release slsa-verify <reference>.slsa.json --commit <sha>`. | Does not store raw build logs, target data, secrets, or private runtime artifacts. |
 
