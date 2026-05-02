@@ -140,6 +140,20 @@ For policy-grade verification, record the expected subject SHA-256, source
 repository, builder/workflow identity, issuer identity, tag or commit, and run
 URL in the release notes or retained Atlas release manifest.
 
+Run Atlas-side verification through the supported development shell so `gpg`,
+`jq`, Git, and the Atlas shell helpers match CI:
+
+```bash
+nix-shell --run './tools/atlas/bin/atlas release slsa-verify <reference>.slsa.json --commit <sha>'
+nix-shell --run './tools/atlas/bin/atlas release manifest-verify <manifest>.json --commit <sha>'
+nix-shell --run './tools/atlas/bin/atlas production status --strict --explain'
+```
+
+Direct host-shell verification can work when the host provides compatible GPG
+tooling, but reviewers should prefer the `nix-shell` path. Atlas imports
+retained public keys into temporary `GNUPGHOME` directories and does not persist
+verification keys into the user's keyring.
+
 ## Retained Smoke Verification
 
 Milestone 98 records a successful tag-triggered SLSA smoke run:
@@ -346,10 +360,7 @@ GitHub/Sigstore-backed SLSA provenance attestation for release artifacts.
 
 ## Next Hardening
 
-- Publish a real release candidate tag and retain its downloaded artifact,
-  attestation, SLSA reference, release packet, and release artifact manifest.
-- Run `atlas release slsa-verify --artifact --online` against that release
-  candidate.
-- Run `slsa-verifier verify-artifact` for the official generic-generator
-  `.intoto.jsonl` file.
+- Keep reviewer-facing verification commands current with the retained M117
+  artifact, attestation, generic provenance, release packet, and manifest.
+- Keep temporary GPG verification portable across host shells and CI.
 - Send the retained reviewer packet to an independent reviewer.

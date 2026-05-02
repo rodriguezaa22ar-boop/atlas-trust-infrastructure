@@ -26,6 +26,7 @@ still current.
 | Trust Chain | `atlas op trust-chain --strict`, `atlas op trust-chain --json` | consolidated operation trust-chain status, optional business-flow counts, and `atlas.operation_trust_chain.v1` JSON |
 | Release | `atlas v1 status --strict`, `atlas release packet --json`, `atlas release verify`, `atlas release replay` | v1 readiness and release trust JSON |
 | Provenance | signed Git tag, retained public key, release provenance packet | signed release provenance tied to retained release evidence |
+| SLSA Candidate | GitHub artifact attestation, official SLSA generic provenance, `atlas release slsa-verify` | SLSA-verifiable release artifact candidate metadata tied to retained Atlas evidence |
 
 ## Current Rule
 
@@ -45,6 +46,9 @@ A trust chain is current only when:
   packet
 - production status verifies release packet, release artifact manifest,
   signing/provenance, and retained dry-run evidence together
+- retained SLSA references can be verified against the release artifact digest,
+  GitHub-hosted artifact attestation, official SLSA generic provenance, and
+  Atlas metadata without claiming external SLSA certification
 
 ## Minimal Verification Path
 
@@ -55,6 +59,7 @@ A trust chain is current only when:
 ./tools/atlas/bin/atlas release packet <release-name> --json --operation <operation> --qa-status pass
 ./tools/atlas/bin/atlas release verify <release-name>
 ./tools/atlas/bin/atlas release replay <release-name>
+./tools/atlas/bin/atlas release slsa-verify <reference>.slsa.json --commit <sha>
 ./tools/atlas/bin/atlas production status --strict
 ```
 

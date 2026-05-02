@@ -109,6 +109,11 @@ The release-trust workflow pins third-party GitHub Actions to immutable commit
 SHAs. Human-readable comments record the upstream version tags, but mutable
 tags are not the trust anchor for this retained-evidence gate.
 
+Signed-tag verification in the release-trust workflow imports the retained
+public key into a temporary keyring with `gpg --batch --no-autostart --import`.
+Local reviewers should use `nix-shell --run '<atlas command>'` for parity with
+CI before treating a host-shell GPG agent failure as release evidence drift.
+
 The release-trust gate is an automated retained-evidence verification signal.
 It does not claim:
 
@@ -183,6 +188,12 @@ and metadata that a reviewer can verify with standard tooling.
 
 GitHub Artifact Attestations are the hosted attestation mechanism for the
 `release-slsa.yml` path.
+
+The retained M117 SLSA-verifiable release artifact candidate has passed
+`gh attestation verify`, `slsa-verifier verify-artifact`, and
+`atlas release slsa-verify` against retained Atlas metadata. That result is a
+verification path for the artifact and provenance, not external SLSA
+certification.
 
 ## Future CI Gates
 

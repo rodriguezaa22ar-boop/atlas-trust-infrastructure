@@ -133,6 +133,19 @@ The provenance gate verifies:
 - known limitations
 - no-production-overclaim flag
 
+Signed-tag verification is intended to run through the supported development
+environment:
+
+```bash
+nix-shell --run './tools/atlas/bin/atlas release manifest-verify <manifest> --commit <commit>'
+```
+
+Atlas verifies signed tags in a temporary `GNUPGHOME` populated from the
+retained public key. It uses `gpg --batch --no-autostart --import` so host
+shells with unusual GPG agent behavior do not need to persist keys into the
+user keyring. Direct host-shell runs may still depend on the host GPG install;
+the `nix-shell` path is the supported reviewer path.
+
 The schema is documented at
 [schemas/release-provenance.v1.md](schemas/release-provenance.v1.md).
 
@@ -188,8 +201,10 @@ slsa-verifier verify-artifact <artifact>.tar.gz \
   --source-tag <tag>
 ```
 
-This is SLSA-verifiable provenance preparation. It is not external SLSA
-certification.
+The retained M117 artifact has passed `gh attestation verify`,
+`slsa-verifier verify-artifact`, and `atlas release slsa-verify` against
+retained Atlas metadata. This is a SLSA-verifiable release artifact candidate,
+not external SLSA certification.
 
 ## Release Artifact Manifest
 

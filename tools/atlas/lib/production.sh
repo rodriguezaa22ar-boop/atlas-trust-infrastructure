@@ -4,6 +4,19 @@ atlas_production_rows_file=""
 atlas_production_blocked=0
 atlas_production_warnings=0
 atlas_production_required_not_ready=0
+atlas_production_signed_tag_reason=""
+
+atlas_production_signed_tag_failure_reason() {
+  if [ -n "$atlas_production_signed_tag_reason" ]; then
+    printf '%s\n' "$atlas_production_signed_tag_reason"
+  else
+    printf 'unknown\n'
+  fi
+}
+
+atlas_production_set_signed_tag_failure_reason() {
+  atlas_production_signed_tag_reason="$1"
+}
 
 atlas_production_status_valid() {
   case "$1" in
@@ -426,19 +439,45 @@ atlas_production_verify_signed_tag() {
   local public_key_file="$2"
   local gpg_bin
   local temp_home
+  local import_log
+  local verify_log
   local verify_status=1
 
-  [ -n "$tag_name" ] || return 1
-  [ -f "$public_key_file" ] || return 1
+  atlas_production_signed_tag_reason=""
+  if [ -z "$tag_name" ]; then
+    atlas_production_signed_tag_reason="signed tag missing"
+    return 1
+  fi
+  if [ ! -f "$public_key_file" ]; then
+    atlas_production_signed_tag_reason="retained public key missing"
+    return 1
+  fi
 
   gpg_bin="$(command -v gpg 2>/dev/null || true)"
-  [ -n "$gpg_bin" ] || return 1
+  if [ -z "$gpg_bin" ]; then
+    atlas_production_signed_tag_reason="missing gpg"
+    return 1
+  fi
 
-  temp_home="$(mktemp -d)"
-  chmod 700 "$temp_home"
-  if GNUPGHOME="$temp_home" "$gpg_bin" --batch --import "$public_key_file" >/dev/null 2>&1 &&
-    GNUPGHOME="$temp_home" git -C "$LAB_ROOT" -c gpg.program="$gpg_bin" tag -v "$tag_name" >/dev/null 2>&1; then
+  temp_home="$(mktemp -d 2>/dev/null || true)"
+  if [ -z "$temp_home" ] || [ ! -d "$temp_home" ] || ! chmod 700 "$temp_home" 2>/dev/null; then
+    atlas_production_signed_tag_reason="bad temporary keyring"
+    [ -n "$temp_home" ] && rm -rf "$temp_home"
+    return 1
+  fi
+
+  import_log="$temp_home/import.log"
+  verify_log="$temp_home/verify.log"
+  if ! GNUPGHOME="$temp_home" "$gpg_bin" --batch --no-autostart --import "$public_key_file" >"$import_log" 2>&1; then
+    atlas_production_signed_tag_reason="public key import failed"
+    rm -rf "$temp_home"
+    return 1
+  fi
+
+  if GNUPGHOME="$temp_home" git -C "$LAB_ROOT" -c gpg.program="$gpg_bin" tag -v "$tag_name" >"$verify_log" 2>&1; then
     verify_status=0
+  else
+    atlas_production_signed_tag_reason="signature verification failed"
   fi
   rm -rf "$temp_home"
   return "$verify_status"

@@ -22,6 +22,14 @@ means ready-to-refine, not production-certified.
   `gh attestation verify` has passed through Atlas for the release candidate,
   and an independent review packet is retained, but independent review is not
   complete.
+- Atlas has a retained M117 SLSA-verifiable release artifact candidate.
+  `gh attestation verify`, `slsa-verifier verify-artifact`, and
+  `atlas release slsa-verify` have passed for that artifact/provenance path.
+  This is not external SLSA certification, legal compliance, runtime safety
+  proof, or production deployability proof.
+- Signed-tag verification is supported through the project `nix-shell`.
+  Direct host-shell GPG behavior can vary when temporary keyring imports depend
+  on local agent configuration.
 - Production dry-run evidence is retained locally; it is not an independent
   external validation.
 - Replay verification is local-first and repository-backed.

@@ -2538,7 +2538,7 @@ EOF
   grep -q 'atlas-retention-m\*' "$release_trust_workflow"
   grep -q 'git worktree add --detach' "$release_trust_workflow"
   grep -q 'refs/remotes/origin/release-trust-retained' "$release_trust_workflow"
-  grep -q 'gpg --import "$public_key"' "$release_trust_workflow"
+  grep -q 'gpg --batch --no-autostart --import "$public_key"' "$release_trust_workflow"
   grep -q 'atlas release verify $release_packet --commit $release_commit' "$release_trust_workflow"
   grep -q 'atlas release manifest-verify $latest_manifest --commit $release_commit' "$release_trust_workflow"
   grep -q 'atlas release replay $release_packet --json' "$release_trust_workflow"
@@ -2547,6 +2547,7 @@ EOF
   grep -q 'production-ready under the local Atlas contract' "$release_trust_workflow"
   grep -q 'not external audit' "$release_trust_workflow"
   grep -q 'not external SLSA certification' "$release_trust_workflow"
+  grep -q -- '--no-autostart --import' "$TEST_ROOT/toolkit/tools/atlas/lib/production.sh"
   ! grep -q -- '--skip-qa' "$release_trust_workflow"
 
   grep -q 'pins third-party GitHub Actions to immutable commit' "$ci_doc"
@@ -2613,6 +2614,8 @@ EOF
   grep -q 'annotated tags' "$ci_doc"
   grep -q 'tagged commit to match' "$ci_doc"
   grep -q 'does not claim external SLSA certification' "$ci_doc"
+  grep -q 'temporary keyring with `gpg --batch --no-autostart --import`' "$ci_doc"
+  grep -q "nix-shell --run '<atlas command>'" "$ci_doc"
 }
 
 @test "official SLSA generic workflow and claim docs define external verification path" {
@@ -2735,6 +2738,64 @@ EOF
   grep -q 'atlas-v0.4.0-rc1' "$evidence_packet"
   grep -q 'atlas release slsa-verify --artifact' "$evidence_packet"
   grep -q 'gh attestation verify' "$evidence_packet"
+}
+
+@test "reviewer flow polish documents M117 verification path and bounded claims" {
+  readme="$TEST_ROOT/toolkit/README.md"
+  one_page="$TEST_ROOT/toolkit/docs/ATLAS_ONE_PAGE.md"
+  trust_lifecycle="$TEST_ROOT/toolkit/docs/TRUST_LIFECYCLE.md"
+  release_trust="$TEST_ROOT/toolkit/docs/RELEASE_TRUST.md"
+  claim_doc="$TEST_ROOT/toolkit/docs/atlas/SLSA_CLAIM.md"
+  slsa_doc="$TEST_ROOT/toolkit/docs/atlas/SLSA_PROVENANCE.md"
+  review_package_doc="$TEST_ROOT/toolkit/docs/atlas/EXTERNAL_REVIEWER_PACKAGE.md"
+  production_doc="$TEST_ROOT/toolkit/docs/atlas/PRODUCTION_READINESS.md"
+  limitations_doc="$TEST_ROOT/toolkit/docs/KNOWN_LIMITATIONS.md"
+  responsible_doc="$TEST_ROOT/toolkit/docs/RESPONSIBLE_USE.md"
+  ci_doc="$TEST_ROOT/toolkit/docs/CI.md"
+
+  grep -q 'SLSA-verifiable release artifact candidate path' "$readme"
+  grep -q 'GitHub-hosted artifact attestation' "$readme"
+  grep -q 'official SLSA generic provenance' "$readme"
+  grep -q 'SLSA-verifiable release artifact candidate path' "$one_page"
+  grep -q 'retained M117 artifact has passed GitHub' "$one_page"
+  grep -q 'artifact attestation verification' "$one_page"
+  grep -q 'official SLSA generic provenance verification' "$one_page"
+  grep -q 'atlas release slsa-verify' "$one_page"
+  grep -q 'SLSA-verifiable release artifact candidate metadata' "$trust_lifecycle"
+  grep -q 'retained SLSA references can be verified' "$trust_lifecycle"
+  grep -q 'GitHub-hosted artifact attestation' "$claim_doc"
+  grep -q 'passed M117 verification results' "$claim_doc"
+  grep -q 'gh attestation verify' "$claim_doc"
+  grep -q 'slsa-verifier verify-artifact' "$claim_doc"
+  grep -q 'retained M117 SLSA reference' "$slsa_doc"
+  grep -q 'Supported reviewer path' "$production_doc"
+  grep -q 'temporary `GNUPGHOME`' "$production_doc"
+  grep -q 'gpg --batch --no-autostart --import' "$release_trust"
+  grep -q 'Direct host-shell runs may still depend on the host GPG install' "$release_trust"
+  grep -q 'temporary keyring with `gpg --batch --no-autostart --import`' "$ci_doc"
+  grep -q 'retained M117 SLSA-verifiable release artifact candidate has passed' "$ci_doc"
+  grep -q 'retained M117 SLSA-verifiable release artifact candidate' "$limitations_doc"
+  grep -q 'Direct host-shell GPG behavior can vary' "$limitations_doc"
+  grep -q 'SLSA-verifiable release artifact candidate evidence is for artifact provenance' "$responsible_doc"
+  grep -q 'review. It does not authorize target activity' "$responsible_doc"
+
+  grep -q '^## Ordered Reviewer Flow$' "$review_package_doc"
+  grep -q '1. Read `docs/ATLAS_ONE_PAGE.md`.' "$review_package_doc"
+  grep -q '2. Inspect `docs/case-studies/CASE_STUDY_RELEASE_TRUST.md`' "$review_package_doc"
+  grep -q './tools/atlas/bin/atlas reviewer package atlas-current-review' "$review_package_doc"
+  grep -q './tools/atlas/bin/atlas release verify <release-packet> --commit <commit>' "$review_package_doc"
+  grep -q './tools/atlas/bin/atlas release manifest-verify <manifest> --commit <commit>' "$review_package_doc"
+  grep -q './tools/atlas/bin/atlas release replay <release-packet> --json' "$review_package_doc"
+  grep -q './tools/atlas/bin/atlas production status --strict --explain' "$review_package_doc"
+  grep -q 'gh attestation verify <artifact>.tar.gz --repo rodriguezaa22ar-boop/atlas-trust-infrastructure' "$review_package_doc"
+  grep -q 'slsa-verifier verify-artifact <artifact>.tar.gz' "$review_package_doc"
+  grep -q 'Inspect `docs/KNOWN_LIMITATIONS.md`' "$review_package_doc"
+  grep -q "nix-shell --run './tools/atlas/bin/atlas production status --strict --explain'" "$review_package_doc"
+
+  for doc in "$readme" "$one_page" "$release_trust" "$claim_doc" "$slsa_doc" "$review_package_doc" "$production_doc" "$limitations_doc" "$responsible_doc" "$ci_doc"; do
+    grep -Eiq 'not (an )?external audit|not external SLSA certification|not an external SLSA certification|does not .*external SLSA certification' "$doc"
+    ! grep -Eiq 'SLSA certified|compliance certified|guaranteed secure|Atlas is externally audited|Atlas is tamper-proof|This proves runtime safety|This proves production deployability' "$doc"
+  done
 }
 
 @test "independent review packet makes v0.4.0-rc1 externally reviewable without overclaiming" {
@@ -3912,6 +3973,22 @@ EOF
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release manifest-verify "$TEST_ROOT/bad-manifest-metadata.json" --commit "$release_commit"
   [ "$status" -ne 0 ]
   [[ "$output" == *"Metadata Boundary: fail"* ]]
+
+  bad_key_path="$TEST_ROOT/toolkit/docs/retention/releases/bad-signing-public-key.asc"
+  printf 'not a valid public key\n' >"$bad_key_path"
+  bad_key_rel="${bad_key_path#"$TEST_ROOT/toolkit"/}"
+  bad_key_sha="$(sha256sum "$bad_key_path" | awk '{ print $1 }')"
+  jq --arg bad_key_rel "$bad_key_rel" --arg bad_key_sha "$bad_key_sha" '
+    .signing_public_key.path = $bad_key_rel |
+    .signing_public_key.sha256 = $bad_key_sha |
+    (.artifacts[] | select(.kind == "signing_public_key") | .path) = $bad_key_rel |
+    (.artifacts[] | select(.kind == "signing_public_key") | .sha256) = $bad_key_sha
+  ' "$manifest_path" > "$TEST_ROOT/bad-signing-public-key.manifest.json"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release manifest-verify "$TEST_ROOT/bad-signing-public-key.manifest.json" --commit "$release_commit"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Artifact signing_public_key: ok"* ]]
+  [[ "$output" == *"Signed Tag: fail verification failed tag="* ]]
+  [[ "$output" == *"reason=public key import failed"* ]]
 }
 
 @test "atlas release manifest records optional SLSA provenance references" {
