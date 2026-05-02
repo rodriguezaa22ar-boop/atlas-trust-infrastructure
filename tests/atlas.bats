@@ -185,6 +185,7 @@ write_test_slsa_reference() {
   grep -q '^## Docs Map$' "$readme"
   grep -q 'docs/INDEX.md' "$readme"
   grep -q 'docs/ATLAS_ONE_PAGE.md' "$readme"
+  grep -q 'docs/demo/DEMO_OPERATION.md' "$readme"
   grep -q 'docs/COMMAND_REFERENCE.md' "$readme"
   grep -q 'docs/TRUST_LIFECYCLE.md' "$readme"
   grep -q 'docs/case-studies/CASE_STUDY_RELEASE_TRUST.md' "$readme"
@@ -212,6 +213,9 @@ write_test_slsa_reference() {
   grep -q 'Start here by role' "$docs_index"
   grep -q 'SLSA reviewer' "$docs_index"
   grep -q 'Operator workflow' "$docs_index"
+  grep -q 'demo/README.md' "$docs_index"
+  grep -q 'demo/DEMO_OPERATION.md' "$docs_index"
+  grep -q 'demo/DEMO_REVIEWER_RUNBOOK.md' "$docs_index"
   grep -q 'Case studies' "$docs_index"
   grep -q 'Release trust' "$docs_index"
   grep -q 'case-studies/CASE_STUDY_RELEASE_TRUST.md' "$docs_index"
@@ -2349,27 +2353,78 @@ EOF
 
 @test "demo walkthrough preserves full Atlas trust path" {
   demo_dir="$TEST_ROOT/toolkit/docs/demo"
+  demo_readme="$demo_dir/README.md"
   demo_doc="$demo_dir/DEMO_OPERATION.md"
+  demo_runbook="$demo_dir/DEMO_REVIEWER_RUNBOOK.md"
   trust_doc="$demo_dir/TRUST_CHAIN_WALKTHROUGH.md"
   samples_doc="$demo_dir/SAMPLE_OUTPUTS.md"
+  docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
+  external_reviewer_package="$TEST_ROOT/toolkit/docs/atlas/EXTERNAL_REVIEWER_PACKAGE.md"
+  trust_lifecycle="$TEST_ROOT/toolkit/docs/TRUST_LIFECYCLE.md"
 
+  [ -f "$demo_readme" ]
   [ -f "$demo_doc" ]
+  [ -f "$demo_runbook" ]
   [ -f "$trust_doc" ]
   [ -f "$samples_doc" ]
 
-  grep -q 'authorized local demo operation' "$demo_doc"
+  grep -q 'metadata-only demo operation' "$demo_doc"
+  grep -q 'synthetic demo data' "$demo_doc"
+  grep -q 'target registration' "$demo_doc"
+  grep -q 'scope state' "$demo_doc"
+  grep -q 'evidence reference and hash' "$demo_doc"
+  grep -q 'release artifact manifest' "$demo_doc"
+  grep -q 'release replay JSON' "$demo_doc"
+  grep -q 'optional business-flow summary' "$demo_doc"
+  grep -q 'known limitations' "$demo_doc"
+  grep -q 'non-guarantees' "$demo_doc"
+  grep -q 'authorized synthetic metadata-only demo operation' "$demo_doc"
+  grep -q './tools/atlas/bin/atlas target add demo-local-node 127.0.0.1 synthetic local demo target' "$demo_doc"
+  grep -q './tools/atlas/bin/atlas target update demo-local-node --scope-status in-scope --criticality low --tag synthetic-demo' "$demo_doc"
   grep -q './tools/atlas/bin/atlas op start' "$demo_doc"
   grep -q './tools/atlas/bin/atlas evidence add' "$demo_doc"
+  grep -q './tools/atlas/bin/atlas evidence hash .tmp/demo-operation/observation.txt' "$demo_doc"
   grep -q './tools/atlas/bin/atlas validation approve' "$demo_doc"
+  grep -q './tools/atlas/bin/atlas validation retest' "$demo_doc"
   grep -q './tools/atlas/bin/atlas op report' "$demo_doc"
   grep -q './tools/atlas/bin/atlas op handoff' "$demo_doc"
   grep -q './tools/atlas/bin/atlas op closeout' "$demo_doc"
   grep -q './tools/atlas/bin/atlas op audit-packet' "$demo_doc"
   grep -q './tools/atlas/bin/atlas op archive-packet' "$demo_doc"
   grep -q './tools/atlas/bin/atlas op trust-chain demo-operation --json' "$demo_doc"
+  grep -q './tools/atlas/bin/atlas flow add demo-approval-flow' "$demo_doc"
+  grep -q './tools/atlas/bin/atlas flow assurance demo-approval-flow demo-approval-flow-packet' "$demo_doc"
+  grep -q './tools/atlas/bin/atlas flow trust-chain demo-approval-flow demo-approval-flow-packet' "$demo_doc"
   grep -q './tools/atlas/bin/atlas release packet demo-operation-release --json --operation demo-operation --qa-status pass' "$demo_doc"
-  grep -q 'raw secrets, packet captures, credentials, tokens' "$demo_doc"
+  grep -q './tools/atlas/bin/atlas release manifest-verify docs/retention/releases/atlas-m118-reviewer-flow-polish.manifest.json --commit de90b442d43ade01d4f15754b5952d0615582cd6' "$demo_doc"
+  grep -q './tools/atlas/bin/atlas release replay docs/retention/releases/atlas-m118-reviewer-flow-polish.json --json' "$demo_doc"
+  grep -q './tools/atlas/bin/atlas production status --strict --explain' "$demo_doc"
+  grep -q 'production-ready under the local Atlas contract' "$demo_doc"
+  grep -q 'not external audit' "$demo_doc"
+  grep -q 'not certification' "$demo_doc"
+  grep -q 'not legal compliance' "$demo_doc"
+  grep -q 'not tamper-proof infrastructure' "$demo_doc"
+  grep -q 'not external SLSA certification' "$demo_doc"
+  grep -q 'not runtime safety proof' "$demo_doc"
+  grep -q 'not production deployability proof' "$demo_doc"
   grep -q 'Stop Conditions' "$demo_doc"
+
+  grep -q '^# Atlas Demo$' "$demo_readme"
+  grep -q 'synthetic/local-safe data only' "$demo_readme"
+  grep -q 'DEMO_OPERATION.md' "$demo_readme"
+  grep -q 'DEMO_REVIEWER_RUNBOOK.md' "$demo_readme"
+
+  grep -q '^# Demo Reviewer Runbook$' "$demo_runbook"
+  grep -q '^## Ordered Reviewer Flow$' "$demo_runbook"
+  grep -q 'Register the synthetic target' "$demo_runbook"
+  grep -q 'Verify the retained M118 release packet and release artifact manifest' "$demo_runbook"
+  grep -q './tools/atlas/bin/atlas release verify docs/retention/releases/atlas-m118-reviewer-flow-polish.json --commit de90b442d43ade01d4f15754b5952d0615582cd6' "$demo_runbook"
+  grep -q './tools/atlas/bin/atlas release replay docs/retention/releases/atlas-m118-reviewer-flow-polish.json --json' "$demo_runbook"
+  grep -q "nix-shell --run './tools/atlas/bin/atlas production status --strict --explain'" "$demo_runbook"
+
+  grep -q 'demo/DEMO_REVIEWER_RUNBOOK.md' "$external_reviewer_package"
+  grep -q 'demo/DEMO_REVIEWER_RUNBOOK.md' "$trust_lifecycle"
+  grep -q 'demo/DEMO_OPERATION.md' "$docs_index"
 
   grep -q 'metadata-only' "$trust_doc"
   grep -q 'docs/schemas/operation-trust-chain.v1.md' "$trust_doc"
@@ -2380,6 +2435,19 @@ EOF
   grep -q '"schema_version": "atlas.operation_trust_chain.v1"' "$samples_doc"
   grep -q 'Schema: ok atlas.release_trust.v1' "$samples_doc"
   grep -q 'Trust Chain Status: attention-required' "$samples_doc"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" help
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"atlas target add <name> <address>"* ]]
+  [[ "$output" == *"atlas evidence hash <path>"* ]]
+  [[ "$output" == *"atlas release replay [packet] [--json]"* ]]
+  [[ "$output" == *"atlas production status [--strict] [--json] [--explain]"* ]]
+  [[ "$output" == *"atlas flow assurance [--json] <flow> [packet-name]"* ]]
+
+  for doc in "$demo_readme" "$demo_doc" "$demo_runbook"; do
+    ! grep -Eiq 'externally audited|SLSA certified|compliance certified|guaranteed secure|proves runtime safety|proves production deployability|fraud-proof|prevents fraud|autonomous hacking|scanner replacement' "$doc"
+    ! grep -Eiq 'AKIA[0-9A-Z]{16}|BEGIN (RSA |OPENSSH |EC )?PRIVATE KEY|password=|token=|session_cookie=|routing number|bank account number' "$doc"
+  done
 }
 
 @test "external legibility docs preserve Atlas trust boundaries" {
@@ -2782,6 +2850,7 @@ EOF
   grep -q '^## Ordered Reviewer Flow$' "$review_package_doc"
   grep -q '1. Read `docs/ATLAS_ONE_PAGE.md`.' "$review_package_doc"
   grep -q '2. Inspect `docs/case-studies/CASE_STUDY_RELEASE_TRUST.md`' "$review_package_doc"
+  grep -q '3. Inspect the synthetic reviewer demo in `docs/demo/DEMO_REVIEWER_RUNBOOK.md`.' "$review_package_doc"
   grep -q './tools/atlas/bin/atlas reviewer package atlas-current-review' "$review_package_doc"
   grep -q './tools/atlas/bin/atlas release verify <release-packet> --commit <commit>' "$review_package_doc"
   grep -q './tools/atlas/bin/atlas release manifest-verify <manifest> --commit <commit>' "$review_package_doc"

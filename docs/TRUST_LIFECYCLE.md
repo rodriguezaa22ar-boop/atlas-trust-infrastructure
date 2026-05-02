@@ -73,6 +73,8 @@ unredacted sensitive evidence bodies.
 ## Related Docs
 
 - [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md)
+- [demo/DEMO_OPERATION.md](demo/DEMO_OPERATION.md)
+- [demo/DEMO_REVIEWER_RUNBOOK.md](demo/DEMO_REVIEWER_RUNBOOK.md)
 - [RELEASE_TRUST.md](RELEASE_TRUST.md)
 - [WEB_ASSESSMENT.md](WEB_ASSESSMENT.md)
 - [schemas/operation-trust-chain.v1.md](schemas/operation-trust-chain.v1.md)
