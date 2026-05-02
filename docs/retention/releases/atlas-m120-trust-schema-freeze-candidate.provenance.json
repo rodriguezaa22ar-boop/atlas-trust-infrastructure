@@ -1,0 +1,35 @@
+{
+  "schema_version": "atlas.release_provenance.v1",
+  "generated": "2026-05-02T04:07:35Z",
+  "metadata_only": true,
+  "commit": "b15545aeb09494b2e60594f44afe4a8832c4d0ba",
+  "signed_tag": {
+    "name": "atlas-production-candidate-m120",
+    "target": "b15545aeb09494b2e60594f44afe4a8832c4d0ba",
+    "tag_object": "d8bc34b5cd9dc2b195c2ae9aaf2a04bbfbb40173",
+    "verification": "verified",
+    "signer_fingerprint": "24B1E00EEB286B966F9FCE0C9C6439E15BBFD290",
+    "public_key_path": "docs/retention/releases/atlas-m67-release-signing-public-key.asc",
+    "public_key_sha256": "c08e7454ee3ab72a39286f61efd4deca8fbe0ef3fe20844771ff5735da6a79d5"
+  },
+  "release_packet": {
+    "path": "docs/retention/releases/atlas-m120-trust-schema-freeze-candidate.json",
+    "sha256": "e555eb4005fd93e90b2e23c16d25d9706dd444cc8961c7c035ff81d70e7cac5a"
+  },
+  "qa": {
+    "status": "pass",
+    "command": "nix-shell --run './bin/dev-qa'",
+    "note": "dev-qa passed with 111/111 tests, lint ok, and stress ok after M120 trust schema freeze candidate; PR #11 GitHub QA, CodeQL, and Release Trust passed before merge; post-merge dev-qa passed on main"
+  },
+  "production_status": {
+    "observed": "not-ready",
+    "note": "release artifact manifest and milestone retention note were pending before retaining this packet set"
+  },
+  "known_limitations": [
+    "This milestone freezes schema classifications for internal v1 review; it is not external audit or certification.",
+    "The schema contracts remain human-readable operational contracts, not generated JSON Schema artifacts.",
+    "Business Flow Evidence and Advisor schemas remain optional and non-blocking for core v1 and production readiness.",
+    "Atlas production status remains a local contract, not external audit, certification, legal compliance, or enterprise deployment approval."
+  ],
+  "no_production_overclaim": true
+}
