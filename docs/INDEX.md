@@ -103,6 +103,8 @@ repository in filesystem order.
 ## Schemas
 
 - [schemas/README.md](schemas/README.md): implemented JSON contracts.
+- [schemas/SCHEMA_FREEZE_CANDIDATE.md](schemas/SCHEMA_FREEZE_CANDIDATE.md):
+  M120 v1 schema freeze candidate classifications and version-bump rules.
 - [schemas/business-flow-evidence.v1.md](schemas/business-flow-evidence.v1.md):
   optional business-flow evidence contract.
 - [schemas/business-flow-packet.v1.md](schemas/business-flow-packet.v1.md):
