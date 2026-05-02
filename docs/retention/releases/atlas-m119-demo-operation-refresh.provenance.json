@@ -1,0 +1,35 @@
+{
+  "schema_version": "atlas.release_provenance.v1",
+  "generated": "2026-05-02T02:52:37Z",
+  "metadata_only": true,
+  "commit": "73a27e7ec6f707b7b92f12f2ac4433ebb41b234b",
+  "signed_tag": {
+    "name": "atlas-production-candidate-m119",
+    "target": "73a27e7ec6f707b7b92f12f2ac4433ebb41b234b",
+    "tag_object": "7c1d74f1a417303f43445db15a8388bd0026959a",
+    "verification": "verified",
+    "signer_fingerprint": "24B1E00EEB286B966F9FCE0C9C6439E15BBFD290",
+    "public_key_path": "docs/retention/releases/atlas-m67-release-signing-public-key.asc",
+    "public_key_sha256": "c08e7454ee3ab72a39286f61efd4deca8fbe0ef3fe20844771ff5735da6a79d5"
+  },
+  "release_packet": {
+    "path": "docs/retention/releases/atlas-m119-demo-operation-refresh.json",
+    "sha256": "bc3bcfa136b9afc39461543357b9672b3ebbb480ec6f0d19793c2b58bfd420bd"
+  },
+  "qa": {
+    "status": "pass",
+    "command": "nix-shell --run './bin/dev-qa'",
+    "note": "dev-qa passed with 110/110 tests, lint ok, and stress ok after M119 demo operation refresh; PR #10 GitHub QA, CodeQL, and Release Trust passed before merge; post-merge dev-qa passed on main"
+  },
+  "production_status": {
+    "observed": "not-ready",
+    "note": "release artifact manifest and milestone retention note were pending before retaining this packet set"
+  },
+  "known_limitations": [
+    "This milestone refreshes a synthetic metadata-only demo; it does not run live target assessments.",
+    "The demo operation is a reviewer aid and does not create external audit, certification, legal compliance, runtime safety proof, or production deployability proof.",
+    "M117 remains the current SLSA-verifiable release artifact candidate basis; M119 adds demo legibility and reviewer runbook coverage.",
+    "Atlas production status remains a local contract, not external audit, certification, legal compliance, or enterprise deployment approval."
+  ],
+  "no_production_overclaim": true
+}
