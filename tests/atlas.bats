@@ -2351,6 +2351,97 @@ EOF
   grep -q 'The command must not write ledger events' "$business_trust_chain_schema"
 }
 
+@test "schema freeze candidate classifies every v1 trust contract" {
+  schemas_dir="$TEST_ROOT/toolkit/docs/schemas"
+  freeze_doc="$schemas_dir/SCHEMA_FREEZE_CANDIDATE.md"
+  schema_index="$schemas_dir/README.md"
+  docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
+  one_page="$TEST_ROOT/toolkit/docs/ATLAS_ONE_PAGE.md"
+  object_model="$TEST_ROOT/toolkit/docs/atlas/TRUST_OBJECT_MODEL.md"
+  limitations_doc="$TEST_ROOT/toolkit/docs/KNOWN_LIMITATIONS.md"
+  schema_file=""
+  schema_name=""
+  row=""
+
+  [ -f "$freeze_doc" ]
+  [ -f "$schema_index" ]
+  [ -f "$docs_index" ]
+  [ -f "$one_page" ]
+  [ -f "$object_model" ]
+  [ -f "$limitations_doc" ]
+
+  grep -q '^# Trust Schema Freeze Candidate$' "$freeze_doc"
+  grep -q '^## Classification Meanings$' "$freeze_doc"
+  grep -q '^## Freeze Rule$' "$freeze_doc"
+  grep -q '^## Core V1 Stable Schemas$' "$freeze_doc"
+  grep -q '^## Retained-Only Schemas$' "$freeze_doc"
+  grep -q '^## Optional Module Schemas$' "$freeze_doc"
+  grep -q '^## Metadata-Only Boundary$' "$freeze_doc"
+  grep -q '^## Non-Guarantees$' "$freeze_doc"
+  grep -q '^## Known Limitations$' "$freeze_doc"
+
+  grep -q 'schemas/SCHEMA_FREEZE_CANDIDATE.md' "$docs_index"
+  grep -q 'M120 v1 schema freeze candidate classifications' "$docs_index"
+  grep -q 'M120' "$one_page"
+  grep -q 'schema freeze candidate classifies each contract' "$one_page"
+  grep -q 'docs/schemas/SCHEMA_FREEZE_CANDIDATE.md' "$object_model"
+  grep -q 'M120 schema freeze candidate is an internal v1 review boundary' "$limitations_doc"
+
+  grep -Fq '| stable | `atlas.release_trust.v1` | [release-trust.v1.md](release-trust.v1.md)' "$freeze_doc"
+  grep -Fq '| stable | `atlas.release_replay.v1` | [release-replay.v1.md](release-replay.v1.md)' "$freeze_doc"
+  grep -Fq '| stable | `atlas.release_artifact_manifest.v1` | [release-artifact-manifest.v1.md](release-artifact-manifest.v1.md)' "$freeze_doc"
+  grep -Fq '| stable | `atlas.production_readiness.v1` | [production-readiness.v1.md](production-readiness.v1.md)' "$freeze_doc"
+  grep -Fq '| stable | `atlas.external_reviewer_package.v1` | [external-reviewer-package.v1.md](external-reviewer-package.v1.md)' "$freeze_doc"
+  grep -Fq '| retained-only | `atlas.release_provenance.v1` | [release-provenance.v1.md](release-provenance.v1.md)' "$freeze_doc"
+  grep -Fq '| retained-only | `atlas.slsa_provenance.v1` | [slsa-provenance.v1.md](slsa-provenance.v1.md)' "$freeze_doc"
+  grep -Fq '| optional | `atlas.business_flow.v1` | [business-flow-record.v1.md](business-flow-record.v1.md)' "$freeze_doc"
+  grep -Fq '| optional | `atlas.business_flow_evidence.v1` | [business-flow-evidence.v1.md](business-flow-evidence.v1.md)' "$freeze_doc"
+  grep -Fq '| optional | `atlas.business_flow_packet.v1` | [business-flow-packet.v1.md](business-flow-packet.v1.md)' "$freeze_doc"
+  grep -Fq '| optional | `atlas.business_flow_assurance.v1` | [business-flow-assurance.v1.md](business-flow-assurance.v1.md)' "$freeze_doc"
+  grep -Fq '| optional | `atlas.business_flow_trust_chain.v1` | [business-flow-trust-chain.v1.md](business-flow-trust-chain.v1.md)' "$freeze_doc"
+
+  for schema_file in "$schemas_dir"/*.v1.md; do
+    schema_name="$(basename "$schema_file")"
+    row="$(grep -F "[$schema_name]($schema_name)" "$freeze_doc" || true)"
+    [ -n "$row" ]
+    [ "$(printf '%s\n' "$row" | wc -l)" -eq 1 ]
+    printf '%s\n' "$row" | grep -Eq '^\| (stable|optional|experimental|future|retained-only) \|'
+  done
+
+  grep -q 'no schema field rename, removal, type change' "$freeze_doc"
+  grep -q 'required-field' "$freeze_doc"
+  grep -q 'status enum meaning change' "$freeze_doc"
+  grep -q 'verification semantic change' "$freeze_doc"
+  grep -q 'metadata-only boundary weakening' "$freeze_doc"
+  grep -q 'without a version bump' "$freeze_doc"
+  grep -iq 'backward-compatible optional' "$freeze_doc"
+  grep -q 'Business Flow Evidence schemas remain optional-ready' "$freeze_doc"
+  grep -q 'Demo docs are not schemas' "$freeze_doc"
+
+  grep -q 'not external audit' "$freeze_doc"
+  grep -q 'not certification' "$freeze_doc"
+  grep -q 'not legal compliance' "$freeze_doc"
+  grep -q 'not tamper-proof infrastructure' "$freeze_doc"
+  grep -q 'not external SLSA certification' "$freeze_doc"
+  grep -q 'not runtime safety proof' "$freeze_doc"
+  grep -q 'not production deployability proof' "$freeze_doc"
+  grep -q 'secrets, credentials, tokens, private keys' "$freeze_doc"
+  grep -q 'raw target data, raw customer data, payment data' "$freeze_doc"
+  grep -q 'raw runtime' "$freeze_doc"
+  grep -q 'unredacted evidence bodies' "$freeze_doc"
+
+  grep -q '^## Freeze Candidate$' "$schema_index"
+  grep -q '^## Classification Summary$' "$schema_index"
+  grep -Fq '| stable | Core v1 trust surface implemented and tested' "$schema_index"
+  grep -Fq '| retained-only | Stable retained metadata evidence contract' "$schema_index"
+  grep -Fq '| optional | `atlas.business_flow_packet.v1`' "$schema_index"
+  grep -Fq '| retained-only | `atlas.slsa_provenance.v1`' "$schema_index"
+
+  for doc in "$freeze_doc" "$schema_index" "$one_page" "$object_model" "$limitations_doc"; do
+    ! grep -Eiq 'SLSA certified|Atlas is externally audited|compliance certified|guaranteed secure|This proves runtime safety|This proves production deployability|fraud-proof|prevents fraud' "$doc"
+  done
+}
+
 @test "demo walkthrough preserves full Atlas trust path" {
   demo_dir="$TEST_ROOT/toolkit/docs/demo"
   demo_readme="$demo_dir/README.md"

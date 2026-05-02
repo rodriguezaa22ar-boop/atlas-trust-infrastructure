@@ -85,6 +85,12 @@ with `slsa-verifier`, and `atlas release slsa-verify` against retained Atlas
 metadata. That evidence remains a verifier path, not external SLSA
 certification.
 
+Atlas maintains v1 trust schema contracts under `docs/schemas/`. The M120
+schema freeze candidate classifies each contract as stable, optional,
+retained-only, experimental, or future, and requires version bumps for field
+renames, removals, type changes, required-field changes, enum meaning changes,
+or verification semantic changes after the freeze candidate.
+
 ## What Is The Trust Chain?
 
 The trust chain is the proof path from scope to release:

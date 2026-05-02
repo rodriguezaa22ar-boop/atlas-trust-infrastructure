@@ -84,6 +84,15 @@ or unredacted evidence bodies.
 Every stable schema-versioned JSON output should have a contract under
 `docs/schemas/`.
 
+M120 adds a schema freeze candidate at
+`docs/schemas/SCHEMA_FREEZE_CANDIDATE.md`. That document classifies each
+current schema as stable, optional, retained-only, experimental, or future
+before v1 Internal RC. After that freeze candidate, field renames, field
+removals, field type changes, required-field changes, status enum meaning
+changes, verification semantic changes, or metadata-only boundary weakening
+require a version bump. Backward-compatible optional additions are allowed only
+when documented in the affected schema and freeze record.
+
 Business Flow Evidence also has contracts for implemented file-backed env,
 NDJSON, and Markdown surfaces:
 
