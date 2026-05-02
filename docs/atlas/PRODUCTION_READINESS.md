@@ -130,6 +130,16 @@ the local Atlas production gates passed against retained metadata evidence.
 - Limitation: local signing is not an external audit, SLSA certification, or
   deployment certification.
 
+Verification portability:
+
+- Supported reviewer path:
+  `nix-shell --run './tools/atlas/bin/atlas production status --strict --explain'`
+- Atlas imports retained public keys into temporary `GNUPGHOME` directories for
+  signed-tag verification and does not persist keys into the user's keyring.
+- Direct host-shell runs may vary with the host GPG agent configuration. When
+  host GPG import or verification fails, rerun through `nix-shell` before
+  treating the retained evidence as stale.
+
 Required provenance fields:
 
 - `schema_version: atlas.release_provenance.v1`

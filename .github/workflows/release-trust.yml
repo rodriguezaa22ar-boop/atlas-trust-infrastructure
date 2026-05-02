@@ -85,7 +85,7 @@ jobs:
               fi
             done
 
-            gpg --import "$public_key"
+            gpg --batch --no-autostart --import "$public_key"
 
             nix-shell --run "./tools/atlas/bin/atlas release verify $release_packet --commit $release_commit"
             nix-shell --run "./tools/atlas/bin/atlas release manifest-verify $latest_manifest --commit $release_commit"

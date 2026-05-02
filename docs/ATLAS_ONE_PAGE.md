@@ -33,6 +33,7 @@ Atlas gives one consistent workflow for:
 - closing, auditing, and archiving operations
 - checking readiness and release trust
 - retaining signed release provenance
+- retaining SLSA-verifiable release artifact candidate metadata
 
 The goal is not to make assessment work flashy. The goal is to make it
 bounded, reviewable, and hard to misunderstand later.
@@ -74,7 +75,15 @@ production contract, signed release provenance, and retained dry-run evidence.
 
 When Atlas reports `production-ready`, that means the local Atlas production
 contract passes for retained release evidence. It is not an external audit,
-SLSA certification, enterprise certification, or deployment certification.
+SLSA certification, enterprise certification, runtime safety proof, or
+deployment certification.
+
+Atlas also has a SLSA-verifiable release artifact candidate path for
+GitHub-built source artifacts. The retained M117 artifact has passed GitHub
+artifact attestation verification, official SLSA generic provenance verification
+with `slsa-verifier`, and `atlas release slsa-verify` against retained Atlas
+metadata. That evidence remains a verifier path, not external SLSA
+certification.
 
 ## What Is The Trust Chain?
 

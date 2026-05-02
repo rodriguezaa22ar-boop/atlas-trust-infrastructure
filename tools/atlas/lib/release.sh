@@ -1688,7 +1688,7 @@ atlas_release_manifest_verify_packet() {
   if [ -n "$provenance_file" ] && atlas_production_release_provenance_valid "$provenance_file" "$expected_commit"; then
     atlas_release_manifest_verify_row "Provenance" "ok" "verified path=$provenance_path"
   else
-    atlas_release_manifest_verify_row "Provenance" "fail" "verification failed path=${provenance_path:-missing}"
+    atlas_release_manifest_verify_row "Provenance" "fail" "verification failed path=${provenance_path:-missing} reason=$(atlas_production_signed_tag_failure_reason || printf 'unknown')"
   fi
 
   dry_run_path="$(jq -r '.production_dry_run.path // ""' "$manifest_file")"
@@ -1702,10 +1702,14 @@ atlas_release_manifest_verify_packet() {
   public_key_path="$(jq -r '.signing_public_key.path // ""' "$manifest_file")"
   public_key_file="$(atlas_release_resolve_repo_file "$public_key_path" 2>/dev/null || true)"
   tag_name="$(jq -r '.signed_tag.name // ""' "$manifest_file")"
+  atlas_production_set_signed_tag_failure_reason ""
+  if [ -z "$public_key_file" ]; then
+    atlas_production_set_signed_tag_failure_reason "retained public key missing"
+  fi
   if [ -n "$public_key_file" ] && atlas_production_verify_signed_tag "$tag_name" "$public_key_file"; then
     atlas_release_manifest_verify_row "Signed Tag" "ok" "verified tag=$tag_name"
   else
-    atlas_release_manifest_verify_row "Signed Tag" "fail" "verification failed tag=${tag_name:-missing}"
+    atlas_release_manifest_verify_row "Signed Tag" "fail" "verification failed tag=${tag_name:-missing} reason=$(atlas_production_signed_tag_failure_reason || printf 'unknown')"
   fi
 
   if jq -e '((.known_limitations // []) | length > 0) and (((.metadata_boundary.excludes // []) | index("raw runtime artifacts")) != null)' "$manifest_file" >/dev/null 2>&1; then

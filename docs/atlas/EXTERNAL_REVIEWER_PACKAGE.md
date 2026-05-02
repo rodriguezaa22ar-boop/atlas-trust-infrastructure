@@ -85,6 +85,31 @@ git tag -v <tag>
 These checks remain local Atlas checks. They do not create external audit or
 certification by themselves.
 
+## Ordered Reviewer Flow
+
+An external reviewer should follow this order:
+
+1. Read `docs/ATLAS_ONE_PAGE.md`.
+2. Inspect `docs/case-studies/CASE_STUDY_RELEASE_TRUST.md` and
+   `docs/case-studies/CASE_STUDY_VENDOR_PAYMENT_CHANGE.md`.
+3. Generate or inspect the reviewer package with
+   `./tools/atlas/bin/atlas reviewer package atlas-current-review`.
+4. Run `./tools/atlas/bin/atlas release verify <release-packet> --commit <commit>`.
+5. Run `./tools/atlas/bin/atlas release manifest-verify <manifest> --commit <commit>`.
+6. Run `./tools/atlas/bin/atlas release replay <release-packet> --json`.
+7. Run `./tools/atlas/bin/atlas production status --strict --explain`.
+8. Run `gh attestation verify <artifact>.tar.gz --repo rodriguezaa22ar-boop/atlas-trust-infrastructure`.
+9. Run `slsa-verifier verify-artifact <artifact>.tar.gz --provenance-path <artifact>.intoto.jsonl --source-uri github.com/rodriguezaa22ar-boop/atlas-trust-infrastructure --source-tag <tag>` when official generic provenance exists.
+10. Inspect `docs/KNOWN_LIMITATIONS.md`, the package README, and non-guarantees
+    before recording a conclusion.
+
+Run Atlas commands through the supported shell when reproducing retained
+release evidence:
+
+```bash
+nix-shell --run './tools/atlas/bin/atlas production status --strict --explain'
+```
+
 ## Metadata-Only Boundary
 
 Reviewer packages include documentation and retained metadata packets. They must

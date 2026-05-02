@@ -78,15 +78,15 @@ retained release evidence verifies for the current retained release commit:
 - signing/provenance verifies through a retained public key
 - production dry-run evidence is retained
 
-Release artifacts can be built through the SLSA provenance workflow, but Atlas
-does not claim external audit, enterprise certification, SLSA certification,
-deployment certification, immutable storage, or tamper-proof infrastructure. It
-means the local Atlas gates pass against retained evidence.
+Atlas has a SLSA-verifiable release artifact candidate path for GitHub-built
+artifacts: GitHub-hosted artifact attestation, official SLSA generic provenance,
+retained Atlas SLSA metadata, and verifier commands. This is not external audit,
+enterprise certification, SLSA certification, deployment
+certification, immutable storage, or tamper-proof infrastructure.
 
 CodeQL is used as an automated code scanning signal for tracked public source.
 It does not replace manual review, external audit, runtime testing, or Atlas'
 own retained trust-packet verification.
-
 ## Top 10 Commands
 
 ```bash

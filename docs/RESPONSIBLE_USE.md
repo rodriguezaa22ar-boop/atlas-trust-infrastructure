@@ -37,3 +37,10 @@ treated as an execution engine, authorization source, or approval bypass.
 
 Advisor packets remain metadata-only and should not include raw secrets,
 tokens, private keys, unredacted evidence bodies, or exploit payloads.
+
+## Release And SLSA Boundary
+
+SLSA-verifiable release artifact candidate evidence is for artifact provenance
+review. It does not authorize target activity, replace scope approval, create
+external SLSA certification, prove runtime safety, or prove production
+deployability. It is not external audit or certification.

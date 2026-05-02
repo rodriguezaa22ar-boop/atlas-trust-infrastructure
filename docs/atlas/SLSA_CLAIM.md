@@ -55,6 +55,10 @@ Current evidence includes:
 - retained SLSA smoke-run evidence in `docs/retention/milestones/MILESTONE_98.md`
 - retained claim/evidence packet in
   `docs/retention/releases/atlas-m101-slsa-claim-evidence.md`
+- retained M117 SLSA-verifiable release artifact candidate reference in
+  `docs/retention/releases/atlas-m117-slsa-verifiable-release-artifact.slsa.json`
+- passed M117 verification results for GitHub-hosted artifact attestation,
+  official SLSA generic provenance, and retained Atlas SLSA metadata
 
 ## Claim Matrix
 
@@ -112,6 +116,19 @@ An independent review should verify:
 - no packet embeds secrets, credentials, raw evidence bodies, or customer data
 - the claim language remains bounded to SLSA-verifiable readiness unless a
   third-party review explicitly grants a stronger conclusion
+
+Recommended reviewer order:
+
+1. Read `docs/ATLAS_ONE_PAGE.md`.
+2. Inspect the release trust and vendor payment change case studies.
+3. Generate or inspect the external reviewer package.
+4. Run `atlas release verify` for the retained release packet.
+5. Run `atlas release manifest-verify` for the retained manifest.
+6. Run `atlas release replay --json`.
+7. Run `atlas production status --strict --explain`.
+8. Run `gh attestation verify` against the downloaded release artifact.
+9. Run `slsa-verifier verify-artifact` when official generic provenance exists.
+10. Inspect known limitations and non-guarantees before recording a conclusion.
 
 The retained review packet for this release candidate is:
 
