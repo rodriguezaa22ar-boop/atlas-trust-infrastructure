@@ -75,6 +75,9 @@ repository in filesystem order.
 - [retention/reviews/atlas-v0.4.0-rc1-review-packet.md](retention/reviews/atlas-v0.4.0-rc1-review-packet.md):
   executable independent-review packet for the retained v0.4.0-rc1 SLSA
   evidence.
+- [retention/reviews/ATLAS_V1_INTERNAL_RC_EXTERNAL_REVIEW.md](retention/reviews/ATLAS_V1_INTERNAL_RC_EXTERNAL_REVIEW.md):
+  external review validation for the retained Atlas v1 Internal RC from a
+  clean lab-node clone.
 - [retention/releases/REPLAY_VERIFICATION.md](retention/releases/REPLAY_VERIFICATION.md):
   clean-checkout replay procedure.
 - [atlas/PRODUCTION_READINESS.md](atlas/PRODUCTION_READINESS.md): local

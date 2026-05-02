@@ -3065,6 +3065,71 @@ EOF
   grep -q 'Independent review packet' "$roadmap_doc"
 }
 
+@test "v1 internal RC external review validation records clean clone workflow without overclaiming" {
+  review_doc="$TEST_ROOT/toolkit/docs/retention/reviews/ATLAS_V1_INTERNAL_RC_EXTERNAL_REVIEW.md"
+  docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
+
+  [ -f "$review_doc" ]
+
+  grep -q '^# Atlas v1 Internal RC External Review Validation$' "$review_doc"
+  grep -q 'external review validation' "$review_doc"
+  grep -q 'clean clone' "$review_doc"
+  grep -q 'lab node' "$review_doc"
+  grep -q 'v1 Internal RC' "$review_doc"
+  grep -q 'retained evidence' "$review_doc"
+  grep -q 'metadata-only' "$review_doc"
+  grep -q 'production-ready under the local Atlas contract' "$review_doc"
+  grep -q 'b44eb30890483512e1bd2bebce2b97d78ec5e140' "$review_doc"
+  grep -q '7b3f6f575f1acbdaa3729009564ad3b9824a556c' "$review_doc"
+  grep -q 'atlas-v1-internal-rc' "$review_doc"
+  grep -q 'atlas-production-candidate-m121' "$review_doc"
+  grep -q 'atlas-retention-m121' "$review_doc"
+
+  grep -q 'git clone https://github.com/rodriguezaa22ar-boop/atlas-trust-infrastructure.git' "$review_doc"
+  grep -q 'git fetch --tags --force' "$review_doc"
+  grep -q "nix-shell --run './bin/dev-qa'" "$review_doc"
+  grep -q './tools/atlas/bin/atlas v1 status --strict' "$review_doc"
+  grep -q './tools/atlas/bin/atlas release verify' "$review_doc"
+  grep -q './tools/atlas/bin/atlas release manifest-verify' "$review_doc"
+  grep -q './tools/atlas/bin/atlas release replay' "$review_doc"
+  grep -q -- '--json' "$review_doc"
+  grep -q './tools/atlas/bin/atlas production status --strict --explain' "$review_doc"
+  grep -q './tools/atlas/bin/atlas release slsa-verify' "$review_doc"
+  grep -q './tools/atlas/bin/atlas reviewer package atlas-v1-internal-rc-external-review' "$review_doc"
+  grep -q 'GNUPGHOME="$tmp_gnupg" gpg --batch --no-autostart --import' "$review_doc"
+
+  grep -q '112/112' "$review_doc"
+  grep -q 'lint ok, stress ok' "$review_doc"
+  grep -q 'Overall: ready' "$review_doc"
+  grep -q 'ok: release trust packet verified' "$review_doc"
+  grep -q 'ok: release artifact manifest verified' "$review_doc"
+  grep -q 'atlas.release_replay.v1' "$review_doc"
+  grep -q 'verified' "$review_doc"
+  grep -q 'atlas.external_reviewer_package.v1' "$review_doc"
+  grep -q 'raw_artifacts_embedded=false' "$review_doc"
+
+  grep -q 'not external audit' "$review_doc"
+  grep -q 'not certification' "$review_doc"
+  grep -q 'not legal compliance' "$review_doc"
+  grep -q 'not tamper-proof infrastructure' "$review_doc"
+  grep -q 'not external SLSA certification' "$review_doc"
+  grep -q 'not runtime safety proof' "$review_doc"
+  grep -q 'not production deployability proof' "$review_doc"
+
+  grep -q 'secrets, credentials, tokens, private keys' "$review_doc"
+  grep -q 'raw target data, raw customer data, payment data' "$review_doc"
+  grep -q 'packet captures, full request or response bodies' "$review_doc"
+  grep -q 'raw runtime' "$review_doc"
+  grep -q 'unredacted evidence bodies' "$review_doc"
+  grep -q 'raw invoices, raw contracts' "$review_doc"
+  grep -q 'unauthorized-access instructions' "$review_doc"
+
+  grep -q 'retention/reviews/ATLAS_V1_INTERNAL_RC_EXTERNAL_REVIEW.md' "$docs_index"
+  grep -q 'external review validation for the retained Atlas v1 Internal RC' "$docs_index"
+
+  ! grep -Eiq 'externally audited|SLSA certified|compliance certified|guaranteed secure|This proves runtime safety|This proves production deployability|fraud-proof|prevents fraud|autonomous hacking|scanner replacement' "$review_doc"
+}
+
 @test "atlas help groups target-first workflow and story commands" {
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" help
 
