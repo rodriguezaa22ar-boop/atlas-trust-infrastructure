@@ -28,7 +28,11 @@ repository in filesystem order.
 - [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md): end-to-end operator workflow.
 - [COMMAND_REFERENCE.md](COMMAND_REFERENCE.md): detailed command reference.
 - [WEB_ASSESSMENT.md](WEB_ASSESSMENT.md): bounded `atlas web assess` workflow.
-- [demo/DEMO_OPERATION.md](demo/DEMO_OPERATION.md): local demo operation.
+- [demo/README.md](demo/README.md): demo directory entry point and boundary.
+- [demo/DEMO_OPERATION.md](demo/DEMO_OPERATION.md): synthetic metadata-only
+  demo operation from target registration through release trust.
+- [demo/DEMO_REVIEWER_RUNBOOK.md](demo/DEMO_REVIEWER_RUNBOOK.md): reviewer
+  runbook for the demo operation and retained release evidence.
 
 ## Case studies
 
@@ -40,6 +44,8 @@ repository in filesystem order.
 ## Trust lifecycle
 
 - [TRUST_LIFECYCLE.md](TRUST_LIFECYCLE.md): scope-to-release trust chain.
+- [demo/DEMO_OPERATION.md](demo/DEMO_OPERATION.md): repeatable synthetic demo
+  of the trust lifecycle.
 - [TRUST_MODEL.md](TRUST_MODEL.md): trust anchors and verification pattern.
 - [atlas/TRUST_LIFECYCLE.md](atlas/TRUST_LIFECYCLE.md): Atlas-local lifecycle
   detail.

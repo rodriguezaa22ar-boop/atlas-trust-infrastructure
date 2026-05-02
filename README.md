@@ -109,6 +109,7 @@ own retained trust-packet verification.
 | [docs/INDEX.md](docs/INDEX.md) | Documentation map for new reviewers. |
 | [docs/ATLAS_ONE_PAGE.md](docs/ATLAS_ONE_PAGE.md) | One-page Atlas explanation. |
 | [docs/OPERATOR_GUIDE.md](docs/OPERATOR_GUIDE.md) | End-to-end operator workflow. |
+| [docs/demo/DEMO_OPERATION.md](docs/demo/DEMO_OPERATION.md) | Synthetic metadata-only demo operation. |
 | [docs/COMMAND_REFERENCE.md](docs/COMMAND_REFERENCE.md) | Full command reference moved out of the README. |
 | [docs/TRUST_LIFECYCLE.md](docs/TRUST_LIFECYCLE.md) | Scope-to-release trust chain explanation. |
 | [docs/case-studies/CASE_STUDY_RELEASE_TRUST.md](docs/case-studies/CASE_STUDY_RELEASE_TRUST.md) | Public release-trust case study. |
@@ -133,8 +134,7 @@ own retained trust-packet verification.
 
 ## Development
 
-The development shell provides the expected local toolchain, including
-`bats`, `git`, `gpg`, `jq`, `rg`, `shellcheck`, and `shfmt`.
+The development shell provides the expected local toolchain, including `bats`, `git`, `gpg`, `jq`, `rg`, `shellcheck`, and `shfmt`.
 
 Common development gates:
 
