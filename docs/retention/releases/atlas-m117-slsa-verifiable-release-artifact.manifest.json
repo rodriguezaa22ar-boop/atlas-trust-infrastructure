@@ -1,0 +1,149 @@
+{
+  "schema_version": "atlas.release_artifact_manifest.v1",
+  "generated": "2026-05-02T00:05:29Z",
+  "manifest": "atlas-m117-slsa-verifiable-release-artifact",
+  "metadata_only": true,
+  "raw_artifacts_embedded": false,
+  "release": {
+    "commit": "3d8c444080a3c0b258d0c9a2ab101185f35c58f8",
+    "retained_by_commit": "3d8c444080a3c0b258d0c9a2ab101185f35c58f8",
+    "branch_at_manifest": "main"
+  },
+  "repository": {
+    "state_before_manifest": "dirty",
+    "upstream_sync_before_manifest": "synced"
+  },
+  "signed_tag": {
+    "name": "atlas-production-candidate-m117",
+    "target": "3d8c444080a3c0b258d0c9a2ab101185f35c58f8",
+    "tag_object": "7f8f31086031ea4ba94ddead1b2650d531fc4e07",
+    "verification": "verified"
+  },
+  "release_packet": {
+    "path": "docs/retention/releases/atlas-m117-slsa-verifiable-release-artifact.json",
+    "sha256": "9c33a579944bac21be3b385f317ba7dd97332f525682f97bb591524bb8249999",
+    "verified": true
+  },
+  "provenance": {
+    "path": "docs/retention/releases/atlas-m117-slsa-verifiable-release-artifact.provenance.json",
+    "sha256": "889c08eca6f81ca5a2490779ecca98ade5dad67641b1f8ed8bed6eeaceaa73e4",
+    "verified": true
+  },
+  "production_dry_run": {
+    "path": "docs/retention/production/PRODUCTION_DRY_RUN_2026-05-01_M117.md",
+    "sha256": "52d64ec63928a696693f5bdd22e5aa8b9ac2d740231e2c74394b9ac20dd8b89a",
+    "verified": true
+  },
+  "signing_public_key": {
+    "path": "docs/retention/releases/atlas-m67-release-signing-public-key.asc",
+    "sha256": "c08e7454ee3ab72a39286f61efd4deca8fbe0ef3fe20844771ff5735da6a79d5",
+    "verified": true
+  },
+  "slsa_provenance": {
+    "path": "docs/retention/releases/atlas-m117-slsa-verifiable-release-artifact.slsa.json",
+    "sha256": "51553f50dccee1de8123d4fa0f83957886e41f0a1d0fc9cf9e9f49135498000c",
+    "schema_version": "atlas.slsa_provenance.v1",
+    "verified": true,
+    "artifact": {
+      "path": "dist/atlas-trust-infrastructure-atlas-release-m117-slsa-candidate-r2-3d8c444080a3.tar.gz",
+      "sha256": "db329583e423d067bc31dfd1485694e19e8ec98b371c59d90a9d239b180510df"
+    },
+    "source": {
+      "repository": "rodriguezaa22ar-boop/atlas-trust-infrastructure",
+      "commit": "3d8c444080a3c0b258d0c9a2ab101185f35c58f8",
+      "ref": "refs/tags/atlas-release-m117-slsa-candidate-r2"
+    },
+    "workflow": {
+      "name": "Release SLSA Provenance",
+      "path": ".github/workflows/release-slsa.yml",
+      "run_id": "25238002353",
+      "run_url": "https://github.com/rodriguezaa22ar-boop/atlas-trust-infrastructure/actions/runs/25238002353"
+    },
+    "attestation": {
+      "subject_digest": "sha256:db329583e423d067bc31dfd1485694e19e8ec98b371c59d90a9d239b180510df",
+      "url": "https://github.com/rodriguezaa22ar-boop/atlas-trust-infrastructure/attestations/26220687",
+      "rekor_log_url": "https://search.sigstore.dev?logIndex=1424182227",
+      "issuer_identity": "https://token.actions.githubusercontent.com",
+      "verification_command": "gh attestation verify dist/atlas-trust-infrastructure-atlas-release-m117-slsa-candidate-r2-3d8c444080a3.tar.gz --repo rodriguezaa22ar-boop/atlas-trust-infrastructure",
+      "verification_status": "verified"
+    },
+    "no_certification_overclaim": true
+  },
+  "milestone_note": {
+    "path": "docs/retention/milestones/MILESTONE_117.md",
+    "sha256": "039271450728274fc961ea0f46f1e5ee68f39f416a1856a63a6536610fc84093",
+    "retained": true
+  },
+  "artifacts": [
+    {
+      "kind": "release_packet",
+      "path": "docs/retention/releases/atlas-m117-slsa-verifiable-release-artifact.json",
+      "sha256": "9c33a579944bac21be3b385f317ba7dd97332f525682f97bb591524bb8249999",
+      "required": true
+    },
+    {
+      "kind": "release_provenance",
+      "path": "docs/retention/releases/atlas-m117-slsa-verifiable-release-artifact.provenance.json",
+      "sha256": "889c08eca6f81ca5a2490779ecca98ade5dad67641b1f8ed8bed6eeaceaa73e4",
+      "required": true
+    },
+    {
+      "kind": "production_dry_run",
+      "path": "docs/retention/production/PRODUCTION_DRY_RUN_2026-05-01_M117.md",
+      "sha256": "52d64ec63928a696693f5bdd22e5aa8b9ac2d740231e2c74394b9ac20dd8b89a",
+      "required": true
+    },
+    {
+      "kind": "signing_public_key",
+      "path": "docs/retention/releases/atlas-m67-release-signing-public-key.asc",
+      "sha256": "c08e7454ee3ab72a39286f61efd4deca8fbe0ef3fe20844771ff5735da6a79d5",
+      "required": true
+    },
+    {
+      "kind": "milestone_note",
+      "path": "docs/retention/milestones/MILESTONE_117.md",
+      "sha256": "039271450728274fc961ea0f46f1e5ee68f39f416a1856a63a6536610fc84093",
+      "required": false
+    },
+    {
+      "kind": "slsa_provenance",
+      "path": "docs/retention/releases/atlas-m117-slsa-verifiable-release-artifact.slsa.json",
+      "sha256": "51553f50dccee1de8123d4fa0f83957886e41f0a1d0fc9cf9e9f49135498000c",
+      "required": false
+    }
+  ],
+  "metadata_boundary": {
+    "stores": [
+      "paths",
+      "sha256 hashes",
+      "commit ids",
+      "tag ids",
+      "verification states",
+      "known limitations"
+    ],
+    "excludes": [
+      "raw runtime artifacts",
+      "target secrets",
+      "session contents",
+      "packet captures",
+      "credential material",
+      "private keys",
+      "tokens",
+      "evidence bodies"
+    ]
+  },
+  "contract": {
+    "schema_document": "docs/schemas/release-artifact-manifest.v1.md",
+    "guidance_document": "docs/atlas/RELEASE_ARTIFACT_MANIFEST.md",
+    "slsa_schema_document": "docs/schemas/slsa-provenance.v1.md",
+    "known_limitations_reference": "known_limitations"
+  },
+  "known_limitations": [
+    "Release artifact manifests are metadata-only local release indexes, not external audit attestations.",
+    "SLSA provenance references record verification metadata only and do not claim external SLSA certification.",
+    "Artifact files are hash-bound by this manifest but are not individually signed.",
+    "Signed tag verification depends on the retained public key and local Git object availability.",
+    "This manifest does not claim deployment certification, enterprise certification, or legal compliance."
+  ],
+  "no_production_overclaim": true
+}

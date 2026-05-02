@@ -1,0 +1,35 @@
+{
+  "schema_version": "atlas.release_provenance.v1",
+  "generated": "2026-05-02T00:01:00Z",
+  "metadata_only": true,
+  "commit": "3d8c444080a3c0b258d0c9a2ab101185f35c58f8",
+  "signed_tag": {
+    "name": "atlas-production-candidate-m117",
+    "target": "3d8c444080a3c0b258d0c9a2ab101185f35c58f8",
+    "tag_object": "7f8f31086031ea4ba94ddead1b2650d531fc4e07",
+    "verification": "verified",
+    "signer_fingerprint": "24B1E00EEB286B966F9FCE0C9C6439E15BBFD290",
+    "public_key_path": "docs/retention/releases/atlas-m67-release-signing-public-key.asc",
+    "public_key_sha256": "c08e7454ee3ab72a39286f61efd4deca8fbe0ef3fe20844771ff5735da6a79d5"
+  },
+  "release_packet": {
+    "path": "docs/retention/releases/atlas-m117-slsa-verifiable-release-artifact.json",
+    "sha256": "9c33a579944bac21be3b385f317ba7dd97332f525682f97bb591524bb8249999"
+  },
+  "qa": {
+    "status": "pass",
+    "command": "nix-shell --run './bin/dev-qa'",
+    "note": "dev-qa passed with 109/109 tests, lint ok, and stress ok after the M117 SLSA artifact hotfix; public main QA run 25237932776, CodeQL run 25237932765, Release Trust run 25237932761, Pages run 25237932438, Release SLSA run 25238002353, and Official SLSA Generic Provenance run 25238002419 passed"
+  },
+  "production_status": {
+    "observed": "not-ready",
+    "note": "release artifact manifest and milestone retention note were pending before retaining this packet set"
+  },
+  "known_limitations": [
+    "This milestone creates a SLSA-verifiable release artifact candidate, not external SLSA certification.",
+    "The official SLSA generic reusable workflow requires the v2.1.0 tag ref; Atlas records the resolved tag commit as metadata.",
+    "Atlas production status remains a local contract, not external audit, certification, legal compliance, or enterprise deployment approval.",
+    "Release artifacts and provenance are metadata-bound and verifier-readable, but artifact files are not individually signed by Atlas."
+  ],
+  "no_production_overclaim": true
+}

@@ -198,6 +198,38 @@ Evidence:
 `atlas release slsa-verify --artifact --online` successfully, which executed
 `gh attestation verify` through the Atlas verifier.
 
+## Retained M117 Candidate
+
+Milestone 117 records the current implementation-forward
+SLSA-verifiable release artifact candidate:
+
+```text
+docs/retention/releases/atlas-m117-slsa-verifiable-release-artifact.slsa.json
+```
+
+Evidence:
+
+- Commit: `3d8c444080a3c0b258d0c9a2ab101185f35c58f8`
+- Tag: `atlas-release-m117-slsa-candidate-r2`
+- Artifact:
+  `atlas-trust-infrastructure-atlas-release-m117-slsa-candidate-r2-3d8c444080a3.tar.gz`
+- Artifact SHA-256:
+  `db329583e423d067bc31dfd1485694e19e8ec98b371c59d90a9d239b180510df`
+- Contents manifest SHA-256:
+  `19d7327311d3e2c9860b23ae509c93aa0b05eab41d9c77d6668492ee6a715a1a`
+- GitHub Artifact Attestation:
+  `https://github.com/rodriguezaa22ar-boop/atlas-trust-infrastructure/attestations/26220687`
+- GitHub attestation workflow:
+  `https://github.com/rodriguezaa22ar-boop/atlas-trust-infrastructure/actions/runs/25238002353`
+- Official generic-generator workflow:
+  `https://github.com/rodriguezaa22ar-boop/atlas-trust-infrastructure/actions/runs/25238002419`
+- Official generic-generator provenance SHA-256:
+  `aaf09ddc1b371cfbb32e451de3dc30869c3ea285e23427d9c80286c0730e49ae`
+
+`gh attestation verify`, `slsa-verifier verify-artifact`, and
+`atlas release slsa-verify --artifact --online` passed for the downloaded
+artifact and retained M117 SLSA reference.
+
 This command verifies the metadata-only reference contract, recorded
 `gh attestation verify` status, source commit, artifact digest, workflow path,
 issuer identity, GitHub run URL, known limitations, and
