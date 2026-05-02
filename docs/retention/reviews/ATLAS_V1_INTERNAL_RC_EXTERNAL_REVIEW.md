@@ -236,6 +236,10 @@ The lab node clean clone validation passed:
   artifact candidate metadata. It is not external SLSA certification.
 - Production status remains a local Atlas contract based on retained metadata
   evidence.
+- Production explainability is expected to pass only against retained release
+  evidence. On active feature branches or dirty worktrees, production status
+  may correctly report `not-ready` when the current checkout does not match the
+  retained release evidence.
 - The reviewer package is metadata-only and does not embed raw runtime
   evidence.
 - This validation does not inspect private customer environments, live targets,
