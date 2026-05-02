@@ -2442,6 +2442,72 @@ EOF
   done
 }
 
+@test "v1 internal RC doc bundles current trust surfaces without overclaiming" {
+  readme="$TEST_ROOT/toolkit/README.md"
+  docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
+  rc_doc="$TEST_ROOT/toolkit/docs/atlas/V1_INTERNAL_RC.md"
+  limitations_doc="$TEST_ROOT/toolkit/docs/KNOWN_LIMITATIONS.md"
+
+  [ -f "$rc_doc" ]
+  grep -q '^# Atlas v1 Internal RC$' "$rc_doc"
+  grep -q 'v1 Internal Release Candidate' "$rc_doc"
+  grep -q 'production-ready under the local Atlas contract' "$rc_doc"
+  grep -q 'metadata-only' "$rc_doc"
+  grep -q 'retained evidence' "$rc_doc"
+  grep -q 'reviewer package' "$rc_doc"
+  grep -q 'schema freeze candidate' "$rc_doc"
+  grep -q 'SLSA-verifiable release artifact candidate' "$rc_doc"
+  grep -q 'Business Flow Evidence optional-ready' "$rc_doc"
+  grep -q 'synthetic metadata-only demo operation' "$rc_doc"
+
+  grep -q 'release trust packets and release packet verification' "$rc_doc"
+  grep -q 'release replay JSON' "$rc_doc"
+  grep -q 'production status explainability' "$rc_doc"
+  grep -q 'CI Release Trust gate' "$rc_doc"
+  grep -q 'external reviewer package generation' "$rc_doc"
+  grep -q 'schema freeze candidate under `docs/schemas/SCHEMA_FREEZE_CANDIDATE.md`' "$rc_doc"
+
+  grep -q "nix-shell --run './bin/dev-qa'" "$rc_doc"
+  grep -q './tools/atlas/bin/atlas v1 status --strict' "$rc_doc"
+  grep -q './tools/atlas/bin/atlas production status --strict' "$rc_doc"
+  grep -q './tools/atlas/bin/atlas production status --strict --explain' "$rc_doc"
+  grep -q './tools/atlas/bin/atlas release verify' "$rc_doc"
+  grep -q './tools/atlas/bin/atlas release manifest-verify' "$rc_doc"
+  grep -q './tools/atlas/bin/atlas release replay' "$rc_doc"
+  grep -q 'git tag -v atlas-production-candidate-m120' "$rc_doc"
+  grep -q './tools/atlas/bin/atlas release slsa-verify' "$rc_doc"
+  grep -q './tools/atlas/bin/atlas reviewer package atlas-v1-internal-rc-review' "$rc_doc"
+
+  grep -q 'docs/demo/DEMO_OPERATION.md' "$rc_doc"
+  grep -q 'docs/demo/DEMO_REVIEWER_RUNBOOK.md' "$rc_doc"
+  grep -q 'docs/atlas/EXTERNAL_REVIEWER_PACKAGE.md' "$rc_doc"
+  grep -q 'docs/schemas/SCHEMA_FREEZE_CANDIDATE.md' "$rc_doc"
+  grep -q 'docs/KNOWN_LIMITATIONS.md' "$rc_doc"
+
+  grep -q 'not externally audited' "$rc_doc"
+  grep -q 'not certification' "$rc_doc"
+  grep -q 'not legal compliance' "$rc_doc"
+  grep -q 'not tamper-proof infrastructure' "$rc_doc"
+  grep -q 'not external SLSA certification' "$rc_doc"
+  grep -q 'not runtime safety proof' "$rc_doc"
+  grep -q 'not production deployability proof' "$rc_doc"
+  grep -q 'not an outside review result' "$rc_doc"
+  grep -q 'secrets, credentials, tokens, private keys' "$rc_doc"
+  grep -q 'raw target data, raw customer data, payment data' "$rc_doc"
+  grep -q 'raw runtime artifacts, unredacted evidence' "$rc_doc"
+
+  grep -q 'docs/atlas/V1_INTERNAL_RC.md' "$readme"
+  grep -q 'Atlas v1 Internal Release Candidate scope' "$readme"
+  grep -q 'atlas/V1_INTERNAL_RC.md' "$docs_index"
+  grep -q 'Atlas v1 Internal Release Candidate scope' "$docs_index"
+  grep -q 'Atlas v1 Internal Release Candidate is an internal review boundary' "$limitations_doc"
+  [ "$(wc -l < "$readme")" -le 150 ]
+
+  for doc in "$rc_doc" "$readme" "$docs_index" "$limitations_doc"; do
+    ! grep -Eiq 'SLSA certified|Atlas is externally audited|compliance certified|guaranteed secure|This proves runtime safety|This proves production deployability|fraud-proof|prevents fraud|autonomous hacking|scanner replacement' "$doc"
+  done
+}
+
 @test "demo walkthrough preserves full Atlas trust path" {
   demo_dir="$TEST_ROOT/toolkit/docs/demo"
   demo_readme="$demo_dir/README.md"

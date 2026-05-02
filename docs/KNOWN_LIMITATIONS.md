@@ -38,6 +38,10 @@ means ready-to-refine, not production-certified.
 - The M120 schema freeze candidate is an internal v1 review boundary, not an
   external certification. Schema contracts are human-readable operational
   contracts under `docs/schemas/`, not generated JSON Schema artifacts.
+- The Atlas v1 Internal Release Candidate is an internal review boundary. It
+  does not create external audit, certification, legal compliance, runtime
+  safety proof, production deployability proof, or enterprise deployment
+  approval.
 - Backward-compatible optional schema additions may still occur after the
   freeze candidate when documented; field renames, removals, type changes,
   required-field changes, enum meaning changes, or verification semantic

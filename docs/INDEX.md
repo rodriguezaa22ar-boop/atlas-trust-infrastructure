@@ -84,6 +84,7 @@ repository in filesystem order.
 
 - [atlas/V1_PILLAR_READINESS.md](atlas/V1_PILLAR_READINESS.md): v1 pillar
   readiness contract.
+- [atlas/V1_INTERNAL_RC.md](atlas/V1_INTERNAL_RC.md): Atlas v1 Internal Release Candidate scope, verification checklist, and non-guarantees.
 - [atlas/PRODUCTION_READINESS.md](atlas/PRODUCTION_READINESS.md): stricter
   production-readiness gates.
 - [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md): what Atlas still does not

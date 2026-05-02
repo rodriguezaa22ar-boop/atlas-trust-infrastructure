@@ -81,8 +81,8 @@ retained release evidence verifies for the current retained release commit:
 Atlas has a SLSA-verifiable release artifact candidate path for GitHub-built
 artifacts: GitHub-hosted artifact attestation, official SLSA generic provenance,
 retained Atlas SLSA metadata, and verifier commands. This is not external audit,
-enterprise certification, SLSA certification, deployment
-certification, immutable storage, or tamper-proof infrastructure.
+enterprise certification, SLSA certification, deployment certification,
+immutable storage, or tamper-proof infrastructure.
 
 CodeQL is used as an automated code scanning signal for tracked public source.
 It does not replace manual review, external audit, runtime testing, or Atlas'
@@ -119,6 +119,7 @@ own retained trust-packet verification.
 | [docs/RELEASE_TRUST.md](docs/RELEASE_TRUST.md) | Release packets, verification, replay, signing, and provenance. |
 | [docs/atlas/SLSA_PROVENANCE.md](docs/atlas/SLSA_PROVENANCE.md) | GitHub/Sigstore SLSA provenance workflow and verification contract. |
 | [docs/atlas/SLSA_CLAIM.md](docs/atlas/SLSA_CLAIM.md) | Bounded SLSA-verifiable release artifact claim and evidence checklist. |
+| [docs/atlas/V1_INTERNAL_RC.md](docs/atlas/V1_INTERNAL_RC.md) | Atlas v1 Internal Release Candidate scope and verification checklist. |
 | [docs/atlas/RELEASE_ARTIFACT_MANIFEST.md](docs/atlas/RELEASE_ARTIFACT_MANIFEST.md) | Release artifact manifest contract and completeness checks. |
 | [docs/WEB_ASSESSMENT.md](docs/WEB_ASSESSMENT.md) | `atlas web assess` flow and boundaries. |
 | [docs/atlas/BUSINESS_FLOW_EVIDENCE.md](docs/atlas/BUSINESS_FLOW_EVIDENCE.md) | Optional metadata-only business-flow evidence model, retention links, packet path, assurance view, trust-chain view, verification, and non-blocking readiness integration. |
@@ -146,5 +147,4 @@ Common development gates:
 ./bin/dev-qa
 ```
 
-Before treating a change as complete, run the strongest relevant gate and keep
-the repo clean and synced.
+Before treating a change as complete, run the strongest relevant gate and keep the repo clean and synced.
