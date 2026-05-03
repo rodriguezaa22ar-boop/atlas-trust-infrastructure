@@ -7,6 +7,10 @@ Atlas v1 Internal RC from a separate lab node. The goal is to confirm that a
 reviewer can clone the public repository, fetch tags, run the local Atlas
 verification path, inspect retained evidence, generate a reviewer package, and
 see the current RC as production-ready under the local Atlas contract.
+It also records the terminal-first HP-to-Surface cockpit validation boundary:
+a human operator drove the review commands from an HP-controlled shell toward a
+separate Surface/lab node context. Atlas records the metadata-only evidence
+path; it does not operate the lab or autonomously control the dual-node setup.
 
 This is a metadata-only review record. It is not external audit, not
 certification, not legal compliance, not tamper-proof infrastructure, not
@@ -29,6 +33,54 @@ deployability proof.
 - RC tag: `atlas-v1-internal-rc`
 - Production-candidate tag: `atlas-production-candidate-m121`
 - Retention tag: `atlas-retention-m121`
+
+## M121/M122 Boundary
+
+The retained production-candidate evidence remains M121:
+
+- Retained RC state: `atlas-retention-m121`
+- Retained RC tag: `atlas-v1-internal-rc`
+- Retained production-candidate tag: `atlas-production-candidate-m121`
+- Retained release commit:
+  `7b3f6f575f1acbdaa3729009564ad3b9824a556c`
+- Retained retention commit:
+  `b44eb30890483512e1bd2bebce2b97d78ec5e140`
+
+M122 is not a new retained production-candidate state. M122 is the active M122
+branch for external review validation; it documents how a reviewer can
+reproduce and inspect the retained M121 evidence. On M122, `atlas production status
+--strict --explain` may correctly report `not-ready` when the active checkout
+does not match the retained M121 release evidence or when generated reviewer
+packages make the worktree dirty. That result is acceptable for M122 when the
+explain output identifies the retained-evidence mismatch and the retained M121
+release verification commands still pass.
+
+## Dual-Node Cockpit Boundary
+
+The cockpit validation was terminal-first and operator-driven:
+
+- HP-controlled shell/SSH/tmux context: command and review control plane
+- Surface/lab node context: clean clone and reviewer command execution context
+- Atlas role: metadata-only command surface and retained evidence verifier
+
+This validation demonstrates a reproducible external-review path across a
+separate lab node. It does not claim that Atlas operates the lab, controls the
+Surface node, provides runtime safety, proves production deployment readiness,
+or replaces an external reviewer. If local operation state named
+`atlas-dual-node-cockpit` has been generated, reviewers may inspect it with:
+
+```bash
+./tools/atlas/bin/atlas op trust-chain atlas-dual-node-cockpit --strict
+```
+
+Expected result:
+
+```text
+Trust Chain Status: current
+```
+
+That operation state is local metadata and is not the retained M121
+production-candidate evidence.
 
 ## Clean Clone Commands
 
@@ -224,6 +276,8 @@ The lab node clean clone validation passed:
 - `atlas release slsa-verify`: passed
 - `atlas reviewer package`: passed with `metadata_only=true` and
   `raw_artifacts_embedded=false`
+- HP-to-Surface terminal-first cockpit validation: documented as an
+  operator-driven, metadata-only dual-node review path
 - temporary-keyring RC tag verification: passed with retained public key
 
 ## Known Limitations
@@ -240,6 +294,9 @@ The lab node clean clone validation passed:
   evidence. On active feature branches or dirty worktrees, production status
   may correctly report `not-ready` when the current checkout does not match the
   retained release evidence.
+- The dual-node cockpit validation is an operator-driven terminal workflow. It
+  does not mean Atlas operated the HP host, Surface host, SSH session, tmux
+  session, network, or lab environment.
 - The reviewer package is metadata-only and does not embed raw runtime
   evidence.
 - This validation does not inspect private customer environments, live targets,

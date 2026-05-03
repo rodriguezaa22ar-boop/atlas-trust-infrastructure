@@ -10,6 +10,7 @@ shared/
 logs/
 reports/
 releases/
+docs/retention/reviewer-packages/
 targets/*.env
 .tmp/
 
