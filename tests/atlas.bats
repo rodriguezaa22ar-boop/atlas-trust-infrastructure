@@ -3140,6 +3140,58 @@ EOF
   ! grep -Eiq 'externally audited|SLSA certified|compliance certified|guaranteed secure|This proves runtime safety|This proves production deployability|fraud-proof|prevents fraud|autonomous hacking|scanner replacement' "$review_doc"
 }
 
+@test "dual-node lab validation retention documents metadata-only lab proof without orchestration claims" {
+  lab_doc="$TEST_ROOT/toolkit/docs/retention/lab/ATLAS_DUAL_NODE_LAB_VALIDATION_M123.md"
+  lab_readme="$TEST_ROOT/toolkit/docs/retention/lab/README.md"
+  docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
+
+  [ -f "$lab_doc" ]
+  [ -f "$lab_readme" ]
+
+  grep -q '^# Atlas Dual-Node Lab Validation M123$' "$lab_doc"
+  grep -q 'metadata-only operational proof chain' "$lab_doc"
+  grep -q 'HP/Surface dual-node lab model' "$lab_doc"
+  grep -q 'HP cockpit/verifier/control node' "$lab_doc"
+  grep -q 'Surface builder' "$lab_doc"
+  grep -q 'Terminal-first builder' "$lab_doc"
+  grep -q 'SSH/tmux' "$lab_doc"
+  grep -q 'Tailscale' "$lab_doc"
+  grep -q 'GitHub' "$lab_doc"
+  grep -q 'Atlas is documented as the proof layer only' "$lab_doc"
+  grep -q 'does not operate the lab' "$lab_doc"
+  grep -q 'does not retain secrets, credentials, tokens' "$lab_doc"
+  grep -q 'atlas-retention-m122' "$lab_doc"
+  grep -q '95a93ca5521b162f3042383a453a2f6d491343cd' "$lab_doc"
+  grep -q '1e57da3024bba9c55fa52e028ec3ac79cf7660d1' "$lab_doc"
+  grep -q 'ssh atlas-builder -t "tmux new -A -s atlas"' "$lab_doc"
+  grep -q 'non-attaching tmux reachability check' "$lab_doc"
+  grep -q 'tmux display-message -p -t atlas "#{session_name}:#{session_windows}"' "$lab_doc"
+  grep -q 'atlas:1' "$lab_doc"
+  grep -q "nix-shell --run 'bats --print-output-on-failure tests/atlas.bats --filter \"dual-node lab validation\"'" "$lab_doc"
+  grep -q './tools/atlas/bin/atlas op trust-chain atlas-dual-node-cockpit --strict' "$lab_doc"
+  grep -q './tools/atlas/bin/atlas v1 status --strict' "$lab_doc"
+  grep -q 'tailscale status' "$lab_doc"
+  grep -q 'gh pr checks <pr-number>' "$lab_doc"
+  grep -q 'Trust Chain Status: current' "$lab_doc"
+  grep -q 'Overall: ready' "$lab_doc"
+  grep -q 'not external audit' "$lab_doc"
+  grep -q 'not certification' "$lab_doc"
+  grep -q 'not legal compliance' "$lab_doc"
+  grep -q 'not runtime safety proof' "$lab_doc"
+  grep -q 'not production deployability proof' "$lab_doc"
+  grep -q 'not orchestration proof' "$lab_doc"
+  grep -q 'not a claim that Atlas operates the lab' "$lab_doc"
+
+  grep -q 'metadata-only lab validation records' "$lab_readme"
+  grep -q 'not external audit' "$lab_readme"
+  grep -q 'not a claim that Atlas controls the lab' "$lab_readme"
+
+  grep -q 'retention/lab/README.md' "$docs_index"
+  grep -q 'retention/lab/ATLAS_DUAL_NODE_LAB_VALIDATION_M123.md' "$docs_index"
+
+  ! grep -Eiq 'Atlas operates the lab as|Atlas orchestrates the lab|Atlas controls the lab as|production deployment approved|externally audited|SLSA certified|compliance certified|guaranteed secure|proves runtime safety|autonomous lab operator' "$lab_doc"
+}
+
 @test "atlas help groups target-first workflow and story commands" {
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" help
 

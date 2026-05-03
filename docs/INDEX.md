@@ -83,6 +83,13 @@ repository in filesystem order.
 - [atlas/PRODUCTION_READINESS.md](atlas/PRODUCTION_READINESS.md): local
   production readiness contract.
 
+## Lab retention
+
+- [retention/lab/README.md](retention/lab/README.md): metadata-only lab
+  retention records and boundary.
+- [retention/lab/ATLAS_DUAL_NODE_LAB_VALIDATION_M123.md](retention/lab/ATLAS_DUAL_NODE_LAB_VALIDATION_M123.md):
+  M123 dual-node HP/Surface lab validation retention.
+
 ## Production readiness
 
 - [atlas/V1_PILLAR_READINESS.md](atlas/V1_PILLAR_READINESS.md): v1 pillar
