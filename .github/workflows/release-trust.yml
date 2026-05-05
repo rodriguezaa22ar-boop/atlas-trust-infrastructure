@@ -56,6 +56,9 @@ jobs:
           (
             cd "$release_worktree"
 
+            printf 'Release Trust: latest retained evidence tag=%s retention_commit=%s\n' "$latest_retention_tag" "$retention_commit"
+            printf 'Release Trust: active workflow source commit=%s is not certified production-ready by this retained-evidence gate\n' "${GITHUB_SHA:-unknown}"
+
             git checkout -B release-trust-check "$retention_commit"
             git update-ref refs/remotes/origin/release-trust-retained "$retention_commit"
             git branch --set-upstream-to=origin/release-trust-retained release-trust-check
@@ -70,6 +73,7 @@ jobs:
             release_commit="$(jq -r '.release.commit // empty' "$latest_manifest")"
             release_tag="$(jq -r '.signed_tag.name // empty' "$latest_manifest")"
             public_key="$(jq -r '.signing_public_key.path // empty' "$latest_manifest")"
+            printf 'Release Trust: manifest=%s release_commit=%s\n' "$latest_manifest" "$release_commit"
 
             for required_value in "$release_packet" "$release_commit" "$release_tag" "$public_key"; do
               if [ -z "$required_value" ]; then
@@ -99,6 +103,12 @@ jobs:
             ' "$release_output_dir/release-replay.json" >/dev/null
 
             git tag -v "$release_tag"
+
+            git checkout -B release-trust-check "$release_commit"
+            git update-ref refs/remotes/origin/release-trust-retained "$release_commit"
+            git branch --set-upstream-to=origin/release-trust-retained release-trust-check
+            printf 'Release Trust: production explainability runs against retained release commit %s\n' "$release_commit"
+            printf 'Release Trust: verifies retained release evidence and does not certify the active PR/source commit as production-ready\n'
 
             nix-shell --run './tools/atlas/bin/atlas production status --strict --explain' |
               tee "$release_output_dir/production-explain.txt"
