@@ -100,11 +100,14 @@ worktree at that tag. Inside that retained-evidence worktree it verifies:
 - reviewer-readable production status with
   `atlas production status --strict --explain`
 
-The workflow uses the latest retention tag to locate retained evidence, then
-switches the temporary worktree to the manifest's retained release commit before
-running production explainability. The worktree uses a synthetic
-`origin/release-trust-retained` upstream reference for that retained release
-commit so production status can verify the retained evidence contract without requiring every pull request or source commit, retention-note commit, or docs-only commit to be a new production candidate.
+The workflow uses the latest retention tag/worktree to locate retained
+evidence. Release packet and manifest checks are evaluated against the
+manifest's recorded release commit, while production explainability is
+evaluated where the retained evidence exists. The worktree uses a synthetic
+`origin/release-trust-retained` upstream reference for that retained-evidence
+commit so production status can verify the retained evidence contract without
+requiring every pull request, source commit, retention-note commit, or docs-only
+commit to be a new production candidate.
 
 The release-trust workflow pins third-party GitHub Actions to immutable commit
 SHAs. Human-readable comments record the upstream version tags, but mutable
@@ -133,10 +136,12 @@ The QA CI gate does not claim production readiness and does not block on
 release-promotion contract even when retained release evidence reports
 `production-ready`.
 
-The release-trust gate runs production explainability only against the retained
-release commit named by the latest retained manifest. It verifies retained
-evidence and does not certify the active pull request or source commit as
-production-ready under the local Atlas contract.
+The release-trust gate runs release packet and manifest verification against
+the release commit named by the latest retained manifest, then runs production
+explainability in the retained-evidence worktree where the retained packet,
+manifest, provenance, dry-run note, and milestone note exist. It verifies
+retained evidence and does not certify the active pull request or source commit
+as production-ready under the local Atlas contract.
 
 The CI gate also does not run live target assessments, external web tests, or
 router/device tests.

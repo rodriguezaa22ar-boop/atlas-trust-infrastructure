@@ -104,11 +104,9 @@ jobs:
 
             git tag -v "$release_tag"
 
-            git checkout -B release-trust-check "$release_commit"
-            git update-ref refs/remotes/origin/release-trust-retained "$release_commit"
-            git branch --set-upstream-to=origin/release-trust-retained release-trust-check
-            printf 'Release Trust: production explainability runs against retained release commit %s\n' "$release_commit"
-            printf 'Release Trust: verifies retained release evidence and does not certify the active PR/source commit as production-ready\n'
+            printf 'Release Trust verifies retained release evidence from %s for release commit %s.\n' "$latest_retention_tag" "$release_commit"
+            printf 'Release Trust: production explainability runs where retained evidence exists: %s (%s)\n' "$latest_retention_tag" "$retention_commit"
+            printf 'This does not certify the active PR/source commit as production-ready.\n'
 
             nix-shell --run './tools/atlas/bin/atlas production status --strict --explain' |
               tee "$release_output_dir/production-explain.txt"
