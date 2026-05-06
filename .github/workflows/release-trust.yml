@@ -73,21 +73,54 @@ jobs:
             release_commit="$(jq -r '.release.commit // empty' "$latest_manifest")"
             release_tag="$(jq -r '.signed_tag.name // empty' "$latest_manifest")"
             public_key="$(jq -r '.signing_public_key.path // empty' "$latest_manifest")"
+            provenance="$(jq -r '.provenance.path // empty' "$latest_manifest")"
+            production_dry_run="$(jq -r '.production_dry_run.path // empty' "$latest_manifest")"
+            milestone_note="$(jq -r '.milestone_note.path // empty' "$latest_manifest")"
             printf 'Release Trust: manifest=%s release_commit=%s\n' "$latest_manifest" "$release_commit"
 
-            for required_value in "$release_packet" "$release_commit" "$release_tag" "$public_key"; do
+            for required_value in "$release_packet" "$release_commit" "$release_tag" "$public_key" "$provenance" "$production_dry_run" "$milestone_note"; do
               if [ -z "$required_value" ]; then
                 printf 'Latest release artifact manifest is missing required release-trust metadata\n' >&2
                 exit 1
               fi
             done
 
-            for required_file in "$latest_manifest" "$release_packet" "$public_key"; do
+            for required_file in "$latest_manifest" "$release_packet" "$public_key" "$provenance" "$production_dry_run" "$milestone_note"; do
               if [ ! -f "$required_file" ]; then
                 printf 'Required retained release-trust file is missing: %s\n' "$required_file" >&2
                 exit 1
               fi
             done
+
+            evidence_retention_tag=""
+            evidence_retention_commit=""
+            for candidate_tag in $(git tag -l 'atlas-retention-m*' | sort -Vr); do
+              candidate_commit="$(git rev-list -n 1 "$candidate_tag")"
+              candidate_parent="$(git rev-parse "$candidate_commit^" 2>/dev/null || true)"
+              if [ "$candidate_parent" != "$release_commit" ]; then
+                continue
+              fi
+
+              missing_required_path=0
+              for required_path in "$latest_manifest" "$release_packet" "$public_key" "$provenance" "$production_dry_run" "$milestone_note"; do
+                if ! git cat-file -e "$candidate_commit:$required_path" 2>/dev/null; then
+                  missing_required_path=1
+                  break
+                fi
+              done
+
+              if [ "$missing_required_path" -eq 0 ]; then
+                evidence_retention_tag="$candidate_tag"
+                evidence_retention_commit="$candidate_commit"
+                break
+              fi
+            done
+
+            if [ -z "$evidence_retention_tag" ]; then
+              printf 'No retained evidence tag found for release commit %s and manifest %s\n' "$release_commit" "$latest_manifest" >&2
+              exit 1
+            fi
+            printf 'Release Trust: retained evidence tag=%s evidence_commit=%s\n' "$evidence_retention_tag" "$evidence_retention_commit"
 
             gpg --batch --no-autostart --import "$public_key"
 
@@ -104,8 +137,11 @@ jobs:
 
             git tag -v "$release_tag"
 
-            printf 'Release Trust verifies retained release evidence from %s for release commit %s.\n' "$latest_retention_tag" "$release_commit"
-            printf 'Release Trust: production explainability runs where retained evidence exists: %s (%s)\n' "$latest_retention_tag" "$retention_commit"
+            git checkout -B release-trust-check "$evidence_retention_commit"
+            git update-ref refs/remotes/origin/release-trust-retained "$evidence_retention_commit"
+            git branch --set-upstream-to=origin/release-trust-retained release-trust-check
+            printf 'Release Trust verifies retained release evidence from %s for release commit %s.\n' "$evidence_retention_tag" "$release_commit"
+            printf 'Release Trust: production explainability runs where retained evidence exists: %s (%s)\n' "$evidence_retention_tag" "$evidence_retention_commit"
             printf 'This does not certify the active PR/source commit as production-ready.\n'
 
             nix-shell --run './tools/atlas/bin/atlas production status --strict --explain' |
