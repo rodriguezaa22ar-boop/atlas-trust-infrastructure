@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+REGISTRY="${1:-$ROOT/adapters/registry.yaml}"
+CAPABILITIES="$ROOT/capabilities.yaml"
+
+fail() {
+  printf 'adapters: fail %s\n' "$*" >&2
+  exit 1
+}
+
+require_command() {
+  command -v "$1" >/dev/null 2>&1 || fail "missing required command $1"
+}
+
+first_jq() {
+  jq -r "[$1][0] // empty" "$REGISTRY"
+}
+
+require_command jq
+require_command sort
+require_command uniq
+
+[ -f "$REGISTRY" ] || fail "missing adapters/registry.yaml"
+[ -f "$CAPABILITIES" ] || fail "missing capabilities.yaml"
+
+jq -e . "$REGISTRY" >/dev/null 2>&1 || fail "invalid registry JSON-compatible YAML"
+jq -e . "$CAPABILITIES" >/dev/null 2>&1 || fail "invalid capabilities.yaml JSON-compatible YAML"
+
+jq -e '.version == 1' "$REGISTRY" >/dev/null || fail "missing version"
+jq -e '.default_mode == "import_only"' "$REGISTRY" >/dev/null || fail "default_mode must be import_only"
+jq -e '.adapters | type == "array" and length > 0' "$REGISTRY" >/dev/null || fail "missing adapters"
+jq -e '.mutation_requires == ["capability", "policy", "approval", "evidence"]' "$REGISTRY" >/dev/null ||
+  fail "mutation_requires must include capability policy approval evidence"
+
+missing_id="$(first_jq '.adapters[] | select((.id // "") == "") | "missing adapter id"')"
+[ -z "$missing_id" ] || fail "$missing_id"
+
+duplicate_id="$(jq -r '.adapters[].id' "$REGISTRY" | sort | uniq -d | head -n 1)"
+[ -z "$duplicate_id" ] || fail "duplicate id $duplicate_id"
+
+bad_mode="$(first_jq '.adapters[] | select(.mode != "import_only") | "\(.id) mode \(.mode // "missing")"')"
+[ -z "$bad_mode" ] || fail "mutation requires capability policy approval evidence $bad_mode"
+
+missing_field="$(
+  first_jq '
+    .adapters[]
+    | select(
+        ((.system // "") == "")
+        or ((.input_schema // "") == "")
+        or ((.output_schema // "") == "")
+        or ((.secret_handling // "") == "")
+        or ((.network_policy // "") == "")
+        or ((.owner // "") == "")
+      )
+    | .id
+  '
+)"
+[ -z "$missing_field" ] || fail "missing required field $missing_field"
+
+missing_capabilities="$(first_jq '.adapters[] | select((.capabilities_used | type) != "array" or (.capabilities_used | length) == 0) | .id')"
+[ -z "$missing_capabilities" ] || fail "missing capabilities_used $missing_capabilities"
+
+unknown_capability="$(
+  jq -n -r \
+    --slurpfile registry "$REGISTRY" \
+    --slurpfile capabilities "$CAPABILITIES" '
+      ($capabilities[0].capabilities | map(.id)) as $known
+      | [
+          $registry[0].adapters[]
+          | . as $adapter
+          | .capabilities_used[] as $capability
+          | select(($known | index($capability)) | not)
+          | "\($adapter.id) \($capability)"
+        ][0] // empty
+    '
+)"
+[ -z "$unknown_capability" ] || fail "unknown capability $unknown_capability"
+
+missing_evidence="$(first_jq '.adapters[] | select((.evidence_emitted | type) != "array" or (.evidence_emitted | length) == 0) | .id')"
+[ -z "$missing_evidence" ] || fail "missing evidence_emitted $missing_evidence"
+
+missing_schema_path="$(
+  # shellcheck disable=SC2016 # jq program must receive $adapter, not shell-expanded text.
+  first_jq '
+    .adapters[]
+    | . as $adapter
+    | select(
+        ($adapter.input_schema | startswith("adapters/" + $adapter.id + "/") | not)
+        or ($adapter.output_schema | startswith("adapters/" + $adapter.id + "/") | not)
+      )
+    | .id
+  '
+)"
+[ -z "$missing_schema_path" ] || fail "schema path must live under adapter directory $missing_schema_path"
+
+printf 'adapters: ok\n'

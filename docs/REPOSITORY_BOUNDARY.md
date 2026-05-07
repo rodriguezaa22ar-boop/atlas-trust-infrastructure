@@ -22,6 +22,7 @@ Public material may include:
 - safety and responsible-use policy
 - schema contracts
 - capability manifests
+- adapter registry contracts
 - command references
 - tests and validation scripts
 - metadata-only case studies

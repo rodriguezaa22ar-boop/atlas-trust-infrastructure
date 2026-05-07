@@ -15,6 +15,7 @@ shellcheck -x \
 	"$ROOT/bin/dev-lint" \
 	"$ROOT/bin/dev-fmt" \
 	"$ROOT/bin/dev-test" \
+	"$ROOT/bin/dev-adapters" \
 	"$ROOT/bin/dev-capabilities" \
 	"$ROOT/bin/dev-governance" \
 	"$ROOT/bin/dev-host-check" \

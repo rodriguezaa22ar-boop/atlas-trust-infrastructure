@@ -5,6 +5,7 @@ set -euo pipefail
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 
 "$ROOT/bin/dev-capabilities"
+"$ROOT/bin/dev-adapters"
 "$ROOT/bin/export-public-trust" --check
 
 printf 'governance: ok\n'

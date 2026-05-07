@@ -1,0 +1,123 @@
+{
+  "version": 1,
+  "default_mode": "import_only",
+  "mutation_requires": [
+    "capability",
+    "policy",
+    "approval",
+    "evidence"
+  ],
+  "adapters": [
+    {
+      "id": "github",
+      "system": "github",
+      "mode": "import_only",
+      "capabilities_used": [
+        "atlas.adapter.import",
+        "atlas.release.verify"
+      ],
+      "input_schema": "adapters/github/input.v1.schema.json",
+      "output_schema": "adapters/github/output.v1.schema.json",
+      "evidence_emitted": [
+        "decision",
+        "source_ref",
+        "artifact_hash"
+      ],
+      "secret_handling": "metadata_only_no_tokens",
+      "network_policy": "read_only_api_or_offline_export",
+      "owner": "atlas-governance"
+    },
+    {
+      "id": "generic-webhook",
+      "system": "generic_webhook",
+      "mode": "import_only",
+      "capabilities_used": [
+        "atlas.adapter.import"
+      ],
+      "input_schema": "adapters/generic-webhook/input.v1.schema.json",
+      "output_schema": "adapters/generic-webhook/output.v1.schema.json",
+      "evidence_emitted": [
+        "decision",
+        "source_ref",
+        "artifact_hash"
+      ],
+      "secret_handling": "metadata_only_no_payload_secrets",
+      "network_policy": "receive_or_file_import_only",
+      "owner": "atlas-governance"
+    },
+    {
+      "id": "scanner",
+      "system": "scanner",
+      "mode": "import_only",
+      "capabilities_used": [
+        "atlas.adapter.import"
+      ],
+      "input_schema": "adapters/scanner/input.v1.schema.json",
+      "output_schema": "adapters/scanner/output.v1.schema.json",
+      "evidence_emitted": [
+        "decision",
+        "source_ref",
+        "artifact_hash"
+      ],
+      "secret_handling": "metadata_only_no_raw_findings",
+      "network_policy": "offline_export_or_read_only_api",
+      "owner": "atlas-governance"
+    },
+    {
+      "id": "ticketing",
+      "system": "ticketing",
+      "mode": "import_only",
+      "capabilities_used": [
+        "atlas.adapter.import"
+      ],
+      "input_schema": "adapters/ticketing/input.v1.schema.json",
+      "output_schema": "adapters/ticketing/output.v1.schema.json",
+      "evidence_emitted": [
+        "decision",
+        "source_ref",
+        "artifact_hash"
+      ],
+      "secret_handling": "metadata_only_no_customer_records",
+      "network_policy": "read_only_api_or_offline_export",
+      "owner": "atlas-governance"
+    },
+    {
+      "id": "cloud",
+      "system": "cloud",
+      "mode": "import_only",
+      "capabilities_used": [
+        "atlas.adapter.import"
+      ],
+      "input_schema": "adapters/cloud/input.v1.schema.json",
+      "output_schema": "adapters/cloud/output.v1.schema.json",
+      "evidence_emitted": [
+        "decision",
+        "source_ref",
+        "artifact_hash"
+      ],
+      "secret_handling": "metadata_only_no_cloud_secrets",
+      "network_policy": "read_only_api_or_offline_export",
+      "owner": "atlas-governance"
+    },
+    {
+      "id": "agent-runtime",
+      "system": "agent_runtime",
+      "mode": "import_only",
+      "capabilities_used": [
+        "atlas.adapter.import",
+        "atlas.agent.tool.exec"
+      ],
+      "input_schema": "adapters/agent-runtime/input.v1.schema.json",
+      "output_schema": "adapters/agent-runtime/output.v1.schema.json",
+      "evidence_emitted": [
+        "decision",
+        "source_ref",
+        "artifact_hash",
+        "tool_ref"
+      ],
+      "secret_handling": "metadata_only_no_prompt_secrets",
+      "network_policy": "import_metadata_only",
+      "owner": "atlas-governance"
+    }
+  ]
+}
