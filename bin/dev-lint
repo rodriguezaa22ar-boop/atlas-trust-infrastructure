@@ -15,8 +15,11 @@ shellcheck -x \
 	"$ROOT/bin/dev-lint" \
 	"$ROOT/bin/dev-fmt" \
 	"$ROOT/bin/dev-test" \
+	"$ROOT/bin/dev-host-check" \
+	"$ROOT/bin/dev-portability" \
 	"$ROOT/bin/dev-stress" \
 	"$ROOT/bin/dev-qa" \
+	"$ROOT/bin/export-public-trust" \
 	"$ROOT/lib/common.sh" \
 	"$ROOT/lib/intel.sh" \
 	"${atlas_libs[@]}" \

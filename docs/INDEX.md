@@ -11,12 +11,15 @@ repository in filesystem order.
   who it is for, what it does, and what it does not do.
 - [../README.md](../README.md): short landing page with quick start, safety
   boundary, current maturity, and docs map.
+- [REPOSITORY_BOUNDARY.md](REPOSITORY_BOUNDARY.md): public/private repository
+  boundary and public export contract.
 
 ## Start here by role
 
 - New reader: [ATLAS_ONE_PAGE.md](ATLAS_ONE_PAGE.md)
 - Security operator: [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md)
 - Lab operator: [ops/DUAL_NODE_COCKPIT.md](ops/DUAL_NODE_COCKPIT.md)
+- Host/runtime reviewer: [ops/PORTABILITY_CONTRACT.md](ops/PORTABILITY_CONTRACT.md)
 - Business owner: [atlas/BUSINESS_FLOW_EVIDENCE.md](atlas/BUSINESS_FLOW_EVIDENCE.md)
 - Release reviewer: [RELEASE_TRUST.md](RELEASE_TRUST.md)
 - SLSA reviewer: [atlas/SLSA_CLAIM.md](atlas/SLSA_CLAIM.md)
@@ -29,6 +32,14 @@ repository in filesystem order.
 - [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md): end-to-end operator workflow.
 - [ops/DUAL_NODE_COCKPIT.md](ops/DUAL_NODE_COCKPIT.md): standard cockpit
   and builder compute split with a public proof boundary.
+- [ops/PORTABILITY_CONTRACT.md](ops/PORTABILITY_CONTRACT.md): any-system
+  runtime rule and host/Nix proof split.
+- [ops/HOST_SHELL_RUNTIME.md](ops/HOST_SHELL_RUNTIME.md): required and
+  optional host-shell dependencies.
+- [ops/NIX_REFERENCE_ENVIRONMENT.md](ops/NIX_REFERENCE_ENVIRONMENT.md):
+  reference proof environment.
+- [ops/SUPPORTED_SYSTEMS.md](ops/SUPPORTED_SYSTEMS.md): support levels for
+  NixOS, generic Linux, macOS, WSL, containers, CI, source archives, and clones.
 - [COMMAND_REFERENCE.md](COMMAND_REFERENCE.md): detailed command reference.
 - [WEB_ASSESSMENT.md](WEB_ASSESSMENT.md): bounded `atlas web assess` workflow.
 - [demo/README.md](demo/README.md): demo directory entry point and boundary.
@@ -46,6 +57,8 @@ repository in filesystem order.
 
 ## Trust lifecycle
 
+- [REPOSITORY_BOUNDARY.md](REPOSITORY_BOUNDARY.md): public/private repository
+  boundary and public export contract.
 - [TRUST_LIFECYCLE.md](TRUST_LIFECYCLE.md): scope-to-release trust chain.
 - [demo/DEMO_OPERATION.md](demo/DEMO_OPERATION.md): repeatable synthetic demo
   of the trust lifecycle.

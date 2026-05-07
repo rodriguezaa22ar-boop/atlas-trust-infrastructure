@@ -1,0 +1,74 @@
+{
+  "schema_version": "atlas.public_trust_manifest.v1",
+  "metadata_only": true,
+  "repositories": {
+    "private": {
+      "name": "atlas-lab-toolkit",
+      "role": "private implementation and operator runtime source"
+    },
+    "public": {
+      "name": "atlas-trust-infrastructure",
+      "role": "public trust and reviewer surface"
+    }
+  },
+  "allow_paths": [
+    ".editorconfig",
+    ".github/",
+    ".gitignore",
+    "AGENTS.md",
+    "CONTRIBUTING.md",
+    "LICENSE",
+    "README.md",
+    "SECURITY.md",
+    "bin/",
+    "containers/",
+    "docs/",
+    "etc/",
+    "exports/public-trust-manifest.json",
+    "index.html",
+    "lib/",
+    "shell.nix",
+    "tests/",
+    "tools/"
+  ],
+  "forbidden_paths": [
+    ".env",
+    ".netrc",
+    "private/",
+    "sessions/",
+    "state/",
+    "shared/",
+    "logs/",
+    "reports/",
+    "releases/",
+    "targets/",
+    "docs/retention/reviewer-packages/"
+  ],
+  "private_markers": [
+    "ATLAS_PRIVATE_LAB_HOST=",
+    "ATLAS_PRIVATE_OPERATOR=",
+    "ATLAS_PRIVATE_TARGET=",
+    "ATLAS_PRIVATE_SECRET_REF="
+  ],
+  "marker_exempt_paths": [
+    "exports/public-trust-manifest.json",
+    "tests/"
+  ],
+  "forbidden_content_classes": [
+    "credentials",
+    "tokens",
+    "private keys",
+    "session cookies",
+    "raw customer data",
+    "private target records",
+    "raw packet captures",
+    "full request bodies",
+    "full response bodies",
+    "unredacted runtime evidence",
+    "host-specific private lab identifiers"
+  ],
+  "validation": {
+    "check_command": "./bin/export-public-trust --check",
+    "export_command": "./bin/export-public-trust --out <dir>"
+  }
+}

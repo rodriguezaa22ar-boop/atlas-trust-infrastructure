@@ -2,7 +2,12 @@
 
 ## Project
 
-This repository contains `atlas-lab-toolkit`, a local-first, shell-native toolkit for authorized security assessment workflows.
+This repository is `atlas-trust-infrastructure`, the public trust and reviewer
+surface for Atlas. The private `atlas-lab-toolkit` repository remains the
+implementation and operator runtime source.
+
+Atlas is a local-first, shell-native trust control plane for authorized
+security assessment workflows.
 
 Atlas is the operator control plane. It coordinates scope, targets, recon, evidence, findings, validation, reports, retention, and release-trust artifacts without becoming a monolith or replacing the underlying domain tools.
 
@@ -15,6 +20,17 @@ Primary domain split:
 - `labctl` owns build, release, target, and administration workflows.
 
 Do not collapse these domains into one tool unless explicitly instructed.
+
+Public/private repository split:
+
+- `atlas-lab-toolkit` is private implementation and operator runtime source.
+- `atlas-trust-infrastructure` is public proof, docs, schemas, tests, and
+  reviewer-facing trust material.
+- `docs/REPOSITORY_BOUNDARY.md` and `exports/public-trust-manifest.json` are
+  the public export contract.
+
+Do not move private runtime state, private target records, raw evidence bodies,
+or host-specific lab details into the public trust repository.
 
 ---
 

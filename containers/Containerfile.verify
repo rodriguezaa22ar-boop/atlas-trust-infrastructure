@@ -1,0 +1,18 @@
+FROM debian:stable-slim
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+    bash \
+    ca-certificates \
+    coreutils \
+    findutils \
+    git \
+    gawk \
+    jq \
+    sed \
+  && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /atlas
+COPY . /atlas
+
+CMD ["./bin/dev-host-check"]
