@@ -9,7 +9,7 @@ claiming that Atlas operates, orchestrates, secures, or deploys the lab.
 ## Retained Records
 
 - [ATLAS_DUAL_NODE_LAB_VALIDATION_M123.md](ATLAS_DUAL_NODE_LAB_VALIDATION_M123.md):
-  M123 dual-node HP/Surface lab validation retention.
+  M123 dual-node lab validation retention with private host labels redacted.
 
 ## Boundary
 

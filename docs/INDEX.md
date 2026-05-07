@@ -27,8 +27,8 @@ repository in filesystem order.
 ## Operator workflow
 
 - [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md): end-to-end operator workflow.
-- [ops/DUAL_NODE_COCKPIT.md](ops/DUAL_NODE_COCKPIT.md): standard HP/Surface
-  cockpit compute split and proof boundary.
+- [ops/DUAL_NODE_COCKPIT.md](ops/DUAL_NODE_COCKPIT.md): standard cockpit
+  and builder compute split with a public proof boundary.
 - [COMMAND_REFERENCE.md](COMMAND_REFERENCE.md): detailed command reference.
 - [WEB_ASSESSMENT.md](WEB_ASSESSMENT.md): bounded `atlas web assess` workflow.
 - [demo/README.md](demo/README.md): demo directory entry point and boundary.
@@ -91,7 +91,7 @@ repository in filesystem order.
 - [retention/lab/README.md](retention/lab/README.md): metadata-only lab
   retention records and boundary.
 - [retention/lab/ATLAS_DUAL_NODE_LAB_VALIDATION_M123.md](retention/lab/ATLAS_DUAL_NODE_LAB_VALIDATION_M123.md):
-  M123 dual-node HP/Surface lab validation retention.
+  M123 dual-node lab validation retention with private host labels redacted.
 
 ## Production readiness
 

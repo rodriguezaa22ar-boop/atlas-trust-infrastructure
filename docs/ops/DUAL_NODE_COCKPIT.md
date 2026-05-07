@@ -3,48 +3,49 @@
 ## Purpose
 
 This runbook defines the standard Atlas lab execution contract for the
-HP/Surface dual-node workflow.
+dual-node cockpit workflow.
 
-HP controls. Surface computes.
+The cockpit controls. The builder computes.
 
-`atlas-console` is the cockpit for coordination, review, browser work, GitHub,
-documentation, and light verification.
+The cockpit node is the operator-controlled environment for coordination,
+review, browser work, GitHub, documentation, and light verification.
 
-`atlas-builder` is the compute engine for Codex, Nix builds, Atlas QA, release
-verification, reviewer package generation, and long-running tmux jobs.
+The builder node is the compute environment for Codex, Nix builds, Atlas QA,
+release verification, reviewer package generation, and long-running tmux jobs.
 
-Atlas records proof of work. Atlas does not control the lab. Tailscale, SSH,
-and tmux provide reachability and control. GitHub commits, tags, and retained
-packets remain the truth boundary.
+Atlas records proof of work. Atlas does not control the lab. A private network
+path, SSH, and tmux provide reachability, control, and job persistence. GitHub
+commits, tags, and retained packets remain the truth boundary.
 
 ## Operating Rule
 
 ```text
-HP controls.
-Surface computes.
+The cockpit controls.
+The builder computes.
 Atlas records proof.
 GitHub/commits/tags/retained packets remain the truth boundary.
 ```
 
 Atlas is a metadata-first trust overlay for this lab workflow. It records,
 verifies, and replays evidence about the work. It does not replace SSH, tmux,
-Tailscale, GitHub, Nix, Codex, shell tools, or human operator approval.
+a private network path, GitHub, Nix, Codex, shell tools, or human operator
+approval.
 
 ## Canonical Control Path
 
-Run from `atlas-console` on HP:
+Run from the cockpit node:
 
 ```bash
-ssh atlas-builder -t 'tmux new-session -A -s atlas'
+ssh <builder-host> -t 'tmux new-session -A -s atlas'
 ```
 
-Recommended HP aliases:
+Recommended local aliases:
 
 ```bash
-alias atlas-builder='ssh atlas-builder'
-alias atlas-tmux="ssh atlas-builder -t 'tmux new-session -A -s atlas'"
-alias atlas-qa="ssh atlas-builder -t 'tmux new-session -A -s atlas-qa'"
-alias atlas-codex="ssh atlas-builder -t 'tmux new-session -A -s codex'"
+alias builder-ssh='ssh <builder-host>'
+alias builder-tmux="ssh <builder-host> -t 'tmux new-session -A -s atlas'"
+alias builder-qa="ssh <builder-host> -t 'tmux new-session -A -s atlas-qa'"
+alias builder-codex="ssh <builder-host> -t 'tmux new-session -A -s codex'"
 ```
 
 Use these aliases as operator convenience only. They are not Atlas control
@@ -54,39 +55,39 @@ features and they do not create retained evidence by themselves.
 
 | Work type | Machine | Reason |
 | --- | --- | --- |
-| ChatGPT, planning, review | HP / `atlas-console` | Cockpit role |
-| GitHub browser review | HP | Low compute, high coordination |
-| Docs, editing, review | HP | Cockpit role |
-| Light terminal checks | HP | Acceptable when short |
-| Codex jobs | Surface / `atlas-builder` | Heavy compute |
-| Nix builds | Surface | Stronger CPU/RAM |
-| `./bin/dev-qa` | Surface | Heavy QA path |
-| Release verification | Surface | Builder/verifier role |
-| Reviewer package generation | Surface | Trust artifact generation |
-| Long tmux jobs | Surface | Persistent compute session |
+| ChatGPT, planning, review | Cockpit node | Coordination role |
+| GitHub browser review | Cockpit node | Low compute, high coordination |
+| Docs, editing, review | Cockpit node | Coordination role |
+| Light terminal checks | Cockpit node | Acceptable when short |
+| Codex jobs | Builder node | Heavy compute |
+| Nix builds | Builder node | Stronger CPU/RAM |
+| `./bin/dev-qa` | Builder node | Heavy QA path |
+| Release verification | Builder node | Builder/verifier role |
+| Reviewer package generation | Builder node | Trust artifact generation |
+| Long tmux jobs | Builder node | Persistent compute session |
 
 ## Nix Remote Builder Rule
 
-Use the HP remote-builder path only for Nix builds:
+Use the remote-builder path only for Nix builds:
 
 ```text
-HP starts the Nix build.
-Surface builds through ssh-ng://ao@atlas-builder.
-HP receives finished /nix/store paths.
+The cockpit starts the Nix build.
+The builder builds through ssh-ng://<builder-user>@<builder-host>.
+The cockpit receives finished /nix/store paths.
 ```
 
 Do not treat remote Nix building as a shared-machine model. For general compute,
 enter the builder through SSH and tmux:
 
 ```bash
-ssh atlas-builder -t 'tmux new-session -A -s atlas'
+ssh <builder-host> -t 'tmux new-session -A -s atlas'
 ```
 
 ## Layer Boundary
 
 | Layer | Tool |
 | --- | --- |
-| Reachability | Tailscale |
+| Reachability | Private network path |
 | Control | SSH |
 | Job persistence | tmux |
 | Build execution | Nix / Codex / shell |
@@ -97,16 +98,16 @@ Correct interpretation:
 
 ```text
 Atlas observes and proves the workflow.
-Atlas does not replace SSH, tmux, Tailscale, GitHub, or Nix.
+Atlas does not replace SSH, tmux, private networking, GitHub, or Nix.
 ```
 
 ## Standard Execution Order
 
-1. HP plans and reviews the patch scope.
-2. Surface runs Codex, build, and long-running tmux work.
-3. Surface runs `./bin/dev-qa`, release verification, and reviewer package
+1. The cockpit plans and reviews the patch scope.
+2. The builder runs Codex, build, and long-running tmux work.
+3. The builder runs `./bin/dev-qa`, release verification, and reviewer package
    checks.
-4. HP reviews diffs and GitHub PRs.
+4. The cockpit reviews diffs and GitHub PRs.
 5. Atlas retains proof through commits, tags, release packets, and reviewer
    artifacts.
 
@@ -135,8 +136,9 @@ This runbook is:
 - not runtime safety proof
 - not production deployability proof
 - not orchestration proof
-- not a claim that Atlas operates or controls HP, Surface, SSH, tmux,
-  Tailscale, GitHub, Nix, Codex, shell tools, or the network
+- not a claim that Atlas operates or controls the cockpit node, builder node,
+  SSH, tmux, private networking, GitHub, Nix, Codex, shell tools, or the
+  network
 
 ## Related Retention
 
