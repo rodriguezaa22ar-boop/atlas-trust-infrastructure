@@ -82,12 +82,22 @@ TOOL_NAME="atlas"
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=../lib/reviewer.sh
 . "$TOOL_DIR/lib/reviewer.sh"
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/policy.sh
+. "$TOOL_DIR/lib/policy.sh"
 
 atlas_command_skips_layout() {
 	case "${1:-}" in
 	production)
 		case "${2:-status}" in
 		"" | status)
+			return 0
+			;;
+		esac
+		;;
+	policy)
+		case "${2:-}" in
+		evaluate | test)
 			return 0
 			;;
 		esac
@@ -118,6 +128,8 @@ usage:
   atlas doctor
   atlas v1 status [name] [--strict] [--json]
   atlas production status [--strict] [--json] [--explain]
+  atlas policy evaluate <capability> [--json] [--scope scope] [--approval status]
+  atlas policy test [cases-file]
   atlas reviewer package <name>
   atlas release packet [packet-name] [--json] [--operation name]
   atlas release verify [packet]
@@ -380,6 +392,10 @@ v1:
 
 production:
   atlas production status [--strict] [--json] [--explain]
+
+policy:
+  atlas policy evaluate <capability> [--json] [--scope scope] [--approval status] [--actor actor] [--resource ref]
+  atlas policy test [cases-file]
 
 reviewer:
   atlas reviewer package <name>
@@ -2060,6 +2076,23 @@ production)
 	"" | status)
 		[ "$#" -gt 0 ] && shift
 		cmd_production_status "$@"
+		;;
+	*)
+		usage
+		exit 1
+		;;
+	esac
+	;;
+policy)
+	shift
+	case "${1:-}" in
+	evaluate)
+		shift
+		cmd_policy_evaluate "$@"
+		;;
+	test)
+		shift
+		cmd_policy_test "$@"
 		;;
 	*)
 		usage

@@ -115,7 +115,7 @@ own retained trust-packet verification.
 | [docs/case-studies/CASE_STUDY_RELEASE_TRUST.md](docs/case-studies/CASE_STUDY_RELEASE_TRUST.md) | Public release-trust case study. |
 | [docs/case-studies/CASE_STUDY_VENDOR_PAYMENT_CHANGE.md](docs/case-studies/CASE_STUDY_VENDOR_PAYMENT_CHANGE.md) | Public business-flow case study. |
 | [docs/atlas/TRUST_INFRASTRUCTURE_DIRECTION.md](docs/atlas/TRUST_INFRASTRUCTURE_DIRECTION.md) | Atlas trust-infrastructure direction. |
-| [docs/atlas/TRUST_OBJECT_MODEL.md](docs/atlas/TRUST_OBJECT_MODEL.md) / [docs/governance/CAPABILITY_MODEL.md](docs/governance/CAPABILITY_MODEL.md) / [docs/governance/ADAPTER_REGISTRY.md](docs/governance/ADAPTER_REGISTRY.md) | Actors, objects, capabilities, adapters, schemas, freshness, verification, and replay. |
+| [docs/atlas/TRUST_OBJECT_MODEL.md](docs/atlas/TRUST_OBJECT_MODEL.md) / [docs/governance/CAPABILITY_MODEL.md](docs/governance/CAPABILITY_MODEL.md) / [docs/governance/ADAPTER_REGISTRY.md](docs/governance/ADAPTER_REGISTRY.md) / [docs/governance/POLICY_PLANE.md](docs/governance/POLICY_PLANE.md) | Actors, objects, capabilities, adapters, policy, schemas, freshness, verification, and replay. |
 | [docs/RELEASE_TRUST.md](docs/RELEASE_TRUST.md) | Release packets, verification, replay, signing, and provenance. |
 | [docs/atlas/SLSA_PROVENANCE.md](docs/atlas/SLSA_PROVENANCE.md) | GitHub/Sigstore SLSA provenance workflow and verification contract. |
 | [docs/atlas/SLSA_CLAIM.md](docs/atlas/SLSA_CLAIM.md) | Bounded SLSA-verifiable release artifact claim and evidence checklist. |

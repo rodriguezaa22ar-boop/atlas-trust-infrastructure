@@ -20,6 +20,7 @@ setup() {
     "$TEST_ROOT/toolkit/bin/dev-capabilities" \
     "$TEST_ROOT/toolkit/bin/dev-governance" \
     "$TEST_ROOT/toolkit/bin/dev-host-check" \
+    "$TEST_ROOT/toolkit/bin/dev-policy" \
     "$TEST_ROOT/toolkit/bin/dev-portability" \
     "$TEST_ROOT/toolkit/bin/export-public-trust" \
     "$TEST_ROOT/toolkit/lib/common.sh" \
@@ -132,6 +133,7 @@ write_test_slsa_reference() {
     .repositories.private.name == "atlas-lab-toolkit" and
     .repositories.public.name == "atlas-trust-infrastructure" and
     (.allow_paths | index("docs/")) and
+    (.allow_paths | index("policy/")) and
     (.allow_paths | index("exports/public-trust-manifest.json")) and
     (.forbidden_paths | index("sessions/")) and
     (.forbidden_paths | index("state/")) and
@@ -257,6 +259,7 @@ write_test_slsa_reference() {
   grep -q './bin/dev-adapters' "$adapter_doc"
   grep -q 'does not add external API clients' "$adapter_doc"
   grep -q 'M125 builds on it with an import-only adapter' "$capability_doc"
+  grep -q 'M126 policy decisions evaluate the capabilities referenced here' "$adapter_doc"
 
   grep -q 'docs/governance/ADAPTER_REGISTRY.md' "$readme"
   grep -q 'governance/ADAPTER_REGISTRY.md' "$docs_index"
@@ -270,6 +273,7 @@ write_test_slsa_reference() {
   [ "$status" -eq 0 ]
   [[ "$output" == *"capabilities: ok"* ]]
   [[ "$output" == *"adapters: ok"* ]]
+  [[ "$output" == *"policy: ok"* ]]
   [[ "$output" == *"governance: ok"* ]]
 
   duplicate_registry="$TEST_ROOT/duplicate-adapters.yaml"
@@ -305,6 +309,101 @@ write_test_slsa_reference() {
   [[ "$output" == *"adapters: fail schema path must live under adapter directory github"* ]]
 }
 
+@test "policy plane evaluates capability decisions read-only" {
+  policy_file="$TEST_ROOT/toolkit/policy/atlas.authz.rego"
+  policy_cases="$TEST_ROOT/toolkit/policy/tests/decisions.v1.json"
+  policy_doc="$TEST_ROOT/toolkit/docs/governance/POLICY_PLANE.md"
+  capability_doc="$TEST_ROOT/toolkit/docs/governance/CAPABILITY_MODEL.md"
+  readme="$TEST_ROOT/toolkit/README.md"
+  docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
+  public_manifest="$TEST_ROOT/toolkit/exports/public-trust-manifest.json"
+
+  [ -f "$policy_file" ]
+  [ -f "$policy_cases" ]
+  [ -f "$policy_doc" ]
+
+  grep -q '^package atlas\.authz$' "$policy_file"
+  grep -q 'default decision = "unsupported"' "$policy_file"
+  for decision in allow deny approval_required unsupported not_in_scope; do
+    grep -q "\"$decision\"" "$policy_file"
+  done
+
+  jq -e '
+    .schema_version == "atlas.policy_tests.v1" and
+    (.cases | length >= 8) and
+    any(.cases[]; .capability == "atlas.status.read" and .expect == "allow") and
+    any(.cases[]; .capability == "atlas.adapter.import" and .expect == "allow") and
+    any(.cases[]; .capability == "atlas.production.verify" and .expect == "allow") and
+    any(.cases[]; .capability == "atlas.public_export.check" and .scope == "public_trust" and .expect == "allow") and
+    any(.cases[]; .capability == "atlas.agent.tool.exec" and .approval == "none" and .expect == "approval_required") and
+    any(.cases[]; .capability == "atlas.agent.tool.exec" and .approval == "approved" and .expect == "allow") and
+    any(.cases[]; .scope == "out_of_scope" and .expect == "not_in_scope") and
+    any(.cases[]; .capability == "atlas.unknown.capability" and .expect == "unsupported")
+  ' "$policy_cases"
+
+  grep -q '^# Atlas Policy Plane$' "$policy_doc"
+  grep -q 'Required decisions' "$policy_doc"
+  grep -q './bin/dev-policy' "$policy_doc"
+  grep -q 'does not add an approval workflow' "$policy_doc"
+  grep -q 'host-runtime implementation' "$policy_doc"
+  grep -q 'M126 adds a policy decision contract' "$capability_doc"
+
+  grep -q 'docs/governance/POLICY_PLANE.md' "$readme"
+  grep -q 'governance/POLICY_PLANE.md' "$docs_index"
+  jq -e '(.allow_paths | index("policy/"))' "$public_manifest"
+
+  run "$TEST_ROOT/toolkit/bin/dev-policy"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"policy: ok"* ]]
+
+  run "$TEST_ROOT/toolkit/bin/dev-governance"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"capabilities: ok"* ]]
+  [[ "$output" == *"adapters: ok"* ]]
+  [[ "$output" == *"policy: ok"* ]]
+  [[ "$output" == *"governance: ok"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" policy evaluate atlas.status.read --json
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.decision == "allow" and .class == "read" and .policy_ref == "policy/atlas.authz.rego"'
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" policy evaluate atlas.agent.tool.exec --json
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.decision == "approval_required" and .approval_required == true'
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" policy evaluate atlas.agent.tool.exec --approval approved --json
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.decision == "allow" and .approval == "approved"'
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" policy evaluate atlas.status.read --scope out_of_scope --json
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.decision == "not_in_scope"'
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" policy evaluate atlas.unknown.capability --json
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.decision == "unsupported"'
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" policy evaluate atlas.status.read
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Atlas Policy Decision"* ]]
+  [[ "$output" == *"Decision"* ]]
+  [[ "$output" == *"allow"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" policy test
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"policy: ok"* ]]
+
+  [ ! -e "$TEST_ROOT/toolkit/state" ]
+  [ ! -e "$TEST_ROOT/toolkit/sessions" ]
+  [ ! -e "$TEST_ROOT/toolkit/reports" ]
+
+  bad_cases="$TEST_ROOT/bad-policy-cases.json"
+  jq '(.cases[] | select(.name == "read allowed") | .expect) = "deny"' "$policy_cases" >"$bad_cases"
+  run "$TEST_ROOT/toolkit/bin/dev-policy" "$bad_cases"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"policy: fail policy case 'read allowed' expected deny got allow"* ]]
+}
+
 @test "capability manifest defines machine-readable governance root" {
   manifest="$TEST_ROOT/toolkit/capabilities.yaml"
   schema="$TEST_ROOT/toolkit/schemas/capability.v1.schema.json"
@@ -334,7 +433,7 @@ write_test_slsa_reference() {
   grep -q 'No meaningful ATLAS action exists unless it is named in capabilities.yaml' "$capability_doc"
   grep -q './bin/dev-capabilities' "$capability_doc"
   grep -q 'Mutating, bounded execution, and admin' "$capability_doc"
-  grep -q 'does not add a policy engine' "$capability_doc"
+  grep -q 'M126 adds a policy decision contract' "$capability_doc"
 
   grep -q 'docs/governance/CAPABILITY_MODEL.md' "$readme"
   grep -q 'governance/CAPABILITY_MODEL.md' "$docs_index"
@@ -347,6 +446,7 @@ write_test_slsa_reference() {
   run "$TEST_ROOT/toolkit/bin/dev-governance"
   [ "$status" -eq 0 ]
   [[ "$output" == *"capabilities: ok"* ]]
+  [[ "$output" == *"policy: ok"* ]]
   [[ "$output" == *"Public Trust Export"* ]]
   [[ "$output" == *"governance: ok"* ]]
 
@@ -528,6 +628,7 @@ write_test_slsa_reference() {
   grep -q 'docs/ATLAS_ONE_PAGE.md' "$readme"
   grep -q 'docs/governance/CAPABILITY_MODEL.md' "$readme"
   grep -q 'docs/governance/ADAPTER_REGISTRY.md' "$readme"
+  grep -q 'docs/governance/POLICY_PLANE.md' "$readme"
   grep -q 'docs/ops/PORTABILITY_CONTRACT.md' "$readme"
   grep -q 'docs/demo/DEMO_OPERATION.md' "$readme"
   grep -q 'docs/COMMAND_REFERENCE.md' "$readme"
@@ -578,6 +679,7 @@ write_test_slsa_reference() {
   grep -q 'REPOSITORY_BOUNDARY.md' "$docs_index"
   grep -q 'governance/CAPABILITY_MODEL.md' "$docs_index"
   grep -q 'governance/ADAPTER_REGISTRY.md' "$docs_index"
+  grep -q 'governance/POLICY_PLANE.md' "$docs_index"
   grep -q 'ops/PORTABILITY_CONTRACT.md' "$docs_index"
 
   grep -q '^# Atlas In One Page$' "$one_page"
@@ -589,6 +691,8 @@ write_test_slsa_reference() {
 
   grep -q '^# Command Reference$' "$command_ref"
   grep -q './tools/atlas/bin/atlas production status --strict --explain' "$command_ref"
+  grep -q './tools/atlas/bin/atlas policy evaluate atlas.status.read' "$command_ref"
+  grep -q './bin/dev-policy' "$command_ref"
   grep -q './tools/atlas/bin/atlas release packet atlas-current --json' "$command_ref"
   grep -q './tools/atlas/bin/atlas reviewer package atlas-current-review' "$command_ref"
   grep -q './tools/atlas/bin/atlas web assess <url>' "$command_ref"
@@ -3594,6 +3698,8 @@ EOF
   [[ "$output" == *"atlas doctor"* ]]
   [[ "$output" == *"atlas v1 status"* ]]
   [[ "$output" == *"atlas production status [--strict] [--json] [--explain]"* ]]
+  [[ "$output" == *"atlas policy evaluate <capability> [--json] [--scope scope] [--approval status]"* ]]
+  [[ "$output" == *"atlas policy test [cases-file]"* ]]
   [[ "$output" == *"atlas reviewer package <name>"* ]]
   [[ "$output" == *"atlas release packet [packet-name]"* ]]
   [[ "$output" == *"atlas release packet [packet-name] [--json]"* ]]
@@ -3645,6 +3751,7 @@ EOF
   [[ "$output" == *"advisor:"* ]]
   [[ "$output" == *"v1:"* ]]
   [[ "$output" == *"production:"* ]]
+  [[ "$output" == *"policy:"* ]]
   [[ "$output" == *"reviewer:"* ]]
   [[ "$output" == *"release:"* ]]
   [[ "$output" == *"atlas release manifest [manifest-name] [--packet packet]"* ]]

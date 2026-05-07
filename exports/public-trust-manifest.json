@@ -29,6 +29,7 @@
     "exports/public-trust-manifest.json",
     "index.html",
     "lib/",
+    "policy/",
     "schemas/",
     "shell.nix",
     "tests/",
