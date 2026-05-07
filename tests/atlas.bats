@@ -16,6 +16,7 @@ setup() {
   chmod +x \
     "$TEST_ROOT/toolkit/bin/intelctl" \
     "$TEST_ROOT/toolkit/bin/labctl" \
+    "$TEST_ROOT/toolkit/bin/dev-adapters" \
     "$TEST_ROOT/toolkit/bin/dev-capabilities" \
     "$TEST_ROOT/toolkit/bin/dev-governance" \
     "$TEST_ROOT/toolkit/bin/dev-host-check" \
@@ -218,6 +219,90 @@ write_test_slsa_reference() {
   [ ! -e "$TEST_ROOT/toolkit/reports" ]
   [ ! -e "$TEST_ROOT/toolkit/sessions" ]
   [ ! -e "$TEST_ROOT/toolkit/shared" ]
+}
+
+@test "adapter registry defines import-only adapter plane" {
+  registry="$TEST_ROOT/toolkit/adapters/registry.yaml"
+  adapter_doc="$TEST_ROOT/toolkit/docs/governance/ADAPTER_REGISTRY.md"
+  capability_doc="$TEST_ROOT/toolkit/docs/governance/CAPABILITY_MODEL.md"
+  readme="$TEST_ROOT/toolkit/README.md"
+  docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
+  public_manifest="$TEST_ROOT/toolkit/exports/public-trust-manifest.json"
+
+  [ -f "$registry" ]
+  [ -f "$adapter_doc" ]
+
+  jq -e '
+    .version == 1 and
+    .default_mode == "import_only" and
+    .mutation_requires == ["capability", "policy", "approval", "evidence"] and
+    (.adapters | length == 6) and
+    all(.adapters[]; .mode == "import_only") and
+    all(.adapters[]; (.capabilities_used | type == "array" and length > 0)) and
+    all(.adapters[]; (.evidence_emitted | type == "array" and length > 0)) and
+    all(.adapters[]; . as $adapter | ($adapter.input_schema | startswith("adapters/" + $adapter.id + "/"))) and
+    all(.adapters[]; . as $adapter | ($adapter.output_schema | startswith("adapters/" + $adapter.id + "/"))) and
+    any(.adapters[]; .id == "github" and (.capabilities_used | index("atlas.release.verify"))) and
+    any(.adapters[]; .id == "agent-runtime" and (.capabilities_used | index("atlas.agent.tool.exec")))
+  ' "$registry"
+
+  for adapter in github generic-webhook scanner ticketing cloud agent-runtime; do
+    [ -f "$TEST_ROOT/toolkit/adapters/$adapter/README.md" ]
+    grep -q 'Status: import-only contract.' "$TEST_ROOT/toolkit/adapters/$adapter/README.md"
+  done
+
+  grep -q '^# Atlas Adapter Registry$' "$adapter_doc"
+  grep -q 'Adapters are import-only by default' "$adapter_doc"
+  grep -q 'Mutation requires capability + policy + approval + evidence' "$adapter_doc"
+  grep -q './bin/dev-adapters' "$adapter_doc"
+  grep -q 'does not add external API clients' "$adapter_doc"
+  grep -q 'M125 builds on it with an import-only adapter' "$capability_doc"
+
+  grep -q 'docs/governance/ADAPTER_REGISTRY.md' "$readme"
+  grep -q 'governance/ADAPTER_REGISTRY.md' "$docs_index"
+  jq -e '(.allow_paths | index("adapters/"))' "$public_manifest"
+
+  run "$TEST_ROOT/toolkit/bin/dev-adapters"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"adapters: ok"* ]]
+
+  run "$TEST_ROOT/toolkit/bin/dev-governance"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"capabilities: ok"* ]]
+  [[ "$output" == *"adapters: ok"* ]]
+  [[ "$output" == *"governance: ok"* ]]
+
+  duplicate_registry="$TEST_ROOT/duplicate-adapters.yaml"
+  jq '.adapters += [.adapters[0]]' "$registry" >"$duplicate_registry"
+  run "$TEST_ROOT/toolkit/bin/dev-adapters" "$duplicate_registry"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"adapters: fail duplicate id github"* ]]
+
+  mutate_registry="$TEST_ROOT/mutating-adapters.yaml"
+  jq '(.adapters[] | select(.id == "cloud") | .mode) = "mutate"' "$registry" >"$mutate_registry"
+  run "$TEST_ROOT/toolkit/bin/dev-adapters" "$mutate_registry"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"adapters: fail mutation requires capability policy approval evidence cloud mode mutate"* ]]
+
+  unknown_capability_registry="$TEST_ROOT/unknown-capability-adapters.yaml"
+  jq '(.adapters[] | select(.id == "scanner") | .capabilities_used) += ["atlas.unknown.capability"]' \
+    "$registry" >"$unknown_capability_registry"
+  run "$TEST_ROOT/toolkit/bin/dev-adapters" "$unknown_capability_registry"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"adapters: fail unknown capability scanner atlas.unknown.capability"* ]]
+
+  missing_evidence_registry="$TEST_ROOT/missing-evidence-adapters.yaml"
+  jq 'del(.adapters[] | select(.id == "ticketing") | .evidence_emitted)' "$registry" >"$missing_evidence_registry"
+  run "$TEST_ROOT/toolkit/bin/dev-adapters" "$missing_evidence_registry"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"adapters: fail missing evidence_emitted ticketing"* ]]
+
+  bad_schema_registry="$TEST_ROOT/bad-schema-adapters.yaml"
+  jq '(.adapters[] | select(.id == "github") | .input_schema) = "schemas/github-input.json"' \
+    "$registry" >"$bad_schema_registry"
+  run "$TEST_ROOT/toolkit/bin/dev-adapters" "$bad_schema_registry"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"adapters: fail schema path must live under adapter directory github"* ]]
 }
 
 @test "capability manifest defines machine-readable governance root" {
@@ -442,6 +527,7 @@ write_test_slsa_reference() {
   grep -q 'docs/REPOSITORY_BOUNDARY.md' "$readme"
   grep -q 'docs/ATLAS_ONE_PAGE.md' "$readme"
   grep -q 'docs/governance/CAPABILITY_MODEL.md' "$readme"
+  grep -q 'docs/governance/ADAPTER_REGISTRY.md' "$readme"
   grep -q 'docs/ops/PORTABILITY_CONTRACT.md' "$readme"
   grep -q 'docs/demo/DEMO_OPERATION.md' "$readme"
   grep -q 'docs/COMMAND_REFERENCE.md' "$readme"
@@ -491,6 +577,7 @@ write_test_slsa_reference() {
   grep -q 'Agent guidance' "$docs_index"
   grep -q 'REPOSITORY_BOUNDARY.md' "$docs_index"
   grep -q 'governance/CAPABILITY_MODEL.md' "$docs_index"
+  grep -q 'governance/ADAPTER_REGISTRY.md' "$docs_index"
   grep -q 'ops/PORTABILITY_CONTRACT.md' "$docs_index"
 
   grep -q '^# Atlas In One Page$' "$one_page"
