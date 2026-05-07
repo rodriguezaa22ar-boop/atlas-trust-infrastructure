@@ -16,6 +16,8 @@ setup() {
   chmod +x \
     "$TEST_ROOT/toolkit/bin/intelctl" \
     "$TEST_ROOT/toolkit/bin/labctl" \
+    "$TEST_ROOT/toolkit/bin/dev-capabilities" \
+    "$TEST_ROOT/toolkit/bin/dev-governance" \
     "$TEST_ROOT/toolkit/bin/dev-host-check" \
     "$TEST_ROOT/toolkit/bin/dev-portability" \
     "$TEST_ROOT/toolkit/bin/export-public-trust" \
@@ -218,6 +220,97 @@ write_test_slsa_reference() {
   [ ! -e "$TEST_ROOT/toolkit/shared" ]
 }
 
+@test "capability manifest defines machine-readable governance root" {
+  manifest="$TEST_ROOT/toolkit/capabilities.yaml"
+  schema="$TEST_ROOT/toolkit/schemas/capability.v1.schema.json"
+  capability_doc="$TEST_ROOT/toolkit/docs/governance/CAPABILITY_MODEL.md"
+  readme="$TEST_ROOT/toolkit/README.md"
+  docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
+  public_manifest="$TEST_ROOT/toolkit/exports/public-trust-manifest.json"
+
+  [ -f "$manifest" ]
+  [ -f "$schema" ]
+  [ -f "$capability_doc" ]
+
+  jq -e '
+    .version == 1 and
+    .default_mode == "deny" and
+    .generated_by == "atlas-governance" and
+    (.capabilities | length == 7) and
+    any(.capabilities[]; .id == "atlas.status.read" and .class == "read" and .approval == "none") and
+    any(.capabilities[]; .id == "atlas.production.verify" and .class == "verify" and .approval == "none") and
+    any(.capabilities[]; .id == "atlas.adapter.import" and .class == "import" and .approval == "none") and
+    any(.capabilities[]; .id == "atlas.agent.tool.exec" and .class == "bounded_exec" and .approval.type == "policy_threshold") and
+    all(.capabilities[]; (.evidence.emits | type == "array" and length > 0))
+  ' "$manifest"
+  jq -e '.title == "Atlas Capability Manifest v1"' "$schema"
+
+  grep -q '^# Atlas Capability Model$' "$capability_doc"
+  grep -q 'No meaningful ATLAS action exists unless it is named in capabilities.yaml' "$capability_doc"
+  grep -q './bin/dev-capabilities' "$capability_doc"
+  grep -q 'Mutating, bounded execution, and admin' "$capability_doc"
+  grep -q 'does not add a policy engine' "$capability_doc"
+
+  grep -q 'docs/governance/CAPABILITY_MODEL.md' "$readme"
+  grep -q 'governance/CAPABILITY_MODEL.md' "$docs_index"
+  jq -e '(.allow_paths | index("capabilities.yaml")) and (.allow_paths | index("schemas/"))' "$public_manifest"
+
+  run "$TEST_ROOT/toolkit/bin/dev-capabilities"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"capabilities: ok"* ]]
+
+  run "$TEST_ROOT/toolkit/bin/dev-governance"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"capabilities: ok"* ]]
+  [[ "$output" == *"Public Trust Export"* ]]
+  [[ "$output" == *"governance: ok"* ]]
+
+  duplicate_manifest="$TEST_ROOT/duplicate-capabilities.yaml"
+  jq '.capabilities += [.capabilities[0]]' "$manifest" >"$duplicate_manifest"
+  run "$TEST_ROOT/toolkit/bin/dev-capabilities" "$duplicate_manifest"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"capabilities: fail duplicate id atlas.status.read"* ]]
+
+  bounded_none_manifest="$TEST_ROOT/bounded-none-capabilities.yaml"
+  jq '(.capabilities[] | select(.id == "atlas.agent.tool.exec") | .approval) = "none"' \
+    "$manifest" >"$bounded_none_manifest"
+  run "$TEST_ROOT/toolkit/bin/dev-capabilities" "$bounded_none_manifest"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"capabilities: fail bounded_exec requires approval atlas.agent.tool.exec"* ]]
+
+  mutate_none_manifest="$TEST_ROOT/mutate-none-capabilities.yaml"
+  jq '.capabilities += [{
+    "id": "atlas.test.mutate",
+    "class": "mutate",
+    "system": "atlas",
+    "resources": ["state"],
+    "effects": ["write"],
+    "approval": "none",
+    "evidence": {"emits": ["decision"]}
+  }]' "$manifest" >"$mutate_none_manifest"
+  run "$TEST_ROOT/toolkit/bin/dev-capabilities" "$mutate_none_manifest"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"capabilities: fail mutate requires approval atlas.test.mutate"* ]]
+
+  missing_evidence_manifest="$TEST_ROOT/missing-evidence-capabilities.yaml"
+  jq 'del(.capabilities[0].evidence.emits)' "$manifest" >"$missing_evidence_manifest"
+  run "$TEST_ROOT/toolkit/bin/dev-capabilities" "$missing_evidence_manifest"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"capabilities: fail missing evidence.emits atlas.status.read"* ]]
+
+  allow_manifest="$TEST_ROOT/read-import-verify-none-capabilities.yaml"
+  jq '{
+    version,
+    default_mode,
+    generated_by,
+    capabilities: [
+      .capabilities[] | select(.id == "atlas.status.read" or .id == "atlas.production.verify" or .id == "atlas.adapter.import")
+    ]
+  }' "$manifest" >"$allow_manifest"
+  run "$TEST_ROOT/toolkit/bin/dev-capabilities" "$allow_manifest"
+  [ "$status" -eq 0 ]
+}
+
 @test "atlas production status strict is source-archive safe and read-only" {
   rm -rf \
     "$TEST_ROOT/toolkit/.git" \
@@ -348,6 +441,7 @@ write_test_slsa_reference() {
   grep -q 'docs/INDEX.md' "$readme"
   grep -q 'docs/REPOSITORY_BOUNDARY.md' "$readme"
   grep -q 'docs/ATLAS_ONE_PAGE.md' "$readme"
+  grep -q 'docs/governance/CAPABILITY_MODEL.md' "$readme"
   grep -q 'docs/ops/PORTABILITY_CONTRACT.md' "$readme"
   grep -q 'docs/demo/DEMO_OPERATION.md' "$readme"
   grep -q 'docs/COMMAND_REFERENCE.md' "$readme"
@@ -396,6 +490,7 @@ write_test_slsa_reference() {
   grep -q 'Milestones' "$docs_index"
   grep -q 'Agent guidance' "$docs_index"
   grep -q 'REPOSITORY_BOUNDARY.md' "$docs_index"
+  grep -q 'governance/CAPABILITY_MODEL.md' "$docs_index"
   grep -q 'ops/PORTABILITY_CONTRACT.md' "$docs_index"
 
   grep -q '^# Atlas In One Page$' "$one_page"

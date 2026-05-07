@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atlas.local/schemas/capability.v1.schema.json",
+  "title": "Atlas Capability Manifest v1",
+  "type": "object",
+  "required": [
+    "version",
+    "default_mode",
+    "generated_by",
+    "capabilities"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "integer",
+      "const": 1
+    },
+    "default_mode": {
+      "type": "string",
+      "const": "deny"
+    },
+    "generated_by": {
+      "type": "string",
+      "minLength": 1
+    },
+    "capabilities": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/capability"
+      }
+    }
+  },
+  "$defs": {
+    "capability": {
+      "type": "object",
+      "required": [
+        "id",
+        "class",
+        "system",
+        "resources",
+        "effects",
+        "approval",
+        "evidence"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$"
+        },
+        "class": {
+          "type": "string",
+          "enum": [
+            "read",
+            "import",
+            "verify",
+            "export",
+            "mutate",
+            "bounded_exec",
+            "admin"
+          ]
+        },
+        "system": {
+          "type": "string",
+          "minLength": 1
+        },
+        "resources": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "effects": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "constraints": {
+          "type": "object"
+        },
+        "approval": {
+          "oneOf": [
+            {
+              "type": "string",
+              "const": "none"
+            },
+            {
+              "type": "object",
+              "required": [
+                "type"
+              ],
+              "additionalProperties": true,
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "policy_threshold",
+                    "human",
+                    "change_control"
+                  ]
+                },
+                "threshold": {
+                  "type": "string",
+                  "enum": [
+                    "low",
+                    "medium",
+                    "high"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "evidence": {
+          "type": "object",
+          "required": [
+            "emits"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "emits": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+MANIFEST="${1:-$ROOT/capabilities.yaml}"
+
+fail() {
+  printf 'capabilities: fail %s\n' "$*" >&2
+  exit 1
+}
+
+require_command() {
+  command -v "$1" >/dev/null 2>&1 || fail "missing required command $1"
+}
+
+first_jq() {
+  jq -r "[$1][0] // empty" "$MANIFEST"
+}
+
+require_command jq
+require_command sort
+require_command uniq
+
+[ -f "$MANIFEST" ] || fail "missing capabilities.yaml"
+
+jq -e . "$MANIFEST" >/dev/null 2>&1 || fail "invalid capabilities.yaml JSON-compatible YAML"
+
+jq -e '.version == 1' "$MANIFEST" >/dev/null || fail "missing version"
+jq -e '.default_mode == "deny"' "$MANIFEST" >/dev/null || fail "default_mode must be deny"
+jq -e '.capabilities | type == "array" and length > 0' "$MANIFEST" >/dev/null || fail "missing capabilities"
+
+missing_id="$(first_jq '.capabilities[] | select((.id // "") == "") | "missing capability id"')"
+[ -z "$missing_id" ] || fail "$missing_id"
+
+duplicate_id="$(jq -r '.capabilities[].id' "$MANIFEST" | sort | uniq -d | head -n 1)"
+[ -z "$duplicate_id" ] || fail "duplicate id $duplicate_id"
+
+bad_class="$(
+  jq -r '
+    .capabilities[]
+    | . as $cap
+    | select((["read", "import", "verify", "export", "mutate", "bounded_exec", "admin"] | index($cap.class)) | not)
+    | "\($cap.id) class \($cap.class // "missing")"
+  ' "$MANIFEST" | head -n 1
+)"
+[ -z "$bad_class" ] || fail "unknown class $bad_class"
+
+missing_approval="$(first_jq '.capabilities[] | select(has("approval") | not) | .id')"
+[ -z "$missing_approval" ] || fail "missing approval $missing_approval"
+
+bad_approval="$(
+  jq -r '
+    .capabilities[]
+    | select(
+        ((.approval | type) == "string" and .approval != "none")
+        or ((.approval | type) == "object" and ((.approval.type // "") == ""))
+        or (((.approval | type) != "string") and ((.approval | type) != "object"))
+      )
+    | .id
+  ' "$MANIFEST" | head -n 1
+)"
+[ -z "$bad_approval" ] || fail "invalid approval $bad_approval"
+
+missing_evidence="$(first_jq '.capabilities[] | select((.evidence.emits | type) != "array" or (.evidence.emits | length) == 0) | .id')"
+[ -z "$missing_evidence" ] || fail "missing evidence.emits $missing_evidence"
+
+unsafe_approval="$(
+  jq -r '
+    .capabilities[]
+    | select((.class == "mutate" or .class == "bounded_exec" or .class == "admin") and .approval == "none")
+    | "\(.class) \(.id)"
+  ' "$MANIFEST" | head -n 1
+)"
+if [ -n "$unsafe_approval" ]; then
+  unsafe_class="${unsafe_approval%% *}"
+  unsafe_id="${unsafe_approval#* }"
+  fail "$unsafe_class requires approval $unsafe_id"
+fi
+
+printf 'capabilities: ok\n'
