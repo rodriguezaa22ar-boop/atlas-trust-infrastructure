@@ -83,8 +83,21 @@ TOOL_NAME="atlas"
 # shellcheck source=../lib/reviewer.sh
 . "$TOOL_DIR/lib/reviewer.sh"
 
+atlas_command_skips_layout() {
+	case "${1:-}" in
+	production)
+		case "${2:-status}" in
+		"" | status)
+			return 0
+			;;
+		esac
+		;;
+	esac
+
+	return 1
+}
+
 load_config
-ensure_layout
 
 WIREMAP_BIN="${LAB_ATLAS_WIREMAP_BIN:-$LAB_ROOT/tools/wiremap/bin/wiremap}"
 VECTOR_BIN="${LAB_ATLAS_VECTOR_BIN:-$LAB_ROOT/tools/vector/bin/vector}"
@@ -93,7 +106,10 @@ LABCTL_BIN="${LAB_ATLAS_LABCTL_BIN:-$LAB_ROOT/bin/labctl}"
 ATLAS_STATE_DIR="$LAB_STATE_DIR/atlas"
 ATLAS_ACTIVE_OP_FILE="$ATLAS_STATE_DIR/active.env"
 
-mkdir -p "$ATLAS_STATE_DIR"
+if ! atlas_command_skips_layout "$@"; then
+	ensure_layout
+	mkdir -p "$ATLAS_STATE_DIR"
+fi
 
 usage() {
 	cat <<'EOF'

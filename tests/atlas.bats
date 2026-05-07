@@ -44,6 +44,15 @@ make_repo_clean_and_synced() {
   fi
 }
 
+make_runtime_layout() {
+  mkdir -p \
+    "$TEST_ROOT/toolkit/logs" \
+    "$TEST_ROOT/toolkit/releases" \
+    "$TEST_ROOT/toolkit/reports" \
+    "$TEST_ROOT/toolkit/sessions" \
+    "$TEST_ROOT/toolkit/state/atlas"
+}
+
 write_test_slsa_reference() {
   local slsa_ref="$1"
   local release_commit="$2"
@@ -86,6 +95,38 @@ write_test_slsa_reference() {
       ],
       no_certification_overclaim: true
     }' >"$slsa_ref"
+}
+
+@test "atlas production status strict is source-archive safe and read-only" {
+  rm -rf \
+    "$TEST_ROOT/toolkit/.git" \
+    "$TEST_ROOT/toolkit/logs" \
+    "$TEST_ROOT/toolkit/releases" \
+    "$TEST_ROOT/toolkit/reports" \
+    "$TEST_ROOT/toolkit/sessions" \
+    "$TEST_ROOT/toolkit/state"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" production status --strict
+
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Atlas Production Readiness"* ]]
+  [[ "$output" == *"Commit: unknown"* ]]
+  [[ "$output" == *"Production Gates"* ]]
+  [[ "$output" == *"Repository Clean"* ]]
+  [[ "$output" == *"repository state is unknown"* ]]
+  [[ "$output" == *"Upstream Sync"* ]]
+  [[ "$output" == *"upstream sync state is no-upstream"* ]]
+  [[ "$output" == *"source archives cannot verify release packet freshness"* ]]
+  [[ "$output" == *"source archives cannot verify release artifact manifest freshness"* ]]
+  [[ "$output" == *"source archives cannot verify signed provenance freshness"* ]]
+  [[ "$output" == *"source archives cannot verify production dry-run freshness"* ]]
+  [[ "$output" == *"Overall: not-ready"* ]]
+
+  [ ! -e "$TEST_ROOT/toolkit/logs" ]
+  [ ! -e "$TEST_ROOT/toolkit/releases" ]
+  [ ! -e "$TEST_ROOT/toolkit/reports" ]
+  [ ! -e "$TEST_ROOT/toolkit/sessions" ]
+  [ ! -e "$TEST_ROOT/toolkit/state" ]
 }
 
 @test "root AGENTS guidance preserves Atlas agent safety contract" {
@@ -3845,6 +3886,7 @@ EOF
     "$TEST_ROOT/toolkit/docs/retention/releases/"*release-signing-public-key.asc \
     "$TEST_ROOT/toolkit/docs/retention/releases/"*.md \
     "$TEST_ROOT/toolkit/docs/retention/releases/"*.json
+  make_runtime_layout
   make_repo_clean_and_synced
 
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" production status

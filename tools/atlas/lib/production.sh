@@ -29,6 +29,12 @@ atlas_production_status_valid() {
   esac
 }
 
+atlas_production_commit_available() {
+  local commit="$1"
+
+  [ -n "$commit" ] && [ "$commit" != "unknown" ]
+}
+
 atlas_production_add_gate() {
   local key="$1"
   local label="$2"
@@ -173,6 +179,19 @@ atlas_production_check_release_packet() {
   fi
 
   commit="$(atlas_release_commit)"
+  if ! atlas_production_commit_available "$commit"; then
+    atlas_production_add_gate \
+      "release_trust_packet" \
+      "Release Trust Packet" \
+      1 \
+      "blocked" \
+      "current commit is unavailable; source archives cannot verify release packet freshness" \
+      "$latest_packet" \
+      "atlas release verify" \
+      "production promotion requires a Git checkout with the retained release commit available"
+    return 0
+  fi
+
   if atlas_release_verify_packet "$latest_packet" "$commit" >/dev/null 2>&1; then
     atlas_production_add_gate \
       "release_trust_packet" \
@@ -230,6 +249,19 @@ atlas_production_check_release_manifest() {
   fi
 
   commit="$(git -C "$LAB_ROOT" rev-parse HEAD 2>/dev/null || atlas_release_commit)"
+  if ! atlas_production_commit_available "$commit"; then
+    atlas_production_add_gate \
+      "release_artifact_manifest" \
+      "Release Artifact Manifest" \
+      1 \
+      "blocked" \
+      "current commit is unavailable; source archives cannot verify release artifact manifest freshness" \
+      "$latest_manifest" \
+      "atlas release manifest; atlas release manifest-verify" \
+      "production promotion requires a Git checkout with the retained release commit available"
+    return 0
+  fi
+
   if atlas_release_manifest_verify_packet "$latest_manifest" "$commit" >/dev/null 2>&1; then
     atlas_production_add_gate \
       "release_artifact_manifest" \
@@ -573,6 +605,19 @@ atlas_production_check_signing_provenance() {
   fi
 
   commit="$(git -C "$LAB_ROOT" rev-parse HEAD 2>/dev/null || atlas_release_commit)"
+  if ! atlas_production_commit_available "$commit"; then
+    atlas_production_add_gate \
+      "signing_provenance" \
+      "Signing And Provenance" \
+      1 \
+      "blocked" \
+      "current commit is unavailable; source archives cannot verify signed provenance freshness" \
+      "$latest_provenance" \
+      "git tag -v; atlas release verify; atlas production status" \
+      "production promotion requires a Git checkout with signed tags and retained commits available"
+    return 0
+  fi
+
   if atlas_production_release_provenance_valid "$latest_provenance" "$commit"; then
     atlas_production_add_gate \
       "signing_provenance" \
@@ -631,6 +676,19 @@ atlas_production_check_dry_run() {
   fi
 
   commit="$(atlas_release_commit)"
+  if ! atlas_production_commit_available "$commit"; then
+    atlas_production_add_gate \
+      "production_dry_run" \
+      "Production Dry Run" \
+      1 \
+      "blocked" \
+      "current commit is unavailable; source archives cannot verify production dry-run freshness" \
+      "$latest_note" \
+      "docs/retention/production/" \
+      "production promotion requires a Git checkout with the retained release commit available"
+    return 0
+  fi
+
   if atlas_production_dry_run_note_valid "$latest_note" "$commit"; then
     atlas_production_add_gate \
       "production_dry_run" \
