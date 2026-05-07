@@ -21,6 +21,7 @@ Public material may include:
 - trust model documentation
 - safety and responsible-use policy
 - schema contracts
+- capability manifests
 - command references
 - tests and validation scripts
 - metadata-only case studies

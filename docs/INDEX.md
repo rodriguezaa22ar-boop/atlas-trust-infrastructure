@@ -72,6 +72,11 @@ repository in filesystem order.
 - [atlas/BUSINESS_FLOW_EVIDENCE.md](atlas/BUSINESS_FLOW_EVIDENCE.md):
   metadata-only business-flow evidence design.
 
+## Governance
+
+- [governance/CAPABILITY_MODEL.md](governance/CAPABILITY_MODEL.md): M124
+  capability manifest model and validation gate.
+
 ## Release trust
 
 - [case-studies/CASE_STUDY_RELEASE_TRUST.md](case-studies/CASE_STUDY_RELEASE_TRUST.md):

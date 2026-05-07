@@ -1,0 +1,162 @@
+{
+  "version": 1,
+  "default_mode": "deny",
+  "generated_by": "atlas-governance",
+  "capabilities": [
+    {
+      "id": "atlas.status.read",
+      "class": "read",
+      "system": "atlas",
+      "resources": [
+        "runtime_status",
+        "readiness_status"
+      ],
+      "effects": [
+        "inspect"
+      ],
+      "approval": "none",
+      "evidence": {
+        "emits": [
+          "decision",
+          "status_result"
+        ]
+      }
+    },
+    {
+      "id": "atlas.production.verify",
+      "class": "verify",
+      "system": "atlas",
+      "resources": [
+        "production_status",
+        "release_packet",
+        "artifact_manifest",
+        "provenance"
+      ],
+      "effects": [
+        "verify"
+      ],
+      "approval": "none",
+      "evidence": {
+        "emits": [
+          "decision",
+          "verification_result",
+          "not_ready_reason"
+        ]
+      }
+    },
+    {
+      "id": "atlas.release.verify",
+      "class": "verify",
+      "system": "atlas",
+      "resources": [
+        "release_packet",
+        "retained_manifest",
+        "signed_tag"
+      ],
+      "effects": [
+        "verify"
+      ],
+      "approval": "none",
+      "evidence": {
+        "emits": [
+          "decision",
+          "manifest_ref",
+          "verification_result"
+        ]
+      }
+    },
+    {
+      "id": "atlas.public_export.check",
+      "class": "export",
+      "system": "atlas",
+      "resources": [
+        "public_trust_manifest",
+        "export_boundary"
+      ],
+      "effects": [
+        "check"
+      ],
+      "approval": "none",
+      "evidence": {
+        "emits": [
+          "decision",
+          "export_manifest_ref",
+          "boundary_result"
+        ]
+      }
+    },
+    {
+      "id": "atlas.host.check",
+      "class": "verify",
+      "system": "host_shell",
+      "resources": [
+        "required_tools",
+        "optional_tools",
+        "runtime_environment"
+      ],
+      "effects": [
+        "inspect"
+      ],
+      "approval": "none",
+      "evidence": {
+        "emits": [
+          "decision",
+          "host_check_result"
+        ]
+      }
+    },
+    {
+      "id": "atlas.adapter.import",
+      "class": "import",
+      "system": "generic_adapter",
+      "resources": [
+        "external_event",
+        "finding_feed",
+        "workflow_event"
+      ],
+      "effects": [
+        "ingest"
+      ],
+      "approval": "none",
+      "evidence": {
+        "emits": [
+          "decision",
+          "source_ref",
+          "artifact_hash"
+        ]
+      }
+    },
+    {
+      "id": "atlas.agent.tool.exec",
+      "class": "bounded_exec",
+      "system": "agent_runtime",
+      "resources": [
+        "approved_tool"
+      ],
+      "effects": [
+        "execute"
+      ],
+      "constraints": {
+        "approved_tools_only": true,
+        "network_egress": "deny_by_default",
+        "filesystem_write_scope": [
+          "./sandbox",
+          "./tmp",
+          "./state/atlas"
+        ]
+      },
+      "approval": {
+        "type": "policy_threshold",
+        "threshold": "medium"
+      },
+      "evidence": {
+        "emits": [
+          "decision",
+          "tool_ref",
+          "input_hash",
+          "output_hash"
+        ]
+      }
+    }
+  ]
+}

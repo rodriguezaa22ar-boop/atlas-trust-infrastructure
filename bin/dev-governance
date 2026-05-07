@@ -4,10 +4,7 @@ set -euo pipefail
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 
-"$ROOT/bin/dev-test"
-"$ROOT/bin/dev-lint"
 "$ROOT/bin/dev-capabilities"
-"$ROOT/bin/dev-portability"
-"$ROOT/bin/dev-stress"
+"$ROOT/bin/export-public-trust" --check
 
-printf 'qa: ok\n'
+printf 'governance: ok\n'
