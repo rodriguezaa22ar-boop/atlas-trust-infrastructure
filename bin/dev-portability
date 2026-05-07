@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+TMP_DIR=""
+
+cleanup() {
+  if [ -n "$TMP_DIR" ]; then
+    rm -rf "$TMP_DIR"
+  fi
+}
+trap cleanup EXIT
+
+run_readable_production_status() {
+  local root="$1"
+  local output
+
+  output="$(env LAB_ROOT="$root" "$root/tools/atlas/bin/atlas" production status --strict 2>&1)" || true
+  printf '%s\n' "$output" | grep -q 'Atlas Production Readiness'
+  printf '%s\n' "$output" | grep -q 'Overall:'
+  return 0
+}
+
+printf 'Atlas Portability Check\n'
+printf '\nHost Runtime\n'
+"$ROOT/bin/dev-host-check"
+
+printf '\nFull Clone Read-Only Checks\n'
+TMP_DIR="$(mktemp -d)"
+FULL_ROOT="$TMP_DIR/atlas-full"
+cp -R "$ROOT" "$FULL_ROOT"
+rm -rf \
+  "$FULL_ROOT/.tmp" \
+  "$FULL_ROOT/logs" \
+  "$FULL_ROOT/releases" \
+  "$FULL_ROOT/reports" \
+  "$FULL_ROOT/sessions" \
+  "$FULL_ROOT/shared" \
+  "$FULL_ROOT/state" \
+  "$FULL_ROOT/targets"
+
+env LAB_ROOT="$FULL_ROOT" "$FULL_ROOT/tools/atlas/bin/atlas" doctor >/dev/null
+env LAB_ROOT="$FULL_ROOT" "$FULL_ROOT/tools/atlas/bin/atlas" v1 status --strict >/dev/null
+run_readable_production_status "$FULL_ROOT"
+printf 'Full clone: ok\n'
+
+printf '\nSource Archive Read-Only Check\n'
+ARCHIVE_ROOT="$TMP_DIR/atlas-source"
+cp -R "$ROOT" "$ARCHIVE_ROOT"
+rm -rf \
+  "$ARCHIVE_ROOT/.git" \
+  "$ARCHIVE_ROOT/.tmp" \
+  "$ARCHIVE_ROOT/logs" \
+  "$ARCHIVE_ROOT/releases" \
+  "$ARCHIVE_ROOT/reports" \
+  "$ARCHIVE_ROOT/sessions" \
+  "$ARCHIVE_ROOT/shared" \
+  "$ARCHIVE_ROOT/state" \
+  "$ARCHIVE_ROOT/targets"
+
+run_readable_production_status "$ARCHIVE_ROOT"
+
+[ ! -e "$ARCHIVE_ROOT/logs" ]
+[ ! -e "$ARCHIVE_ROOT/releases" ]
+[ ! -e "$ARCHIVE_ROOT/reports" ]
+[ ! -e "$ARCHIVE_ROOT/sessions" ]
+[ ! -e "$ARCHIVE_ROOT/shared" ]
+[ ! -e "$ARCHIVE_ROOT/state" ]
+[ ! -e "$ARCHIVE_ROOT/targets" ]
+printf 'Source archive: ok\n'
+
+printf '\nOverall: ok\n'

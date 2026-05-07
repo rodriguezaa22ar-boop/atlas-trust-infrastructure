@@ -5,6 +5,12 @@
 Atlas is a local-first, shell-native trust control plane for authorized security
 workflows, evidence retention, release trust, and business-flow proof.
 
+This public repository is the reviewer and trust surface. The private
+`atlas-lab-toolkit` repository remains the implementation and operator runtime
+source. See [docs/REPOSITORY_BOUNDARY.md](docs/REPOSITORY_BOUNDARY.md) and
+`exports/public-trust-manifest.json` before adding files that might cross that
+boundary.
+
 Contributions should strengthen at least one of these properties:
 
 - scope enforcement
@@ -54,6 +60,8 @@ For focused checks:
 ```bash
 bash -n <changed-shell-file>
 git diff --check
+./bin/export-public-trust --check
+./bin/dev-host-check
 nix-shell --run './bin/dev-lint'
 nix-shell --run './bin/dev-test tests/atlas.bats'
 ```

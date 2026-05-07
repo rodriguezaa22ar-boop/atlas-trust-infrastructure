@@ -17,6 +17,9 @@ boundary, release evidence, business-flow evidence, and readiness language. The
 private `atlas-lab-toolkit` repository remains the implementation home for
 retained engineering context and operator runtime history.
 
+The public/private boundary is defined in [docs/REPOSITORY_BOUNDARY.md](docs/REPOSITORY_BOUNDARY.md)
+and enforced by `exports/public-trust-manifest.json`.
+
 `atlas` is the main operator control plane. It does not replace the domain
 tools; it coordinates them:
 
@@ -49,11 +52,7 @@ nix-shell
 ./tools/atlas/bin/atlas production status --strict
 ```
 
-Full local QA:
-
-```bash
-nix-shell --run './bin/dev-qa'
-```
+Full local QA: `nix-shell --run './bin/dev-qa'`
 
 ## Safety Boundary
 
@@ -81,12 +80,13 @@ retained release evidence verifies for the current retained release commit:
 Atlas has a SLSA-verifiable release artifact candidate path for GitHub-built
 artifacts: GitHub-hosted artifact attestation, official SLSA generic provenance,
 retained Atlas SLSA metadata, and verifier commands. This is not external audit,
-enterprise certification, SLSA certification, deployment certification,
-immutable storage, or tamper-proof infrastructure.
+enterprise certification, SLSA certification, deployment certification, immutable
+storage, or tamper-proof infrastructure.
 
 CodeQL is used as an automated code scanning signal for tracked public source.
 It does not replace manual review, external audit, runtime testing, or Atlas'
 own retained trust-packet verification.
+
 ## Top 10 Commands
 
 ```bash
@@ -106,9 +106,9 @@ own retained trust-packet verification.
 
 | Start Here | Purpose |
 | --- | --- |
-| [docs/INDEX.md](docs/INDEX.md) | Documentation map for new reviewers. |
+| [docs/INDEX.md](docs/INDEX.md) / [docs/REPOSITORY_BOUNDARY.md](docs/REPOSITORY_BOUNDARY.md) | Documentation map and public/private boundary. |
 | [docs/ATLAS_ONE_PAGE.md](docs/ATLAS_ONE_PAGE.md) | One-page Atlas explanation. |
-| [docs/OPERATOR_GUIDE.md](docs/OPERATOR_GUIDE.md) / [docs/ops/DUAL_NODE_COCKPIT.md](docs/ops/DUAL_NODE_COCKPIT.md) | End-to-end operator workflow and dual-node cockpit runbook. |
+| [docs/OPERATOR_GUIDE.md](docs/OPERATOR_GUIDE.md) / [docs/ops/DUAL_NODE_COCKPIT.md](docs/ops/DUAL_NODE_COCKPIT.md) / [docs/ops/PORTABILITY_CONTRACT.md](docs/ops/PORTABILITY_CONTRACT.md) | Operator workflow, dual-node cockpit, and portability contract. |
 | [docs/demo/DEMO_OPERATION.md](docs/demo/DEMO_OPERATION.md) | Synthetic metadata-only demo operation. |
 | [docs/COMMAND_REFERENCE.md](docs/COMMAND_REFERENCE.md) | Full command reference moved out of the README. |
 | [docs/TRUST_LIFECYCLE.md](docs/TRUST_LIFECYCLE.md) | Scope-to-release trust chain explanation. |

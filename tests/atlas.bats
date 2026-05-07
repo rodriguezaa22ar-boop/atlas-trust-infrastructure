@@ -16,6 +16,9 @@ setup() {
   chmod +x \
     "$TEST_ROOT/toolkit/bin/intelctl" \
     "$TEST_ROOT/toolkit/bin/labctl" \
+    "$TEST_ROOT/toolkit/bin/dev-host-check" \
+    "$TEST_ROOT/toolkit/bin/dev-portability" \
+    "$TEST_ROOT/toolkit/bin/export-public-trust" \
     "$TEST_ROOT/toolkit/lib/common.sh" \
     "$TEST_ROOT/toolkit/lib/intel.sh" \
     "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" \
@@ -100,6 +103,119 @@ write_test_slsa_reference() {
       ],
       no_certification_overclaim: true
     }' >"$slsa_ref"
+}
+
+@test "repository boundary and public manifest define export contract" {
+  boundary_doc="$TEST_ROOT/toolkit/docs/REPOSITORY_BOUNDARY.md"
+  manifest="$TEST_ROOT/toolkit/exports/public-trust-manifest.json"
+  agents_file="$TEST_ROOT/toolkit/AGENTS.md"
+  readme="$TEST_ROOT/toolkit/README.md"
+  contributing="$TEST_ROOT/toolkit/CONTRIBUTING.md"
+  docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
+
+  [ -f "$boundary_doc" ]
+  [ -f "$manifest" ]
+  grep -q '^# Atlas Repository Boundary$' "$boundary_doc"
+  grep -q 'atlas-lab-toolkit = private implementation and operator runtime source' "$boundary_doc"
+  grep -q 'atlas-trust-infrastructure = public trust and reviewer surface' "$boundary_doc"
+  grep -q 'bin/export-public-trust --check' "$boundary_doc"
+  grep -q 'deterministic' "$boundary_doc"
+  grep -q 'raw packet captures' "$boundary_doc"
+  grep -q 'host-specific lab identifiers' "$boundary_doc"
+
+  jq -e '
+    .schema_version == "atlas.public_trust_manifest.v1" and
+    .metadata_only == true and
+    .repositories.private.name == "atlas-lab-toolkit" and
+    .repositories.public.name == "atlas-trust-infrastructure" and
+    (.allow_paths | index("docs/")) and
+    (.allow_paths | index("exports/public-trust-manifest.json")) and
+    (.forbidden_paths | index("sessions/")) and
+    (.forbidden_paths | index("state/")) and
+    (.private_markers | index("ATLAS_PRIVATE_LAB_HOST=")) and
+    .validation.check_command == "./bin/export-public-trust --check"
+  ' "$manifest"
+
+  grep -q 'public trust and reviewer' "$agents_file"
+  grep -q 'surface for Atlas' "$agents_file"
+  grep -q 'docs/REPOSITORY_BOUNDARY.md' "$agents_file"
+  ! grep -q 'This repository contains `atlas-lab-toolkit`' "$agents_file"
+
+  grep -q 'docs/REPOSITORY_BOUNDARY.md' "$readme"
+  grep -q 'exports/public-trust-manifest.json' "$readme"
+  grep -q 'docs/REPOSITORY_BOUNDARY.md' "$contributing"
+  grep -q 'REPOSITORY_BOUNDARY.md' "$docs_index"
+
+  run "$TEST_ROOT/toolkit/bin/export-public-trust" --check
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Public Trust Export"* ]]
+  [[ "$output" == *"Manifest: ok"* ]]
+  [[ "$output" == *"Mode: check"* ]]
+  [[ "$output" == *"Overall: ok"* ]]
+
+  printf 'ATLAS_PRIVATE_LAB_HOST=private-node\n' >"$TEST_ROOT/toolkit/docs/private-marker-fixture.md"
+  run "$TEST_ROOT/toolkit/bin/export-public-trust" --check
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Private markers found in public files"* ]]
+  rm -f "$TEST_ROOT/toolkit/docs/private-marker-fixture.md"
+
+  mkdir -p "$TEST_ROOT/toolkit/private"
+  printf 'private runtime state\n' >"$TEST_ROOT/toolkit/private/state.txt"
+  run "$TEST_ROOT/toolkit/bin/export-public-trust" --check
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Forbidden public paths"* ]]
+}
+
+@test "portability contract covers host Nix source archive and supported systems" {
+  portability_doc="$TEST_ROOT/toolkit/docs/ops/PORTABILITY_CONTRACT.md"
+  host_doc="$TEST_ROOT/toolkit/docs/ops/HOST_SHELL_RUNTIME.md"
+  nix_doc="$TEST_ROOT/toolkit/docs/ops/NIX_REFERENCE_ENVIRONMENT.md"
+  supported_doc="$TEST_ROOT/toolkit/docs/ops/SUPPORTED_SYSTEMS.md"
+  containers_doc="$TEST_ROOT/toolkit/containers/README.md"
+  containerfile="$TEST_ROOT/toolkit/containers/Containerfile.verify"
+
+  [ -f "$portability_doc" ]
+  [ -f "$host_doc" ]
+  [ -f "$nix_doc" ]
+  [ -f "$supported_doc" ]
+  [ -f "$containers_doc" ]
+  [ -f "$containerfile" ]
+
+  grep -q 'ATLAS runs anywhere practical' "$portability_doc"
+  grep -q 'Nix proves it' "$portability_doc"
+  grep -q 'NixOS' "$portability_doc"
+  grep -q 'generic Linux' "$portability_doc"
+  grep -q 'macOS' "$portability_doc"
+  grep -q 'WSL' "$portability_doc"
+  grep -q 'container' "$portability_doc"
+  grep -q 'CI runner' "$portability_doc"
+  grep -q 'source archive' "$portability_doc"
+  grep -q 'full Git clone' "$portability_doc"
+  grep -q './bin/dev-host-check' "$host_doc"
+  grep -q "nix-shell --run './bin/dev-qa'" "$nix_doc"
+  grep -q '| source archive | read-only not-ready report |' "$supported_doc"
+  grep -q 'Containerfile.verify' "$containers_doc"
+
+  run "$TEST_ROOT/toolkit/bin/dev-host-check"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Atlas Host Runtime Check"* ]]
+  [[ "$output" == *"Required Dependencies"* ]]
+  [[ "$output" == *"Optional Dependencies"* ]]
+  [[ "$output" == *"Required Missing: 0"* ]]
+  [[ "$output" == *"Overall: ok"* ]]
+
+  run "$TEST_ROOT/toolkit/bin/dev-portability"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Atlas Portability Check"* ]]
+  [[ "$output" == *"Full clone: ok"* ]]
+  [[ "$output" == *"Source archive: ok"* ]]
+  [[ "$output" == *"Overall: ok"* ]]
+
+  [ ! -e "$TEST_ROOT/toolkit/logs" ]
+  [ ! -e "$TEST_ROOT/toolkit/releases" ]
+  [ ! -e "$TEST_ROOT/toolkit/reports" ]
+  [ ! -e "$TEST_ROOT/toolkit/sessions" ]
+  [ ! -e "$TEST_ROOT/toolkit/shared" ]
 }
 
 @test "atlas production status strict is source-archive safe and read-only" {
@@ -230,7 +346,9 @@ write_test_slsa_reference() {
   grep -q '^## Top 10 Commands$' "$readme"
   grep -q '^## Docs Map$' "$readme"
   grep -q 'docs/INDEX.md' "$readme"
+  grep -q 'docs/REPOSITORY_BOUNDARY.md' "$readme"
   grep -q 'docs/ATLAS_ONE_PAGE.md' "$readme"
+  grep -q 'docs/ops/PORTABILITY_CONTRACT.md' "$readme"
   grep -q 'docs/demo/DEMO_OPERATION.md' "$readme"
   grep -q 'docs/COMMAND_REFERENCE.md' "$readme"
   grep -q 'docs/TRUST_LIFECYCLE.md' "$readme"
@@ -277,6 +395,8 @@ write_test_slsa_reference() {
   grep -q 'atlas/BUSINESS_FLOW_EVIDENCE.md' "$docs_index"
   grep -q 'Milestones' "$docs_index"
   grep -q 'Agent guidance' "$docs_index"
+  grep -q 'REPOSITORY_BOUNDARY.md' "$docs_index"
+  grep -q 'ops/PORTABILITY_CONTRACT.md' "$docs_index"
 
   grep -q '^# Atlas In One Page$' "$one_page"
   grep -q 'What Is Atlas?' "$one_page"

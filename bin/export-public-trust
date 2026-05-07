@@ -1,0 +1,220 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+MANIFEST="$ROOT/exports/public-trust-manifest.json"
+MODE="summary"
+OUT_DIR=""
+
+usage() {
+  cat <<'USAGE'
+Usage:
+  bin/export-public-trust [--check]
+  bin/export-public-trust --out <dir>
+
+Validate the public trust manifest and optionally copy allowed public files to
+an export directory.
+USAGE
+}
+
+fail() {
+  printf 'export-public-trust: %s\n' "$*" >&2
+  exit 1
+}
+
+require_command() {
+  command -v "$1" >/dev/null 2>&1 || fail "missing required command: $1"
+}
+
+path_matches_entry() {
+  local path="$1"
+  local entry="$2"
+
+  if [[ "$entry" == */ ]]; then
+    [[ "$path" == "$entry"* ]]
+  else
+    [[ "$path" == "$entry" ]]
+  fi
+}
+
+path_in_list() {
+  local path="$1"
+  shift
+  local entry
+
+  for entry in "$@"; do
+    if path_matches_entry "$path" "$entry"; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+list_repo_files() {
+  if git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    git -C "$ROOT" ls-files --cached --others --exclude-standard
+  else
+    (
+      cd "$ROOT"
+      find . \
+        -path './.git' -prune -o \
+        -path './.tmp' -prune -o \
+        -path './logs' -prune -o \
+        -path './releases' -prune -o \
+        -path './reports' -prune -o \
+        -path './sessions' -prune -o \
+        -path './shared' -prune -o \
+        -path './state' -prune -o \
+        -path './targets' -prune -o \
+        -type f -print | sed 's#^\./##'
+    )
+  fi
+}
+
+validate_manifest() {
+  jq -e '
+    .schema_version == "atlas.public_trust_manifest.v1" and
+    .metadata_only == true and
+    .repositories.private.name == "atlas-lab-toolkit" and
+    .repositories.public.name == "atlas-trust-infrastructure" and
+    (.allow_paths | type == "array" and length > 0) and
+    (.forbidden_paths | type == "array" and length > 0) and
+    (.private_markers | type == "array") and
+    ((.marker_exempt_paths // []) | type == "array")
+  ' "$MANIFEST" >/dev/null
+}
+
+safe_output_dir() {
+  local out="$1"
+  local out_abs
+
+  mkdir -p "$out"
+  out_abs="$(cd -- "$out" && pwd)"
+
+  [[ "$out_abs" != "$ROOT" ]] || fail "output directory cannot be repository root"
+  if [[ "$out_abs" == "$ROOT"/* && "$out_abs" != "$ROOT/.tmp/"* && "$out_abs" != "$ROOT/.tmp" ]]; then
+    fail "output directory inside repository must be under .tmp/"
+  fi
+
+  printf '%s\n' "$out_abs"
+}
+
+copy_export() {
+  local out="$1"
+  shift
+  local file
+
+  for file in "$@"; do
+    mkdir -p "$out/$(dirname -- "$file")"
+    cp -p "$ROOT/$file" "$out/$file"
+  done
+}
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --check)
+      MODE="check"
+      shift
+      ;;
+    --out)
+      [ "$#" -ge 2 ] || fail "--out requires a directory"
+      MODE="export"
+      OUT_DIR="$2"
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      fail "unknown argument: $1"
+      ;;
+  esac
+done
+
+require_command jq
+require_command git
+require_command find
+require_command sed
+require_command cp
+require_command mkdir
+
+[ -f "$MANIFEST" ] || fail "missing manifest: $MANIFEST"
+validate_manifest
+
+mapfile -t allow_paths < <(jq -r '.allow_paths[]' "$MANIFEST")
+mapfile -t forbidden_paths < <(jq -r '.forbidden_paths[]' "$MANIFEST")
+mapfile -t private_markers < <(jq -r '.private_markers[]' "$MANIFEST")
+mapfile -t marker_exempt_paths < <(jq -r '.marker_exempt_paths[]?' "$MANIFEST")
+mapfile -t repo_files < <(list_repo_files | LC_ALL=C sort)
+
+bad_paths=()
+unknown_paths=()
+bad_markers=()
+allowed_files=()
+
+for file in "${repo_files[@]}"; do
+  [ -n "$file" ] || continue
+
+  if path_in_list "$file" "${forbidden_paths[@]}"; then
+    bad_paths+=("$file")
+    continue
+  fi
+
+  if ! path_in_list "$file" "${allow_paths[@]}"; then
+    unknown_paths+=("$file")
+    continue
+  fi
+
+  allowed_files+=("$file")
+done
+
+for marker in "${private_markers[@]}"; do
+  [ -n "$marker" ] || continue
+  for file in "${allowed_files[@]}"; do
+    if path_in_list "$file" "${marker_exempt_paths[@]}"; then
+      continue
+    fi
+    if grep -I -n -F -- "$marker" "$ROOT/$file" >/dev/null 2>&1; then
+      bad_markers+=("$file: $marker")
+    fi
+  done
+done
+
+if [ "${#bad_paths[@]}" -gt 0 ]; then
+  printf 'Forbidden public paths:\n' >&2
+  printf -- '- %s\n' "${bad_paths[@]}" >&2
+  exit 1
+fi
+
+if [ "${#unknown_paths[@]}" -gt 0 ]; then
+  printf 'Paths not declared in public trust manifest:\n' >&2
+  printf -- '- %s\n' "${unknown_paths[@]}" >&2
+  exit 1
+fi
+
+if [ "${#bad_markers[@]}" -gt 0 ]; then
+  printf 'Private markers found in public files:\n' >&2
+  printf -- '- %s\n' "${bad_markers[@]}" >&2
+  exit 1
+fi
+
+if [ "$MODE" = "export" ]; then
+  out_abs="$(safe_output_dir "$OUT_DIR")"
+  copy_export "$out_abs" "${allowed_files[@]}"
+fi
+
+printf 'Public Trust Export\n'
+printf 'Manifest: ok\n'
+printf 'Allowed files: %s\n' "${#allowed_files[@]}"
+printf 'Forbidden paths: 0\n'
+printf 'Private markers: 0\n'
+if [ "$MODE" = "export" ]; then
+  printf 'Output: %s\n' "$out_abs"
+elif [ "$MODE" = "check" ]; then
+  printf 'Mode: check\n'
+else
+  printf 'Mode: summary\n'
+fi
+printf 'Overall: ok\n'
