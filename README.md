@@ -108,7 +108,7 @@ own retained trust-packet verification.
 | --- | --- |
 | [docs/INDEX.md](docs/INDEX.md) | Documentation map for new reviewers. |
 | [docs/ATLAS_ONE_PAGE.md](docs/ATLAS_ONE_PAGE.md) | One-page Atlas explanation. |
-| [docs/OPERATOR_GUIDE.md](docs/OPERATOR_GUIDE.md) | End-to-end operator workflow. |
+| [docs/OPERATOR_GUIDE.md](docs/OPERATOR_GUIDE.md) / [docs/ops/DUAL_NODE_COCKPIT.md](docs/ops/DUAL_NODE_COCKPIT.md) | End-to-end operator workflow and dual-node cockpit runbook. |
 | [docs/demo/DEMO_OPERATION.md](docs/demo/DEMO_OPERATION.md) | Synthetic metadata-only demo operation. |
 | [docs/COMMAND_REFERENCE.md](docs/COMMAND_REFERENCE.md) | Full command reference moved out of the README. |
 | [docs/TRUST_LIFECYCLE.md](docs/TRUST_LIFECYCLE.md) | Scope-to-release trust chain explanation. |

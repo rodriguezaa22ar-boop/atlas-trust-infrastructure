@@ -41,6 +41,8 @@ valid only when:
 
 - every required gate is `ready`
 - `counts.required_not_ready` is `0`
+- the command is running in a Git checkout where the current and retained
+  release commits can be resolved
 - release trust packet verification is current
 - release artifact manifest verification is current
 - production contract documentation exists

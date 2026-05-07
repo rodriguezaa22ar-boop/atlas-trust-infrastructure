@@ -7,9 +7,9 @@ Atlas v1 Internal RC from a separate lab node. The goal is to confirm that a
 reviewer can clone the public repository, fetch tags, run the local Atlas
 verification path, inspect retained evidence, generate a reviewer package, and
 see the current RC as production-ready under the local Atlas contract.
-It also records the terminal-first HP-to-Surface cockpit validation boundary:
-a human operator drove the review commands from an HP-controlled shell toward a
-separate Surface/lab node context. Atlas records the metadata-only evidence
+It also records the terminal-first dual-node cockpit validation boundary: a
+human operator drove review commands from a cockpit/control node toward a
+separate builder/lab node context. Atlas records the metadata-only evidence
 path; it does not operate the lab or autonomously control the dual-node setup.
 
 This is a metadata-only review record. It is not external audit, not
@@ -59,13 +59,13 @@ release verification commands still pass.
 
 The cockpit validation was terminal-first and operator-driven:
 
-- HP-controlled shell/SSH/tmux context: command and review control plane
-- Surface/lab node context: clean clone and reviewer command execution context
+- Cockpit-controlled shell/SSH/tmux context: command and review control plane
+- Builder/lab node context: clean clone and reviewer command execution context
 - Atlas role: metadata-only command surface and retained evidence verifier
 
 This validation demonstrates a reproducible external-review path across a
 separate lab node. It does not claim that Atlas operates the lab, controls the
-Surface node, provides runtime safety, proves production deployment readiness,
+builder node, provides runtime safety, proves production deployment readiness,
 or replaces an external reviewer. If local operation state named
 `atlas-dual-node-cockpit` has been generated, reviewers may inspect it with:
 
@@ -276,7 +276,7 @@ The lab node clean clone validation passed:
 - `atlas release slsa-verify`: passed
 - `atlas reviewer package`: passed with `metadata_only=true` and
   `raw_artifacts_embedded=false`
-- HP-to-Surface terminal-first cockpit validation: documented as an
+- Dual-node terminal-first cockpit validation: documented as an
   operator-driven, metadata-only dual-node review path
 - temporary-keyring RC tag verification: passed with retained public key
 
@@ -295,8 +295,8 @@ The lab node clean clone validation passed:
   may correctly report `not-ready` when the current checkout does not match the
   retained release evidence.
 - The dual-node cockpit validation is an operator-driven terminal workflow. It
-  does not mean Atlas operated the HP host, Surface host, SSH session, tmux
-  session, network, or lab environment.
+  does not mean Atlas operated the cockpit host, builder host, SSH session,
+  tmux session, network, or lab environment.
 - The reviewer package is metadata-only and does not embed raw runtime
   evidence.
 - This validation does not inspect private customer environments, live targets,

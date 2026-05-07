@@ -24,6 +24,11 @@ atlas production status --strict --explain
 The command is read-only. It does not create packets, mutate operations, or
 write ledger events.
 
+When run from a source archive or other non-Git checkout, the command must
+still print a readable `not-ready` status before exiting nonzero. Git-dependent
+freshness gates remain blocked because the current commit, retained commits,
+and signed tags cannot be verified without a Git checkout.
+
 Default text output is for operators. JSON output uses schema
 `atlas.production_readiness.v1` so later CI, release, dashboard, or provenance
 work can consume the same contract.

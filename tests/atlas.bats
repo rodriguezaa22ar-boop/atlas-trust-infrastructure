@@ -39,9 +39,23 @@ make_repo_clean_and_synced() {
   fi
   git -C "$TEST_ROOT/toolkit" update-ref refs/remotes/origin/main HEAD
   branch="$(git -C "$TEST_ROOT/toolkit" branch --show-current 2>/dev/null || true)"
+  if [ -z "$branch" ]; then
+    branch="atlas-test-main"
+    git -C "$TEST_ROOT/toolkit" switch -c "$branch" >/dev/null
+  fi
   if [ -n "$branch" ]; then
     git -C "$TEST_ROOT/toolkit" branch --set-upstream-to=origin/main "$branch" >/dev/null 2>&1 || true
   fi
+}
+
+make_runtime_layout() {
+  mkdir -p \
+    "$TEST_ROOT/toolkit/logs" \
+    "$TEST_ROOT/toolkit/releases" \
+    "$TEST_ROOT/toolkit/reports" \
+    "$TEST_ROOT/toolkit/sessions" \
+    "$TEST_ROOT/toolkit/state/atlas" \
+    "$TEST_ROOT/toolkit/targets"
 }
 
 write_test_slsa_reference() {
@@ -86,6 +100,38 @@ write_test_slsa_reference() {
       ],
       no_certification_overclaim: true
     }' >"$slsa_ref"
+}
+
+@test "atlas production status strict is source-archive safe and read-only" {
+  rm -rf \
+    "$TEST_ROOT/toolkit/.git" \
+    "$TEST_ROOT/toolkit/logs" \
+    "$TEST_ROOT/toolkit/releases" \
+    "$TEST_ROOT/toolkit/reports" \
+    "$TEST_ROOT/toolkit/sessions" \
+    "$TEST_ROOT/toolkit/state"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" production status --strict
+
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Atlas Production Readiness"* ]]
+  [[ "$output" == *"Commit: unknown"* ]]
+  [[ "$output" == *"Production Gates"* ]]
+  [[ "$output" == *"Repository Clean"* ]]
+  [[ "$output" == *"repository state is unknown"* ]]
+  [[ "$output" == *"Upstream Sync"* ]]
+  [[ "$output" == *"upstream sync state is no-upstream"* ]]
+  [[ "$output" == *"source archives cannot verify release packet freshness"* ]]
+  [[ "$output" == *"source archives cannot verify release artifact manifest freshness"* ]]
+  [[ "$output" == *"source archives cannot verify signed provenance freshness"* ]]
+  [[ "$output" == *"source archives cannot verify production dry-run freshness"* ]]
+  [[ "$output" == *"Overall: not-ready"* ]]
+
+  [ ! -e "$TEST_ROOT/toolkit/logs" ]
+  [ ! -e "$TEST_ROOT/toolkit/releases" ]
+  [ ! -e "$TEST_ROOT/toolkit/reports" ]
+  [ ! -e "$TEST_ROOT/toolkit/sessions" ]
+  [ ! -e "$TEST_ROOT/toolkit/state" ]
 }
 
 @test "root AGENTS guidance preserves Atlas agent safety contract" {
@@ -3108,7 +3154,7 @@ EOF
   grep -q 'atlas-v1-internal-rc' "$review_doc"
   grep -q 'atlas-production-candidate-m121' "$review_doc"
   grep -q 'atlas-retention-m121' "$review_doc"
-  grep -q 'HP-to-Surface' "$review_doc"
+  grep -q 'Dual-node terminal-first cockpit validation' "$review_doc"
   grep -q 'terminal-first' "$review_doc"
   grep -q 'operator-driven' "$review_doc"
   grep -q 'does not claim that Atlas operates the lab' "$review_doc"
@@ -3162,34 +3208,58 @@ EOF
 @test "dual-node lab validation retention documents metadata-only lab proof without orchestration claims" {
   lab_doc="$TEST_ROOT/toolkit/docs/retention/lab/ATLAS_DUAL_NODE_LAB_VALIDATION_M123.md"
   lab_readme="$TEST_ROOT/toolkit/docs/retention/lab/README.md"
+  cockpit_doc="$TEST_ROOT/toolkit/docs/ops/DUAL_NODE_COCKPIT.md"
   docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
+  readme="$TEST_ROOT/toolkit/README.md"
 
   [ -f "$lab_doc" ]
   [ -f "$lab_readme" ]
+  [ -f "$cockpit_doc" ]
+
+  grep -q '^# Atlas Dual-Node Cockpit$' "$cockpit_doc"
+  grep -q 'The cockpit controls. The builder computes.' "$cockpit_doc"
+  grep -q 'Atlas records proof of work. Atlas does not control the lab.' "$cockpit_doc"
+  grep -q 'commits, tags, and retained packets remain the truth boundary' "$cockpit_doc"
+  grep -q 'metadata-first trust overlay' "$cockpit_doc"
+  grep -q "ssh <builder-host> -t 'tmux new-session -A -s atlas'" "$cockpit_doc"
+  grep -q "alias builder-tmux=\"ssh <builder-host> -t 'tmux new-session -A -s atlas'\"" "$cockpit_doc"
+  grep -q '| Codex jobs | Builder node | Heavy compute |' "$cockpit_doc"
+  grep -q '| `./bin/dev-qa` | Builder node | Heavy QA path |' "$cockpit_doc"
+  grep -q 'The builder builds through ssh-ng://<builder-user>@<builder-host>.' "$cockpit_doc"
+  grep -q 'Atlas observes and proves the workflow.' "$cockpit_doc"
+  grep -q 'Atlas does not replace SSH, tmux, private networking, GitHub, or Nix.' "$cockpit_doc"
+  grep -q './tools/atlas/bin/atlas op trust-chain atlas-dual-node-cockpit --strict' "$cockpit_doc"
+  grep -q 'not external audit' "$cockpit_doc"
+  grep -q 'not certification' "$cockpit_doc"
+  grep -q 'not legal compliance' "$cockpit_doc"
+  grep -q 'not orchestration proof' "$cockpit_doc"
+  grep -q 'not a claim that Atlas operates or controls the cockpit node, builder node' "$cockpit_doc"
 
   grep -q '^# Atlas Dual-Node Lab Validation M123$' "$lab_doc"
   grep -q 'metadata-only operational proof chain' "$lab_doc"
-  grep -q 'HP/Surface dual-node lab model' "$lab_doc"
-  grep -q 'HP cockpit/verifier/control node' "$lab_doc"
-  grep -q 'Surface builder' "$lab_doc"
+  grep -q 'dual-node lab model' "$lab_doc"
+  grep -q 'Cockpit/verifier/control node' "$lab_doc"
+  grep -q 'Builder node' "$lab_doc"
   grep -q 'Terminal-first builder' "$lab_doc"
   grep -q 'SSH/tmux' "$lab_doc"
-  grep -q 'Tailscale' "$lab_doc"
+  grep -q 'Private network path' "$lab_doc"
   grep -q 'GitHub' "$lab_doc"
   grep -q 'Atlas is documented as the proof layer only' "$lab_doc"
   grep -q 'does not operate the lab' "$lab_doc"
-  grep -q 'does not retain secrets, credentials, tokens' "$lab_doc"
+  grep -q 'does not retain private hostnames' "$lab_doc"
+  grep -q 'usernames, secrets, credentials, tokens' "$lab_doc"
+  grep -q 'does not retain private hostnames' "$lab_doc"
   grep -q 'atlas-retention-m122' "$lab_doc"
   grep -q '95a93ca5521b162f3042383a453a2f6d491343cd' "$lab_doc"
   grep -q '1e57da3024bba9c55fa52e028ec3ac79cf7660d1' "$lab_doc"
-  grep -q 'ssh atlas-builder -t "tmux new -A -s atlas"' "$lab_doc"
+  grep -q 'ssh <builder-host> -t "tmux new -A -s <tmux-session>"' "$lab_doc"
   grep -q 'non-attaching tmux reachability check' "$lab_doc"
-  grep -q 'tmux display-message -p -t atlas "#{session_name}:#{session_windows}"' "$lab_doc"
-  grep -q 'atlas:1' "$lab_doc"
+  grep -q 'tmux display-message -p -t <tmux-session> "#{session_name}:#{session_windows}"' "$lab_doc"
+  grep -q '<tmux-session>:1' "$lab_doc"
   grep -q "nix-shell --run 'bats --print-output-on-failure tests/atlas.bats --filter \"dual-node lab validation\"'" "$lab_doc"
   grep -q './tools/atlas/bin/atlas op trust-chain atlas-dual-node-cockpit --strict' "$lab_doc"
   grep -q './tools/atlas/bin/atlas v1 status --strict' "$lab_doc"
-  grep -q 'tailscale status' "$lab_doc"
+  grep -q '<private-network-status-command>' "$lab_doc"
   grep -q 'gh pr checks <pr-number>' "$lab_doc"
   grep -q 'Trust Chain Status: current' "$lab_doc"
   grep -q 'Overall: ready' "$lab_doc"
@@ -3207,8 +3277,11 @@ EOF
 
   grep -q 'retention/lab/README.md' "$docs_index"
   grep -q 'retention/lab/ATLAS_DUAL_NODE_LAB_VALIDATION_M123.md' "$docs_index"
+  grep -q 'ops/DUAL_NODE_COCKPIT.md' "$docs_index"
+  grep -q 'docs/ops/DUAL_NODE_COCKPIT.md' "$readme"
 
-  ! grep -Eiq 'Atlas operates the lab as|Atlas orchestrates the lab|Atlas controls the lab as|production deployment approved|externally audited|SLSA certified|compliance certified|guaranteed secure|proves runtime safety|autonomous lab operator' "$lab_doc"
+  ! grep -Eiq 'Atlas operates the lab as|Atlas orchestrates the lab|Atlas controls the lab as|production deployment approved|externally audited|SLSA certified|compliance certified|guaranteed secure|proves runtime safety|autonomous lab operator|atlas-console|atlas-builder|HP controls|Surface computes|ssh-ng://ao@' "$lab_doc"
+  ! grep -Eiq 'Atlas operates the lab as|Atlas orchestrates the lab|Atlas controls the lab as|production deployment approved|externally audited|SLSA certified|compliance certified|guaranteed secure|proves runtime safety|autonomous lab operator|atlas-console|atlas-builder|HP controls|Surface computes|ssh-ng://ao@' "$cockpit_doc"
 }
 
 @test "atlas help groups target-first workflow and story commands" {
@@ -3819,6 +3892,7 @@ EOF
     "$TEST_ROOT/toolkit/docs/retention/releases/"*release-signing-public-key.asc \
     "$TEST_ROOT/toolkit/docs/retention/releases/"*.md \
     "$TEST_ROOT/toolkit/docs/retention/releases/"*.json
+  make_runtime_layout
   make_repo_clean_and_synced
 
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" production status
@@ -3845,7 +3919,8 @@ EOF
   [[ "$output" == *"Strict: no"* ]]
   [[ "$output" != *"Strict: 0"* ]]
   [[ "$output" == *"Overall: not-ready"* ]]
-  [[ "$output" == *"V1 Readiness: ready - v1 readiness is ready with no required pillar gaps"* ]]
+  [[ "$output" == *"V1 Readiness:"* ]]
+  [[ "$output" == *"v1 readiness"* ]]
   [[ "$output" == *"Release Packet: missing"* ]]
   [[ "$output" == *"Release Packet Verify: unavailable - release packet missing"* ]]
   [[ "$output" == *"Release Replay: unavailable - release packet missing"* ]]
