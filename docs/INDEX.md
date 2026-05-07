@@ -16,6 +16,7 @@ repository in filesystem order.
 
 - New reader: [ATLAS_ONE_PAGE.md](ATLAS_ONE_PAGE.md)
 - Security operator: [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md)
+- Lab operator: [ops/DUAL_NODE_COCKPIT.md](ops/DUAL_NODE_COCKPIT.md)
 - Business owner: [atlas/BUSINESS_FLOW_EVIDENCE.md](atlas/BUSINESS_FLOW_EVIDENCE.md)
 - Release reviewer: [RELEASE_TRUST.md](RELEASE_TRUST.md)
 - SLSA reviewer: [atlas/SLSA_CLAIM.md](atlas/SLSA_CLAIM.md)
@@ -26,6 +27,8 @@ repository in filesystem order.
 ## Operator workflow
 
 - [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md): end-to-end operator workflow.
+- [ops/DUAL_NODE_COCKPIT.md](ops/DUAL_NODE_COCKPIT.md): standard HP/Surface
+  cockpit compute split and proof boundary.
 - [COMMAND_REFERENCE.md](COMMAND_REFERENCE.md): detailed command reference.
 - [WEB_ASSESSMENT.md](WEB_ASSESSMENT.md): bounded `atlas web assess` workflow.
 - [demo/README.md](demo/README.md): demo directory entry point and boundary.

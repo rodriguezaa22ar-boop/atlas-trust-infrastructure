@@ -3162,10 +3162,33 @@ EOF
 @test "dual-node lab validation retention documents metadata-only lab proof without orchestration claims" {
   lab_doc="$TEST_ROOT/toolkit/docs/retention/lab/ATLAS_DUAL_NODE_LAB_VALIDATION_M123.md"
   lab_readme="$TEST_ROOT/toolkit/docs/retention/lab/README.md"
+  cockpit_doc="$TEST_ROOT/toolkit/docs/ops/DUAL_NODE_COCKPIT.md"
   docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
+  readme="$TEST_ROOT/toolkit/README.md"
 
   [ -f "$lab_doc" ]
   [ -f "$lab_readme" ]
+  [ -f "$cockpit_doc" ]
+
+  grep -q '^# Atlas Dual-Node Cockpit$' "$cockpit_doc"
+  grep -q 'HP controls. Surface computes.' "$cockpit_doc"
+  grep -q 'Atlas records proof of work. Atlas does not control the lab.' "$cockpit_doc"
+  grep -q 'GitHub commits, tags, and retained' "$cockpit_doc"
+  grep -q 'packets remain the truth boundary' "$cockpit_doc"
+  grep -q 'metadata-first trust overlay' "$cockpit_doc"
+  grep -q "ssh atlas-builder -t 'tmux new-session -A -s atlas'" "$cockpit_doc"
+  grep -q "alias atlas-tmux=\"ssh atlas-builder -t 'tmux new-session -A -s atlas'\"" "$cockpit_doc"
+  grep -q '| Codex jobs | Surface / `atlas-builder` | Heavy compute |' "$cockpit_doc"
+  grep -q '| `./bin/dev-qa` | Surface | Heavy QA path |' "$cockpit_doc"
+  grep -q 'Surface builds through ssh-ng://ao@atlas-builder.' "$cockpit_doc"
+  grep -q 'Atlas observes and proves the workflow.' "$cockpit_doc"
+  grep -q 'Atlas does not replace SSH, tmux, Tailscale, GitHub, or Nix.' "$cockpit_doc"
+  grep -q './tools/atlas/bin/atlas op trust-chain atlas-dual-node-cockpit --strict' "$cockpit_doc"
+  grep -q 'not external audit' "$cockpit_doc"
+  grep -q 'not certification' "$cockpit_doc"
+  grep -q 'not legal compliance' "$cockpit_doc"
+  grep -q 'not orchestration proof' "$cockpit_doc"
+  grep -q 'not a claim that Atlas operates or controls HP, Surface, SSH, tmux' "$cockpit_doc"
 
   grep -q '^# Atlas Dual-Node Lab Validation M123$' "$lab_doc"
   grep -q 'metadata-only operational proof chain' "$lab_doc"
@@ -3207,8 +3230,11 @@ EOF
 
   grep -q 'retention/lab/README.md' "$docs_index"
   grep -q 'retention/lab/ATLAS_DUAL_NODE_LAB_VALIDATION_M123.md' "$docs_index"
+  grep -q 'ops/DUAL_NODE_COCKPIT.md' "$docs_index"
+  grep -q 'docs/ops/DUAL_NODE_COCKPIT.md' "$readme"
 
   ! grep -Eiq 'Atlas operates the lab as|Atlas orchestrates the lab|Atlas controls the lab as|production deployment approved|externally audited|SLSA certified|compliance certified|guaranteed secure|proves runtime safety|autonomous lab operator' "$lab_doc"
+  ! grep -Eiq 'Atlas operates the lab as|Atlas orchestrates the lab|Atlas controls the lab as|production deployment approved|externally audited|SLSA certified|compliance certified|guaranteed secure|proves runtime safety|autonomous lab operator' "$cockpit_doc"
 }
 
 @test "atlas help groups target-first workflow and story commands" {
