@@ -39,6 +39,10 @@ make_repo_clean_and_synced() {
   fi
   git -C "$TEST_ROOT/toolkit" update-ref refs/remotes/origin/main HEAD
   branch="$(git -C "$TEST_ROOT/toolkit" branch --show-current 2>/dev/null || true)"
+  if [ -z "$branch" ]; then
+    branch="atlas-test-main"
+    git -C "$TEST_ROOT/toolkit" switch -c "$branch" >/dev/null
+  fi
   if [ -n "$branch" ]; then
     git -C "$TEST_ROOT/toolkit" branch --set-upstream-to=origin/main "$branch" >/dev/null 2>&1 || true
   fi
@@ -50,7 +54,8 @@ make_runtime_layout() {
     "$TEST_ROOT/toolkit/releases" \
     "$TEST_ROOT/toolkit/reports" \
     "$TEST_ROOT/toolkit/sessions" \
-    "$TEST_ROOT/toolkit/state/atlas"
+    "$TEST_ROOT/toolkit/state/atlas" \
+    "$TEST_ROOT/toolkit/targets"
 }
 
 write_test_slsa_reference() {
