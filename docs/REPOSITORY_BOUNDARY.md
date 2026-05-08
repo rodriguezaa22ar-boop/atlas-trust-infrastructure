@@ -24,6 +24,7 @@ Public material may include:
 - capability manifests
 - adapter registry contracts
 - policy contracts and policy test fixtures
+- approval workflow contracts and approval event schemas
 - command references
 - tests and validation scripts
 - metadata-only case studies

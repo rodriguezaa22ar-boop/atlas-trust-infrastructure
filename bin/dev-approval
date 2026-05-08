@@ -1,0 +1,197 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+WORKFLOWS="${1:-$ROOT/approval/workflows.yaml}"
+SCHEMA="$ROOT/schemas/approval-event.v1.schema.json"
+ATLAS="$ROOT/tools/atlas/bin/atlas"
+
+fail() {
+  printf 'approval: fail %s\n' "$*" >&2
+  exit 1
+}
+
+require_command() {
+  command -v "$1" >/dev/null 2>&1 || fail "missing required command $1"
+}
+
+first_jq() {
+  jq -r "[$1][0] // empty" "$WORKFLOWS"
+}
+
+require_command jq
+require_command grep
+require_command sort
+require_command uniq
+
+[ -f "$WORKFLOWS" ] || fail "missing approval/workflows.yaml"
+[ -f "$SCHEMA" ] || fail "missing schemas/approval-event.v1.schema.json"
+[ -x "$ATLAS" ] || fail "missing atlas CLI"
+
+jq -e . "$WORKFLOWS" >/dev/null 2>&1 || fail "invalid workflows JSON-compatible YAML"
+jq -e . "$SCHEMA" >/dev/null 2>&1 || fail "invalid approval event schema JSON"
+
+jq -e '
+  .schema_version == "atlas.approval_workflows.v1" and
+  .version == 1 and
+  .metadata_only == true and
+  .default_mode == "approval_required"
+' "$WORKFLOWS" >/dev/null || fail "invalid approval workflow header"
+
+jq -e '
+  .required_event_fields == [
+    "requester",
+    "capability",
+    "risk",
+    "scope",
+    "approver",
+    "expiry",
+    "rationale",
+    "rollback_plan",
+    "evidence_refs"
+  ]
+' "$WORKFLOWS" >/dev/null || fail "required event fields changed"
+
+jq -e '.approval_states == ["requested", "approved", "expired"]' "$WORKFLOWS" >/dev/null ||
+  fail "approval states changed"
+jq -e '.workflows | type == "array" and length > 0' "$WORKFLOWS" >/dev/null ||
+  fail "missing workflows"
+
+duplicate_id="$(jq -r '.workflows[].id' "$WORKFLOWS" | sort | uniq -d | head -n 1)"
+[ -z "$duplicate_id" ] || fail "duplicate workflow id $duplicate_id"
+
+missing_field="$(
+  first_jq '
+    .workflows[]
+    | select(
+        ((.id // "") == "")
+        or ((.applies_to_classes | type) != "array")
+        or ((.applies_to_classes | length) == 0)
+        or ((.min_risk // "") == "")
+        or (.approval_required != true)
+        or (.approver_required != true)
+        or (.expiry_required != true)
+        or (.rationale_required != true)
+        or (.rollback_plan_required != true)
+        or (.evidence_refs_required != true)
+        or (.changed_diff_requires_reapproval != true)
+        or ((.owner // "") == "")
+      )
+    | .id // "unnamed"
+  '
+)"
+[ -z "$missing_field" ] || fail "missing required workflow field $missing_field"
+
+unknown_class="$(
+  jq -r '
+    [
+      .workflows[]
+      | . as $workflow
+      | $workflow.applies_to_classes[]
+      | select((["bounded_exec", "mutate", "admin"] | index(.)) | not)
+      | "\($workflow.id) \(.)"
+    ][0] // empty
+  ' "$WORKFLOWS"
+)"
+[ -z "$unknown_class" ] || fail "unknown workflow class $unknown_class"
+
+bad_risk="$(
+  # shellcheck disable=SC2016 # jq program must receive $workflow, not shell-expanded text.
+  first_jq '
+    .workflows[]
+    | . as $workflow
+    | select((["low", "medium", "high", "critical"] | index($workflow.min_risk)) | not)
+    | "\($workflow.id) \($workflow.min_risk // "missing")"
+  '
+)"
+[ -z "$bad_risk" ] || fail "unknown workflow risk $bad_risk"
+
+jq -e '
+  any(.workflows[]; (.applies_to_classes | index("bounded_exec"))) and
+  any(.workflows[]; (.applies_to_classes | index("admin")))
+' "$WORKFLOWS" >/dev/null || fail "missing bounded_exec or admin workflow"
+
+jq -e '
+  .title == "Atlas Approval Event v1" and
+  (.required | index("requester")) and
+  (.required | index("capability")) and
+  (.required | index("risk")) and
+  (.required | index("scope")) and
+  (.required | index("approver")) and
+  (.required | index("expiry")) and
+  (.required | index("rationale")) and
+  (.required | index("rollback_plan")) and
+  (.required | index("evidence_refs"))
+' "$SCHEMA" >/dev/null || fail "approval event schema missing required fields"
+
+event="$(
+  "$ATLAS" approval request atlas.agent.tool.exec \
+    --scope agent-runtime \
+    --risk medium \
+    --requester atlas-dev \
+    --approver reviewer \
+    --expiry 2026-12-31T00:00:00Z \
+    --rationale "bounded tool execution request" \
+    --rollback-plan "remove generated sandbox output" \
+    --evidence-ref policy/tests/decisions.v1.json \
+    --json
+)" || fail "approval request command failed"
+
+printf '%s\n' "$event" | jq -e '
+  .schema_version == "atlas.approval_event.v1" and
+  .event_type == "approval_requested" and
+  .metadata_only == true and
+  .capability == "atlas.agent.tool.exec" and
+  .capability_class == "bounded_exec" and
+  .workflow == "policy-threshold-human-review" and
+  .risk == "medium" and
+  .status == "requested" and
+  .policy_decision.decision == "approval_required" and
+  (.evidence_refs | length == 1)
+' >/dev/null || fail "approval request output invalid"
+
+if ! verify_output="$(printf '%s\n' "$event" | "$ATLAS" approval verify - 2>&1)"; then
+  verify_output="${verify_output#error: }"
+  fail "$verify_output"
+fi
+[ "$verify_output" = "approval: ok" ] || fail "unexpected approval verify output $verify_output"
+
+expired_event="$(
+  printf '%s\n' "$event" |
+    "$ATLAS" approval expire - --reason "approval window closed" --actor atlas-dev --json
+)" || fail "approval expire command failed"
+
+printf '%s\n' "$expired_event" | jq -e '
+  .schema_version == "atlas.approval_event.v1" and
+  .event_type == "approval_expired" and
+  .status == "expired" and
+  .expired_by == "atlas-dev" and
+  .expire_reason == "approval window closed" and
+  (.original_event_id | length > 0)
+' >/dev/null || fail "approval expire output invalid"
+
+if ! verify_expired_output="$(printf '%s\n' "$expired_event" | "$ATLAS" approval verify - 2>&1)"; then
+  verify_expired_output="${verify_expired_output#error: }"
+  fail "$verify_expired_output"
+fi
+[ "$verify_expired_output" = "approval: ok" ] || fail "unexpected expired approval verify output $verify_expired_output"
+
+if output="$("$ATLAS" approval request atlas.status.read \
+  --scope runtime \
+  --risk low \
+  --requester atlas-dev \
+  --approver reviewer \
+  --expiry 2026-12-31T00:00:00Z \
+  --rationale "read status" \
+  --rollback-plan "none" \
+  --evidence-ref policy/tests/decisions.v1.json \
+  --json 2>&1)"; then
+  fail "read capability unexpectedly required approval"
+else
+  output="${output#error: }"
+  [ "$output" = "approval not required for atlas.status.read" ] ||
+    fail "unexpected read approval output $output"
+fi
+
+printf 'approval: ok\n'

@@ -17,6 +17,7 @@ setup() {
     "$TEST_ROOT/toolkit/bin/intelctl" \
     "$TEST_ROOT/toolkit/bin/labctl" \
     "$TEST_ROOT/toolkit/bin/dev-adapters" \
+    "$TEST_ROOT/toolkit/bin/dev-approval" \
     "$TEST_ROOT/toolkit/bin/dev-capabilities" \
     "$TEST_ROOT/toolkit/bin/dev-governance" \
     "$TEST_ROOT/toolkit/bin/dev-host-check" \
@@ -133,6 +134,7 @@ write_test_slsa_reference() {
     .repositories.private.name == "atlas-lab-toolkit" and
     .repositories.public.name == "atlas-trust-infrastructure" and
     (.allow_paths | index("docs/")) and
+    (.allow_paths | index("approval/")) and
     (.allow_paths | index("policy/")) and
     (.allow_paths | index("exports/public-trust-manifest.json")) and
     (.forbidden_paths | index("sessions/")) and
@@ -274,6 +276,7 @@ write_test_slsa_reference() {
   [[ "$output" == *"capabilities: ok"* ]]
   [[ "$output" == *"adapters: ok"* ]]
   [[ "$output" == *"policy: ok"* ]]
+  [[ "$output" == *"approval: ok"* ]]
   [[ "$output" == *"governance: ok"* ]]
 
   duplicate_registry="$TEST_ROOT/duplicate-adapters.yaml"
@@ -344,7 +347,7 @@ write_test_slsa_reference() {
   grep -q '^# Atlas Policy Plane$' "$policy_doc"
   grep -q 'Required decisions' "$policy_doc"
   grep -q './bin/dev-policy' "$policy_doc"
-  grep -q 'does not add an approval workflow' "$policy_doc"
+  grep -q 'M127 builds on this policy contract' "$policy_doc"
   grep -q 'host-runtime implementation' "$policy_doc"
   grep -q 'M126 adds a policy decision contract' "$capability_doc"
 
@@ -361,6 +364,7 @@ write_test_slsa_reference() {
   [[ "$output" == *"capabilities: ok"* ]]
   [[ "$output" == *"adapters: ok"* ]]
   [[ "$output" == *"policy: ok"* ]]
+  [[ "$output" == *"approval: ok"* ]]
   [[ "$output" == *"governance: ok"* ]]
 
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" policy evaluate atlas.status.read --json
@@ -402,6 +406,171 @@ write_test_slsa_reference() {
   run "$TEST_ROOT/toolkit/bin/dev-policy" "$bad_cases"
   [ "$status" -ne 0 ]
   [[ "$output" == *"policy: fail policy case 'read allowed' expected deny got allow"* ]]
+}
+
+@test "approval plane emits verifies and expires metadata-only approval events" {
+  workflows="$TEST_ROOT/toolkit/approval/workflows.yaml"
+  approval_schema="$TEST_ROOT/toolkit/schemas/approval-event.v1.schema.json"
+  approval_doc="$TEST_ROOT/toolkit/docs/governance/APPROVAL_PLANE.md"
+  capability_doc="$TEST_ROOT/toolkit/docs/governance/CAPABILITY_MODEL.md"
+  policy_doc="$TEST_ROOT/toolkit/docs/governance/POLICY_PLANE.md"
+  adapter_doc="$TEST_ROOT/toolkit/docs/governance/ADAPTER_REGISTRY.md"
+  readme="$TEST_ROOT/toolkit/README.md"
+  docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
+  public_manifest="$TEST_ROOT/toolkit/exports/public-trust-manifest.json"
+
+  [ -f "$workflows" ]
+  [ -f "$approval_schema" ]
+  [ -f "$approval_doc" ]
+
+  jq -e '
+    .schema_version == "atlas.approval_workflows.v1" and
+    .metadata_only == true and
+    .default_mode == "approval_required" and
+    .required_event_fields == [
+      "requester",
+      "capability",
+      "risk",
+      "scope",
+      "approver",
+      "expiry",
+      "rationale",
+      "rollback_plan",
+      "evidence_refs"
+    ] and
+    .approval_states == ["requested", "approved", "expired"] and
+    any(.workflows[]; .id == "policy-threshold-human-review" and (.applies_to_classes | index("bounded_exec"))) and
+    any(.workflows[]; .id == "admin-breakglass-review" and (.applies_to_classes | index("admin"))) and
+    all(.workflows[]; .approval_required == true and .expiry_required == true and .rollback_plan_required == true and .evidence_refs_required == true and .changed_diff_requires_reapproval == true)
+  ' "$workflows"
+
+  jq -e '
+    .title == "Atlas Approval Event v1" and
+    (.required | index("requester")) and
+    (.required | index("capability")) and
+    (.required | index("risk")) and
+    (.required | index("scope")) and
+    (.required | index("approver")) and
+    (.required | index("expiry")) and
+    (.required | index("rationale")) and
+    (.required | index("rollback_plan")) and
+    (.required | index("evidence_refs"))
+  ' "$approval_schema"
+
+  grep -q '^# Atlas Approval Plane$' "$approval_doc"
+  grep -q 'M127 adds the first approval workflow contract' "$approval_doc"
+  grep -q 'metadata-only' "$approval_doc"
+  grep -q './bin/dev-approval' "$approval_doc"
+  grep -q 'does not add an evidence ledger' "$approval_doc"
+  grep -q 'operation-specific `approval grant`' "$approval_doc"
+  grep -q 'adds approval workflow metadata' "$capability_doc"
+  grep -q 'M127 builds on this policy contract' "$policy_doc"
+  grep -q 'record the human-review metadata' "$adapter_doc"
+
+  grep -q 'docs/governance/APPROVAL_PLANE.md' "$readme"
+  grep -q 'governance/APPROVAL_PLANE.md' "$docs_index"
+  jq -e '(.allow_paths | index("approval/")) and (.allow_paths | index("schemas/"))' "$public_manifest"
+
+  run "$TEST_ROOT/toolkit/bin/dev-approval"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"approval: ok"* ]]
+
+  run "$TEST_ROOT/toolkit/bin/dev-governance"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"capabilities: ok"* ]]
+  [[ "$output" == *"adapters: ok"* ]]
+  [[ "$output" == *"policy: ok"* ]]
+  [[ "$output" == *"approval: ok"* ]]
+  [[ "$output" == *"governance: ok"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" approval request atlas.agent.tool.exec \
+    --scope agent-runtime \
+    --risk medium \
+    --requester atlas-tests \
+    --approver reviewer \
+    --expiry 2026-12-31T00:00:00Z \
+    --rationale "bounded tool execution request" \
+    --rollback-plan "remove generated sandbox output" \
+    --evidence-ref policy/tests/decisions.v1.json \
+    --json
+  [ "$status" -eq 0 ]
+  event="$output"
+  echo "$event" | jq -e '
+    .schema_version == "atlas.approval_event.v1" and
+    .event_type == "approval_requested" and
+    .metadata_only == true and
+    .requester == "atlas-tests" and
+    .capability == "atlas.agent.tool.exec" and
+    .capability_class == "bounded_exec" and
+    .workflow == "policy-threshold-human-review" and
+    .risk == "medium" and
+    .scope.value == "agent-runtime" and
+    .approver == "reviewer" and
+    .expiry == "2026-12-31T00:00:00Z" and
+    .rationale == "bounded tool execution request" and
+    .rollback_plan == "remove generated sandbox output" and
+    (.evidence_refs | index("policy/tests/decisions.v1.json")) and
+    .status == "requested" and
+    .policy_decision.decision == "approval_required"
+  '
+
+  event_id="$(echo "$event" | jq -r '.event_id')"
+  event_file="$TEST_ROOT/approval-event.json"
+  printf '%s\n' "$event" >"$event_file"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" approval verify "$event_file"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"approval: ok"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" approval verify "$event_file" --json
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.schema_version == "atlas.approval_verify.v1" and .status == "ok" and .approval_status == "requested"'
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" approval expire "$event_file" --reason "window closed" --actor atlas-tests --json
+  [ "$status" -eq 0 ]
+  expired="$output"
+  echo "$expired" | jq -e --arg event_id "$event_id" '
+    .schema_version == "atlas.approval_event.v1" and
+    .event_type == "approval_expired" and
+    .status == "expired" and
+    .original_event_id == $event_id and
+    .expired_by == "atlas-tests" and
+    .expire_reason == "window closed"
+  '
+
+  printf '%s\n' "$expired" >"$TEST_ROOT/approval-expired-event.json"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" approval verify "$TEST_ROOT/approval-expired-event.json"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"approval: ok"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" approval request atlas.status.read \
+    --scope runtime \
+    --risk low \
+    --requester atlas-tests \
+    --approver reviewer \
+    --expiry 2026-12-31T00:00:00Z \
+    --rationale "read status" \
+    --rollback-plan "none" \
+    --evidence-ref policy/tests/decisions.v1.json \
+    --json
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"approval not required for atlas.status.read"* ]]
+
+  bad_workflows="$TEST_ROOT/bad-approval-workflows.yaml"
+  jq '(.workflows[] | select(.id == "policy-threshold-human-review") | .evidence_refs_required) = false' "$workflows" >"$bad_workflows"
+  run "$TEST_ROOT/toolkit/bin/dev-approval" "$bad_workflows"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"approval: fail missing required workflow field policy-threshold-human-review"* ]]
+
+  bad_event="$TEST_ROOT/bad-approval-event.json"
+  jq 'del(.evidence_refs)' "$event_file" >"$bad_event"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" approval verify "$bad_event"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"invalid approval event fields"* ]]
+
+  [ ! -e "$TEST_ROOT/toolkit/state" ]
+  [ ! -e "$TEST_ROOT/toolkit/sessions" ]
+  [ ! -e "$TEST_ROOT/toolkit/reports" ]
 }
 
 @test "capability manifest defines machine-readable governance root" {
@@ -447,6 +616,7 @@ write_test_slsa_reference() {
   [ "$status" -eq 0 ]
   [[ "$output" == *"capabilities: ok"* ]]
   [[ "$output" == *"policy: ok"* ]]
+  [[ "$output" == *"approval: ok"* ]]
   [[ "$output" == *"Public Trust Export"* ]]
   [[ "$output" == *"governance: ok"* ]]
 
@@ -629,6 +799,7 @@ write_test_slsa_reference() {
   grep -q 'docs/governance/CAPABILITY_MODEL.md' "$readme"
   grep -q 'docs/governance/ADAPTER_REGISTRY.md' "$readme"
   grep -q 'docs/governance/POLICY_PLANE.md' "$readme"
+  grep -q 'docs/governance/APPROVAL_PLANE.md' "$readme"
   grep -q 'docs/ops/PORTABILITY_CONTRACT.md' "$readme"
   grep -q 'docs/demo/DEMO_OPERATION.md' "$readme"
   grep -q 'docs/COMMAND_REFERENCE.md' "$readme"
@@ -680,6 +851,7 @@ write_test_slsa_reference() {
   grep -q 'governance/CAPABILITY_MODEL.md' "$docs_index"
   grep -q 'governance/ADAPTER_REGISTRY.md' "$docs_index"
   grep -q 'governance/POLICY_PLANE.md' "$docs_index"
+  grep -q 'governance/APPROVAL_PLANE.md' "$docs_index"
   grep -q 'ops/PORTABILITY_CONTRACT.md' "$docs_index"
 
   grep -q '^# Atlas In One Page$' "$one_page"
@@ -693,6 +865,8 @@ write_test_slsa_reference() {
   grep -q './tools/atlas/bin/atlas production status --strict --explain' "$command_ref"
   grep -q './tools/atlas/bin/atlas policy evaluate atlas.status.read' "$command_ref"
   grep -q './bin/dev-policy' "$command_ref"
+  grep -q './bin/dev-approval' "$command_ref"
+  grep -q './tools/atlas/bin/atlas approval request atlas.agent.tool.exec' "$command_ref"
   grep -q './tools/atlas/bin/atlas release packet atlas-current --json' "$command_ref"
   grep -q './tools/atlas/bin/atlas reviewer package atlas-current-review' "$command_ref"
   grep -q './tools/atlas/bin/atlas web assess <url>' "$command_ref"
@@ -3700,6 +3874,9 @@ EOF
   [[ "$output" == *"atlas production status [--strict] [--json] [--explain]"* ]]
   [[ "$output" == *"atlas policy evaluate <capability> [--json] [--scope scope] [--approval status]"* ]]
   [[ "$output" == *"atlas policy test [cases-file]"* ]]
+  [[ "$output" == *"atlas approval request <capability> --scope scope --risk risk"* ]]
+  [[ "$output" == *"atlas approval verify <event-file|-> [--json]"* ]]
+  [[ "$output" == *"atlas approval expire <event-file|-> --reason text"* ]]
   [[ "$output" == *"atlas reviewer package <name>"* ]]
   [[ "$output" == *"atlas release packet [packet-name]"* ]]
   [[ "$output" == *"atlas release packet [packet-name] [--json]"* ]]

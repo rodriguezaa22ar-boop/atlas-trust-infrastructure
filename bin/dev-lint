@@ -16,6 +16,7 @@ shellcheck -x \
 	"$ROOT/bin/dev-fmt" \
 	"$ROOT/bin/dev-test" \
 	"$ROOT/bin/dev-adapters" \
+	"$ROOT/bin/dev-approval" \
 	"$ROOT/bin/dev-capabilities" \
 	"$ROOT/bin/dev-policy" \
 	"$ROOT/bin/dev-governance" \

@@ -61,9 +61,10 @@ bounded execution capabilities.
 ## Current Boundary
 
 M124 defines the authority list. M125 builds on it with an import-only adapter
-registry. M126 adds a policy decision contract for these capabilities.
+registry. M126 adds a policy decision contract for these capabilities. M127
+adds approval workflow metadata for capability classes that policy gates.
 
-These milestones do not add an approval workflow, evidence ledger, web UI, or
-agent execution runtime.
+These milestones do not add an evidence ledger, web UI, or agent execution
+runtime.
 
 Those layers build on this manifest in later milestones.

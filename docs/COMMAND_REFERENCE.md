@@ -18,6 +18,7 @@ nix-shell
 ./bin/dev-test
 ./bin/dev-stress
 ./bin/dev-policy
+./bin/dev-approval
 ./bin/dev-qa
 nix-shell --run './bin/dev-qa'
 ```
@@ -62,6 +63,9 @@ nix-shell --run './bin/dev-qa'
 ./tools/atlas/bin/atlas policy evaluate atlas.status.read
 ./tools/atlas/bin/atlas policy evaluate atlas.agent.tool.exec --json
 ./tools/atlas/bin/atlas policy test
+./tools/atlas/bin/atlas approval request atlas.agent.tool.exec --scope agent-runtime --risk medium --requester operator --approver reviewer --expiry 2026-12-31T00:00:00Z --rationale "bounded tool execution request" --rollback-plan "remove generated sandbox output" --evidence-ref policy/tests/decisions.v1.json --json
+./tools/atlas/bin/atlas approval verify approval-event.json
+./tools/atlas/bin/atlas approval expire approval-event.json --reason "window closed" --json
 ./tools/atlas/bin/atlas reviewer package atlas-current-review
 ./tools/atlas/bin/atlas release packet atlas-current --qa-status pass
 ./tools/atlas/bin/atlas release packet atlas-current --json --operation april-review --qa-status pass
