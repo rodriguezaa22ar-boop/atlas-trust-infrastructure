@@ -23,6 +23,111 @@ atlas_evidence_hash_path() {
   sha256sum "$path" | awk '{ print $1 }'
 }
 
+atlas_evidence_envelope_hash_json() {
+  local json="$1"
+
+  intel_require_jq
+  atlas_evidence_require_hash_tool
+  printf '%s\n' "$json" | jq -cS 'del(.envelope_hash)' | sha256sum | awk '{ print $1 }'
+}
+
+atlas_evidence_read_envelope() {
+  local input="$1"
+
+  if [ "$input" = "-" ]; then
+    cat
+    return 0
+  fi
+
+  [ -f "$input" ] || fail "missing evidence envelope: $input"
+  cat -- "$input"
+}
+
+atlas_evidence_verify_envelope_json() {
+  local envelope_json="$1"
+  local envelope_hash
+  local computed_hash
+  local envelope_id
+  local subject_ref
+  local evidence_ref_count
+  local artifact_ref_count
+  local replay_command_count
+
+  intel_require_jq
+  atlas_evidence_require_hash_tool
+
+  printf '%s\n' "$envelope_json" | jq -e . >/dev/null 2>&1 ||
+    fail "invalid evidence envelope JSON"
+
+  printf '%s\n' "$envelope_json" | jq -e '
+    . as $envelope |
+    def nonempty($key): ($envelope[$key] | type == "string" and length > 0);
+    ($envelope | type == "object") and
+    $envelope.schema_version == "atlas.evidence_envelope.v1" and
+    nonempty("envelope_id") and
+    nonempty("timestamp") and
+    $envelope.metadata_only == true and
+    ($envelope.subject.type | type == "string" and length > 0) and
+    ($envelope.subject.ref | type == "string" and length > 0) and
+    nonempty("decision_ref") and
+    nonempty("run_event_ref") and
+    ($envelope.evidence_refs | type == "array") and
+    all($envelope.evidence_refs[]; type == "string" and length > 0) and
+    ($envelope.artifact_refs | type == "array") and
+    all($envelope.artifact_refs[]; (.path | type == "string" and length > 0) and (.sha256 | test("^[a-f0-9]{64}$"))) and
+    nonempty("prev_hash") and
+    ($envelope.envelope_hash | test("^[a-f0-9]{64}$")) and
+    ($envelope.replay.commands | type == "array" and length > 0) and
+    all($envelope.replay.commands[]; type == "string" and length > 0) and
+    ($envelope.known_limitations | type == "array") and
+    all($envelope.known_limitations[]; type == "string" and length > 0) and
+    ([
+      paths
+      | .[]?
+      | tostring
+      | select(
+          . == "raw_evidence" or
+          . == "evidence_body" or
+          . == "request_body" or
+          . == "response_body" or
+          . == "secret" or
+          . == "token" or
+          . == "private_key"
+        )
+    ] | length == 0)
+  ' >/dev/null || fail "invalid evidence envelope fields"
+
+  envelope_hash="$(printf '%s\n' "$envelope_json" | jq -r '.envelope_hash')"
+  computed_hash="$(atlas_evidence_envelope_hash_json "$envelope_json")"
+  [ "$envelope_hash" = "$computed_hash" ] || fail "evidence envelope hash mismatch"
+
+  envelope_id="$(printf '%s\n' "$envelope_json" | jq -r '.envelope_id')"
+  subject_ref="$(printf '%s\n' "$envelope_json" | jq -r '.subject.ref')"
+  evidence_ref_count="$(printf '%s\n' "$envelope_json" | jq -r '.evidence_refs | length')"
+  artifact_ref_count="$(printf '%s\n' "$envelope_json" | jq -r '.artifact_refs | length')"
+  replay_command_count="$(printf '%s\n' "$envelope_json" | jq -r '.replay.commands | length')"
+
+  jq -cn \
+    --arg schema_version "atlas.evidence_verify.v1" \
+    --arg status "ok" \
+    --arg envelope_id "$envelope_id" \
+    --arg subject_ref "$subject_ref" \
+    --argjson evidence_ref_count "$evidence_ref_count" \
+    --argjson artifact_ref_count "$artifact_ref_count" \
+    --argjson replay_command_count "$replay_command_count" \
+    --arg envelope_hash "$envelope_hash" \
+    '{
+      schema_version: $schema_version,
+      status: $status,
+      envelope_id: $envelope_id,
+      subject_ref: $subject_ref,
+      evidence_ref_count: $evidence_ref_count,
+      artifact_ref_count: $artifact_ref_count,
+      replay_command_count: $replay_command_count,
+      envelope_hash: $envelope_hash
+    }'
+}
+
 atlas_evidence_safe_name() {
   local path="$1"
   local base
@@ -253,6 +358,36 @@ cmd_evidence_hash() {
 
   [ -f "$path" ] || fail "evidence path is not a file: $path"
   printf 'sha256: %s\n' "$(atlas_evidence_hash_path "$path")"
+}
+
+cmd_evidence_verify() {
+  need_args 1 "$#" "evidence verify <envelope-file|-> [--json]"
+  local input="$1"
+  local json=0
+  local envelope_json
+  local verify_json
+
+  shift
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+    --json)
+      json=1
+      shift
+      ;;
+    *)
+      fail "unknown evidence verify option: $1"
+      ;;
+    esac
+  done
+
+  envelope_json="$(atlas_evidence_read_envelope "$input")"
+  verify_json="$(atlas_evidence_verify_envelope_json "$envelope_json")"
+
+  if [ "$json" -eq 1 ]; then
+    printf '%s\n' "$verify_json"
+  else
+    printf 'evidence: ok\n'
+  fi
 }
 
 cmd_evidence_add() {

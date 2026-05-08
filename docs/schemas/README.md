@@ -73,6 +73,22 @@ are not stable command outputs yet for JSON.
 | optional | `atlas.flow_retention_link.v1` | `sessions/<operation>/flow_retention.ndjson` | [flow-retention-link.v1.md](flow-retention-link.v1.md) |
 | optional | `atlas.business_flow_evidence.v1` | optional flow evidence object, JSON planned | [business-flow-evidence.v1.md](business-flow-evidence.v1.md) |
 
+## Governance JSON Schemas
+
+M128 adds JSON Schema files under repository-root `schemas/` for the
+metadata-only evidence envelope and hash-ledger contracts:
+
+- `schemas/decision.v1.schema.json`
+- `schemas/run-event.v1.schema.json`
+- `schemas/evidence-envelope.v1.schema.json`
+- `schemas/checkpoint.v1.schema.json`
+
+Validate the runnable contract with:
+
+```bash
+./bin/dev-evidence
+```
+
 ## Rules
 
 - Every schema-versioned Atlas JSON output must be documented here.

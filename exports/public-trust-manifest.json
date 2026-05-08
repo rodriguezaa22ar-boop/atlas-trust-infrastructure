@@ -30,6 +30,7 @@
     "exports/public-trust-manifest.json",
     "index.html",
     "lib/",
+    "ledger/",
     "policy/",
     "schemas/",
     "shell.nix",

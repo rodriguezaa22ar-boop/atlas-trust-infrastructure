@@ -82,6 +82,8 @@ repository in filesystem order.
   decision contract and validation gate.
 - [governance/APPROVAL_PLANE.md](governance/APPROVAL_PLANE.md): M127
   approval workflow contract and validation gate.
+- [../ledger/README.md](../ledger/README.md): M128 evidence envelope and
+  hash-ledger contract.
 
 ## Release trust
 

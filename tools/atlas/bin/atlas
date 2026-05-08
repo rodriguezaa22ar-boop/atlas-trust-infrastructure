@@ -109,6 +109,20 @@ atlas_command_skips_layout() {
 			;;
 		esac
 		;;
+	evidence)
+		case "${2:-}" in
+		verify)
+			return 0
+			;;
+		esac
+		;;
+	ledger)
+		case "${2:-}" in
+		verify | checkpoint)
+			return 0
+			;;
+		esac
+		;;
 	esac
 
 	return 1
@@ -140,6 +154,9 @@ usage:
   atlas approval request <capability> --scope scope --risk risk --requester actor --approver actor --expiry timestamp --rationale text --rollback-plan text --evidence-ref ref [--json]
   atlas approval verify <event-file|-> [--json]
   atlas approval expire <event-file|-> --reason text [--actor actor] [--json]
+  atlas evidence verify <envelope-file|-> [--json]
+  atlas ledger verify <ledger-file|-> [--json]
+  atlas ledger checkpoint <ledger-file|-> [--json]
   atlas reviewer package <name>
   atlas release packet [packet-name] [--json] [--operation name]
   atlas release verify [packet]
@@ -175,6 +192,9 @@ usage:
   atlas evidence list
   atlas evidence show <id>
   atlas evidence hash <path>
+  atlas evidence verify <envelope-file|-> [--json]
+  atlas ledger verify <ledger-file|-> [--json]
+  atlas ledger checkpoint <ledger-file|-> [--json]
   atlas finding add <title> [--level observed|inferred|validated]
   atlas finding update <id> [--level level] [--status status]
   atlas finding accept <id> --reason text [--owner owner] [--expires date]
@@ -360,6 +380,11 @@ evidence:
   atlas evidence list
   atlas evidence show <id>
   atlas evidence hash <path>
+  atlas evidence verify <envelope-file|-> [--json]
+
+ledger:
+  atlas ledger verify <ledger-file|-> [--json]
+  atlas ledger checkpoint <ledger-file|-> [--json]
 
 findings:
   atlas finding add <title> [--level observed|inferred|validated] [--severity severity] [--confidence confidence]
@@ -2276,6 +2301,27 @@ evidence)
 	hash)
 		shift
 		cmd_evidence_hash "$@"
+		;;
+	verify)
+		shift
+		cmd_evidence_verify "$@"
+		;;
+	*)
+		usage
+		exit 1
+		;;
+	esac
+	;;
+ledger)
+	shift
+	case "${1:-}" in
+	verify)
+		shift
+		cmd_ledger_verify "$@"
+		;;
+	checkpoint)
+		shift
+		cmd_ledger_checkpoint "$@"
 		;;
 	*)
 		usage

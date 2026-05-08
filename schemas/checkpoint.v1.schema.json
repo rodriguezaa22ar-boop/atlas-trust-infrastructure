@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atlas.local/schemas/checkpoint.v1.schema.json",
+  "title": "Atlas Ledger Checkpoint v1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "checkpoint_id",
+    "timestamp",
+    "metadata_only",
+    "ledger_ref",
+    "event_count",
+    "head_event_hash",
+    "ledger_hash"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "atlas.checkpoint.v1"
+    },
+    "checkpoint_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "timestamp": {
+      "type": "string",
+      "minLength": 1
+    },
+    "metadata_only": {
+      "type": "boolean",
+      "const": true
+    },
+    "ledger_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "event_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "head_event_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "ledger_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

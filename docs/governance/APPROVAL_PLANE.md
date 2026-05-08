@@ -60,9 +60,12 @@ approval: ok
 
 ## Boundary
 
-This milestone does not add an evidence ledger, signed approval bundle, external
-approval-tool adapter, mutable cloud action, web UI, hidden database, or agent
-execution runtime.
+M127 itself did not add an evidence ledger. M128 adds metadata-only evidence
+envelope and hash-ledger contracts around approval and run metadata.
+
+This milestone does not add a signed approval bundle, external approval-tool
+adapter, mutable cloud action, web UI, hidden database, or agent execution
+runtime.
 
 `approval request`, `approval verify`, and `approval expire` emit or validate
 metadata-only event objects and do not create Atlas runtime directories. The
