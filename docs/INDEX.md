@@ -80,6 +80,8 @@ repository in filesystem order.
   import-only adapter registry and validation gate.
 - [governance/POLICY_PLANE.md](governance/POLICY_PLANE.md): M126 policy
   decision contract and validation gate.
+- [governance/APPROVAL_PLANE.md](governance/APPROVAL_PLANE.md): M127
+  approval workflow contract and validation gate.
 
 ## Release trust
 

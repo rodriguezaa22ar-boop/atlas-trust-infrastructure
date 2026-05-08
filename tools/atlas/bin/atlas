@@ -102,6 +102,13 @@ atlas_command_skips_layout() {
 			;;
 		esac
 		;;
+	approval)
+		case "${2:-}" in
+		request | verify | expire)
+			return 0
+			;;
+		esac
+		;;
 	esac
 
 	return 1
@@ -130,6 +137,9 @@ usage:
   atlas production status [--strict] [--json] [--explain]
   atlas policy evaluate <capability> [--json] [--scope scope] [--approval status]
   atlas policy test [cases-file]
+  atlas approval request <capability> --scope scope --risk risk --requester actor --approver actor --expiry timestamp --rationale text --rollback-plan text --evidence-ref ref [--json]
+  atlas approval verify <event-file|-> [--json]
+  atlas approval expire <event-file|-> --reason text [--actor actor] [--json]
   atlas reviewer package <name>
   atlas release packet [packet-name] [--json] [--operation name]
   atlas release verify [packet]
@@ -337,6 +347,9 @@ scope:
   atlas scope check <capability> <target>
 
 approvals:
+  atlas approval request <capability> --scope scope --risk risk --requester actor --approver actor --expiry timestamp --rationale text --rollback-plan text --evidence-ref ref [--json]
+  atlas approval verify <event-file|-> [--json]
+  atlas approval expire <event-file|-> --reason text [--actor actor] [--json]
   atlas approval grant <capability> <reason...>
   atlas approval list
 
@@ -396,6 +409,13 @@ production:
 policy:
   atlas policy evaluate <capability> [--json] [--scope scope] [--approval status] [--actor actor] [--resource ref]
   atlas policy test [cases-file]
+
+approval:
+  atlas approval request <capability> --scope scope --risk risk --requester actor --approver actor --expiry timestamp --rationale text --rollback-plan text --evidence-ref ref [--json]
+  atlas approval verify <event-file|-> [--json]
+  atlas approval expire <event-file|-> --reason text [--actor actor] [--json]
+  atlas approval grant <capability> <reason...>
+  atlas approval list
 
 reviewer:
   atlas reviewer package <name>
@@ -2207,6 +2227,18 @@ approval)
 	"" | list)
 		[ "$#" -gt 0 ] && shift
 		cmd_approval_list "$@"
+		;;
+	request)
+		shift
+		cmd_approval_request "$@"
+		;;
+	verify)
+		shift
+		cmd_approval_verify "$@"
+		;;
+	expire)
+		shift
+		cmd_approval_expire "$@"
 		;;
 	grant)
 		shift

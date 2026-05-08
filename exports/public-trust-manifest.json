@@ -16,6 +16,7 @@
     ".github/",
     ".gitignore",
     "AGENTS.md",
+    "approval/",
     "CONTRIBUTING.md",
     "LICENSE",
     "README.md",

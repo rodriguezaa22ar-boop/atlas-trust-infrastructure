@@ -60,9 +60,12 @@ policy: ok
 
 ## Boundary
 
-This milestone does not add an approval workflow, evidence ledger, external API
-client, mutation wrapper, cloud action, web dashboard, hidden database, or
-agent execution runtime.
+M127 builds on this policy contract with metadata-only approval workflow
+events for `approval_required` decisions.
+
+This milestone does not add an evidence ledger, external API client, mutation
+wrapper, cloud action, web dashboard, hidden database, or agent execution
+runtime.
 
 The Rego file is the policy contract. The shell/JQ evaluator is the current
 host-runtime implementation so Atlas stays portable outside Nix. A future OPA

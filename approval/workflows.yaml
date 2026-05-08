@@ -1,0 +1,55 @@
+{
+  "schema_version": "atlas.approval_workflows.v1",
+  "version": 1,
+  "metadata_only": true,
+  "default_mode": "approval_required",
+  "required_event_fields": [
+    "requester",
+    "capability",
+    "risk",
+    "scope",
+    "approver",
+    "expiry",
+    "rationale",
+    "rollback_plan",
+    "evidence_refs"
+  ],
+  "approval_states": [
+    "requested",
+    "approved",
+    "expired"
+  ],
+  "workflows": [
+    {
+      "id": "policy-threshold-human-review",
+      "applies_to_classes": [
+        "bounded_exec",
+        "mutate"
+      ],
+      "min_risk": "medium",
+      "approval_required": true,
+      "approver_required": true,
+      "expiry_required": true,
+      "rationale_required": true,
+      "rollback_plan_required": true,
+      "evidence_refs_required": true,
+      "changed_diff_requires_reapproval": true,
+      "owner": "atlas-governance"
+    },
+    {
+      "id": "admin-breakglass-review",
+      "applies_to_classes": [
+        "admin"
+      ],
+      "min_risk": "high",
+      "approval_required": true,
+      "approver_required": true,
+      "expiry_required": true,
+      "rationale_required": true,
+      "rollback_plan_required": true,
+      "evidence_refs_required": true,
+      "changed_diff_requires_reapproval": true,
+      "owner": "atlas-governance"
+    }
+  ]
+}
