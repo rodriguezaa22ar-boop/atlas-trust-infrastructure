@@ -8,6 +8,7 @@ ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 "$ROOT/bin/dev-adapters"
 "$ROOT/bin/dev-policy"
 "$ROOT/bin/dev-approval"
+"$ROOT/bin/dev-evidence"
 "$ROOT/bin/export-public-trust" --check
 
 printf 'governance: ok\n'

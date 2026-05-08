@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atlas.local/schemas/decision.v1.schema.json",
+  "title": "Atlas Decision v1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "decision_id",
+    "timestamp",
+    "metadata_only",
+    "actor",
+    "capability",
+    "policy_ref",
+    "decision",
+    "approval_required",
+    "evidence_refs"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "atlas.decision.v1"
+    },
+    "decision_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "timestamp": {
+      "type": "string",
+      "minLength": 1
+    },
+    "metadata_only": {
+      "type": "boolean",
+      "const": true
+    },
+    "actor": {
+      "type": "string",
+      "minLength": 1
+    },
+    "capability": {
+      "type": "string",
+      "minLength": 1
+    },
+    "policy_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "decision": {
+      "type": "string",
+      "enum": [
+        "allow",
+        "deny",
+        "approval_required",
+        "unsupported",
+        "not_in_scope"
+      ]
+    },
+    "approval_required": {
+      "type": "boolean"
+    },
+    "approval_ref": {
+      "type": "string"
+    },
+    "scope": {
+      "type": "string"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}

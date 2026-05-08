@@ -19,6 +19,7 @@ setup() {
     "$TEST_ROOT/toolkit/bin/dev-adapters" \
     "$TEST_ROOT/toolkit/bin/dev-approval" \
     "$TEST_ROOT/toolkit/bin/dev-capabilities" \
+    "$TEST_ROOT/toolkit/bin/dev-evidence" \
     "$TEST_ROOT/toolkit/bin/dev-governance" \
     "$TEST_ROOT/toolkit/bin/dev-host-check" \
     "$TEST_ROOT/toolkit/bin/dev-policy" \
@@ -134,6 +135,7 @@ write_test_slsa_reference() {
     .repositories.private.name == "atlas-lab-toolkit" and
     .repositories.public.name == "atlas-trust-infrastructure" and
     (.allow_paths | index("docs/")) and
+    (.allow_paths | index("ledger/")) and
     (.allow_paths | index("approval/")) and
     (.allow_paths | index("policy/")) and
     (.allow_paths | index("exports/public-trust-manifest.json")) and
@@ -277,6 +279,7 @@ write_test_slsa_reference() {
   [[ "$output" == *"adapters: ok"* ]]
   [[ "$output" == *"policy: ok"* ]]
   [[ "$output" == *"approval: ok"* ]]
+  [[ "$output" == *"evidence: ok"* ]]
   [[ "$output" == *"governance: ok"* ]]
 
   duplicate_registry="$TEST_ROOT/duplicate-adapters.yaml"
@@ -365,6 +368,7 @@ write_test_slsa_reference() {
   [[ "$output" == *"adapters: ok"* ]]
   [[ "$output" == *"policy: ok"* ]]
   [[ "$output" == *"approval: ok"* ]]
+  [[ "$output" == *"evidence: ok"* ]]
   [[ "$output" == *"governance: ok"* ]]
 
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" policy evaluate atlas.status.read --json
@@ -461,7 +465,7 @@ write_test_slsa_reference() {
   grep -q 'M127 adds the first approval workflow contract' "$approval_doc"
   grep -q 'metadata-only' "$approval_doc"
   grep -q './bin/dev-approval' "$approval_doc"
-  grep -q 'does not add an evidence ledger' "$approval_doc"
+  grep -q 'M128 adds metadata-only evidence' "$approval_doc"
   grep -q 'operation-specific `approval grant`' "$approval_doc"
   grep -q 'adds approval workflow metadata' "$capability_doc"
   grep -q 'M127 builds on this policy contract' "$policy_doc"
@@ -481,6 +485,7 @@ write_test_slsa_reference() {
   [[ "$output" == *"adapters: ok"* ]]
   [[ "$output" == *"policy: ok"* ]]
   [[ "$output" == *"approval: ok"* ]]
+  [[ "$output" == *"evidence: ok"* ]]
   [[ "$output" == *"governance: ok"* ]]
 
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" approval request atlas.agent.tool.exec \
@@ -573,6 +578,193 @@ write_test_slsa_reference() {
   [ ! -e "$TEST_ROOT/toolkit/reports" ]
 }
 
+@test "evidence envelope and hash ledger validate replayable proof chain read-only" {
+  ledger_doc="$TEST_ROOT/toolkit/ledger/README.md"
+  decision_schema="$TEST_ROOT/toolkit/schemas/decision.v1.schema.json"
+  run_event_schema="$TEST_ROOT/toolkit/schemas/run-event.v1.schema.json"
+  envelope_schema="$TEST_ROOT/toolkit/schemas/evidence-envelope.v1.schema.json"
+  checkpoint_schema="$TEST_ROOT/toolkit/schemas/checkpoint.v1.schema.json"
+  docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
+  command_ref="$TEST_ROOT/toolkit/docs/COMMAND_REFERENCE.md"
+  schema_index="$TEST_ROOT/toolkit/docs/schemas/README.md"
+  public_manifest="$TEST_ROOT/toolkit/exports/public-trust-manifest.json"
+
+  hash_json_without_field() {
+    local json="$1"
+    local field="$2"
+
+    printf '%s\n' "$json" |
+      jq -cS --arg field "$field" 'del(.[$field])' |
+      sha256sum |
+      awk '{ print $1 }'
+  }
+
+  [ -f "$ledger_doc" ]
+  [ -f "$decision_schema" ]
+  [ -f "$run_event_schema" ]
+  [ -f "$envelope_schema" ]
+  [ -f "$checkpoint_schema" ]
+
+  grep -q '^# Atlas Hash Ledger$' "$ledger_doc"
+  grep -q 'approval event -> decision record -> run event -> evidence envelope -> checkpoint' "$ledger_doc"
+  grep -q 'Atlas verifies that evidence metadata is well-formed, hash-linked, and' "$ledger_doc"
+  grep -q 'not tamper-proof infrastructure' "$ledger_doc"
+
+  jq -e '.title == "Atlas Decision v1" and (.required | index("decision_id")) and (.required | index("policy_ref"))' "$decision_schema"
+  jq -e '.title == "Atlas Run Event v1" and (.required | index("prev_hash")) and (.required | index("event_hash"))' "$run_event_schema"
+  jq -e '.title == "Atlas Evidence Envelope v1" and (.required | index("decision_ref")) and (.required | index("run_event_ref")) and (.required | index("envelope_hash"))' "$envelope_schema"
+  jq -e '.title == "Atlas Ledger Checkpoint v1" and (.required | index("event_count")) and (.required | index("head_event_hash")) and (.required | index("ledger_hash"))' "$checkpoint_schema"
+
+  grep -q '../ledger/README.md' "$docs_index"
+  grep -q 'schemas/decision.v1.schema.json' "$schema_index"
+  grep -q './bin/dev-evidence' "$command_ref"
+  grep -q './tools/atlas/bin/atlas evidence verify evidence-envelope.json' "$command_ref"
+  grep -q './tools/atlas/bin/atlas ledger verify ledger.ndjson' "$command_ref"
+  grep -q './tools/atlas/bin/atlas ledger checkpoint ledger.ndjson --json' "$command_ref"
+  jq -e '(.allow_paths | index("ledger/")) and (.allow_paths | index("schemas/"))' "$public_manifest"
+
+  run "$TEST_ROOT/toolkit/bin/dev-evidence"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"evidence: ok"* ]]
+
+  run "$TEST_ROOT/toolkit/bin/dev-governance"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"capabilities: ok"* ]]
+  [[ "$output" == *"adapters: ok"* ]]
+  [[ "$output" == *"policy: ok"* ]]
+  [[ "$output" == *"approval: ok"* ]]
+  [[ "$output" == *"evidence: ok"* ]]
+  [[ "$output" == *"governance: ok"* ]]
+
+  artifact_sha="$(printf 'metadata-only test artifact\n' | sha256sum | awk '{ print $1 }')"
+  event_one_no_hash="$(
+    jq -cn \
+      --arg evidence_ref "approval/event.json" \
+      '{
+        schema_version: "atlas.run_event.v1",
+        event_id: "run-1",
+        event_type: "approval_verified",
+        timestamp: "2026-05-07T00:00:00Z",
+        metadata_only: true,
+        actor: "atlas-tests",
+        capability: "atlas.agent.tool.exec",
+        decision: "approval_required",
+        decision_ref: "decision/decision-1.json",
+        approval_ref: "approval/event.json",
+        status: "requested",
+        evidence_refs: [$evidence_ref],
+        prev_hash: "GENESIS"
+      }'
+  )"
+  event_one_hash="$(hash_json_without_field "$event_one_no_hash" "event_hash")"
+  event_one="$(printf '%s\n' "$event_one_no_hash" | jq -c --arg event_hash "$event_one_hash" '. + {event_hash: $event_hash}')"
+
+  event_two_no_hash="$(
+    jq -cn \
+      --arg prev_hash "$event_one_hash" \
+      --arg output_hash "$artifact_sha" \
+      '{
+        schema_version: "atlas.run_event.v1",
+        event_id: "run-2",
+        event_type: "validation_completed",
+        timestamp: "2026-05-07T00:01:00Z",
+        metadata_only: true,
+        actor: "atlas-tests",
+        capability: "atlas.production.verify",
+        decision: "allow",
+        decision_ref: "decision/decision-2.json",
+        status: "pass",
+        output_hash: $output_hash,
+        evidence_refs: ["evidence/evidence-envelope.json"],
+        prev_hash: $prev_hash
+      }'
+  )"
+  event_two_hash="$(hash_json_without_field "$event_two_no_hash" "event_hash")"
+  event_two="$(printf '%s\n' "$event_two_no_hash" | jq -c --arg event_hash "$event_two_hash" '. + {event_hash: $event_hash}')"
+
+  ledger_file="$TEST_ROOT/ledger.ndjson"
+  printf '%s\n%s\n' "$event_one" "$event_two" >"$ledger_file"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" ledger verify "$ledger_file"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"ledger: ok"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" ledger checkpoint "$ledger_file" --json
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" | jq -e \
+    --arg head_event_hash "$event_two_hash" \
+    '.schema_version == "atlas.checkpoint.v1" and .metadata_only == true and .event_count == 2 and .head_event_hash == $head_event_hash'
+
+  tampered_ledger="$TEST_ROOT/tampered-ledger.ndjson"
+  jq -c 'if .event_id == "run-2" then .prev_hash = "bad" else . end' "$ledger_file" >"$tampered_ledger"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" ledger verify "$tampered_ledger"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"ledger event 2 prev_hash mismatch"* ]]
+
+  envelope_no_hash="$(
+    jq -cn \
+      --arg prev_hash "$event_two_hash" \
+      --arg artifact_sha "$artifact_sha" \
+      '{
+        schema_version: "atlas.evidence_envelope.v1",
+        envelope_id: "envelope-1",
+        timestamp: "2026-05-07T00:02:00Z",
+        metadata_only: true,
+        subject: {
+          type: "commit",
+          ref: "HEAD"
+        },
+        decision_ref: "decision/decision-2.json",
+        run_event_ref: "run-2",
+        approval_ref: "approval/event.json",
+        evidence_refs: [
+          "approval/event.json",
+          "ledger.ndjson"
+        ],
+        artifact_refs: [
+          {
+            path: "reports/metadata-only-result.json",
+            sha256: $artifact_sha
+          }
+        ],
+        prev_hash: $prev_hash,
+        replay: {
+          commands: [
+            "./tools/atlas/bin/atlas ledger verify ledger.ndjson",
+            "./tools/atlas/bin/atlas evidence verify evidence-envelope.json"
+          ]
+        },
+        known_limitations: [
+          "Metadata-only envelope; raw runtime artifacts are not embedded."
+        ]
+      }'
+  )"
+  envelope_hash="$(hash_json_without_field "$envelope_no_hash" "envelope_hash")"
+  envelope_file="$TEST_ROOT/evidence-envelope.json"
+  printf '%s\n' "$envelope_no_hash" |
+    jq -c --arg envelope_hash "$envelope_hash" '. + {envelope_hash: $envelope_hash}' >"$envelope_file"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence verify "$envelope_file"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"evidence: ok"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence verify "$envelope_file" --json
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" | jq -e \
+    --arg envelope_hash "$envelope_hash" \
+    '.schema_version == "atlas.evidence_verify.v1" and .status == "ok" and .envelope_hash == $envelope_hash and .evidence_ref_count == 2 and .artifact_ref_count == 1'
+
+  tampered_envelope="$TEST_ROOT/tampered-evidence-envelope.json"
+  jq '.subject.ref = "changed"' "$envelope_file" >"$tampered_envelope"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence verify "$tampered_envelope"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"evidence envelope hash mismatch"* ]]
+
+  [ ! -e "$TEST_ROOT/toolkit/state" ]
+  [ ! -e "$TEST_ROOT/toolkit/sessions" ]
+  [ ! -e "$TEST_ROOT/toolkit/reports" ]
+}
+
 @test "capability manifest defines machine-readable governance root" {
   manifest="$TEST_ROOT/toolkit/capabilities.yaml"
   schema="$TEST_ROOT/toolkit/schemas/capability.v1.schema.json"
@@ -617,6 +809,7 @@ write_test_slsa_reference() {
   [[ "$output" == *"capabilities: ok"* ]]
   [[ "$output" == *"policy: ok"* ]]
   [[ "$output" == *"approval: ok"* ]]
+  [[ "$output" == *"evidence: ok"* ]]
   [[ "$output" == *"Public Trust Export"* ]]
   [[ "$output" == *"governance: ok"* ]]
 
@@ -875,7 +1068,11 @@ write_test_slsa_reference() {
   grep -q './tools/atlas/bin/atlas policy evaluate atlas.status.read' "$command_ref"
   grep -q './bin/dev-policy' "$command_ref"
   grep -q './bin/dev-approval' "$command_ref"
+  grep -q './bin/dev-evidence' "$command_ref"
   grep -q './tools/atlas/bin/atlas approval request atlas.agent.tool.exec' "$command_ref"
+  grep -q './tools/atlas/bin/atlas evidence verify evidence-envelope.json' "$command_ref"
+  grep -q './tools/atlas/bin/atlas ledger verify ledger.ndjson' "$command_ref"
+  grep -q './tools/atlas/bin/atlas ledger checkpoint ledger.ndjson --json' "$command_ref"
   grep -q './tools/atlas/bin/atlas release packet atlas-current --json' "$command_ref"
   grep -q './tools/atlas/bin/atlas reviewer package atlas-current-review' "$command_ref"
   grep -q './tools/atlas/bin/atlas web assess <url>' "$command_ref"
@@ -3232,6 +3429,8 @@ EOF
   [ "$status" -eq 0 ]
   [[ "$output" == *"atlas target add <name> <address>"* ]]
   [[ "$output" == *"atlas evidence hash <path>"* ]]
+  [[ "$output" == *"atlas evidence verify <envelope-file|-> [--json]"* ]]
+  [[ "$output" == *"atlas ledger verify <ledger-file|-> [--json]"* ]]
   [[ "$output" == *"atlas release replay [packet] [--json]"* ]]
   [[ "$output" == *"atlas production status [--strict] [--json] [--explain]"* ]]
   [[ "$output" == *"atlas flow assurance [--json] <flow> [packet-name]"* ]]
@@ -3886,6 +4085,9 @@ EOF
   [[ "$output" == *"atlas approval request <capability> --scope scope --risk risk"* ]]
   [[ "$output" == *"atlas approval verify <event-file|-> [--json]"* ]]
   [[ "$output" == *"atlas approval expire <event-file|-> --reason text"* ]]
+  [[ "$output" == *"atlas evidence verify <envelope-file|-> [--json]"* ]]
+  [[ "$output" == *"atlas ledger verify <ledger-file|-> [--json]"* ]]
+  [[ "$output" == *"atlas ledger checkpoint <ledger-file|-> [--json]"* ]]
   [[ "$output" == *"atlas reviewer package <name>"* ]]
   [[ "$output" == *"atlas release packet [packet-name]"* ]]
   [[ "$output" == *"atlas release packet [packet-name] [--json]"* ]]

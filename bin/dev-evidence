@@ -1,0 +1,242 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+ATLAS="$ROOT/tools/atlas/bin/atlas"
+WORKDIR="$(mktemp -d)"
+
+cleanup() {
+  rm -rf "$WORKDIR"
+}
+
+trap cleanup EXIT
+
+fail() {
+  printf 'evidence: fail %s\n' "$*" >&2
+  exit 1
+}
+
+require_command() {
+  command -v "$1" >/dev/null 2>&1 || fail "missing required command $1"
+}
+
+hash_json_without_field() {
+  local json="$1"
+  local field="$2"
+
+  printf '%s\n' "$json" |
+    jq -cS --arg field "$field" 'del(.[$field])' |
+    sha256sum |
+    awk '{ print $1 }'
+}
+
+require_schema() {
+  local path="$1"
+  local title="$2"
+  local schema_version="$3"
+
+  [ -f "$path" ] || fail "missing $path"
+  jq -e . "$path" >/dev/null 2>&1 || fail "invalid schema JSON $path"
+  jq -e \
+    --arg title "$title" \
+    --arg schema_version "$schema_version" \
+    '.title == $title and .properties.schema_version.const == $schema_version and (.required | type == "array" and length > 0)' \
+    "$path" >/dev/null || fail "schema header invalid $path"
+}
+
+require_command jq
+require_command sha256sum
+require_command awk
+require_command grep
+
+[ -x "$ATLAS" ] || fail "missing atlas CLI"
+
+require_schema "$ROOT/schemas/decision.v1.schema.json" "Atlas Decision v1" "atlas.decision.v1"
+require_schema "$ROOT/schemas/run-event.v1.schema.json" "Atlas Run Event v1" "atlas.run_event.v1"
+require_schema "$ROOT/schemas/evidence-envelope.v1.schema.json" "Atlas Evidence Envelope v1" "atlas.evidence_envelope.v1"
+require_schema "$ROOT/schemas/checkpoint.v1.schema.json" "Atlas Ledger Checkpoint v1" "atlas.checkpoint.v1"
+
+jq -e '
+  (.required | index("decision_id")) and
+  (.required | index("policy_ref")) and
+  (.required | index("approval_required")) and
+  (.required | index("evidence_refs"))
+' "$ROOT/schemas/decision.v1.schema.json" >/dev/null || fail "decision schema missing required fields"
+
+jq -e '
+  (.required | index("prev_hash")) and
+  (.required | index("event_hash")) and
+  .properties.event_hash.pattern == "^[a-f0-9]{64}$"
+' "$ROOT/schemas/run-event.v1.schema.json" >/dev/null || fail "run-event schema missing hash fields"
+
+jq -e '
+  (.required | index("decision_ref")) and
+  (.required | index("run_event_ref")) and
+  (.required | index("envelope_hash")) and
+  (.required | index("replay"))
+' "$ROOT/schemas/evidence-envelope.v1.schema.json" >/dev/null || fail "evidence envelope schema missing proof fields"
+
+jq -e '
+  (.required | index("event_count")) and
+  (.required | index("head_event_hash")) and
+  (.required | index("ledger_hash"))
+' "$ROOT/schemas/checkpoint.v1.schema.json" >/dev/null || fail "checkpoint schema missing ledger fields"
+
+[ -f "$ROOT/ledger/README.md" ] || fail "missing ledger/README.md"
+grep -q 'approval event -> decision record -> run event -> evidence envelope -> checkpoint' "$ROOT/ledger/README.md" ||
+  fail "ledger README missing proof chain"
+grep -q 'Atlas verifies that evidence metadata is well-formed, hash-linked, and' "$ROOT/ledger/README.md" ||
+  fail "ledger README missing verification boundary"
+grep -q 'not tamper-proof infrastructure' "$ROOT/ledger/README.md" ||
+  fail "ledger README missing non-overclaim boundary"
+
+artifact_sha="$(printf 'metadata-only artifact reference\n' | sha256sum | awk '{ print $1 }')"
+
+event_one_no_hash="$(
+  jq -cn \
+    --arg event_id "run-event-1" \
+    --arg timestamp "2026-05-07T00:00:00Z" \
+    --arg evidence_ref "approval/approval-event.json" \
+    '{
+      schema_version: "atlas.run_event.v1",
+      event_id: $event_id,
+      event_type: "approval_verified",
+      timestamp: $timestamp,
+      metadata_only: true,
+      actor: "atlas-dev",
+      capability: "atlas.agent.tool.exec",
+      decision: "approval_required",
+      decision_ref: "decision/decision-1.json",
+      approval_ref: "approval/approval-event.json",
+      status: "requested",
+      evidence_refs: [$evidence_ref],
+      prev_hash: "GENESIS"
+    }'
+)"
+event_one_hash="$(hash_json_without_field "$event_one_no_hash" "event_hash")"
+event_one="$(printf '%s\n' "$event_one_no_hash" | jq -c --arg event_hash "$event_one_hash" '. + {event_hash: $event_hash}')"
+
+event_two_no_hash="$(
+  jq -cn \
+    --arg event_id "run-event-2" \
+    --arg timestamp "2026-05-07T00:01:00Z" \
+    --arg prev_hash "$event_one_hash" \
+    --arg evidence_ref "evidence/evidence-envelope.json" \
+    --arg output_hash "$artifact_sha" \
+    '{
+      schema_version: "atlas.run_event.v1",
+      event_id: $event_id,
+      event_type: "validation_completed",
+      timestamp: $timestamp,
+      metadata_only: true,
+      actor: "atlas-dev",
+      capability: "atlas.production.verify",
+      decision: "allow",
+      decision_ref: "decision/decision-2.json",
+      status: "pass",
+      output_hash: $output_hash,
+      evidence_refs: [$evidence_ref],
+      prev_hash: $prev_hash
+    }'
+)"
+event_two_hash="$(hash_json_without_field "$event_two_no_hash" "event_hash")"
+event_two="$(printf '%s\n' "$event_two_no_hash" | jq -c --arg event_hash "$event_two_hash" '. + {event_hash: $event_hash}')"
+
+ledger_file="$WORKDIR/ledger.ndjson"
+printf '%s\n%s\n' "$event_one" "$event_two" >"$ledger_file"
+
+if ! ledger_output="$("$ATLAS" ledger verify "$ledger_file" 2>&1)"; then
+  ledger_output="${ledger_output#error: }"
+  fail "$ledger_output"
+fi
+[ "$ledger_output" = "ledger: ok" ] || fail "unexpected ledger verify output $ledger_output"
+
+ledger_verify_json="$("$ATLAS" ledger verify "$ledger_file" --json)"
+printf '%s\n' "$ledger_verify_json" | jq -e \
+  --arg head_event_hash "$event_two_hash" \
+  '.schema_version == "atlas.ledger_verify.v1" and .status == "ok" and .event_count == 2 and .head_event_hash == $head_event_hash' \
+  >/dev/null || fail "ledger verify JSON invalid"
+
+checkpoint_json="$("$ATLAS" ledger checkpoint "$ledger_file" --json)"
+printf '%s\n' "$checkpoint_json" | jq -e \
+  --arg head_event_hash "$event_two_hash" \
+  '.schema_version == "atlas.checkpoint.v1" and .metadata_only == true and .event_count == 2 and .head_event_hash == $head_event_hash and (.ledger_hash | test("^[a-f0-9]{64}$"))' \
+  >/dev/null || fail "ledger checkpoint JSON invalid"
+
+bad_ledger="$WORKDIR/bad-ledger.ndjson"
+jq -c 'if .event_id == "run-event-2" then .prev_hash = "bad" else . end' "$ledger_file" >"$bad_ledger"
+if bad_output="$("$ATLAS" ledger verify "$bad_ledger" 2>&1)"; then
+  fail "tampered ledger unexpectedly passed"
+else
+  bad_output="${bad_output#error: }"
+  [[ "$bad_output" == *"ledger event 2 prev_hash mismatch"* ]] ||
+    fail "unexpected tampered ledger output $bad_output"
+fi
+
+envelope_no_hash="$(
+  jq -cn \
+    --arg prev_hash "$event_two_hash" \
+    --arg artifact_sha "$artifact_sha" \
+    '{
+      schema_version: "atlas.evidence_envelope.v1",
+      envelope_id: "evidence-envelope-1",
+      timestamp: "2026-05-07T00:02:00Z",
+      metadata_only: true,
+      subject: {
+        type: "commit",
+        ref: "HEAD"
+      },
+      decision_ref: "decision/decision-2.json",
+      run_event_ref: "run-event-2",
+      approval_ref: "approval/approval-event.json",
+      evidence_refs: [
+        "approval/approval-event.json",
+        "ledger/ledger.ndjson"
+      ],
+      artifact_refs: [
+        {
+          path: "reports/metadata-only-result.json",
+          sha256: $artifact_sha
+        }
+      ],
+      prev_hash: $prev_hash,
+      replay: {
+        commands: [
+          "./tools/atlas/bin/atlas ledger verify ledger.ndjson",
+          "./tools/atlas/bin/atlas evidence verify evidence-envelope.json"
+        ]
+      },
+      known_limitations: [
+        "Metadata-only envelope; raw runtime artifacts are not embedded."
+      ]
+    }'
+)"
+envelope_hash="$(hash_json_without_field "$envelope_no_hash" "envelope_hash")"
+envelope_file="$WORKDIR/evidence-envelope.json"
+printf '%s\n' "$envelope_no_hash" |
+  jq -c --arg envelope_hash "$envelope_hash" '. + {envelope_hash: $envelope_hash}' >"$envelope_file"
+
+if ! evidence_output="$("$ATLAS" evidence verify "$envelope_file" 2>&1)"; then
+  evidence_output="${evidence_output#error: }"
+  fail "$evidence_output"
+fi
+[ "$evidence_output" = "evidence: ok" ] || fail "unexpected evidence verify output $evidence_output"
+
+evidence_verify_json="$("$ATLAS" evidence verify "$envelope_file" --json)"
+printf '%s\n' "$evidence_verify_json" | jq -e \
+  --arg envelope_hash "$envelope_hash" \
+  '.schema_version == "atlas.evidence_verify.v1" and .status == "ok" and .envelope_id == "evidence-envelope-1" and .evidence_ref_count == 2 and .artifact_ref_count == 1 and .replay_command_count == 2 and .envelope_hash == $envelope_hash' \
+  >/dev/null || fail "evidence verify JSON invalid"
+
+bad_envelope="$WORKDIR/bad-evidence-envelope.json"
+jq '.subject.ref = "changed"' "$envelope_file" >"$bad_envelope"
+if bad_output="$("$ATLAS" evidence verify "$bad_envelope" 2>&1)"; then
+  fail "tampered evidence envelope unexpectedly passed"
+else
+  bad_output="${bad_output#error: }"
+  [[ "$bad_output" == *"evidence envelope hash mismatch"* ]] ||
+    fail "unexpected tampered evidence output $bad_output"
+fi
+
+printf 'evidence: ok\n'
