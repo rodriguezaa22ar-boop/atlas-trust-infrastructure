@@ -43,6 +43,9 @@ M125 registers import-only contracts for:
 These are contracts only. The registry does not add external API clients,
 mutation wrappers, cloud changes, ticket updates, or agent execution.
 
+M126 policy decisions evaluate the capabilities referenced here before any
+future adapter wrapper can move beyond import-only mode.
+
 ## Validation
 
 Run:

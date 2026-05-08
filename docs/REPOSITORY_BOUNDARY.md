@@ -23,6 +23,7 @@ Public material may include:
 - schema contracts
 - capability manifests
 - adapter registry contracts
+- policy contracts and policy test fixtures
 - command references
 - tests and validation scripts
 - metadata-only case studies

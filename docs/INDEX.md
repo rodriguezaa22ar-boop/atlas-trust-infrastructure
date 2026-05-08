@@ -78,6 +78,8 @@ repository in filesystem order.
   capability manifest model and validation gate.
 - [governance/ADAPTER_REGISTRY.md](governance/ADAPTER_REGISTRY.md): M125
   import-only adapter registry and validation gate.
+- [governance/POLICY_PLANE.md](governance/POLICY_PLANE.md): M126 policy
+  decision contract and validation gate.
 
 ## Release trust
 

@@ -17,6 +17,7 @@ shellcheck -x \
 	"$ROOT/bin/dev-test" \
 	"$ROOT/bin/dev-adapters" \
 	"$ROOT/bin/dev-capabilities" \
+	"$ROOT/bin/dev-policy" \
 	"$ROOT/bin/dev-governance" \
 	"$ROOT/bin/dev-host-check" \
 	"$ROOT/bin/dev-portability" \

@@ -1,0 +1,61 @@
+{
+  "schema_version": "atlas.policy_tests.v1",
+  "cases": [
+    {
+      "name": "read allowed",
+      "capability": "atlas.status.read",
+      "scope": "in_scope",
+      "approval": "none",
+      "expect": "allow"
+    },
+    {
+      "name": "import allowed",
+      "capability": "atlas.adapter.import",
+      "scope": "in_scope",
+      "approval": "none",
+      "expect": "allow"
+    },
+    {
+      "name": "verify allowed",
+      "capability": "atlas.production.verify",
+      "scope": "in_scope",
+      "approval": "none",
+      "expect": "allow"
+    },
+    {
+      "name": "export constrained to public trust",
+      "capability": "atlas.public_export.check",
+      "scope": "public_trust",
+      "approval": "none",
+      "expect": "allow"
+    },
+    {
+      "name": "bounded execution requires approval",
+      "capability": "atlas.agent.tool.exec",
+      "scope": "in_scope",
+      "approval": "none",
+      "expect": "approval_required"
+    },
+    {
+      "name": "bounded execution approved",
+      "capability": "atlas.agent.tool.exec",
+      "scope": "in_scope",
+      "approval": "approved",
+      "expect": "allow"
+    },
+    {
+      "name": "out of scope blocks known capability",
+      "capability": "atlas.status.read",
+      "scope": "out_of_scope",
+      "approval": "none",
+      "expect": "not_in_scope"
+    },
+    {
+      "name": "unknown capability unsupported",
+      "capability": "atlas.unknown.capability",
+      "scope": "in_scope",
+      "approval": "none",
+      "expect": "unsupported"
+    }
+  ]
+}

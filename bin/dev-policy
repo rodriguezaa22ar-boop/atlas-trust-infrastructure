@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+POLICY="$ROOT/policy/atlas.authz.rego"
+CASES="${1:-$ROOT/policy/tests/decisions.v1.json}"
+ATLAS="$ROOT/tools/atlas/bin/atlas"
+
+fail() {
+  printf 'policy: fail %s\n' "$*" >&2
+  exit 1
+}
+
+require_command() {
+  command -v "$1" >/dev/null 2>&1 || fail "missing required command $1"
+}
+
+require_decision_term() {
+  local decision="$1"
+
+  grep -q "\"$decision\"" "$POLICY" || fail "missing decision $decision"
+}
+
+require_command jq
+require_command grep
+require_command sort
+require_command uniq
+
+[ -f "$POLICY" ] || fail "missing policy/atlas.authz.rego"
+[ -f "$CASES" ] || fail "missing policy tests $CASES"
+[ -x "$ATLAS" ] || fail "missing atlas CLI"
+
+grep -q '^package atlas\.authz$' "$POLICY" || fail "missing package atlas.authz"
+grep -q '^default decision = "unsupported"$' "$POLICY" || fail "missing default unsupported decision"
+
+for decision in allow deny approval_required unsupported not_in_scope; do
+  require_decision_term "$decision"
+done
+
+jq -e '.schema_version == "atlas.policy_tests.v1"' "$CASES" >/dev/null ||
+  fail "invalid policy test schema"
+jq -e '.cases | type == "array" and length > 0' "$CASES" >/dev/null ||
+  fail "missing policy test cases"
+
+duplicate_case="$(jq -r '.cases[].name' "$CASES" | sort | uniq -d | head -n 1)"
+[ -z "$duplicate_case" ] || fail "duplicate case $duplicate_case"
+
+missing_field="$(
+  jq -r '
+    .cases[]
+    | select(
+        ((.name // "") == "")
+        or ((.capability // "") == "")
+        or ((.scope // "") == "")
+        or ((.approval // "") == "")
+        or ((.expect // "") == "")
+      )
+    | .name // "unnamed"
+  ' "$CASES" | head -n 1
+)"
+[ -z "$missing_field" ] || fail "missing required case field $missing_field"
+
+bad_expected="$(
+  jq -r '
+    .cases[]
+    | . as $case
+    | select((["allow", "deny", "approval_required", "unsupported", "not_in_scope"] | index($case.expect)) | not)
+    | "\($case.name) \($case.expect)"
+  ' "$CASES" | head -n 1
+)"
+[ -z "$bad_expected" ] || fail "unknown expected decision $bad_expected"
+
+if ! output="$("$ATLAS" policy test "$CASES" 2>&1)"; then
+  output="${output#error: }"
+  fail "$output"
+fi
+[ "$output" = "policy: ok" ] || fail "unexpected atlas policy test output $output"
+
+printf '%s\n' "$output"

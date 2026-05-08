@@ -8,6 +8,7 @@ ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 "$ROOT/bin/dev-lint"
 "$ROOT/bin/dev-capabilities"
 "$ROOT/bin/dev-adapters"
+"$ROOT/bin/dev-policy"
 "$ROOT/bin/dev-portability"
 "$ROOT/bin/dev-stress"
 
