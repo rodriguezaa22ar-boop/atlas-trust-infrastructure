@@ -145,11 +145,16 @@ atlas_policy_decision_json() {
 }
 
 cmd_policy_evaluate() {
-  need_args 1 "$#" "policy evaluate <capability> [--json] [--scope scope] [--approval status]"
+  need_args 1 "$#" "policy evaluate <capability> [--json] [--scope scope] [--approval status] [--approval-event event-file]"
   local capability="$1"
   local json=0
   local scope="in_scope"
   local approval="none"
+  local approval_event=""
+  local approval_event_json
+  local approval_event_capability
+  local approval_event_scope
+  local approval_event_status
   local actor="${ATLAS_OPERATOR:-${USER:-unknown}}"
   local resource=""
   local decision_json
@@ -171,6 +176,11 @@ cmd_policy_evaluate() {
       approval="$2"
       shift 2
       ;;
+    --approval-event)
+      [ "$#" -ge 2 ] || fail "--approval-event requires a value"
+      approval_event="$2"
+      shift 2
+      ;;
     --actor)
       [ "$#" -ge 2 ] || fail "--actor requires a value"
       actor="$2"
@@ -186,6 +196,23 @@ cmd_policy_evaluate() {
       ;;
     esac
   done
+
+  if [ -n "$approval_event" ]; then
+    approval_event_json="$(atlas_approval_read_event "$approval_event")"
+    atlas_approval_validate_event_json "$approval_event_json"
+    approval_event_capability="$(printf '%s\n' "$approval_event_json" | jq -r '.capability')"
+    approval_event_scope="$(printf '%s\n' "$approval_event_json" | jq -r '.scope.value')"
+    approval_event_status="$(printf '%s\n' "$approval_event_json" | jq -r '.status')"
+    [ "$approval_event_capability" = "$capability" ] ||
+      fail "approval event capability mismatch: expected $capability got $approval_event_capability"
+    [ "$approval_event_scope" = "$scope" ] ||
+      fail "approval event scope mismatch: expected $scope got $approval_event_scope"
+    [ "$approval_event_status" = "approved" ] ||
+      fail "approval event must be approved"
+    approval="approved"
+  elif [ "$approval" = "approved" ]; then
+    fail "approved policy evaluation requires --approval-event"
+  fi
 
   decision_json="$(atlas_policy_decision_json "$capability" "$scope" "$approval" "$actor" "$resource")"
 

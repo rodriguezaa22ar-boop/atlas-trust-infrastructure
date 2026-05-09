@@ -254,7 +254,17 @@ write_test_slsa_reference() {
 
   for adapter in github generic-webhook scanner ticketing cloud agent-runtime; do
     [ -f "$TEST_ROOT/toolkit/adapters/$adapter/README.md" ]
+    [ -f "$TEST_ROOT/toolkit/adapters/$adapter/input.v1.schema.json" ]
+    [ -f "$TEST_ROOT/toolkit/adapters/$adapter/output.v1.schema.json" ]
     grep -q 'Status: import-only contract.' "$TEST_ROOT/toolkit/adapters/$adapter/README.md"
+    jq -e \
+      --arg adapter "$adapter" \
+      '.properties.adapter_id.const == $adapter and .properties.metadata_only.const == true and .additionalProperties == false' \
+      "$TEST_ROOT/toolkit/adapters/$adapter/input.v1.schema.json"
+    jq -e \
+      --arg adapter "$adapter" \
+      '.properties.adapter_id.const == $adapter and .properties.metadata_only.const == true and .additionalProperties == false' \
+      "$TEST_ROOT/toolkit/adapters/$adapter/output.v1.schema.json"
   done
 
   grep -q '^# Atlas Adapter Registry$' "$adapter_doc"
@@ -313,6 +323,13 @@ write_test_slsa_reference() {
   run "$TEST_ROOT/toolkit/bin/dev-adapters" "$bad_schema_registry"
   [ "$status" -ne 0 ]
   [[ "$output" == *"adapters: fail schema path must live under adapter directory github"* ]]
+
+  missing_schema_registry="$TEST_ROOT/missing-schema-adapters.yaml"
+  jq '(.adapters[] | select(.id == "github") | .input_schema) = "adapters/github/missing.v1.schema.json"' \
+    "$registry" >"$missing_schema_registry"
+  run "$TEST_ROOT/toolkit/bin/dev-adapters" "$missing_schema_registry"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"adapters: fail missing schema file github adapters/github/missing.v1.schema.json"* ]]
 }
 
 @test "policy plane evaluates capability decisions read-only" {
@@ -380,8 +397,8 @@ write_test_slsa_reference() {
   echo "$output" | jq -e '.decision == "approval_required" and .approval_required == true'
 
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" policy evaluate atlas.agent.tool.exec --approval approved --json
-  [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.decision == "allow" and .approval == "approved"'
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"approved policy evaluation requires --approval-event"* ]]
 
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" policy evaluate atlas.status.read --scope out_of_scope --json
   [ "$status" -eq 0 ]
@@ -493,7 +510,7 @@ write_test_slsa_reference() {
     --risk medium \
     --requester atlas-tests \
     --approver reviewer \
-    --expiry 2026-12-31T00:00:00Z \
+    --expiry 2099-12-31T00:00:00Z \
     --rationale "bounded tool execution request" \
     --rollback-plan "remove generated sandbox output" \
     --evidence-ref policy/tests/decisions.v1.json \
@@ -511,7 +528,7 @@ write_test_slsa_reference() {
     .risk == "medium" and
     .scope.value == "agent-runtime" and
     .approver == "reviewer" and
-    .expiry == "2026-12-31T00:00:00Z" and
+    .expiry == "2099-12-31T00:00:00Z" and
     .rationale == "bounded tool execution request" and
     .rollback_plan == "remove generated sandbox output" and
     (.evidence_refs | index("policy/tests/decisions.v1.json")) and
@@ -530,6 +547,28 @@ write_test_slsa_reference() {
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" approval verify "$event_file" --json
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.schema_version == "atlas.approval_verify.v1" and .status == "ok" and .approval_status == "requested"'
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" approval approve "$event_file" --actor reviewer --json
+  [ "$status" -eq 0 ]
+  approved="$output"
+  echo "$approved" | jq -e --arg event_id "$event_id" '
+    .schema_version == "atlas.approval_event.v1" and
+    .event_type == "approval_approved" and
+    .status == "approved" and
+    .original_event_id == $event_id and
+    .approved_by == "reviewer" and
+    .policy_decision.decision == "allow"
+  '
+
+  approved_file="$TEST_ROOT/approval-approved-event.json"
+  printf '%s\n' "$approved" >"$approved_file"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" approval verify "$approved_file"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"approval: ok"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" policy evaluate atlas.agent.tool.exec --scope agent-runtime --approval-event "$approved_file" --json
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.decision == "allow" and .approval == "approved"'
 
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" approval expire "$event_file" --reason "window closed" --actor atlas-tests --json
   [ "$status" -eq 0 ]
@@ -553,7 +592,7 @@ write_test_slsa_reference() {
     --risk low \
     --requester atlas-tests \
     --approver reviewer \
-    --expiry 2026-12-31T00:00:00Z \
+    --expiry 2099-12-31T00:00:00Z \
     --rationale "read status" \
     --rollback-plan "none" \
     --evidence-ref policy/tests/decisions.v1.json \
@@ -572,6 +611,24 @@ write_test_slsa_reference() {
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" approval verify "$bad_event"
   [ "$status" -ne 0 ]
   [[ "$output" == *"invalid approval event fields"* ]]
+
+  stale_event="$TEST_ROOT/stale-approval-event.json"
+  jq '.expiry = "2000-01-01T00:00:00Z"' "$event_file" >"$stale_event"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" approval verify "$stale_event"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"approval event expired"* ]]
+
+  malformed_expiry_event="$TEST_ROOT/malformed-expiry-approval-event.json"
+  jq '.expiry = "not-a-timestamp"' "$event_file" >"$malformed_expiry_event"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" approval expire "$malformed_expiry_event" --reason "window closed" --actor atlas-tests --json
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"invalid approval expiry timestamp"* ]]
+
+  sensitive_event="$TEST_ROOT/sensitive-approval-event.json"
+  jq '.rationale = "token=abc123"' "$event_file" >"$sensitive_event"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" approval verify "$sensitive_event"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"approval event contains forbidden content marker"* ]]
 
   [ ! -e "$TEST_ROOT/toolkit/state" ]
   [ ! -e "$TEST_ROOT/toolkit/sessions" ]
@@ -607,12 +664,14 @@ write_test_slsa_reference() {
 
   grep -q '^# Atlas Hash Ledger$' "$ledger_doc"
   grep -q 'approval event -> decision record -> run event -> evidence envelope -> checkpoint' "$ledger_doc"
+  grep -q 'also accepts Atlas operation ledgers' "$ledger_doc"
   grep -q 'Atlas verifies that evidence metadata is well-formed, hash-linked, and' "$ledger_doc"
   grep -q 'not tamper-proof infrastructure' "$ledger_doc"
+  grep -q 'Evidence-envelope replay commands are verifier references' "$ledger_doc"
 
   jq -e '.title == "Atlas Decision v1" and (.required | index("decision_id")) and (.required | index("policy_ref"))' "$decision_schema"
   jq -e '.title == "Atlas Run Event v1" and (.required | index("prev_hash")) and (.required | index("event_hash"))' "$run_event_schema"
-  jq -e '.title == "Atlas Evidence Envelope v1" and (.required | index("decision_ref")) and (.required | index("run_event_ref")) and (.required | index("envelope_hash"))' "$envelope_schema"
+  jq -e '.title == "Atlas Evidence Envelope v1" and (.required | index("decision_ref")) and (.required | index("run_event_ref")) and (.required | index("envelope_hash")) and .properties.replay.properties.commands.items.pattern == "^[^\\r\\n]+$"' "$envelope_schema"
   jq -e '.title == "Atlas Ledger Checkpoint v1" and (.required | index("event_count")) and (.required | index("head_event_hash")) and (.required | index("ledger_hash"))' "$checkpoint_schema"
 
   grep -q '../ledger/README.md' "$docs_index"
@@ -695,6 +754,33 @@ write_test_slsa_reference() {
     --arg head_event_hash "$event_two_hash" \
     '.schema_version == "atlas.checkpoint.v1" and .metadata_only == true and .event_count == 2 and .head_event_hash == $head_event_hash'
 
+  operation_ledger="$TEST_ROOT/operation-ledger.ndjson"
+  jq -cn '{
+    ts: "2026-05-07T00:03:00Z",
+    event: "scope.preflight",
+    op: "demo-op",
+    target: "demo-node",
+    capability: "active-recon",
+    tool: "atlas",
+    status: "allowed",
+    detail: "scope preflight metadata"
+  }' >"$operation_ledger"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" ledger verify "$operation_ledger" --json
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" | jq -e '
+    .schema_version == "atlas.ledger_verify.v1" and
+    .status == "ok" and
+    .ledger_type == "atlas.operation_ledger.v1" and
+    .event_count == 1 and
+    (.head_event_hash | test("^[a-f0-9]{64}$"))
+  '
+
+  sensitive_operation_ledger="$TEST_ROOT/sensitive-operation-ledger.ndjson"
+  jq -c '.detail = "token=abc123"' "$operation_ledger" >"$sensitive_operation_ledger"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" ledger verify "$sensitive_operation_ledger" --json
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"operation ledger event 1 invalid fields"* ]]
+
   tampered_ledger="$TEST_ROOT/tampered-ledger.ndjson"
   jq -c 'if .event_id == "run-2" then .prev_hash = "bad" else . end' "$ledger_file" >"$tampered_ledger"
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" ledger verify "$tampered_ledger"
@@ -754,6 +840,17 @@ write_test_slsa_reference() {
     --arg envelope_hash "$envelope_hash" \
     '.schema_version == "atlas.evidence_verify.v1" and .status == "ok" and .envelope_hash == $envelope_hash and .evidence_ref_count == 2 and .artifact_ref_count == 1'
 
+  sensitive_replay_no_hash="$(
+    jq '.replay.commands += ["token=abc123"] | del(.envelope_hash)' "$envelope_file"
+  )"
+  sensitive_replay_hash="$(hash_json_without_field "$sensitive_replay_no_hash" "envelope_hash")"
+  sensitive_replay_file="$TEST_ROOT/sensitive-replay-evidence-envelope.json"
+  printf '%s\n' "$sensitive_replay_no_hash" |
+    jq -c --arg envelope_hash "$sensitive_replay_hash" '. + {envelope_hash: $envelope_hash}' >"$sensitive_replay_file"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence verify "$sensitive_replay_file"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"invalid evidence envelope fields"* ]]
+
   tampered_envelope="$TEST_ROOT/tampered-evidence-envelope.json"
   jq '.subject.ref = "changed"' "$envelope_file" >"$tampered_envelope"
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" evidence verify "$tampered_envelope"
@@ -795,6 +892,7 @@ write_test_slsa_reference() {
   grep -q './bin/dev-capabilities' "$capability_doc"
   grep -q 'Mutating, bounded execution, and admin' "$capability_doc"
   grep -q 'M126 adds a policy decision contract' "$capability_doc"
+  grep -q 'governance contracts only unless a future' "$capability_doc"
 
   grep -q 'docs/governance/CAPABILITY_MODEL.md' "$readme"
   grep -q 'governance/CAPABILITY_MODEL.md' "$docs_index"
@@ -976,8 +1074,9 @@ write_test_slsa_reference() {
 
   [ "$(wc -l < "$readme")" -le 150 ]
   grep -q '^# Atlas Trust Infrastructure$' "$readme"
-  grep -q 'metadata-first trust overlay' "$readme"
-  grep -q 'it records and verifies the proof chain around them' "$readme"
+  grep -q 'metadata-first integrity infrastructure for operational proof' "$readme"
+  grep -q 'trust overlay for authorized work' "$readme"
+  grep -q 'records and verifies the proof chain around them' "$readme"
   grep -q '^## Public Repository Purpose$' "$readme"
   grep -q 'private `atlas-lab-toolkit` repository remains the implementation home' "$readme"
   grep -q '^## Why Proof Chains, Not Just Logs?$' "$readme"
@@ -1241,6 +1340,7 @@ write_test_slsa_reference() {
   grep -q 'Trust object model and schema consolidation' "$roadmap"
   grep -q 'Metadata-only Business Flow Evidence packets' "$roadmap"
   grep -q 'Business Flow Evidence verification' "$roadmap"
+  grep -q 'M129 is the next reserved governance milestone' "$roadmap"
   grep -q 'metadata-first trust control plane' "$trust_model"
   grep -q 'metadata-only business-flow records and evidence links' "$trust_model"
   grep -q 'metadata-first trust infrastructure' "$blueprint"
@@ -4080,10 +4180,11 @@ EOF
   [[ "$output" == *"atlas doctor"* ]]
   [[ "$output" == *"atlas v1 status"* ]]
   [[ "$output" == *"atlas production status [--strict] [--json] [--explain]"* ]]
-  [[ "$output" == *"atlas policy evaluate <capability> [--json] [--scope scope] [--approval status]"* ]]
+  [[ "$output" == *"atlas policy evaluate <capability> [--json] [--scope scope] [--approval status] [--approval-event event-file]"* ]]
   [[ "$output" == *"atlas policy test [cases-file]"* ]]
   [[ "$output" == *"atlas approval request <capability> --scope scope --risk risk"* ]]
   [[ "$output" == *"atlas approval verify <event-file|-> [--json]"* ]]
+  [[ "$output" == *"atlas approval approve <event-file|-> --actor actor [--json]"* ]]
   [[ "$output" == *"atlas approval expire <event-file|-> --reason text"* ]]
   [[ "$output" == *"atlas evidence verify <envelope-file|-> [--json]"* ]]
   [[ "$output" == *"atlas ledger verify <ledger-file|-> [--json]"* ]]

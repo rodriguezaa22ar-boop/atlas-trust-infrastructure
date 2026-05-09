@@ -131,7 +131,7 @@ event="$(
     --risk medium \
     --requester atlas-dev \
     --approver reviewer \
-    --expiry 2026-12-31T00:00:00Z \
+    --expiry 2099-12-31T00:00:00Z \
     --rationale "bounded tool execution request" \
     --rollback-plan "remove generated sandbox output" \
     --evidence-ref policy/tests/decisions.v1.json \
@@ -156,6 +156,26 @@ if ! verify_output="$(printf '%s\n' "$event" | "$ATLAS" approval verify - 2>&1)"
   fail "$verify_output"
 fi
 [ "$verify_output" = "approval: ok" ] || fail "unexpected approval verify output $verify_output"
+
+approved_event="$(
+  printf '%s\n' "$event" |
+    "$ATLAS" approval approve - --actor reviewer --json
+)" || fail "approval approve command failed"
+
+printf '%s\n' "$approved_event" | jq -e '
+  .schema_version == "atlas.approval_event.v1" and
+  .event_type == "approval_approved" and
+  .status == "approved" and
+  .approved_by == "reviewer" and
+  .policy_decision.decision == "allow" and
+  (.original_event_id | length > 0)
+' >/dev/null || fail "approval approve output invalid"
+
+if ! verify_approved_output="$(printf '%s\n' "$approved_event" | "$ATLAS" approval verify - 2>&1)"; then
+  verify_approved_output="${verify_approved_output#error: }"
+  fail "$verify_approved_output"
+fi
+[ "$verify_approved_output" = "approval: ok" ] || fail "unexpected approved approval verify output $verify_approved_output"
 
 expired_event="$(
   printf '%s\n' "$event" |
@@ -182,7 +202,7 @@ if output="$("$ATLAS" approval request atlas.status.read \
   --risk low \
   --requester atlas-dev \
   --approver reviewer \
-  --expiry 2026-12-31T00:00:00Z \
+  --expiry 2099-12-31T00:00:00Z \
   --rationale "read status" \
   --rollback-plan "none" \
   --evidence-ref policy/tests/decisions.v1.json \
@@ -192,6 +212,40 @@ else
   output="${output#error: }"
   [ "$output" = "approval not required for atlas.status.read" ] ||
     fail "unexpected read approval output $output"
+fi
+
+if output="$("$ATLAS" approval request atlas.agent.tool.exec \
+  --scope agent-runtime \
+  --risk medium \
+  --requester atlas-dev \
+  --approver reviewer \
+  --expiry 2000-01-01T00:00:00Z \
+  --rationale "expired request" \
+  --rollback-plan "remove generated sandbox output" \
+  --evidence-ref policy/tests/decisions.v1.json \
+  --json 2>&1)"; then
+  fail "expired approval request unexpectedly passed"
+else
+  output="${output#error: }"
+  [ "$output" = "approval event expired" ] ||
+    fail "unexpected expired approval output $output"
+fi
+
+if output="$("$ATLAS" approval request atlas.agent.tool.exec \
+  --scope agent-runtime \
+  --risk medium \
+  --requester atlas-dev \
+  --approver reviewer \
+  --expiry 2099-12-31T00:00:00Z \
+  --rationale "token=abc123" \
+  --rollback-plan "remove generated sandbox output" \
+  --evidence-ref policy/tests/decisions.v1.json \
+  --json 2>&1)"; then
+  fail "sensitive approval request unexpectedly passed"
+else
+  output="${output#error: }"
+  [[ "$output" == approval\ event\ contains\ forbidden\ content\ marker:* ]] ||
+    fail "unexpected sensitive approval output $output"
 fi
 
 printf 'approval: ok\n'

@@ -135,6 +135,16 @@ Atlas is in the trust infrastructure lane:
     local release-trust baseline checks, and no-certification-overclaim
     boundaries.
 
+## Next Trust-Infrastructure Milestone
+
+M129 is the next reserved governance milestone: Agent Action Integrity
+Receipts. It should build on M128 evidence envelope and hash-ledger contracts
+instead of creating a parallel proof model.
+
+M129 remains metadata-only: no agent runtime, no orchestration controller, no
+raw prompts, no chain-of-thought, no exploit payloads, and no agent safety
+claims.
+
 ## Later Control-Plane Work
 
 - get an independent release-trust review

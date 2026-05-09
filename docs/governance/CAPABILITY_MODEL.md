@@ -67,4 +67,8 @@ adds approval workflow metadata for capability classes that policy gates.
 These milestones do not add an evidence ledger, web UI, or agent execution
 runtime.
 
+Agent execution capabilities are governance contracts only unless a future
+runtime explicitly implements them. Atlas records and verifies metadata; it
+does not control agent execution.
+
 Those layers build on this manifest in later milestones.

@@ -33,6 +33,42 @@ atlas_approval_require_jq() {
   command -v jq >/dev/null 2>&1 || fail "approval evaluation requires jq"
 }
 
+atlas_approval_forbidden_content_paths() {
+  local event_json="$1"
+
+  printf '%s\n' "$event_json" | jq -r '
+    def pathstr($p): $p | map(tostring) | join(".");
+    def bad_key: test("^(raw_approval|raw_evidence|evidence_body|operator_notes|request_body|response_body|secret|token|password|passwd|api_key|authorization|cookie|session|private_key|credential)$"; "i");
+    def bad_value: test("password=|passwd=|api_key=|secret=|token=|authorization:|bearer[[:space:]]|set-cookie:|BEGIN RSA|BEGIN OPENSSH|session=|cookie="; "i");
+    (
+      [
+        paths as $p
+        | select(($p | length) > 0)
+        | select((($p[-1] | type) == "string") and (($p[-1] | tostring) | bad_key))
+        | pathstr($p)
+      ] +
+      [
+        paths(scalars) as $p
+        | select(((getpath($p) | type) == "string") and (getpath($p) | bad_value))
+        | pathstr($p)
+      ]
+    ) | unique | .[]
+  ' 2>/dev/null || true
+}
+
+atlas_approval_timestamp_valid() {
+  [[ "$1" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]]
+}
+
+atlas_approval_require_current_expiry() {
+  local expiry="$1"
+  local now="${ATLAS_NOW:-$(timestamp)}"
+
+  atlas_approval_timestamp_valid "$expiry" || fail "invalid approval expiry timestamp"
+  atlas_approval_timestamp_valid "$now" || fail "invalid current approval timestamp"
+  [[ "$expiry" > "$now" ]] || fail "approval event expired"
+}
+
 atlas_approval_read_event() {
   local input="$1"
 
@@ -71,6 +107,8 @@ atlas_approval_validate_event_json() {
   local workflow_match
   local status
   local event_type
+  local expiry
+  local forbidden
 
   atlas_approval_require_jq
 
@@ -109,6 +147,9 @@ atlas_approval_validate_event_json() {
     ($event | (has("raw_approval") or has("operator_notes") or has("request_body") or has("response_body") or has("secret") or has("token")) | not)
   ' >/dev/null || fail "invalid approval event fields"
 
+  forbidden="$(atlas_approval_forbidden_content_paths "$event_json")"
+  [ -z "$forbidden" ] || fail "approval event contains forbidden content marker: $(printf '%s' "$forbidden" | paste -sd, -)"
+
   capability="$(printf '%s\n' "$event_json" | jq -r '.capability')"
   capability_json="$(atlas_policy_capability_json "$capability")"
   [ -n "$capability_json" ] || fail "unknown approval capability $capability"
@@ -126,14 +167,23 @@ atlas_approval_validate_event_json() {
 
   event_type="$(printf '%s\n' "$event_json" | jq -r '.event_type')"
   status="$(printf '%s\n' "$event_json" | jq -r '.status')"
+  expiry="$(printf '%s\n' "$event_json" | jq -r '.expiry')"
+  atlas_approval_timestamp_valid "$expiry" || fail "invalid approval expiry timestamp"
+  if [ "$status" != "expired" ] && [ "${ATLAS_APPROVAL_ALLOW_EXPIRED_INPUT:-0}" != "1" ]; then
+    atlas_approval_require_current_expiry "$expiry"
+  fi
   case "$status:$event_type" in
   requested:approval_requested)
     printf '%s\n' "$event_json" | jq -e '.policy_decision.decision == "approval_required"' >/dev/null ||
       fail "requested approval must preserve approval_required policy decision"
     ;;
   approved:approval_approved)
-    printf '%s\n' "$event_json" | jq -e '.policy_decision.decision == "allow"' >/dev/null ||
-      fail "approved approval must carry allow policy decision"
+    printf '%s\n' "$event_json" | jq -e '
+      .policy_decision.decision == "allow" and
+      (.original_event_id | type == "string" and length > 0) and
+      (.approved_by | type == "string" and length > 0) and
+      (.approved_at | type == "string" and length > 0)
+    ' >/dev/null || fail "approved approval must carry allow policy decision and approval metadata"
     ;;
   expired:approval_expired)
     printf '%s\n' "$event_json" | jq -e '
@@ -374,6 +424,92 @@ cmd_approval_verify() {
   printf 'approval: ok\n'
 }
 
+cmd_approval_approve() {
+  need_args 1 "$#" "approval approve <event-file|-> --actor actor [--json]"
+  local input="$1"
+  local actor="${ATLAS_OPERATOR:-${USER:-unknown}}"
+  local json=0
+  local event_json
+  local status
+  local capability
+  local scope
+  local approver
+  local decision_json
+  local policy_decision_json
+  local ts
+  local event_id
+  local approved_json
+
+  shift
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+    --actor)
+      [ "$#" -ge 2 ] || fail "--actor requires a value"
+      actor="$2"
+      shift 2
+      ;;
+    --json)
+      json=1
+      shift
+      ;;
+    *)
+      fail "unknown approval approve option: $1"
+      ;;
+    esac
+  done
+
+  [ -n "$actor" ] || fail "--actor is required"
+
+  event_json="$(atlas_approval_read_event "$input")"
+  atlas_approval_validate_event_json "$event_json"
+  status="$(printf '%s\n' "$event_json" | jq -r '.status')"
+  [ "$status" = "requested" ] || fail "approval approve requires requested event"
+
+  approver="$(printf '%s\n' "$event_json" | jq -r '.approver')"
+  [ "$actor" = "$approver" ] || fail "approval actor must match requested approver"
+
+  capability="$(printf '%s\n' "$event_json" | jq -r '.capability')"
+  scope="$(printf '%s\n' "$event_json" | jq -r '.scope.value')"
+  decision_json="$(atlas_policy_decision_json "$capability" "$scope" "approved" "$actor")"
+  policy_decision_json="$(printf '%s\n' "$decision_json" | jq -c '{decision, policy_ref, reason}')"
+  ts="$(timestamp)"
+  event_id="approval-approved:$(slugify "$capability"):$ts"
+
+  approved_json="$(
+    printf '%s\n' "$event_json" | jq -c \
+      --arg event_id "$event_id" \
+      --arg event_type "approval_approved" \
+      --arg ts "$ts" \
+      --arg status "approved" \
+      --arg approved_by "$actor" \
+      --argjson policy_decision "$policy_decision_json" \
+      '. + {
+        event_id: $event_id,
+        event_type: $event_type,
+        timestamp: $ts,
+        status: $status,
+        original_event_id: .event_id,
+        approved_by: $approved_by,
+        approved_at: $ts,
+        policy_decision: $policy_decision
+      }'
+  )"
+
+  atlas_approval_validate_event_json "$approved_json"
+
+  if [ "$json" -eq 1 ]; then
+    printf '%s\n' "$approved_json"
+    return 0
+  fi
+
+  ui_heading "Atlas Approval Approved"
+  ui_rule
+  ui_kv "Event" "$event_id"
+  ui_kv "Capability" "$capability"
+  ui_kv "Approved By" "$actor"
+  ui_kv "Status" "approved"
+}
+
 cmd_approval_expire() {
   need_args 1 "$#" "approval expire <event-file|-> --reason text [--actor actor] [--json]"
   local input="$1"
@@ -417,7 +553,7 @@ cmd_approval_expire() {
   [ -n "$actor" ] || fail "--actor is required"
 
   event_json="$(atlas_approval_read_event "$input")"
-  atlas_approval_validate_event_json "$event_json"
+  ATLAS_APPROVAL_ALLOW_EXPIRED_INPUT=1 atlas_approval_validate_event_json "$event_json"
   status="$(printf '%s\n' "$event_json" | jq -r '.status')"
   [ "$status" != "expired" ] || fail "approval already expired"
 
