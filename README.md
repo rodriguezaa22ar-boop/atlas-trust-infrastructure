@@ -1,8 +1,10 @@
 # Atlas Trust Infrastructure
 
-Atlas is a metadata-first trust overlay for authorized work. It does not
-replace GitHub, Nix, SSH, tmux, scanners, approval tools, or business systems;
-it records and verifies the proof chain around them.
+Atlas is metadata-first integrity infrastructure for operational proof.
+It acts as a trust overlay for authorized work. It does not replace GitHub,
+Nix, SSH, tmux, scanners, approval tools, or business systems.
+
+It records and verifies the proof chain around them.
 
 The chain answers:
 

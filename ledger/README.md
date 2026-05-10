@@ -15,6 +15,12 @@ Each `atlas.run_event.v1` record carries `prev_hash` and `event_hash` fields.
 `atlas ledger verify` recomputes each event hash from canonical JSON without
 the `event_hash` field and checks that each event points to the previous event.
 
+`atlas ledger verify` also accepts Atlas operation ledgers written by active
+operation commands. Those records use the existing `ts`, `event`, `op`,
+`target`, `capability`, `tool`, `status`, and `detail` fields. Operation
+ledger verification is structural and metadata-boundary validation; it does not
+convert those operation ledgers into hash-linked run-event proof chains.
+
 ## Contract
 
 Ledger events are newline-delimited JSON. The first event uses:
@@ -44,6 +50,12 @@ replace approval authorities, or certify compliance.
 Ledger records must not contain raw secrets, raw request or response bodies,
 packet captures, customer data, private keys, tokens, or unredacted runtime
 evidence.
+
+Evidence-envelope replay commands are verifier references, not command output
+storage. They must not contain raw sensitive output, secrets, exploit payloads,
+private prompts, or multiline transcripts. Future agent receipts should prefer
+`command_ref`, `workflow_ref`, and `validation_ref` style references where a
+stable reference exists.
 
 ## Commands
 

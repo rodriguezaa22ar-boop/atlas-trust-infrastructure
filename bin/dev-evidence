@@ -74,7 +74,8 @@ jq -e '
   (.required | index("decision_ref")) and
   (.required | index("run_event_ref")) and
   (.required | index("envelope_hash")) and
-  (.required | index("replay"))
+  (.required | index("replay")) and
+  .properties.replay.properties.commands.items.pattern == "^[^\\r\\n]+$"
 ' "$ROOT/schemas/evidence-envelope.v1.schema.json" >/dev/null || fail "evidence envelope schema missing proof fields"
 
 jq -e '
@@ -90,6 +91,8 @@ grep -q 'Atlas verifies that evidence metadata is well-formed, hash-linked, and'
   fail "ledger README missing verification boundary"
 grep -q 'not tamper-proof infrastructure' "$ROOT/ledger/README.md" ||
   fail "ledger README missing non-overclaim boundary"
+grep -q 'Evidence-envelope replay commands are verifier references' "$ROOT/ledger/README.md" ||
+  fail "ledger README missing replay command boundary"
 
 artifact_sha="$(printf 'metadata-only artifact reference\n' | sha256sum | awk '{ print $1 }')"
 

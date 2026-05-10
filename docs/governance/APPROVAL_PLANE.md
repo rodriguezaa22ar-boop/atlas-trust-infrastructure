@@ -37,17 +37,19 @@ Create an approval request event:
   --risk medium \
   --requester operator \
   --approver reviewer \
-  --expiry 2026-12-31T00:00:00Z \
+  --expiry 2099-12-31T00:00:00Z \
   --rationale "bounded tool execution request" \
   --rollback-plan "remove generated sandbox output" \
   --evidence-ref policy/tests/decisions.v1.json \
   --json
 ```
 
-Verify or expire an approval event:
+Verify, approve, or expire an approval event:
 
 ```bash
 ./tools/atlas/bin/atlas approval verify approval-event.json
+./tools/atlas/bin/atlas approval approve approval-event.json --actor reviewer --json
+./tools/atlas/bin/atlas policy evaluate atlas.agent.tool.exec --scope agent-runtime --approval-event approval-approved-event.json --json
 ./tools/atlas/bin/atlas approval expire approval-event.json --reason "window closed" --json
 ./bin/dev-approval
 ```
@@ -67,7 +69,10 @@ This milestone does not add a signed approval bundle, external approval-tool
 adapter, mutable cloud action, web UI, hidden database, or agent execution
 runtime.
 
-`approval request`, `approval verify`, and `approval expire` emit or validate
-metadata-only event objects and do not create Atlas runtime directories. The
-older operation-specific `approval grant` command remains the active-operation
-approval path for existing validation workflows.
+`approval request`, `approval verify`, `approval approve`, and
+`approval expire` emit or validate metadata-only event objects and do not
+create Atlas runtime directories. Approved policy evaluation at the CLI boundary
+requires a verified approved approval event rather than a bare
+`--approval approved` assertion. The older operation-specific `approval grant`
+command remains the active-operation approval path for existing validation
+workflows.

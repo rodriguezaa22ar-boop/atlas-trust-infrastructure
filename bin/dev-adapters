@@ -96,4 +96,37 @@ missing_schema_path="$(
 )"
 [ -z "$missing_schema_path" ] || fail "schema path must live under adapter directory $missing_schema_path"
 
+missing_schema_file="$(
+  while IFS=$'\t' read -r adapter_id input_schema output_schema; do
+    for schema_path in "$input_schema" "$output_schema"; do
+      if [ ! -f "$ROOT/$schema_path" ]; then
+        printf '%s %s\n' "$adapter_id" "$schema_path"
+        exit 0
+      fi
+    done
+  done < <(jq -r '.adapters[] | [.id, .input_schema, .output_schema] | @tsv' "$REGISTRY")
+)"
+[ -z "$missing_schema_file" ] || fail "missing schema file $missing_schema_file"
+
+invalid_schema_file="$(
+  while IFS=$'\t' read -r adapter_id input_schema output_schema; do
+    for schema_path in "$input_schema" "$output_schema"; do
+      if ! jq -e '
+        .["$schema"] == "https://json-schema.org/draft/2020-12/schema" and
+        (.title // "" | length > 0) and
+        .type == "object" and
+        .additionalProperties == false and
+        (.required | index("schema_version")) and
+        (.required | index("adapter_id")) and
+        (.required | index("metadata_only")) and
+        .properties.metadata_only.const == true
+      ' "$ROOT/$schema_path" >/dev/null 2>&1; then
+        printf '%s %s\n' "$adapter_id" "$schema_path"
+        exit 0
+      fi
+    done
+  done < <(jq -r '.adapters[] | [.id, .input_schema, .output_schema] | @tsv' "$REGISTRY")
+)"
+[ -z "$invalid_schema_file" ] || fail "invalid adapter schema $invalid_schema_file"
+
 printf 'adapters: ok\n'

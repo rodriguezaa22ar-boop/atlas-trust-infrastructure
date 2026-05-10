@@ -62,6 +62,7 @@ atlas_evidence_verify_envelope_json() {
   printf '%s\n' "$envelope_json" | jq -e '
     . as $envelope |
     def nonempty($key): ($envelope[$key] | type == "string" and length > 0);
+    def bad_value: test("password=|passwd=|api_key=|secret=|token=|authorization:|bearer[[:space:]]|set-cookie:|BEGIN RSA|BEGIN OPENSSH|session=|cookie="; "i");
     ($envelope | type == "object") and
     $envelope.schema_version == "atlas.evidence_envelope.v1" and
     nonempty("envelope_id") and
@@ -78,7 +79,7 @@ atlas_evidence_verify_envelope_json() {
     nonempty("prev_hash") and
     ($envelope.envelope_hash | test("^[a-f0-9]{64}$")) and
     ($envelope.replay.commands | type == "array" and length > 0) and
-    all($envelope.replay.commands[]; type == "string" and length > 0) and
+    all($envelope.replay.commands[]; type == "string" and length > 0 and (test("[\r\n]") | not)) and
     ($envelope.known_limitations | type == "array") and
     all($envelope.known_limitations[]; type == "string" and length > 0) and
     ([
@@ -94,6 +95,10 @@ atlas_evidence_verify_envelope_json() {
           . == "token" or
           . == "private_key"
         )
+    ] | length == 0) and
+    ([
+      paths(scalars) as $p
+      | select(((getpath($p) | type) == "string") and (getpath($p) | bad_value))
     ] | length == 0)
   ' >/dev/null || fail "invalid evidence envelope fields"
 

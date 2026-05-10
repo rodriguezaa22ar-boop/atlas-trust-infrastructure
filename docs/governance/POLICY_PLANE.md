@@ -43,6 +43,7 @@ Evaluate one capability:
 ```bash
 ./tools/atlas/bin/atlas policy evaluate atlas.status.read
 ./tools/atlas/bin/atlas policy evaluate atlas.agent.tool.exec --json
+./tools/atlas/bin/atlas policy evaluate atlas.agent.tool.exec --scope agent-runtime --approval-event approval-approved-event.json --json
 ```
 
 Run the policy fixture suite:
@@ -71,3 +72,8 @@ The Rego file is the policy contract. The shell/JQ evaluator is the current
 host-runtime implementation so Atlas stays portable outside Nix. A future OPA
 or signed-policy-bundle runtime must preserve the same decision vocabulary and
 metadata-only evidence boundary.
+
+At the CLI boundary, `approval=approved` must come from a verified
+`atlas.approval_event.v1` event supplied with `--approval-event`. Internal
+policy fixtures may still exercise abstract approval states to verify the
+decision vocabulary.

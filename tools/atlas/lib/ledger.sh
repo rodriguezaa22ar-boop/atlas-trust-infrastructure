@@ -81,7 +81,7 @@ atlas_ledger_hash_file() {
   sha256sum "$path" | awk '{ print $1 }'
 }
 
-atlas_ledger_verify_json() {
+atlas_ledger_verify_hash_json() {
   local ledger_file="$1"
   local line
   local line_no=0
@@ -176,6 +176,105 @@ atlas_ledger_verify_json() {
       event_count: $event_count,
       head_event_hash: $head_event_hash
     }'
+}
+
+atlas_ledger_hash_line_json() {
+  local json="$1"
+
+  atlas_ledger_require_hash_tool
+  printf '%s\n' "$json" | jq -cS . | sha256sum | awk '{ print $1 }'
+}
+
+atlas_ledger_verify_operation_json() {
+  local ledger_file="$1"
+  local line
+  local line_no=0
+  local head_event_hash=""
+
+  intel_require_jq
+  atlas_ledger_require_hash_tool
+
+  [ -f "$ledger_file" ] || fail "missing ledger: $ledger_file"
+  [ -s "$ledger_file" ] || fail "ledger is empty: $ledger_file"
+
+  while IFS= read -r line || [ -n "$line" ]; do
+    line_no=$((line_no + 1))
+    [ -n "$line" ] || fail "operation ledger event $line_no is empty"
+
+    printf '%s\n' "$line" | jq -e . >/dev/null 2>&1 ||
+      fail "operation ledger event $line_no invalid JSON"
+
+    printf '%s\n' "$line" | jq -e '
+      . as $event |
+      def nonempty($key): ($event[$key] | type == "string" and length > 0);
+      def bad_value: test("password=|passwd=|api_key=|secret=|token=|authorization:|bearer[[:space:]]|set-cookie:|BEGIN RSA|BEGIN OPENSSH|session=|cookie="; "i");
+      ($event | type == "object") and
+      nonempty("ts") and
+      nonempty("event") and
+      nonempty("op") and
+      nonempty("target") and
+      nonempty("capability") and
+      nonempty("tool") and
+      nonempty("status") and
+      ($event.detail | type == "string") and
+      ([
+        paths
+        | .[]?
+        | tostring
+        | select(
+            . == "raw_evidence" or
+            . == "evidence_body" or
+            . == "request_body" or
+            . == "response_body" or
+            . == "secret" or
+            . == "token" or
+            . == "private_key"
+          )
+      ] | length == 0) and
+      ([
+        paths(scalars) as $p
+        | select(((getpath($p) | type) == "string") and (getpath($p) | bad_value))
+      ] | length == 0)
+    ' >/dev/null || fail "operation ledger event $line_no invalid fields"
+
+    head_event_hash="$(atlas_ledger_hash_line_json "$line")"
+  done <"$ledger_file"
+
+  [ "$line_no" -gt 0 ] || fail "ledger is empty: $ledger_file"
+
+  jq -cn \
+    --arg schema_version "atlas.ledger_verify.v1" \
+    --arg status "ok" \
+    --arg ledger_type "atlas.operation_ledger.v1" \
+    --argjson event_count "$line_no" \
+    --arg head_event_hash "$head_event_hash" \
+    '{
+      schema_version: $schema_version,
+      status: $status,
+      ledger_type: $ledger_type,
+      event_count: $event_count,
+      head_event_hash: $head_event_hash
+    }'
+}
+
+atlas_ledger_verify_json() {
+  local ledger_file="$1"
+  local first_line
+  local schema_version
+
+  [ -f "$ledger_file" ] || fail "missing ledger: $ledger_file"
+  [ -s "$ledger_file" ] || fail "ledger is empty: $ledger_file"
+
+  first_line="$(sed -n '1p' "$ledger_file")"
+  printf '%s\n' "$first_line" | jq -e . >/dev/null 2>&1 ||
+    fail "ledger event 1 invalid JSON"
+  schema_version="$(printf '%s\n' "$first_line" | jq -r '.schema_version // ""')"
+
+  if [ "$schema_version" = "atlas.run_event.v1" ]; then
+    atlas_ledger_verify_hash_json "$ledger_file"
+  else
+    atlas_ledger_verify_operation_json "$ledger_file"
+  fi
 }
 
 atlas_ledger_command_input_file() {
