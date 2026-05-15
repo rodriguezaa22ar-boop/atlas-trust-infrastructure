@@ -47,6 +47,11 @@ repository in filesystem order.
   demo operation from target registration through release trust.
 - [demo/DEMO_REVIEWER_RUNBOOK.md](demo/DEMO_REVIEWER_RUNBOOK.md): reviewer
   runbook for the demo operation and retained release evidence.
+- [demo/DEMO_SITE_INVENTORY.md](demo/DEMO_SITE_INVENTORY.md): public demo-site
+  inventory for binding the Emergent site to Atlas proof without making the
+  site an execution surface.
+- [demo/DEMO_SITE_PROOF_PATH.md](demo/DEMO_SITE_PROOF_PATH.md): receipt,
+  verification, replay, and public/private proof path for the demo site.
 
 ## Case studies
 
@@ -62,6 +67,8 @@ repository in filesystem order.
 - [TRUST_LIFECYCLE.md](TRUST_LIFECYCLE.md): scope-to-release trust chain.
 - [demo/DEMO_OPERATION.md](demo/DEMO_OPERATION.md): repeatable synthetic demo
   of the trust lifecycle.
+- [demo/DEMO_SITE_PROOF_PATH.md](demo/DEMO_SITE_PROOF_PATH.md): public demo-site
+  proof path and receipt MVP boundary.
 - [TRUST_MODEL.md](TRUST_MODEL.md): trust anchors and verification pattern.
 - [atlas/TRUST_LIFECYCLE.md](atlas/TRUST_LIFECYCLE.md): Atlas-local lifecycle
   detail.
@@ -118,6 +125,11 @@ repository in filesystem order.
   retention records and boundary.
 - [retention/lab/ATLAS_DUAL_NODE_LAB_VALIDATION_M123.md](retention/lab/ATLAS_DUAL_NODE_LAB_VALIDATION_M123.md):
   M123 dual-node lab validation retention with private host labels redacted.
+
+## Demo retention
+
+- [retention/demo/README.md](retention/demo/README.md): metadata-only demo-site
+  retention records and boundary.
 
 ## Production readiness
 

@@ -15,6 +15,10 @@ Start here:
 - [TRUST_CHAIN_WALKTHROUGH.md](TRUST_CHAIN_WALKTHROUGH.md): how to read the
   operation trust-chain output.
 - [SAMPLE_OUTPUTS.md](SAMPLE_OUTPUTS.md): abbreviated output shapes.
+- [DEMO_SITE_INVENTORY.md](DEMO_SITE_INVENTORY.md): public demo-site inventory
+  template for binding the Emergent site to Atlas proof.
+- [DEMO_SITE_PROOF_PATH.md](DEMO_SITE_PROOF_PATH.md): proof path for receipts,
+  verification, replay, and public/private boundaries.
 
 ## Boundary
 

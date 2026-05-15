@@ -3541,6 +3541,59 @@ EOF
   done
 }
 
+@test "demo site proof inventory preserves public/private boundary" {
+  demo_dir="$TEST_ROOT/toolkit/docs/demo"
+  demo_readme="$demo_dir/README.md"
+  inventory_doc="$demo_dir/DEMO_SITE_INVENTORY.md"
+  proof_doc="$demo_dir/DEMO_SITE_PROOF_PATH.md"
+  retention_doc="$TEST_ROOT/toolkit/docs/retention/demo/README.md"
+  docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
+
+  [ -f "$inventory_doc" ]
+  [ -f "$proof_doc" ]
+  [ -f "$retention_doc" ]
+
+  grep -q 'Emergent AI' "$inventory_doc"
+  grep -q 'Pending operator input' "$inventory_doc"
+  grep -q 'metadata-only' "$inventory_doc"
+  grep -q 'public-facing proof-of-concept surface' "$inventory_doc"
+  grep -q 'Do not claim' "$inventory_doc" || grep -q 'Does not claim' "$inventory_doc"
+  grep -q 'not external audit' "$inventory_doc"
+  grep -q 'not certification' "$inventory_doc"
+  grep -q 'not legal compliance' "$inventory_doc"
+  grep -q 'not tamper-proof infrastructure' "$inventory_doc"
+  grep -q 'not external SLSA certification' "$inventory_doc"
+  grep -q 'not runtime safety proof' "$inventory_doc"
+  grep -q 'not production deployability proof' "$inventory_doc"
+  grep -q 'private `sessions/`, `state/`, `shared/`, `logs/`' "$inventory_doc"
+
+  grep -q 'must not become a live operation runner or agent execution surface' "$proof_doc"
+  grep -q 'atlas receipt create --input examples/receipt/minimal.json --output receipt.atlas.json' "$proof_doc"
+  grep -q 'atlas receipt verify receipt.atlas.json' "$proof_doc"
+  grep -q 'atlas receipt replay receipt.atlas.json' "$proof_doc"
+  grep -q 'metadata_only: true' "$proof_doc"
+  grep -q './bin/export-public-trust --check' "$proof_doc"
+  grep -q 'docs/retention/demo/' "$proof_doc"
+  grep -q 'not external audit' "$proof_doc"
+  grep -q 'not production deployability proof' "$proof_doc"
+
+  grep -q 'No demo-site retention records are retained yet' "$retention_doc"
+  grep -q 'sanitized screenshot references' "$retention_doc"
+  grep -q 'not external audit' "$retention_doc"
+  grep -q 'not certification' "$retention_doc"
+
+  grep -q 'DEMO_SITE_INVENTORY.md' "$demo_readme"
+  grep -q 'DEMO_SITE_PROOF_PATH.md' "$demo_readme"
+  grep -q 'demo/DEMO_SITE_INVENTORY.md' "$docs_index"
+  grep -q 'demo/DEMO_SITE_PROOF_PATH.md' "$docs_index"
+  grep -q 'retention/demo/README.md' "$docs_index"
+
+  for doc in "$inventory_doc" "$proof_doc" "$retention_doc"; do
+    ! grep -Eiq 'externally audited|SLSA certified|compliance certified|guaranteed secure|proves runtime safety|proves production deployability|fraud-proof|prevents fraud|autonomous hacking|scanner replacement' "$doc"
+    ! grep -Eiq 'AKIA[0-9A-Z]{16}|BEGIN (RSA |OPENSSH |EC )?PRIVATE KEY|password=|token=|session_cookie=|routing number|bank account number' "$doc"
+  done
+}
+
 @test "external legibility docs preserve Atlas trust boundaries" {
   docs_dir="$TEST_ROOT/toolkit/docs"
   trust_doc="$docs_dir/TRUST_MODEL.md"
