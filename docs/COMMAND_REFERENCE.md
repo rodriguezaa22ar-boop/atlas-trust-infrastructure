@@ -72,6 +72,8 @@ nix-shell --run './bin/dev-qa'
 ./tools/atlas/bin/atlas evidence verify evidence-envelope.json
 ./tools/atlas/bin/atlas ledger verify ledger.ndjson
 ./tools/atlas/bin/atlas ledger checkpoint ledger.ndjson --json
+./tools/atlas/bin/atlas receipt create --action software.release.packet.created --actor operator --subject-type git-commit --subject HEAD --evidence-ref docs/retention/releases/atlas-current.json --artifact-ref docs/retention/releases/atlas-current.json=<sha256> --out receipt.json
+./tools/atlas/bin/atlas receipt verify receipt.json
 ./tools/atlas/bin/atlas reviewer package atlas-current-review
 ./tools/atlas/bin/atlas release packet atlas-current --qa-status pass
 ./tools/atlas/bin/atlas release packet atlas-current --json --operation april-review --qa-status pass
@@ -151,6 +153,21 @@ nix-shell --run './bin/dev-qa'
 ./tools/atlas/bin/atlas ledger verify ledger.ndjson
 ./tools/atlas/bin/atlas ledger checkpoint ledger.ndjson --json
 ```
+
+## Atlas Receipts
+
+```bash
+./tools/atlas/bin/atlas receipt create --action digital-action.recorded --actor operator --subject-type digital-action --subject demo:minimal --out receipt.json
+./tools/atlas/bin/atlas receipt create --action software.release.packet.created --actor operator --subject-type git-commit --subject HEAD --prev-hash <event_hash> --evidence-ref docs/retention/releases/atlas-current.json --artifact-ref docs/retention/releases/atlas-current.json=<sha256> --out receipt.json
+./tools/atlas/bin/atlas receipt verify receipt.json
+./tools/atlas/bin/atlas receipt verify receipt.json --json
+```
+
+Receipts are metadata-only proof records. Verification checks schema,
+`metadata_only=true`, `raw_artifacts_embedded=false`, required
+`known_limitations`, forbidden raw-content markers, canonical `event_hash`, and
+canonical `receipt_hash`. It does not prove external artifact availability,
+human intent, legal compliance, or artifact correctness.
 
 ## Atlas Business Flows
 

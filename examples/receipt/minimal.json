@@ -1,0 +1,27 @@
+{
+  "action": "digital-action.recorded",
+  "actor": "atlas-operator",
+  "approval_refs": [],
+  "artifact_refs": [],
+  "event_hash": "e6df3946ad774c9db61195656f81e458ecb0b794271b7a466f3b951767ef8db4",
+  "evidence_refs": [],
+  "known_limitations": [
+    "Metadata-only proof record; raw artifacts and sensitive contents are not embedded.",
+    "Does not prove external artifact availability, human intent, legal compliance, or artifact correctness."
+  ],
+  "metadata_only": true,
+  "prev_hash": null,
+  "raw_artifacts_embedded": false,
+  "receipt_hash": "6a8a78fb13ca051b593f5baa8babeb58c4a6d023bfad03cf71c7eb421f2490d8",
+  "receipt_id": "receipt-minimal",
+  "schema_version": "atlas.receipt.v1",
+  "subject": {
+    "ref": "demo:minimal",
+    "type": "digital-action"
+  },
+  "timestamp": "2026-05-15T00:00:00Z",
+  "verifier": {
+    "name": "atlas receipt verify",
+    "schema": "schemas/atlas.receipt.v1.schema.json"
+  }
+}

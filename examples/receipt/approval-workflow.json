@@ -1,0 +1,30 @@
+{
+  "action": "approval.workflow.reviewed",
+  "actor": "atlas-reviewer",
+  "approval_refs": [
+    "approval/workflows.yaml#policy-threshold-human-review"
+  ],
+  "artifact_refs": [],
+  "event_hash": "8fc94d3dd9ebb1a8da1008df125956a17281ff43f27128340e1b6603dddbdce5",
+  "evidence_refs": [
+    "docs/governance/APPROVAL_PLANE.md"
+  ],
+  "known_limitations": [
+    "Receipt records approval workflow metadata only; it does not prove human intent or legal authorization."
+  ],
+  "metadata_only": true,
+  "prev_hash": "220e9f9a9c9198cf798133b9a445b836238153fe3ada5eb310c2257f96dfb57a",
+  "raw_artifacts_embedded": false,
+  "receipt_hash": "628b663a086bc867d54bf240da0c3a43a0f69e2ced93301e6e68b3d5774af722",
+  "receipt_id": "receipt-approval-workflow",
+  "schema_version": "atlas.receipt.v1",
+  "subject": {
+    "ref": "policy-threshold-human-review",
+    "type": "approval-workflow"
+  },
+  "timestamp": "2026-05-15T00:02:00Z",
+  "verifier": {
+    "name": "atlas receipt verify",
+    "schema": "schemas/atlas.receipt.v1.schema.json"
+  }
+}

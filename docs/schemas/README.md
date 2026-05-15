@@ -38,6 +38,7 @@ candidate record.
 
 | Classification | Schema | Surface | Contract |
 | --- | --- | --- | --- |
+| stable | `atlas.receipt.v1` | `atlas receipt create`, `atlas receipt verify` | [../../schemas/atlas.receipt.v1.schema.json](../../schemas/atlas.receipt.v1.schema.json) |
 | stable | `atlas.release_trust.v1` | `atlas release packet --json` | [release-trust.v1.md](release-trust.v1.md) |
 | stable | `atlas.release_replay.v1` | `atlas release replay --json` | [release-replay.v1.md](release-replay.v1.md) |
 | retained-only | `atlas.release_provenance.v1` | `docs/retention/releases/*.provenance.json` | [release-provenance.v1.md](release-provenance.v1.md) |
@@ -73,15 +74,16 @@ are not stable command outputs yet for JSON.
 | optional | `atlas.flow_retention_link.v1` | `sessions/<operation>/flow_retention.ndjson` | [flow-retention-link.v1.md](flow-retention-link.v1.md) |
 | optional | `atlas.business_flow_evidence.v1` | optional flow evidence object, JSON planned | [business-flow-evidence.v1.md](business-flow-evidence.v1.md) |
 
-## Governance JSON Schemas
+## Root JSON Schemas
 
-M128 adds JSON Schema files under repository-root `schemas/` for the
-metadata-only evidence envelope and hash-ledger contracts:
+Repository-root `schemas/` holds JSON Schema files for metadata-only
+governance, evidence, hash-ledger, and receipt contracts:
 
 - `schemas/decision.v1.schema.json`
 - `schemas/run-event.v1.schema.json`
 - `schemas/evidence-envelope.v1.schema.json`
 - `schemas/checkpoint.v1.schema.json`
+- `schemas/atlas.receipt.v1.schema.json`
 
 Validate the runnable contract with:
 

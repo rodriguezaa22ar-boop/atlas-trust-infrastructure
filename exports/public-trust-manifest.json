@@ -27,6 +27,7 @@
     "containers/",
     "docs/",
     "etc/",
+    "examples/",
     "exports/public-trust-manifest.json",
     "index.html",
     "lib/",

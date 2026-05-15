@@ -862,6 +862,175 @@ write_test_slsa_reference() {
   [ ! -e "$TEST_ROOT/toolkit/reports" ]
 }
 
+@test "receipt v1 creates and verifies metadata-only proof receipts" {
+  receipt_schema="$TEST_ROOT/toolkit/schemas/atlas.receipt.v1.schema.json"
+  receipt_doc="$TEST_ROOT/toolkit/docs/RECEIPTS.md"
+  docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
+  command_ref="$TEST_ROOT/toolkit/docs/COMMAND_REFERENCE.md"
+  schema_index="$TEST_ROOT/toolkit/docs/schemas/README.md"
+  public_manifest="$TEST_ROOT/toolkit/exports/public-trust-manifest.json"
+  examples_dir="$TEST_ROOT/toolkit/examples/receipt"
+
+  hash_receipt_event_json() {
+    local json="$1"
+
+    printf '%s\n' "$json" |
+      jq -cS 'del(.event_hash, .receipt_hash)' |
+      sha256sum |
+      awk '{ print $1 }'
+  }
+
+  hash_receipt_json() {
+    local json="$1"
+
+    printf '%s\n' "$json" |
+      jq -cS 'del(.receipt_hash)' |
+      sha256sum |
+      awk '{ print $1 }'
+  }
+
+  [ -f "$receipt_schema" ]
+  [ -f "$receipt_doc" ]
+  [ -f "$examples_dir/minimal.json" ]
+  [ -f "$examples_dir/software-action.json" ]
+  [ -f "$examples_dir/approval-workflow.json" ]
+  [ -f "$examples_dir/agent-action.json" ]
+
+  jq -e '
+    .title == "Atlas Receipt v1" and
+    .properties.schema_version.const == "atlas.receipt.v1" and
+    .properties.metadata_only.const == true and
+    .properties.raw_artifacts_embedded.const == false and
+    (.required | index("known_limitations")) and
+    (.required | index("event_hash")) and
+    (.required | index("prev_hash")) and
+    .properties.prev_hash.type == ["string", "null"] and
+    .additionalProperties == false
+  ' "$receipt_schema"
+
+  grep -q '^# Atlas Receipt v1$' "$receipt_doc"
+  grep -q 'Atlas Receipt v1 creates and verifies portable, metadata-only proof receipts for critical digital actions.' "$receipt_doc"
+  grep -q 'This receipt validates as a metadata-only proof record.' "$receipt_doc"
+  grep -q 'It does not prove external artifact availability, human intent, legal compliance, or artifact correctness.' "$receipt_doc"
+  grep -q 'M131 does not add execution, scanning, CI/CD, ticketing, GRC automation, agent autonomy' "$receipt_doc"
+  grep -q 'RECEIPTS.md' "$docs_index"
+  grep -q 'schemas/atlas.receipt.v1.schema.json' "$schema_index"
+  grep -q 'atlas receipt create' "$command_ref"
+  grep -q 'atlas receipt verify' "$command_ref"
+  jq -e '(.allow_paths | index("examples/")) and (.allow_paths | index("schemas/"))' "$public_manifest"
+
+  for receipt in \
+    "$examples_dir/minimal.json" \
+    "$examples_dir/software-action.json" \
+    "$examples_dir/approval-workflow.json" \
+    "$examples_dir/agent-action.json"; do
+    run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt verify "$receipt"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"receipt: ok"* ]]
+    [[ "$output" == *"This receipt validates as a metadata-only proof record."* ]]
+    [[ "$output" == *"It does not prove external artifact availability, human intent, legal compliance, or artifact correctness."* ]]
+  done
+
+  jq -e '.prev_hash == null' "$examples_dir/minimal.json"
+
+  artifact_sha="$(printf 'metadata-only test artifact\n' | sha256sum | awk '{ print $1 }')"
+  created_file="$TEST_ROOT/created-receipt.json"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt create \
+    --receipt-id receipt-test \
+    --timestamp 2026-05-15T00:04:00Z \
+    --action software.patch.reviewed \
+    --actor atlas-tests \
+    --subject-type git-commit \
+    --subject HEAD \
+    --evidence-ref docs/RECEIPTS.md \
+    --artifact-ref "docs/RECEIPTS.md=$artifact_sha" \
+    --approval-ref approval/workflows.yaml#policy-threshold-human-review \
+    --limitation "Receipt validates metadata and hashes only." \
+    --out "$created_file" \
+    --json
+  [ "$status" -eq 0 ]
+  [ -f "$created_file" ]
+  created="$output"
+
+  printf '%s\n' "$created" | jq -e \
+    --arg artifact_sha "$artifact_sha" \
+    '.schema_version == "atlas.receipt.v1" and
+    .metadata_only == true and
+    .raw_artifacts_embedded == false and
+    .known_limitations == ["Receipt validates metadata and hashes only."] and
+    .prev_hash == null and
+    .artifact_refs[0].sha256 == $artifact_sha and
+    .verifier.name == "atlas receipt verify"'
+
+  computed_event_hash="$(hash_receipt_event_json "$created")"
+  computed_receipt_hash="$(hash_receipt_json "$created")"
+  printf '%s\n' "$created" | jq -e \
+    --arg event_hash "$computed_event_hash" \
+    --arg receipt_hash "$computed_receipt_hash" \
+    '.event_hash == $event_hash and .receipt_hash == $receipt_hash'
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt verify "$created_file" --json
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" | jq -e \
+    --arg event_hash "$computed_event_hash" \
+    --arg receipt_hash "$computed_receipt_hash" \
+    '.schema_version == "atlas.receipt_verify.v1" and
+    .status == "ok" and
+    .metadata_only == true and
+    .raw_artifacts_embedded == false and
+    .event_hash == $event_hash and
+    .receipt_hash == $receipt_hash and
+    .evidence_ref_count == 1 and
+    .artifact_ref_count == 1 and
+    .approval_ref_count == 1'
+
+  tampered_event="$TEST_ROOT/tampered-event-receipt.json"
+  jq '.event_hash = "0000000000000000000000000000000000000000000000000000000000000000"' "$created_file" >"$tampered_event"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt verify "$tampered_event"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"receipt event_hash mismatch"* ]]
+
+  no_limitations="$TEST_ROOT/no-limitations-receipt.json"
+  jq 'del(.known_limitations)' "$created_file" >"$no_limitations"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt verify "$no_limitations"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"invalid receipt fields"* ]]
+
+  not_metadata="$TEST_ROOT/not-metadata-receipt.json"
+  jq '.metadata_only = false' "$created_file" >"$not_metadata"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt verify "$not_metadata"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"invalid receipt fields"* ]]
+
+  raw_embedded="$TEST_ROOT/raw-embedded-receipt.json"
+  jq '.raw_artifacts_embedded = true' "$created_file" >"$raw_embedded"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt verify "$raw_embedded"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"invalid receipt fields"* ]]
+
+  raw_artifact="$TEST_ROOT/raw-artifact-receipt.json"
+  jq '.raw_artifact = "embedded artifact body"' "$created_file" >"$raw_artifact"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt verify "$raw_artifact"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"receipt contains forbidden raw-content marker"* ]]
+
+  raw_body="$TEST_ROOT/raw-body-receipt.json"
+  jq '.raw_body = "request body"' "$created_file" >"$raw_body"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt verify "$raw_body"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"receipt contains forbidden raw-content marker"* ]]
+
+  bad_prev="$TEST_ROOT/bad-prev-receipt.json"
+  jq '.prev_hash = "bad"' "$created_file" >"$bad_prev"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt verify "$bad_prev"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"invalid receipt fields"* ]]
+
+  [ ! -e "$TEST_ROOT/toolkit/state" ]
+  [ ! -e "$TEST_ROOT/toolkit/sessions" ]
+  [ ! -e "$TEST_ROOT/toolkit/reports" ]
+}
+
 @test "capability manifest defines machine-readable governance root" {
   manifest="$TEST_ROOT/toolkit/capabilities.yaml"
   schema="$TEST_ROOT/toolkit/schemas/capability.v1.schema.json"

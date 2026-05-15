@@ -85,6 +85,9 @@ TOOL_NAME="atlas"
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=../lib/policy.sh
 . "$TOOL_DIR/lib/policy.sh"
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/receipt.sh
+. "$TOOL_DIR/lib/receipt.sh"
 
 atlas_command_skips_layout() {
 	case "${1:-}" in
@@ -119,6 +122,13 @@ atlas_command_skips_layout() {
 	ledger)
 		case "${2:-}" in
 		verify | checkpoint)
+			return 0
+			;;
+		esac
+		;;
+	receipt)
+		case "${2:-}" in
+		create | verify)
 			return 0
 			;;
 		esac
@@ -158,6 +168,8 @@ usage:
   atlas evidence verify <envelope-file|-> [--json]
   atlas ledger verify <ledger-file|-> [--json]
   atlas ledger checkpoint <ledger-file|-> [--json]
+  atlas receipt create --action action --actor actor --subject-type type --subject ref [--prev-hash sha256] [--evidence-ref ref] [--artifact-ref path=sha256] [--approval-ref ref] [--limitation text] [--out receipt.json] [--json]
+  atlas receipt verify <receipt-file|-> [--json]
   atlas reviewer package <name>
   atlas release packet [packet-name] [--json] [--operation name]
   atlas release verify [packet]
@@ -387,6 +399,10 @@ evidence:
 ledger:
   atlas ledger verify <ledger-file|-> [--json]
   atlas ledger checkpoint <ledger-file|-> [--json]
+
+receipts:
+  atlas receipt create --action action --actor actor --subject-type type --subject ref [--prev-hash sha256] [--evidence-ref ref] [--artifact-ref path=sha256] [--approval-ref ref] [--limitation text] [--out receipt.json] [--json]
+  atlas receipt verify <receipt-file|-> [--json]
 
 findings:
   atlas finding add <title> [--level observed|inferred|validated] [--severity severity] [--confidence confidence]
@@ -2329,6 +2345,23 @@ ledger)
 	checkpoint)
 		shift
 		cmd_ledger_checkpoint "$@"
+		;;
+	*)
+		usage
+		exit 1
+		;;
+	esac
+	;;
+receipt)
+	shift
+	case "${1:-}" in
+	create)
+		shift
+		cmd_receipt_create "$@"
+		;;
+	verify)
+		shift
+		cmd_receipt_verify "$@"
 		;;
 	*)
 		usage

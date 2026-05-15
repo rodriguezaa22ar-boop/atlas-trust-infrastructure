@@ -1,0 +1,33 @@
+{
+  "action": "software.release.packet.created",
+  "actor": "atlas-release-operator",
+  "approval_refs": [],
+  "artifact_refs": [
+    {
+      "path": "docs/retention/releases/atlas-m121-v1-internal-rc.json",
+      "sha256": "f20664462fe8aa2ccab5b3a1c588f9a3bd5ab48c7a34d4cb8bcaae3ecc5bcd12"
+    }
+  ],
+  "event_hash": "220e9f9a9c9198cf798133b9a445b836238153fe3ada5eb310c2257f96dfb57a",
+  "evidence_refs": [
+    "docs/retention/releases/atlas-m121-v1-internal-rc.json"
+  ],
+  "known_limitations": [
+    "Receipt references release metadata and hashes only; it does not embed release artifacts."
+  ],
+  "metadata_only": true,
+  "prev_hash": "e6df3946ad774c9db61195656f81e458ecb0b794271b7a466f3b951767ef8db4",
+  "raw_artifacts_embedded": false,
+  "receipt_hash": "0c435fb08c1103531a3f190fe811e31218928fe86f3462d18ff6d011903c6914",
+  "receipt_id": "receipt-software-action",
+  "schema_version": "atlas.receipt.v1",
+  "subject": {
+    "ref": "c5d4169be19e85f4003338ac792b48ab76c9bb81",
+    "type": "git-commit"
+  },
+  "timestamp": "2026-05-15T00:01:00Z",
+  "verifier": {
+    "name": "atlas receipt verify",
+    "schema": "schemas/atlas.receipt.v1.schema.json"
+  }
+}

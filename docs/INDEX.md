@@ -63,6 +63,8 @@ repository in filesystem order.
 - [demo/DEMO_OPERATION.md](demo/DEMO_OPERATION.md): repeatable synthetic demo
   of the trust lifecycle.
 - [TRUST_MODEL.md](TRUST_MODEL.md): trust anchors and verification pattern.
+- [RECEIPTS.md](RECEIPTS.md): M131 metadata-only portable proof receipts for
+  critical digital actions.
 - [atlas/TRUST_LIFECYCLE.md](atlas/TRUST_LIFECYCLE.md): Atlas-local lifecycle
   detail.
 - [atlas/TRUST_INFRASTRUCTURE_DIRECTION.md](atlas/TRUST_INFRASTRUCTURE_DIRECTION.md):
@@ -143,6 +145,8 @@ repository in filesystem order.
 ## Schemas
 
 - [schemas/README.md](schemas/README.md): implemented JSON contracts.
+- [../schemas/atlas.receipt.v1.schema.json](../schemas/atlas.receipt.v1.schema.json):
+  M131 receipt JSON Schema for metadata-only proof records.
 - [schemas/SCHEMA_FREEZE_CANDIDATE.md](schemas/SCHEMA_FREEZE_CANDIDATE.md):
   M120 v1 schema freeze candidate classifications and version-bump rules.
 - [schemas/business-flow-evidence.v1.md](schemas/business-flow-evidence.v1.md):

@@ -1,0 +1,28 @@
+{
+  "action": "agent.action.proposed",
+  "actor": "atlas-advisor-interface",
+  "approval_refs": [],
+  "artifact_refs": [],
+  "event_hash": "8d7dd0748adab38b0b7a4163b985d2cc38d5354bcf3a2b5b3ef3e7611e3dcaf0",
+  "evidence_refs": [
+    "docs/RECEIPTS.md"
+  ],
+  "known_limitations": [
+    "Receipt records an agent-adjacent metadata event only; it does not authorize autonomous execution or tool invocation."
+  ],
+  "metadata_only": true,
+  "prev_hash": "8fc94d3dd9ebb1a8da1008df125956a17281ff43f27128340e1b6603dddbdce5",
+  "raw_artifacts_embedded": false,
+  "receipt_hash": "27c96c37e2d8026c6de4e27dfdb6d8fce1bf7d05778b9bcc2d3f8cd83568a09c",
+  "receipt_id": "receipt-agent-action",
+  "schema_version": "atlas.receipt.v1",
+  "subject": {
+    "ref": "advisor-packet:m131-receipt-review",
+    "type": "agent-action"
+  },
+  "timestamp": "2026-05-15T00:03:00Z",
+  "verifier": {
+    "name": "atlas receipt verify",
+    "schema": "schemas/atlas.receipt.v1.schema.json"
+  }
+}
