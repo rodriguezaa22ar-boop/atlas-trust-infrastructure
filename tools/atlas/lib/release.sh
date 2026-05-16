@@ -1877,6 +1877,19 @@ atlas_release_replay_clean_env() {
     "$@"
 }
 
+atlas_release_replay_prepare_layout() {
+  local checkout="$1"
+
+  mkdir -p \
+    "$checkout/logs" \
+    "$checkout/releases" \
+    "$checkout/reports" \
+    "$checkout/sessions" \
+    "$checkout/state/atlas" \
+    "$checkout/state/intel" \
+    "$checkout/targets"
+}
+
 atlas_release_replay_cleanup() {
   if [ -n "${atlas_release_replay_cleanup_parent:-}" ]; then
     rm -rf "$atlas_release_replay_cleanup_parent"
@@ -2674,6 +2687,8 @@ cmd_release_replay() {
       ui_kv "QA" "skipped"
     fi
   fi
+
+  atlas_release_replay_prepare_layout "$replay_checkout"
 
   if [ "$json" = "1" ]; then
     atlas_release_replay_run_silent "$v1_log" atlas_release_replay_clean_env "$replay_checkout/tools/atlas/bin/atlas" v1 status --strict ||

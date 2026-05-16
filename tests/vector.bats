@@ -169,6 +169,18 @@ teardown() {
   [[ "$output" == *"445/tcp"* ]]
 }
 
+@test "vector target summary accepts earlier matching intel when later records target another host" {
+  cat >> "$TEST_ROOT/toolkit/state/intel/observations.jsonl" <<'EOF'
+{"observed_at":"2026-04-24T00:00:10Z","source_tool":"wiremap","source_name":"perimeter-sweep","source_run_id":"run-2","target":"10.0.0.9","observation_type":"host_state","confidence":"high","value":{"state":"up"}}
+EOF
+
+  run "$TEST_ROOT/toolkit/tools/vector/bin/vector" target summary 10.0.0.8
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Target Summary"* ]]
+  [[ "$output" == *"10.0.0.8"* ]]
+}
+
 @test "vector ranks candidates from shared intel" {
   run "$TEST_ROOT/toolkit/tools/vector/bin/vector" candidates 10.0.0.8
 

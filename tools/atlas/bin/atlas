@@ -91,6 +91,13 @@ TOOL_NAME="atlas"
 
 atlas_command_skips_layout() {
 	case "${1:-}" in
+	v1)
+		case "${2:-status}" in
+		"" | status)
+			return 0
+			;;
+		esac
+		;;
 	production)
 		case "${2:-status}" in
 		"" | status)
@@ -129,6 +136,13 @@ atlas_command_skips_layout() {
 	receipt)
 		case "${2:-}" in
 		create | verify)
+			return 0
+			;;
+		esac
+		;;
+	release)
+		case "${2:-}" in
+		verify)
 			return 0
 			;;
 		esac

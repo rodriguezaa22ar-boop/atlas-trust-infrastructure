@@ -125,8 +125,8 @@ render_lane_line() {
 
 target_has_intel() {
 	local target="$1"
-	jq -e --arg target "$target" '
-    select(.target == $target) | .target
+	jq -se --arg target "$target" '
+    any(.target == $target)
   ' "$LAB_INTEL_OBSERVATIONS_FILE" >/dev/null 2>&1
 }
 
@@ -1151,13 +1151,13 @@ run_nmap_refresh() {
 						"high" \
 						"$(jq -cn \
 							--arg service_entity_id "$service_entity_id" \
-							--arg label "$label" \
+							--arg record_label "$label" \
 							--arg portproto "$portproto" \
 							--arg service "$service" \
 							--arg detail "$detail" \
 							'{
                   service_entity_id: $service_entity_id,
-                  label: $label,
+                  "label": $record_label,
                   portproto: $portproto,
                   service: $service,
                   detail: $detail
@@ -1449,12 +1449,12 @@ run_http_posture() {
 				"medium" \
 				"$(jq -cn \
 					--arg severity "$severity" \
-					--arg label "$label" \
+					--arg record_label "$label" \
 					--arg url "$url" \
 					--arg detail "$detail" \
 					'{
               severity: $severity,
-              label: $label,
+              "label": $record_label,
               url: $url,
               detail: $detail
             }')"
