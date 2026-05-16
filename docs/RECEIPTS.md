@@ -54,12 +54,56 @@ Verify a receipt:
 ./tools/atlas/bin/atlas receipt verify receipt.json
 ```
 
+Replay a linked receipt chain:
+
+```bash
+./tools/atlas/bin/atlas receipt replay \
+  examples/receipt/minimal.json \
+  examples/receipt/software-action.json \
+  examples/receipt/approval-workflow.json \
+  examples/receipt/agent-action.json
+```
+
 Verifier output includes:
 
 ```text
 This receipt validates as a metadata-only proof record.
 It does not prove external artifact availability, human intent, legal compliance, or artifact correctness.
 ```
+
+Replay output includes a deterministic metadata-only checkpoint:
+
+```text
+receipt replay: ok
+ledger binding: ok prev_hash -> event_hash
+metadata-only boundary: ok
+```
+
+`atlas receipt replay` verifies every receipt, then validates the caller-provided
+sequence by requiring:
+
+- the first receipt to have `prev_hash: null`
+- every later receipt's `prev_hash` to equal the previous receipt's
+  `event_hash`
+- the final chain checkpoint to be the last receipt's `event_hash` and
+  `receipt_hash`
+
+Replay is read-only. It does not create runtime directories, append to operation
+ledgers, run tools, fetch artifacts, or inspect external systems.
+
+## Ledger Binding
+
+A receipt chain is an append-only file-backed ledger when reviewers preserve the
+receipt files in order and retain the replay checkpoint:
+
+- append by adding a new receipt whose `prev_hash` equals the previous
+  receipt's `event_hash`
+- checkpoint by recording the replay `receipt_count`,
+  `chain_head_event_hash`, and `chain_head_receipt_hash`
+- verify by replaying the same ordered receipt list with `atlas receipt replay`
+
+This binding is local and metadata-only. It proves canonical receipt hashes and
+provided-order linkage, not artifact availability or production readiness.
 
 ## Examples
 
@@ -71,7 +115,13 @@ It does not prove external artifact availability, human intent, legal compliance
   metadata receipt for an approval workflow
 - [agent-action.json](../examples/receipt/agent-action.json): metadata receipt
   for an agent-adjacent action record
+- [linked-chain/README.md](../examples/receipt/linked-chain/README.md):
+  reviewer replay example for the four linked receipt files
 
 ## Non-Goals
 
 M131 does not add execution, scanning, CI/CD, ticketing, GRC automation, agent autonomy, or external artifact retrieval. It is only the smallest open-core receipt format and verifier for metadata-only proof records.
+
+M133 adds local receipt replay and ledger binding only. It does not add a
+database, server, web UI, agent execution, network collector, automation runner,
+or hidden receipt state.

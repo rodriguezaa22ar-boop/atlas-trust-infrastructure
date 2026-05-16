@@ -39,6 +39,7 @@ candidate record.
 | Classification | Schema | Surface | Contract |
 | --- | --- | --- | --- |
 | stable | `atlas.receipt.v1` | `atlas receipt create`, `atlas receipt verify` | [../../schemas/atlas.receipt.v1.schema.json](../../schemas/atlas.receipt.v1.schema.json) |
+| stable | `atlas.receipt_replay.v1` | `atlas receipt replay --json` | [receipt-replay.v1.md](receipt-replay.v1.md) |
 | stable | `atlas.release_trust.v1` | `atlas release packet --json` | [release-trust.v1.md](release-trust.v1.md) |
 | stable | `atlas.release_replay.v1` | `atlas release replay --json` | [release-replay.v1.md](release-replay.v1.md) |
 | retained-only | `atlas.release_provenance.v1` | `docs/retention/releases/*.provenance.json` | [release-provenance.v1.md](release-provenance.v1.md) |
