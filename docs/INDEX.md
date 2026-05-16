@@ -135,6 +135,9 @@ repository in filesystem order.
 
 - [SECURITY_MODEL.md](SECURITY_MODEL.md): authorized-use boundary and
   capability tiers.
+- [security/ATLAS_REVIEW_MATRIX.md](security/ATLAS_REVIEW_MATRIX.md):
+  defensive review checklist for metadata, read-only, network, host, shell,
+  and demo boundaries.
 - [RESPONSIBLE_USE.md](RESPONSIBLE_USE.md): responsible-use constraints.
 - [../SECURITY.md](../SECURITY.md): public vulnerability reporting rules and
   no-secrets disclosure boundary.
