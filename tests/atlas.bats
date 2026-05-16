@@ -868,8 +868,10 @@ write_test_slsa_reference() {
   docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
   command_ref="$TEST_ROOT/toolkit/docs/COMMAND_REFERENCE.md"
   schema_index="$TEST_ROOT/toolkit/docs/schemas/README.md"
+  receipt_replay_schema="$TEST_ROOT/toolkit/docs/schemas/receipt-replay.v1.md"
   public_manifest="$TEST_ROOT/toolkit/exports/public-trust-manifest.json"
   examples_dir="$TEST_ROOT/toolkit/examples/receipt"
+  linked_chain_doc="$examples_dir/linked-chain/README.md"
 
   hash_receipt_event_json() {
     local json="$1"
@@ -891,10 +893,12 @@ write_test_slsa_reference() {
 
   [ -f "$receipt_schema" ]
   [ -f "$receipt_doc" ]
+  [ -f "$receipt_replay_schema" ]
   [ -f "$examples_dir/minimal.json" ]
   [ -f "$examples_dir/software-action.json" ]
   [ -f "$examples_dir/approval-workflow.json" ]
   [ -f "$examples_dir/agent-action.json" ]
+  [ -f "$linked_chain_doc" ]
 
   jq -e '
     .title == "Atlas Receipt v1" and
@@ -912,11 +916,18 @@ write_test_slsa_reference() {
   grep -q 'Atlas Receipt v1 creates and verifies portable, metadata-only proof receipts for critical digital actions.' "$receipt_doc"
   grep -q 'This receipt validates as a metadata-only proof record.' "$receipt_doc"
   grep -q 'It does not prove external artifact availability, human intent, legal compliance, or artifact correctness.' "$receipt_doc"
+  grep -q 'Replay output includes a deterministic metadata-only checkpoint' "$receipt_doc"
+  grep -q 'M133 adds local receipt replay and ledger binding only' "$receipt_doc"
   grep -q 'M131 does not add execution, scanning, CI/CD, ticketing, GRC automation, agent autonomy' "$receipt_doc"
   grep -q 'RECEIPTS.md' "$docs_index"
   grep -q 'schemas/atlas.receipt.v1.schema.json' "$schema_index"
+  grep -q 'atlas.receipt_replay.v1' "$schema_index"
+  grep -q '`metadata_only`: must be `true`' "$receipt_replay_schema"
+  grep -q 'every later receipt' "$receipt_replay_schema"
   grep -q 'atlas receipt create' "$command_ref"
   grep -q 'atlas receipt verify' "$command_ref"
+  grep -q 'atlas receipt replay' "$command_ref"
+  grep -q 'Expected chain order' "$linked_chain_doc"
   jq -e '(.allow_paths | index("examples/")) and (.allow_paths | index("schemas/"))' "$public_manifest"
 
   for receipt in \
@@ -932,6 +943,38 @@ write_test_slsa_reference() {
   done
 
   jq -e '.prev_hash == null' "$examples_dir/minimal.json"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt replay \
+    "$examples_dir/minimal.json" \
+    "$examples_dir/software-action.json" \
+    "$examples_dir/approval-workflow.json" \
+    "$examples_dir/agent-action.json"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"receipt replay: ok"* ]]
+  [[ "$output" == *"ledger binding: ok prev_hash -> event_hash"* ]]
+  [[ "$output" == *"metadata-only boundary: ok"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt replay \
+    "$examples_dir/minimal.json" \
+    "$examples_dir/software-action.json" \
+    "$examples_dir/approval-workflow.json" \
+    "$examples_dir/agent-action.json" \
+    --json
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" | jq -e \
+    '.schema_version == "atlas.receipt_replay.v1" and
+    .status == "ok" and
+    .metadata_only == true and
+    .raw_artifacts_embedded == false and
+    .receipt_count == 4 and
+    .ledger_binding.status == "ok" and
+    .ledger_binding.rule == "receipt[n].prev_hash == receipt[n-1].event_hash" and
+    .chain[0].linkage_status == "genesis" and
+    .chain[1].prev_hash == .chain[0].event_hash and
+    .chain[2].prev_hash == .chain[1].event_hash and
+    .chain[3].prev_hash == .chain[2].event_hash and
+    .chain_checkpoint.head_event_hash == .chain_head_event_hash and
+    (.metadata_boundary.excludes | index("raw artifacts"))'
 
   artifact_sha="$(printf 'metadata-only test artifact\n' | sha256sum | awk '{ print $1 }')"
   created_file="$TEST_ROOT/created-receipt.json"
@@ -1023,6 +1066,81 @@ write_test_slsa_reference() {
   bad_prev="$TEST_ROOT/bad-prev-receipt.json"
   jq '.prev_hash = "bad"' "$created_file" >"$bad_prev"
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt verify "$bad_prev"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"invalid receipt fields"* ]]
+
+  [ ! -e "$TEST_ROOT/toolkit/state" ]
+  [ ! -e "$TEST_ROOT/toolkit/sessions" ]
+  [ ! -e "$TEST_ROOT/toolkit/reports" ]
+}
+
+@test "atlas receipt replay validates chain failures and stays read-only" {
+  first="$TEST_ROOT/replay-first.json"
+  second="$TEST_ROOT/replay-second.json"
+  wrong_second="$TEST_ROOT/replay-wrong-second.json"
+  wrong_prev="0000000000000000000000000000000000000000000000000000000000000000"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt create \
+    --receipt-id receipt-replay-first \
+    --timestamp 2026-05-15T00:05:00Z \
+    --action receipt.replay.first \
+    --actor atlas-tests \
+    --subject-type replay-chain \
+    --subject first \
+    --out "$first"
+  [ "$status" -eq 0 ]
+
+  first_hash="$(jq -r '.event_hash' "$first")"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt create \
+    --receipt-id receipt-replay-second \
+    --timestamp 2026-05-15T00:06:00Z \
+    --action receipt.replay.second \
+    --actor atlas-tests \
+    --subject-type replay-chain \
+    --subject second \
+    --prev-hash "$first_hash" \
+    --out "$second"
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt replay "$first" "$second" --json
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" | jq -e \
+    --arg first_hash "$first_hash" \
+    '.receipt_count == 2 and
+    .chain[1].prev_hash == $first_hash and
+    .chain[1].linkage_status == "ok"'
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt create \
+    --receipt-id receipt-replay-wrong-second \
+    --timestamp 2026-05-15T00:07:00Z \
+    --action receipt.replay.wrong-second \
+    --actor atlas-tests \
+    --subject-type replay-chain \
+    --subject wrong-second \
+    --prev-hash "$wrong_prev" \
+    --out "$wrong_second"
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt replay "$first" "$wrong_second"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"receipt replay receipt 2 prev_hash mismatch"* ]]
+
+  missing_prev="$TEST_ROOT/replay-missing-prev.json"
+  jq 'del(.prev_hash)' "$second" >"$missing_prev"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt replay "$first" "$missing_prev"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"invalid receipt fields"* ]]
+
+  stale_event="$TEST_ROOT/replay-stale-event.json"
+  jq '.action = "receipt.replay.stale"' "$second" >"$stale_event"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt replay "$first" "$stale_event"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"receipt event_hash mismatch"* ]]
+
+  not_metadata="$TEST_ROOT/replay-not-metadata.json"
+  jq '.metadata_only = false' "$second" >"$not_metadata"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt replay "$first" "$not_metadata"
   [ "$status" -ne 0 ]
   [[ "$output" == *"invalid receipt fields"* ]]
 

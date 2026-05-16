@@ -57,6 +57,7 @@ These schemas are part of the core Atlas v1 trust surface.
 | --- | --- | --- | --- |
 | stable | `atlas.release_trust.v1` | [release-trust.v1.md](release-trust.v1.md) | `atlas release packet --json` |
 | stable | `atlas.release_replay.v1` | [release-replay.v1.md](release-replay.v1.md) | `atlas release replay --json` |
+| stable | `atlas.receipt_replay.v1` | [receipt-replay.v1.md](receipt-replay.v1.md) | `atlas receipt replay --json` |
 | stable | `atlas.release_artifact_manifest.v1` | [release-artifact-manifest.v1.md](release-artifact-manifest.v1.md) | `atlas release manifest` |
 | stable | `atlas.production_readiness.v1` | [production-readiness.v1.md](production-readiness.v1.md) | `atlas production status --json` |
 | stable | `atlas.operation_trust_chain.v1` | [operation-trust-chain.v1.md](operation-trust-chain.v1.md) | `atlas op trust-chain --json` |

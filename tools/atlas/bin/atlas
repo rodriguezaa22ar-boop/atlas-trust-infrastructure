@@ -135,7 +135,7 @@ atlas_command_skips_layout() {
 		;;
 	receipt)
 		case "${2:-}" in
-		create | verify)
+		create | verify | replay)
 			return 0
 			;;
 		esac
@@ -184,6 +184,7 @@ usage:
   atlas ledger checkpoint <ledger-file|-> [--json]
   atlas receipt create --action action --actor actor --subject-type type --subject ref [--prev-hash sha256] [--evidence-ref ref] [--artifact-ref path=sha256] [--approval-ref ref] [--limitation text] [--out receipt.json] [--json]
   atlas receipt verify <receipt-file|-> [--json]
+  atlas receipt replay <receipt-file> [receipt-file ...] [--json]
   atlas reviewer package <name>
   atlas release packet [packet-name] [--json] [--operation name]
   atlas release verify [packet]
@@ -417,6 +418,7 @@ ledger:
 receipts:
   atlas receipt create --action action --actor actor --subject-type type --subject ref [--prev-hash sha256] [--evidence-ref ref] [--artifact-ref path=sha256] [--approval-ref ref] [--limitation text] [--out receipt.json] [--json]
   atlas receipt verify <receipt-file|-> [--json]
+  atlas receipt replay <receipt-file> [receipt-file ...] [--json]
 
 findings:
   atlas finding add <title> [--level observed|inferred|validated] [--severity severity] [--confidence confidence]
@@ -2376,6 +2378,10 @@ receipt)
 	verify)
 		shift
 		cmd_receipt_verify "$@"
+		;;
+	replay)
+		shift
+		cmd_receipt_replay "$@"
 		;;
 	*)
 		usage

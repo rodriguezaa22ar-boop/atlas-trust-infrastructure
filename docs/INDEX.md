@@ -64,7 +64,7 @@ repository in filesystem order.
   of the trust lifecycle.
 - [TRUST_MODEL.md](TRUST_MODEL.md): trust anchors and verification pattern.
 - [RECEIPTS.md](RECEIPTS.md): M131 metadata-only portable proof receipts for
-  critical digital actions.
+  critical digital actions, with M133 local replay and ledger binding.
 - [atlas/TRUST_LIFECYCLE.md](atlas/TRUST_LIFECYCLE.md): Atlas-local lifecycle
   detail.
 - [atlas/TRUST_INFRASTRUCTURE_DIRECTION.md](atlas/TRUST_INFRASTRUCTURE_DIRECTION.md):

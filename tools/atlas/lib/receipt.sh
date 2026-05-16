@@ -118,6 +118,7 @@ atlas_receipt_validate_json() {
     all($receipt.artifact_refs[]; type == "object" and exact_keys(["path", "sha256"]) and (.path | type == "string" and length > 0) and (.sha256 | test("^[a-f0-9]{64}$"))) and
     ($receipt.approval_refs | type == "array") and
     all($receipt.approval_refs[]; type == "string" and length > 0) and
+    ($receipt | has("prev_hash")) and
     (($receipt.prev_hash == null) or ($receipt.prev_hash | test("^[a-f0-9]{64}$"))) and
     ($receipt.event_hash | test("^[a-f0-9]{64}$")) and
     ($receipt.receipt_hash | test("^[a-f0-9]{64}$")) and
@@ -433,5 +434,186 @@ cmd_receipt_verify() {
     printf 'receipt: ok\n'
     printf 'This receipt validates as a metadata-only proof record.\n'
     printf 'It does not prove external artifact availability, human intent, legal compliance, or artifact correctness.\n'
+  fi
+}
+
+atlas_receipt_replay_json() {
+  [ "$#" -gt 0 ] || fail "receipt replay requires at least one receipt file"
+
+  local index=0
+  local input
+  local receipt_json
+  local receipt_id
+  local action
+  local prev_hash
+  local event_hash
+  local receipt_hash
+  local expected_prev_hash=""
+  local first_event_hash=""
+  local chain_head_event_hash=""
+  local chain_head_receipt_hash=""
+  local linkage_status
+  local row
+  local chain_json
+  local chain_rows=()
+
+  intel_require_jq
+
+  for input in "$@"; do
+    [ "$input" != "-" ] || fail "receipt replay requires receipt files, not stdin"
+
+    index=$((index + 1))
+    receipt_json="$(atlas_receipt_read_json "$input")"
+    atlas_receipt_validate_json "$receipt_json" >/dev/null
+
+    receipt_id="$(printf '%s\n' "$receipt_json" | jq -r '.receipt_id')"
+    action="$(printf '%s\n' "$receipt_json" | jq -r '.action')"
+    prev_hash="$(printf '%s\n' "$receipt_json" | jq -r '.prev_hash // "null"')"
+    event_hash="$(printf '%s\n' "$receipt_json" | jq -r '.event_hash')"
+    receipt_hash="$(printf '%s\n' "$receipt_json" | jq -r '.receipt_hash')"
+
+    if [ "$index" -eq 1 ]; then
+      [ "$prev_hash" = "null" ] ||
+        fail "receipt replay receipt 1 prev_hash must be null: $input"
+      linkage_status="genesis"
+      first_event_hash="$event_hash"
+    else
+      [ "$prev_hash" = "$expected_prev_hash" ] ||
+        fail "receipt replay receipt $index prev_hash mismatch: expected $expected_prev_hash got $prev_hash"
+      linkage_status="ok"
+    fi
+
+    expected_prev_hash="$event_hash"
+    chain_head_event_hash="$event_hash"
+    chain_head_receipt_hash="$receipt_hash"
+
+    row="$(
+      jq -cn \
+        --argjson index "$index" \
+        --arg path "$input" \
+        --arg receipt_id "$receipt_id" \
+        --arg action "$action" \
+        --arg prev_hash "$prev_hash" \
+        --arg event_hash "$event_hash" \
+        --arg receipt_hash "$receipt_hash" \
+        --arg linkage_status "$linkage_status" \
+        '{
+          index: $index,
+          path: $path,
+          receipt_id: $receipt_id,
+          action: $action,
+          prev_hash: (if $prev_hash == "null" then null else $prev_hash end),
+          event_hash: $event_hash,
+          receipt_hash: $receipt_hash,
+          linkage_status: $linkage_status
+        }'
+    )"
+    chain_rows+=("$row")
+  done
+
+  chain_json="$(printf '%s\n' "${chain_rows[@]}" | jq -s '.')"
+
+  jq -cn \
+    --arg schema_version "atlas.receipt_replay.v1" \
+    --arg status "ok" \
+    --argjson receipt_count "$index" \
+    --arg first_event_hash "$first_event_hash" \
+    --arg chain_head_event_hash "$chain_head_event_hash" \
+    --arg chain_head_receipt_hash "$chain_head_receipt_hash" \
+    --argjson chain "$chain_json" \
+    '{
+      schema_version: $schema_version,
+      status: $status,
+      metadata_only: true,
+      raw_artifacts_embedded: false,
+      receipt_count: $receipt_count,
+      first_event_hash: $first_event_hash,
+      chain_head_event_hash: $chain_head_event_hash,
+      chain_head_receipt_hash: $chain_head_receipt_hash,
+      ledger_binding: {
+        status: "ok",
+        rule: "receipt[n].prev_hash == receipt[n-1].event_hash",
+        genesis_prev_hash: null
+      },
+      chain_checkpoint: {
+        receipt_count: $receipt_count,
+        head_event_hash: $chain_head_event_hash,
+        head_receipt_hash: $chain_head_receipt_hash
+      },
+      chain: $chain,
+      metadata_boundary: {
+        stores: [
+          "receipt metadata",
+          "provided receipt paths",
+          "canonical event hashes",
+          "canonical receipt hashes",
+          "prev_hash linkage status"
+        ],
+        excludes: [
+          "raw artifacts",
+          "raw request or response bodies",
+          "secrets",
+          "tokens",
+          "private keys",
+          "session contents",
+          "exploit payloads"
+        ]
+      },
+      known_limitations: [
+        "Replay verifies the provided receipt files in the caller-specified order only.",
+        "Replay does not prove external artifact availability, human intent, legal compliance, artifact correctness, authorization, or production readiness.",
+        "Replay is read-only and does not append to operation ledgers or create runtime state."
+      ]
+    }'
+}
+
+cmd_receipt_replay() {
+  local json=0
+  local inputs=()
+  local replay_json
+  local receipt_count
+  local head_event_hash
+  local head_receipt_hash
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+    --json)
+      json=1
+      shift
+      ;;
+    --)
+      shift
+      while [ "$#" -gt 0 ]; do
+        inputs+=("$1")
+        shift
+      done
+      ;;
+    -*)
+      fail "unknown receipt replay option: $1"
+      ;;
+    *)
+      inputs+=("$1")
+      shift
+      ;;
+    esac
+  done
+
+  [ "${#inputs[@]}" -gt 0 ] || fail "receipt replay requires at least one receipt file"
+  replay_json="$(atlas_receipt_replay_json "${inputs[@]}")"
+
+  if [ "$json" -eq 1 ]; then
+    printf '%s\n' "$replay_json"
+  else
+    receipt_count="$(printf '%s\n' "$replay_json" | jq -r '.receipt_count')"
+    head_event_hash="$(printf '%s\n' "$replay_json" | jq -r '.chain_head_event_hash')"
+    head_receipt_hash="$(printf '%s\n' "$replay_json" | jq -r '.chain_head_receipt_hash')"
+    printf 'receipt replay: ok\n'
+    printf 'receipts: %s\n' "$receipt_count"
+    printf 'ledger binding: ok prev_hash -> event_hash\n'
+    printf 'chain_head_event_hash: %s\n' "$head_event_hash"
+    printf 'chain_head_receipt_hash: %s\n' "$head_receipt_hash"
+    printf 'metadata-only boundary: ok\n'
+    printf 'This replay verifies receipt hashes and provided-order prev_hash linkage only.\n'
+    printf 'It does not prove external artifact availability, human intent, legal compliance, artifact correctness, authorization, or production readiness.\n'
   fi
 }
