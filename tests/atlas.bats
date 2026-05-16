@@ -1149,6 +1149,176 @@ write_test_slsa_reference() {
   [ ! -e "$TEST_ROOT/toolkit/reports" ]
 }
 
+@test "M134 receipt verifier rejects unsafe content and hash tampering" {
+  base="$TEST_ROOT/m134-base-receipt.json"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt create \
+    --receipt-id receipt-m134-base \
+    --timestamp 2026-05-16T00:01:00Z \
+    --action receipt.security.regression \
+    --actor atlas-tests \
+    --subject-type regression-suite \
+    --subject m134 \
+    --evidence-ref docs/RECEIPTS.md \
+    --limitation "M134 verifies receipt fail-closed behavior only." \
+    --out "$base"
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt verify "$base"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"receipt: ok"* ]]
+  [[ "$output" == *"This receipt validates as a metadata-only proof record."* ]]
+  [[ "$output" == *"It does not prove external artifact availability, human intent, legal compliance, or artifact correctness."* ]]
+
+  bad_secret="$TEST_ROOT/m134-secret-marker.json"
+  jq '.evidence_refs = ["token=atlas-secret"]' "$base" >"$bad_secret"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt verify "$bad_secret"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"receipt contains forbidden raw-content marker"* ]]
+
+  bad_authorization="$TEST_ROOT/m134-authorization-marker.json"
+  jq '.approval_refs = ["Authorization: Bearer abc123"]' "$base" >"$bad_authorization"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt verify "$bad_authorization"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"receipt contains forbidden raw-content marker"* ]]
+
+  bad_request_body="$TEST_ROOT/m134-request-body.json"
+  jq '.request_body = "GET /sensitive HTTP/1.1"' "$base" >"$bad_request_body"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt verify "$bad_request_body"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"receipt contains forbidden raw-content marker"* ]]
+
+  bad_response_body="$TEST_ROOT/m134-response-body.json"
+  jq '.response_body = "HTTP/1.1 200 OK"' "$base" >"$bad_response_body"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt verify "$bad_response_body"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"receipt contains forbidden raw-content marker"* ]]
+
+  bad_raw_artifact="$TEST_ROOT/m134-raw-artifact.json"
+  jq '.raw_artifacts = ["raw artifact bytes"]' "$base" >"$bad_raw_artifact"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt verify "$bad_raw_artifact"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"receipt contains forbidden raw-content marker"* ]]
+
+  bad_metadata="$TEST_ROOT/m134-not-metadata.json"
+  jq '.metadata_only = false' "$base" >"$bad_metadata"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt verify "$bad_metadata"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"invalid receipt fields"* ]]
+
+  bad_embedded="$TEST_ROOT/m134-raw-embedded.json"
+  jq '.raw_artifacts_embedded = true' "$base" >"$bad_embedded"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt verify "$bad_embedded"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"invalid receipt fields"* ]]
+
+  missing_limitations="$TEST_ROOT/m134-missing-limitations.json"
+  jq 'del(.known_limitations)' "$base" >"$missing_limitations"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt verify "$missing_limitations"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"invalid receipt fields"* ]]
+
+  tampered_event="$TEST_ROOT/m134-event-hash-tampered.json"
+  jq '.action = "receipt.security.changed"' "$base" >"$tampered_event"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt verify "$tampered_event"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"receipt event_hash mismatch"* ]]
+
+  [ ! -e "$TEST_ROOT/toolkit/state" ]
+  [ ! -e "$TEST_ROOT/toolkit/sessions" ]
+  [ ! -e "$TEST_ROOT/toolkit/reports" ]
+  [ ! -e "$TEST_ROOT/toolkit/logs" ]
+  [ ! -e "$TEST_ROOT/toolkit/releases" ]
+}
+
+@test "M134 receipt replay rejects chain tampering and remains read-only" {
+  first="$TEST_ROOT/m134-chain-first.json"
+  second="$TEST_ROOT/m134-chain-second.json"
+  chain_tampered="$TEST_ROOT/m134-chain-tampered.json"
+  wrong_prev="0000000000000000000000000000000000000000000000000000000000000000"
+
+  hash_receipt_event_json() {
+    local json="$1"
+
+    printf '%s\n' "$json" |
+      jq -cS 'del(.event_hash, .receipt_hash)' |
+      sha256sum |
+      awk '{ print $1 }'
+  }
+
+  hash_receipt_json() {
+    local json="$1"
+
+    printf '%s\n' "$json" |
+      jq -cS 'del(.receipt_hash)' |
+      sha256sum |
+      awk '{ print $1 }'
+  }
+
+  rehash_receipt_file() {
+    local input="$1"
+    local output="$2"
+    local receipt_without_hashes
+    local event_hash
+    local receipt_with_event_hash
+    local receipt_hash
+
+    receipt_without_hashes="$(jq 'del(.event_hash, .receipt_hash)' "$input")"
+    event_hash="$(hash_receipt_event_json "$receipt_without_hashes")"
+    receipt_with_event_hash="$(printf '%s\n' "$receipt_without_hashes" | jq -S --arg event_hash "$event_hash" '. + {event_hash: $event_hash}')"
+    receipt_hash="$(hash_receipt_json "$receipt_with_event_hash")"
+    printf '%s\n' "$receipt_with_event_hash" |
+      jq -S --arg receipt_hash "$receipt_hash" '. + {receipt_hash: $receipt_hash}' >"$output"
+  }
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt create \
+    --receipt-id receipt-m134-chain-first \
+    --timestamp 2026-05-16T00:02:00Z \
+    --action receipt.security.chain.first \
+    --actor atlas-tests \
+    --subject-type regression-chain \
+    --subject first \
+    --out "$first"
+  [ "$status" -eq 0 ]
+
+  first_hash="$(jq -r '.event_hash' "$first")"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt create \
+    --receipt-id receipt-m134-chain-second \
+    --timestamp 2026-05-16T00:03:00Z \
+    --action receipt.security.chain.second \
+    --actor atlas-tests \
+    --subject-type regression-chain \
+    --subject second \
+    --prev-hash "$first_hash" \
+    --out "$second"
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt replay "$first" "$second"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"receipt replay: ok"* ]]
+  [[ "$output" == *"ledger binding: ok prev_hash -> event_hash"* ]]
+  [[ "$output" == *"This replay verifies receipt hashes and provided-order prev_hash linkage only."* ]]
+  [[ "$output" == *"It does not prove external artifact availability, human intent, legal compliance, artifact correctness, authorization, or production readiness."* ]]
+
+  jq --arg wrong_prev "$wrong_prev" '.prev_hash = $wrong_prev' "$second" >"$TEST_ROOT/m134-chain-wrong-prev-unhashed.json"
+  rehash_receipt_file "$TEST_ROOT/m134-chain-wrong-prev-unhashed.json" "$chain_tampered"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt verify "$chain_tampered"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"receipt: ok"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt replay "$first" "$chain_tampered"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"receipt replay receipt 2 prev_hash mismatch"* ]]
+
+  [ ! -e "$TEST_ROOT/toolkit/state" ]
+  [ ! -e "$TEST_ROOT/toolkit/sessions" ]
+  [ ! -e "$TEST_ROOT/toolkit/reports" ]
+  [ ! -e "$TEST_ROOT/toolkit/logs" ]
+  [ ! -e "$TEST_ROOT/toolkit/releases" ]
+}
+
 @test "capability manifest defines machine-readable governance root" {
   manifest="$TEST_ROOT/toolkit/capabilities.yaml"
   schema="$TEST_ROOT/toolkit/schemas/capability.v1.schema.json"
