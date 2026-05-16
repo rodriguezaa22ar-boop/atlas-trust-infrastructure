@@ -71,6 +71,9 @@ jobs:
       - name: Run local QA gate
         run: nix-shell --run './bin/dev-qa'
 
+      - name: Prepare Atlas v1 readiness layout
+        run: mkdir -p logs releases reports sessions state/atlas state/intel targets
+
       - name: Check Atlas v1 readiness
         run: nix-shell --run './tools/atlas/bin/atlas v1 status --strict'
 

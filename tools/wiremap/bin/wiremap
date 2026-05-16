@@ -752,7 +752,7 @@ publish_capture_hints() {
 				--arg input_path "$pcap_file" \
 				--arg observation_type "$observation_type" \
 				--arg confidence "$confidence" \
-				--arg label "$label" \
+				--arg record_label "$label" \
 				--arg evidence "$line" \
 				'{
           observed_at: $observed_at,
@@ -765,7 +765,7 @@ publish_capture_hints() {
           observation_type: $observation_type,
           confidence: $confidence,
           value: {
-            label: $label,
+            "label": $record_label,
             evidence: $evidence
           }
         }'
@@ -1324,7 +1324,7 @@ publish_intel_for_run() {
 				--arg target "$target" \
 				--arg input_path "$run_dir" \
 				--arg confidence "medium" \
-				--arg label "$label" \
+				--arg record_label "$label" \
 				--arg portproto "$portproto" \
 				--arg service "$service" \
 				--arg detail "$detail" \
@@ -1341,7 +1341,7 @@ publish_intel_for_run() {
           confidence: $confidence,
           value: {
             service_entity_id: $service_entity_id,
-            label: $label,
+            "label": $record_label,
             portproto: $portproto,
             service: $service,
             detail: $detail

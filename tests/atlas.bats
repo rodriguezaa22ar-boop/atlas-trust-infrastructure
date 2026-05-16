@@ -1158,6 +1158,42 @@ write_test_slsa_reference() {
   [ ! -e "$TEST_ROOT/toolkit/state" ]
 }
 
+@test "atlas v1 status and release verify do not initialize runtime layout" {
+  assert_no_runtime_layout() {
+    [ ! -e "$TEST_ROOT/toolkit/logs" ]
+    [ ! -e "$TEST_ROOT/toolkit/releases" ]
+    [ ! -e "$TEST_ROOT/toolkit/reports" ]
+    [ ! -e "$TEST_ROOT/toolkit/sessions" ]
+    [ ! -e "$TEST_ROOT/toolkit/state" ]
+    [ ! -e "$TEST_ROOT/toolkit/targets" ]
+  }
+
+  rm -rf \
+    "$TEST_ROOT/toolkit/logs" \
+    "$TEST_ROOT/toolkit/releases" \
+    "$TEST_ROOT/toolkit/reports" \
+    "$TEST_ROOT/toolkit/sessions" \
+    "$TEST_ROOT/toolkit/state" \
+    "$TEST_ROOT/toolkit/targets"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" v1 status --json
+  [ "$status" -ne 0 ]
+  printf '%s\n' "$output" |
+    jq -e '
+      .overall == "blocked" and
+      .strict == false and
+      .pillars.core_cli.status == "ready" and
+      .pillars.target_registry.status == "blocked" and
+      .pillars.ledger.status == "blocked"
+    '
+  assert_no_runtime_layout
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release verify missing-release-packet
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"unknown release trust packet"* ]]
+  assert_no_runtime_layout
+}
+
 @test "root AGENTS guidance preserves Atlas agent safety contract" {
   agents_file="$TEST_ROOT/toolkit/AGENTS.md"
 
@@ -4807,6 +4843,8 @@ EOF
 }
 
 @test "atlas v1 status reports product pillar readiness" {
+  make_runtime_layout
+
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" v1 status
 
   [ "$status" -eq 0 ]
