@@ -39,6 +39,7 @@ candidate record.
 | Classification | Schema | Surface | Contract |
 | --- | --- | --- | --- |
 | stable | `atlas.receipt.v1` | `atlas receipt create`, `atlas receipt verify` | [../../schemas/atlas.receipt.v1.schema.json](../../schemas/atlas.receipt.v1.schema.json) |
+| stable | `atlas.receipt.canonicalization.v1` | `atlas.receipt.v1` hash computation | [receipt-canonicalization.v1.md](receipt-canonicalization.v1.md) |
 | stable | `atlas.receipt_replay.v1` | `atlas receipt replay --json` | [receipt-replay.v1.md](receipt-replay.v1.md) |
 | stable | `atlas.release_trust.v1` | `atlas release packet --json` | [release-trust.v1.md](release-trust.v1.md) |
 | stable | `atlas.release_replay.v1` | `atlas release replay --json` | [release-replay.v1.md](release-replay.v1.md) |
@@ -97,6 +98,8 @@ Validate the runnable contract with:
 - Every schema-versioned Atlas JSON output must be documented here.
 - Every documented schema must name required fields and verification rules.
 - Packet-oriented schemas must remain metadata-only.
+- Hash canonicalization contracts must name included fields, excluded fields,
+  deterministic byte-stream rules, and non-guarantees.
 - Design contracts must clearly distinguish implemented Markdown behavior from
   planned JSON behavior until a stable JSON command emits them.
 - Future JSON packet formats should be added here before being treated as

@@ -152,6 +152,8 @@ repository in filesystem order.
 - [schemas/README.md](schemas/README.md): implemented JSON contracts.
 - [../schemas/atlas.receipt.v1.schema.json](../schemas/atlas.receipt.v1.schema.json):
   M131 receipt JSON Schema for metadata-only proof records.
+- [schemas/receipt-canonicalization.v1.md](schemas/receipt-canonicalization.v1.md):
+  M137 deterministic receipt hash canonicalization contract.
 - [schemas/SCHEMA_FREEZE_CANDIDATE.md](schemas/SCHEMA_FREEZE_CANDIDATE.md):
   M120 v1 schema freeze candidate classifications and version-bump rules.
 - [schemas/business-flow-evidence.v1.md](schemas/business-flow-evidence.v1.md):

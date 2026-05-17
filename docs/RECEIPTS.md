@@ -33,6 +33,37 @@ Receipt verification does not prove external artifact availability, human
 intent, legal compliance, artifact correctness, authorization, or production
 readiness.
 
+## Canonicalization
+
+Receipt hashes are deterministic and local. The canonicalization contract lives
+at [schemas/receipt-canonicalization.v1.md](schemas/receipt-canonicalization.v1.md).
+
+Atlas canonicalization is deterministic, local, and boring. It exists so
+another reviewer can recompute the same hash from the same receipt content. It
+does not prove external artifact truth, human intent, legal compliance, or
+runtime correctness.
+
+Atlas computes receipt hashes by parsing JSON, applying a hash-specific field
+deletion rule, emitting compact recursively sorted JSON with `jq -cS`, and
+hashing the emitted bytes with SHA-256.
+
+`event_hash` excludes the top-level `event_hash` and `receipt_hash` fields:
+
+```bash
+jq -cS 'del(.event_hash, .receipt_hash)' receipt.json | sha256sum
+```
+
+`receipt_hash` excludes only the top-level `receipt_hash` field and therefore
+includes `event_hash`:
+
+```bash
+jq -cS 'del(.receipt_hash)' receipt.json | sha256sum
+```
+
+Whitespace outside JSON string values and object key order do not change either
+computed hash. Semantic field changes, array item order changes, and changed
+string values do change the computed hashes.
+
 ## Commands
 
 Create a receipt:
@@ -125,3 +156,7 @@ M131 does not add execution, scanning, CI/CD, ticketing, GRC automation, agent a
 M133 adds local receipt replay and ledger binding only. It does not add a
 database, server, web UI, agent execution, network collector, automation runner,
 or hidden receipt state.
+
+M137 documents and tests the receipt canonicalization contract only. It does
+not change receipt semantics, verifier authority, demo packets, runtime state,
+or network behavior.

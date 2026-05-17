@@ -37,6 +37,8 @@ Allowed without a version bump:
 - non-semantic examples
 - backward-compatible optional fields when documented in this file and in the
   schema contract
+- receipt canonicalization tests or documentation that preserve the existing
+  `jq -cS` hash byte stream and excluded-field rules
 
 Requires a version bump:
 
@@ -57,6 +59,7 @@ These schemas are part of the core Atlas v1 trust surface.
 | --- | --- | --- | --- |
 | stable | `atlas.release_trust.v1` | [release-trust.v1.md](release-trust.v1.md) | `atlas release packet --json` |
 | stable | `atlas.release_replay.v1` | [release-replay.v1.md](release-replay.v1.md) | `atlas release replay --json` |
+| stable | `atlas.receipt.canonicalization.v1` | [receipt-canonicalization.v1.md](receipt-canonicalization.v1.md) | `atlas.receipt.v1` hash computation |
 | stable | `atlas.receipt_replay.v1` | [receipt-replay.v1.md](receipt-replay.v1.md) | `atlas receipt replay --json` |
 | stable | `atlas.release_artifact_manifest.v1` | [release-artifact-manifest.v1.md](release-artifact-manifest.v1.md) | `atlas release manifest` |
 | stable | `atlas.production_readiness.v1` | [production-readiness.v1.md](production-readiness.v1.md) | `atlas production status --json` |
