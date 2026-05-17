@@ -1319,6 +1319,168 @@ write_test_slsa_reference() {
   [ ! -e "$TEST_ROOT/toolkit/releases" ]
 }
 
+@test "M137 receipt canonicalization golden vectors tolerate whitespace and key order" {
+  canonical_doc="$TEST_ROOT/toolkit/docs/schemas/receipt-canonicalization.v1.md"
+  receipt_doc="$TEST_ROOT/toolkit/docs/RECEIPTS.md"
+  schema_index="$TEST_ROOT/toolkit/docs/schemas/README.md"
+  docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
+  minimal="$TEST_ROOT/toolkit/examples/receipt/minimal.json"
+  compact="$TEST_ROOT/m137-minimal-compact.json"
+  shuffled="$TEST_ROOT/m137-minimal-shuffled.json"
+  expected_event_hash="e6df3946ad774c9db61195656f81e458ecb0b794271b7a466f3b951767ef8db4"
+  expected_receipt_hash="6a8a78fb13ca051b593f5baa8babeb58c4a6d023bfad03cf71c7eb421f2490d8"
+  receipt=""
+
+  hash_receipt_event_file() {
+    local input="$1"
+
+    jq -cS 'del(.event_hash, .receipt_hash)' "$input" |
+      sha256sum |
+      awk '{ print $1 }'
+  }
+
+  hash_receipt_file() {
+    local input="$1"
+
+    jq -cS 'del(.receipt_hash)' "$input" |
+      sha256sum |
+      awk '{ print $1 }'
+  }
+
+  [ -f "$canonical_doc" ]
+  grep -q '^# Atlas Receipt Canonicalization v1$' "$canonical_doc"
+  grep -q 'Atlas canonicalization is deterministic, local, and boring.' "$canonical_doc"
+  grep -q "jq -cS 'del(.event_hash, .receipt_hash)'" "$canonical_doc"
+  grep -q "jq -cS 'del(.receipt_hash)'" "$canonical_doc"
+  grep -q 'Whitespace outside JSON string values is not semantic' "$canonical_doc"
+  grep -q 'Object key order is not semantic' "$canonical_doc"
+  grep -q 'Array item order is semantic' "$canonical_doc"
+  grep -q 'external artifact truth' "$canonical_doc"
+  grep -q 'runtime correctness' "$canonical_doc"
+  grep -q 'receipt-canonicalization.v1.md' "$receipt_doc"
+  grep -q 'atlas.receipt.canonicalization.v1' "$schema_index"
+  grep -q 'receipt-canonicalization.v1.md' "$docs_index"
+
+  [ "$(hash_receipt_event_file "$minimal")" = "$expected_event_hash" ]
+  [ "$(hash_receipt_file "$minimal")" = "$expected_receipt_hash" ]
+  jq -e \
+    --arg event_hash "$expected_event_hash" \
+    --arg receipt_hash "$expected_receipt_hash" \
+    '.event_hash == $event_hash and .receipt_hash == $receipt_hash' \
+    "$minimal"
+
+  jq -c . "$minimal" >"$compact"
+  jq '{
+    verifier,
+    timestamp,
+    subject,
+    schema_version,
+    receipt_id,
+    receipt_hash,
+    raw_artifacts_embedded,
+    prev_hash,
+    metadata_only,
+    known_limitations,
+    evidence_refs,
+    event_hash,
+    approval_refs,
+    artifact_refs,
+    actor,
+    action
+  }' "$minimal" >"$shuffled"
+
+  for receipt in "$compact" "$shuffled"; do
+    [ "$(hash_receipt_event_file "$receipt")" = "$expected_event_hash" ]
+    [ "$(hash_receipt_file "$receipt")" = "$expected_receipt_hash" ]
+
+    run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt verify "$receipt"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"receipt: ok"* ]]
+  done
+
+  [ ! -e "$TEST_ROOT/toolkit/state" ]
+  [ ! -e "$TEST_ROOT/toolkit/sessions" ]
+  [ ! -e "$TEST_ROOT/toolkit/reports" ]
+  [ ! -e "$TEST_ROOT/toolkit/logs" ]
+  [ ! -e "$TEST_ROOT/toolkit/releases" ]
+}
+
+@test "M137 receipt canonicalization field exclusions and semantic changes are explicit" {
+  canonical_doc="$TEST_ROOT/toolkit/docs/schemas/receipt-canonicalization.v1.md"
+  minimal="$TEST_ROOT/toolkit/examples/receipt/minimal.json"
+  event_changed="$TEST_ROOT/m137-event-hash-changed.json"
+  receipt_changed="$TEST_ROOT/m137-receipt-hash-changed.json"
+  action_changed="$TEST_ROOT/m137-action-changed.json"
+  array_order_changed="$TEST_ROOT/m137-array-order-changed.json"
+  zero_hash="0000000000000000000000000000000000000000000000000000000000000000"
+  base_event_hash=""
+  base_receipt_hash=""
+
+  hash_receipt_event_file() {
+    local input="$1"
+
+    jq -cS 'del(.event_hash, .receipt_hash)' "$input" |
+      sha256sum |
+      awk '{ print $1 }'
+  }
+
+  hash_receipt_file() {
+    local input="$1"
+
+    jq -cS 'del(.receipt_hash)' "$input" |
+      sha256sum |
+      awk '{ print $1 }'
+  }
+
+  [ -f "$canonical_doc" ]
+  grep -q 'Excluded during `event_hash` computation:' "$canonical_doc"
+  grep -q 'top-level `event_hash`' "$canonical_doc"
+  grep -q 'top-level `receipt_hash`' "$canonical_doc"
+  grep -q 'Excluded during `receipt_hash` computation:' "$canonical_doc"
+  grep -q 'Included during `receipt_hash` computation:' "$canonical_doc"
+
+  base_event_hash="$(hash_receipt_event_file "$minimal")"
+  base_receipt_hash="$(hash_receipt_file "$minimal")"
+
+  jq --arg zero_hash "$zero_hash" '.event_hash = $zero_hash' "$minimal" >"$event_changed"
+  [ "$(hash_receipt_event_file "$event_changed")" = "$base_event_hash" ]
+  [ "$(hash_receipt_file "$event_changed")" != "$base_receipt_hash" ]
+
+  jq --arg zero_hash "$zero_hash" '.receipt_hash = $zero_hash' "$minimal" >"$receipt_changed"
+  [ "$(hash_receipt_event_file "$receipt_changed")" = "$base_event_hash" ]
+  [ "$(hash_receipt_file "$receipt_changed")" = "$base_receipt_hash" ]
+
+  jq '.action = "digital-action.changed"' "$minimal" >"$action_changed"
+  [ "$(hash_receipt_event_file "$action_changed")" != "$base_event_hash" ]
+  [ "$(hash_receipt_file "$action_changed")" != "$base_receipt_hash" ]
+
+  jq '.known_limitations |= reverse' "$minimal" >"$array_order_changed"
+  [ "$(hash_receipt_event_file "$array_order_changed")" != "$base_event_hash" ]
+  [ "$(hash_receipt_file "$array_order_changed")" != "$base_receipt_hash" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt verify "$event_changed"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"receipt event_hash mismatch"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt verify "$receipt_changed"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"receipt hash mismatch"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt verify "$action_changed"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"receipt event_hash mismatch"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt verify "$array_order_changed"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"receipt event_hash mismatch"* ]]
+
+  [ ! -e "$TEST_ROOT/toolkit/state" ]
+  [ ! -e "$TEST_ROOT/toolkit/sessions" ]
+  [ ! -e "$TEST_ROOT/toolkit/reports" ]
+  [ ! -e "$TEST_ROOT/toolkit/logs" ]
+  [ ! -e "$TEST_ROOT/toolkit/releases" ]
+}
+
 @test "capability manifest defines machine-readable governance root" {
   manifest="$TEST_ROOT/toolkit/capabilities.yaml"
   schema="$TEST_ROOT/toolkit/schemas/capability.v1.schema.json"
