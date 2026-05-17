@@ -138,6 +138,8 @@ repository in filesystem order.
 - [security/ATLAS_REVIEW_MATRIX.md](security/ATLAS_REVIEW_MATRIX.md):
   defensive review checklist for metadata, read-only, network, host, shell,
   and demo boundaries.
+- [strategy/ATLAS_FAILURE_MODE_MAP.md](strategy/ATLAS_FAILURE_MODE_MAP.md):
+  startup failure lessons mapped to Atlas risks and safeguards.
 - [RESPONSIBLE_USE.md](RESPONSIBLE_USE.md): responsible-use constraints.
 - [../SECURITY.md](../SECURITY.md): public vulnerability reporting rules and
   no-secrets disclosure boundary.
