@@ -1569,6 +1569,67 @@ write_test_slsa_reference() {
   [ ! -e "$TEST_ROOT/toolkit/releases" ]
 }
 
+@test "M139 receipt quickstart gives copy-paste verify and replay path" {
+  quickstart="$TEST_ROOT/toolkit/docs/TRY_RECEIPTS.md"
+  readme="$TEST_ROOT/toolkit/README.md"
+  docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
+  boundary="$TEST_ROOT/toolkit/examples/receipt/demo-site/demo-site-boundary.json"
+  packet="$TEST_ROOT/toolkit/examples/receipt/demo-site/demo-site-packet.json"
+  replay="$TEST_ROOT/toolkit/examples/receipt/demo-site/demo-site-replay.json"
+  expected_head_event="bb79b7ba13bfc8b657a532c9a07cd3eb9c27020514c903e9cda4385f6e5012eb"
+  expected_head_receipt="f0ba44315536c8397b4a42bc1a5b18bf3992b13752b83e465bed0850a1ea6c38"
+
+  [ -f "$quickstart" ]
+  grep -q '^# Try Atlas Receipts$' "$quickstart"
+  grep -q 'under five minutes' "$quickstart"
+  grep -q 'nix-shell' "$quickstart"
+  grep -q 'atlas receipt verify' "$quickstart"
+  grep -q 'atlas receipt replay' "$quickstart"
+  grep -q 'Expected output:' "$quickstart"
+  grep -q 'receipt: ok' "$quickstart"
+  grep -q 'receipt replay: ok' "$quickstart"
+  grep -q 'atlas.receipt_replay.v1' "$quickstart"
+  grep -q 'metadata_only: true' "$quickstart"
+  grep -q 'raw_artifacts_embedded: false' "$quickstart"
+  grep -q 'known_limitations' "$quickstart"
+  grep -q 'receipt-canonicalization.v1.md' "$quickstart"
+  grep -q 'receipt-replay.v1.md' "$quickstart"
+  grep -q "$expected_head_event" "$quickstart"
+  grep -q "$expected_head_receipt" "$quickstart"
+  grep -q 'does not prove external artifact availability' "$quickstart"
+  grep -q 'does not fetch artifacts' "$quickstart"
+  grep -q 'create hidden state' "$quickstart"
+  grep -q 'docs/TRY_RECEIPTS.md' "$readme"
+  grep -q 'TRY_RECEIPTS.md' "$docs_index"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt verify "$boundary"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"receipt: ok"* ]]
+  [[ "$output" == *"This receipt validates as a metadata-only proof record."* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt replay "$boundary" "$packet" "$replay"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"receipt replay: ok"* ]]
+  [[ "$output" == *"receipts: 3"* ]]
+  [[ "$output" == *"ledger binding: ok prev_hash -> event_hash"* ]]
+  [[ "$output" == *"chain_head_event_hash: $expected_head_event"* ]]
+  [[ "$output" == *"chain_head_receipt_hash: $expected_head_receipt"* ]]
+  [[ "$output" == *"metadata-only boundary: ok"* ]]
+  [[ "$output" == *"authorization, or production readiness"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt replay "$boundary" "$packet" "$replay" --json
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" | jq -e \
+    --arg expected_head_event "$expected_head_event" \
+    --arg expected_head_receipt "$expected_head_receipt" \
+    '.schema_version == "atlas.receipt_replay.v1" and
+    .metadata_only == true and
+    .raw_artifacts_embedded == false and
+    .receipt_count == 3 and
+    .chain_checkpoint.head_event_hash == $expected_head_event and
+    .chain_checkpoint.head_receipt_hash == $expected_head_receipt'
+}
+
 @test "capability manifest defines machine-readable governance root" {
   manifest="$TEST_ROOT/toolkit/capabilities.yaml"
   schema="$TEST_ROOT/toolkit/schemas/capability.v1.schema.json"

@@ -38,7 +38,7 @@ guarantee that an action was valid.
 
 ## Start Here
 
-- New reader: [docs/ATLAS_ONE_PAGE.md](docs/ATLAS_ONE_PAGE.md)
+- New reader: [docs/ATLAS_ONE_PAGE.md](docs/ATLAS_ONE_PAGE.md); receipts: [docs/TRY_RECEIPTS.md](docs/TRY_RECEIPTS.md)
 - Demo path: [docs/demo/DEMO_OPERATION.md](docs/demo/DEMO_OPERATION.md) and [docs/demo/DEMO_REVIEWER_RUNBOOK.md](docs/demo/DEMO_REVIEWER_RUNBOOK.md)
 - Security operator: [docs/OPERATOR_GUIDE.md](docs/OPERATOR_GUIDE.md)
 - Release reviewer: [docs/RELEASE_TRUST.md](docs/RELEASE_TRUST.md)
