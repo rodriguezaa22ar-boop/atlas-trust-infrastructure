@@ -9,6 +9,8 @@ repository in filesystem order.
 
 - [ATLAS_ONE_PAGE.md](ATLAS_ONE_PAGE.md): one-page explanation of what Atlas is,
   who it is for, what it does, and what it does not do.
+- [TRY_RECEIPTS.md](TRY_RECEIPTS.md): five-minute local receipt verify and
+  replay quickstart.
 - [../README.md](../README.md): short landing page with quick start, safety
   boundary, current maturity, and docs map.
 - [REPOSITORY_BOUNDARY.md](REPOSITORY_BOUNDARY.md): public/private repository
@@ -49,6 +51,8 @@ repository in filesystem order.
   runbook for the demo operation and retained release evidence.
 - [demo/DEMO_RECEIPT_PACKET.md](demo/DEMO_RECEIPT_PACKET.md): synthetic
   demo-site receipt packet and replay path.
+- [TRY_RECEIPTS.md](TRY_RECEIPTS.md): copy-paste local receipt verify and
+  replay path with expected output.
 
 ## Case studies
 
@@ -69,6 +73,8 @@ repository in filesystem order.
 - [TRUST_MODEL.md](TRUST_MODEL.md): trust anchors and verification pattern.
 - [RECEIPTS.md](RECEIPTS.md): M131 metadata-only portable proof receipts for
   critical digital actions, with M133 local replay and ledger binding.
+- [TRY_RECEIPTS.md](TRY_RECEIPTS.md): fast reviewer path for verifying and
+  replaying the synthetic receipt chain locally.
 - [atlas/TRUST_LIFECYCLE.md](atlas/TRUST_LIFECYCLE.md): Atlas-local lifecycle
   detail.
 - [atlas/TRUST_INFRASTRUCTURE_DIRECTION.md](atlas/TRUST_INFRASTRUCTURE_DIRECTION.md):
