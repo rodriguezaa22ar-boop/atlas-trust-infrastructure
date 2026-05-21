@@ -47,6 +47,8 @@ repository in filesystem order.
   demo operation from target registration through release trust.
 - [demo/DEMO_REVIEWER_RUNBOOK.md](demo/DEMO_REVIEWER_RUNBOOK.md): reviewer
   runbook for the demo operation and retained release evidence.
+- [demo/DEMO_RECEIPT_PACKET.md](demo/DEMO_RECEIPT_PACKET.md): synthetic
+  demo-site receipt packet and replay path.
 
 ## Case studies
 
@@ -62,6 +64,8 @@ repository in filesystem order.
 - [TRUST_LIFECYCLE.md](TRUST_LIFECYCLE.md): scope-to-release trust chain.
 - [demo/DEMO_OPERATION.md](demo/DEMO_OPERATION.md): repeatable synthetic demo
   of the trust lifecycle.
+- [demo/DEMO_RECEIPT_PACKET.md](demo/DEMO_RECEIPT_PACKET.md): metadata-only
+  receipt replay binding for the synthetic demo path.
 - [TRUST_MODEL.md](TRUST_MODEL.md): trust anchors and verification pattern.
 - [RECEIPTS.md](RECEIPTS.md): M131 metadata-only portable proof receipts for
   critical digital actions, with M133 local replay and ledger binding.
@@ -120,6 +124,8 @@ repository in filesystem order.
   retention records and boundary.
 - [retention/lab/ATLAS_DUAL_NODE_LAB_VALIDATION_M123.md](retention/lab/ATLAS_DUAL_NODE_LAB_VALIDATION_M123.md):
   M123 dual-node lab validation retention with private host labels redacted.
+- [retention/demo/M138_DEMO_RECEIPT_PACKET.md](retention/demo/M138_DEMO_RECEIPT_PACKET.md):
+  retained M138 synthetic demo receipt packet checkpoint.
 
 ## Production readiness
 

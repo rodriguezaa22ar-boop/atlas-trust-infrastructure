@@ -21,8 +21,10 @@ designed to be repeatable from the repository root with synthetic demo data.
 9. Generate the demo release packet when the repository is clean and synced.
 10. Verify the retained M118 release packet and release artifact manifest.
 11. Run release replay JSON.
-12. Run production status explainability.
-13. Inspect known limitations and non-guarantees before recording a conclusion.
+12. Replay the synthetic demo receipt packet chain in
+    [DEMO_RECEIPT_PACKET.md](DEMO_RECEIPT_PACKET.md).
+13. Run production status explainability.
+14. Inspect known limitations and non-guarantees before recording a conclusion.
 
 ## Operation Commands
 
@@ -39,6 +41,7 @@ The core verification commands are:
 ./tools/atlas/bin/atlas v1 status demo-operation --strict
 ./tools/atlas/bin/atlas release packet demo-operation-release --json --operation demo-operation --qa-status pass
 ./tools/atlas/bin/atlas release verify demo-operation-release
+./tools/atlas/bin/atlas receipt replay examples/receipt/demo-site/demo-site-boundary.json examples/receipt/demo-site/demo-site-packet.json examples/receipt/demo-site/demo-site-replay.json --json
 ```
 
 ## Retained Release Evidence Commands
@@ -71,6 +74,8 @@ The reviewer should see:
 - release packet verification
 - release artifact manifest verification
 - release replay JSON with `overall` set to `verified`
+- synthetic demo receipt replay JSON with `schema_version` set to
+  `atlas.receipt_replay.v1`
 - production explain output with the full phrase
   `production-ready under the local Atlas contract` only when the local
   contract passes
@@ -82,6 +87,8 @@ The reviewer should see:
   demo operation release packet is local unless explicitly retained.
 - Release replay verifies retained release trust evidence and does not inspect
   live runtime behavior.
+- Demo receipt replay verifies synthetic receipt hashes and provided-order
+  linkage only; it does not inspect a live demo site.
 - Business Flow Evidence remains optional-ready and non-blocking.
 - The demo does not replace manual review or independent reviewer judgment.
 
