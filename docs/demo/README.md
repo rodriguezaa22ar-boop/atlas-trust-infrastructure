@@ -12,6 +12,8 @@ Start here:
 - [DEMO_OPERATION.md](DEMO_OPERATION.md): metadata-only demo operation.
 - [DEMO_REVIEWER_RUNBOOK.md](DEMO_REVIEWER_RUNBOOK.md): ordered reviewer
   runbook for inspecting the demo and retained release evidence.
+- [DEMO_RECEIPT_PACKET.md](DEMO_RECEIPT_PACKET.md): synthetic receipt chain
+  and replay path for demo-site claims.
 - [TRUST_CHAIN_WALKTHROUGH.md](TRUST_CHAIN_WALKTHROUGH.md): how to read the
   operation trust-chain output.
 - [SAMPLE_OUTPUTS.md](SAMPLE_OUTPUTS.md): abbreviated output shapes.

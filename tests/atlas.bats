@@ -1481,6 +1481,94 @@ write_test_slsa_reference() {
   [ ! -e "$TEST_ROOT/toolkit/releases" ]
 }
 
+@test "M138 demo receipt packet replays synthetic demo-site chain" {
+  demo_doc="$TEST_ROOT/toolkit/docs/demo/DEMO_RECEIPT_PACKET.md"
+  demo_readme="$TEST_ROOT/toolkit/docs/demo/README.md"
+  demo_runbook="$TEST_ROOT/toolkit/docs/demo/DEMO_REVIEWER_RUNBOOK.md"
+  docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
+  retention_note="$TEST_ROOT/toolkit/docs/retention/demo/M138_DEMO_RECEIPT_PACKET.md"
+  example_readme="$TEST_ROOT/toolkit/examples/receipt/demo-site/README.md"
+  boundary="$TEST_ROOT/toolkit/examples/receipt/demo-site/demo-site-boundary.json"
+  packet="$TEST_ROOT/toolkit/examples/receipt/demo-site/demo-site-packet.json"
+  replay="$TEST_ROOT/toolkit/examples/receipt/demo-site/demo-site-replay.json"
+  expected_head_event="bb79b7ba13bfc8b657a532c9a07cd3eb9c27020514c903e9cda4385f6e5012eb"
+  expected_head_receipt="f0ba44315536c8397b4a42bc1a5b18bf3992b13752b83e465bed0850a1ea6c38"
+
+  [ -f "$demo_doc" ]
+  [ -f "$retention_note" ]
+  [ -f "$example_readme" ]
+  [ -f "$boundary" ]
+  [ -f "$packet" ]
+  [ -f "$replay" ]
+
+  grep -q '^# Demo Receipt Packet$' "$demo_doc"
+  grep -q 'atlas.receipt.v1' "$demo_doc"
+  grep -q 'atlas receipt verify' "$demo_doc"
+  grep -q 'atlas receipt replay' "$demo_doc"
+  grep -q 'atlas.receipt_replay.v1' "$demo_doc"
+  grep -q 'metadata_only=true' "$demo_doc"
+  grep -q 'raw_artifacts_embedded=false' "$demo_doc"
+  grep -q 'known_limitations' "$demo_doc"
+  grep -q 'receipt-canonicalization.v1.md' "$demo_doc"
+  grep -q 'synthetic only' "$demo_doc"
+  grep -q 'no execution' "$demo_doc"
+  grep -q 'no backend' "$demo_doc"
+  grep -q 'no persistence' "$demo_doc"
+  grep -q 'no hidden state' "$demo_doc"
+  grep -q 'production deployability claim' "$demo_doc"
+  grep -q 'does not prove external artifact availability, human intent, legal' "$demo_doc"
+  grep -q 'DEMO_RECEIPT_PACKET.md' "$demo_readme"
+  grep -q 'DEMO_RECEIPT_PACKET.md' "$demo_runbook"
+  grep -q 'DEMO_RECEIPT_PACKET.md' "$docs_index"
+  grep -q 'M138_DEMO_RECEIPT_PACKET.md' "$docs_index"
+  grep -q "$expected_head_event" "$retention_note"
+  grep -q "$expected_head_receipt" "$example_readme"
+
+  for receipt in "$boundary" "$packet" "$replay"; do
+    jq -e '
+      .schema_version == "atlas.receipt.v1" and
+      .metadata_only == true and
+      .raw_artifacts_embedded == false and
+      (.known_limitations | length > 0)
+    ' "$receipt"
+
+    run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt verify "$receipt"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"receipt: ok"* ]]
+    [[ "$output" == *"This receipt validates as a metadata-only proof record."* ]]
+  done
+
+  jq -e '.prev_hash == null' "$boundary"
+  jq -e --arg prev "$(jq -r '.event_hash' "$boundary")" '.prev_hash == $prev' "$packet"
+  jq -e --arg prev "$(jq -r '.event_hash' "$packet")" '.prev_hash == $prev' "$replay"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt replay "$boundary" "$packet" "$replay" --json
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" | jq -e \
+    --arg expected_head_event "$expected_head_event" \
+    --arg expected_head_receipt "$expected_head_receipt" \
+    '.schema_version == "atlas.receipt_replay.v1" and
+    .status == "ok" and
+    .metadata_only == true and
+    .raw_artifacts_embedded == false and
+    .receipt_count == 3 and
+    .ledger_binding.status == "ok" and
+    .ledger_binding.rule == "receipt[n].prev_hash == receipt[n-1].event_hash" and
+    .chain_checkpoint.head_event_hash == $expected_head_event and
+    .chain_checkpoint.head_receipt_hash == $expected_head_receipt and
+    .chain[0].linkage_status == "genesis" and
+    .chain[1].prev_hash == .chain[0].event_hash and
+    .chain[2].prev_hash == .chain[1].event_hash and
+    (.metadata_boundary.excludes | index("raw artifacts")) and
+    (.known_limitations[] | select(test("does not prove external artifact availability")))'
+
+  [ ! -e "$TEST_ROOT/toolkit/state" ]
+  [ ! -e "$TEST_ROOT/toolkit/sessions" ]
+  [ ! -e "$TEST_ROOT/toolkit/reports" ]
+  [ ! -e "$TEST_ROOT/toolkit/logs" ]
+  [ ! -e "$TEST_ROOT/toolkit/releases" ]
+}
+
 @test "capability manifest defines machine-readable governance root" {
   manifest="$TEST_ROOT/toolkit/capabilities.yaml"
   schema="$TEST_ROOT/toolkit/schemas/capability.v1.schema.json"
