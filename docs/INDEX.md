@@ -123,6 +123,8 @@ repository in filesystem order.
 - [retention/reviews/ATLAS_V1_INTERNAL_RC_EXTERNAL_REVIEW.md](retention/reviews/ATLAS_V1_INTERNAL_RC_EXTERNAL_REVIEW.md):
   external review validation for the retained Atlas v1 Internal RC from a
   clean lab-node clone.
+- [reviews/PUBLIC_REVIEWER_DRY_RUN_M142.md](reviews/PUBLIC_REVIEWER_DRY_RUN_M142.md):
+  fresh public-clone reviewer dry-run for the receipt Open-Core RC path.
 - [retention/releases/REPLAY_VERIFICATION.md](retention/releases/REPLAY_VERIFICATION.md):
   clean-checkout replay procedure.
 - [atlas/PRODUCTION_READINESS.md](atlas/PRODUCTION_READINESS.md): local
