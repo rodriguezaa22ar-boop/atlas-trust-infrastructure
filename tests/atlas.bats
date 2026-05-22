@@ -1680,6 +1680,48 @@ write_test_slsa_reference() {
   grep -q 'atlas-retention-m141' "$milestone_index"
 }
 
+@test "M142 public reviewer dry-run records fresh clone verification" {
+  review_doc="$TEST_ROOT/toolkit/docs/reviews/PUBLIC_REVIEWER_DRY_RUN_M142.md"
+  docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
+  milestone="$TEST_ROOT/toolkit/docs/retention/milestones/MILESTONE_142.md"
+  milestone_index="$TEST_ROOT/toolkit/docs/retention/MILESTONE_INDEX.md"
+
+  [ -f "$review_doc" ]
+  [ -f "$milestone" ]
+
+  grep -q '^# Atlas Public Reviewer Dry-Run M142$' "$review_doc"
+  grep -q 'fresh public clone' "$review_doc"
+  grep -q '38627006a43b3469ae6eb1b1ea01c497c6e263f2' "$review_doc"
+  grep -q 'Private notes used: none' "$review_doc"
+  grep -q 'README.md' "$review_doc"
+  grep -q 'docs/RECEIPT_OPEN_CORE_RC.md' "$review_doc"
+  grep -q 'docs/TRY_RECEIPTS.md' "$review_doc"
+  grep -q 'docs/KNOWN_LIMITATIONS.md' "$review_doc"
+  grep -q "nix-shell --run './bin/dev-qa'" "$review_doc"
+  grep -q '133/133 Bats' "$review_doc"
+  grep -q 'receipt: ok' "$review_doc"
+  grep -q 'receipt replay: ok' "$review_doc"
+  grep -q 'atlas reviewer package full-capability-review' "$review_doc"
+  grep -q 'Public Trust Export' "$review_doc"
+  grep -q 'Forbidden paths: 0' "$review_doc"
+  grep -q 'Private markers: 0' "$review_doc"
+  grep -q 'Authorization: Bearer abc123' "$review_doc"
+  grep -q 'No raw `.pcap` files were found' "$review_doc"
+  grep -q 'no real leaks found' "$review_doc"
+  grep -q 'external audit' "$review_doc"
+  grep -q 'external SLSA certification' "$review_doc"
+  grep -q 'does not add runtime behavior' "$review_doc"
+
+  grep -q 'reviews/PUBLIC_REVIEWER_DRY_RUN_M142.md' "$docs_index"
+  grep -q '^# Milestone 142: Public Reviewer Dry-Run$' "$milestone"
+  grep -q 'docs/reviews/PUBLIC_REVIEWER_DRY_RUN_M142.md' "$milestone"
+  grep -q 'Fresh public clone: passed' "$milestone"
+  grep -q 'does not change receipt semantics' "$milestone"
+  grep -q 'atlas-retention-m142' "$milestone"
+  grep -q 'MILESTONE_142.md' "$milestone_index"
+  grep -q 'atlas-retention-m142' "$milestone_index"
+}
+
 @test "capability manifest defines machine-readable governance root" {
   manifest="$TEST_ROOT/toolkit/capabilities.yaml"
   schema="$TEST_ROOT/toolkit/schemas/capability.v1.schema.json"
