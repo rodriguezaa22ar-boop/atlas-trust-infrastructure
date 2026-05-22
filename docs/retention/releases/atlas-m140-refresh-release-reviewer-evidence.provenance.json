@@ -1,0 +1,35 @@
+{
+  "schema_version": "atlas.release_provenance.v1",
+  "generated": "2026-05-22T20:10:12Z",
+  "metadata_only": true,
+  "commit": "18430ce9b00191d536096779d88398b2df01e320",
+  "signed_tag": {
+    "name": "atlas-production-candidate-m140",
+    "target": "18430ce9b00191d536096779d88398b2df01e320",
+    "tag_object": "b64244c89880e9ffa6725433bc3e715812ee2d98",
+    "verification": "verified",
+    "signer_fingerprint": "24B1E00EEB286B966F9FCE0C9C6439E15BBFD290",
+    "public_key_path": "docs/retention/releases/atlas-m67-release-signing-public-key.asc",
+    "public_key_sha256": "c08e7454ee3ab72a39286f61efd4deca8fbe0ef3fe20844771ff5735da6a79d5"
+  },
+  "release_packet": {
+    "path": "docs/retention/releases/atlas-m140-refresh-release-reviewer-evidence.json",
+    "sha256": "c7b91671e9cebc3592ca34d327889333c9d12bc3685fd88b2afc954ea2937780"
+  },
+  "qa": {
+    "status": "pass",
+    "command": "nix-shell --run './bin/dev-qa'",
+    "note": "pre-M140 main dev-qa passed with 132/132 Bats; M140 refresh regenerated release reviewer evidence for current main"
+  },
+  "production_status": {
+    "observed": "not-ready",
+    "note": "current release artifact manifest and reviewer package evidence were pending before retaining this M140 packet set"
+  },
+  "known_limitations": [
+    "This evidence refresh verifies retained local release artifacts; it is not external audit or certification.",
+    "The release packet, provenance, manifest, dry-run note, and reviewer package are metadata-only and do not prove external artifact truth, legal compliance, or runtime safety.",
+    "Production status remains a local Atlas contract and is not a production deployment claim.",
+    "Reviewer package readiness depends on the retained manifest staying current with the release commit."
+  ],
+  "no_production_overclaim": true
+}
