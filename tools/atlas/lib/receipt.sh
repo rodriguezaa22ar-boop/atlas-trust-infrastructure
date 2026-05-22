@@ -37,7 +37,7 @@ atlas_receipt_forbidden_content_paths() {
 
   printf '%s\n' "$receipt_json" | jq -r '
     def pathstr($p): $p | map(tostring) | join(".");
-    def bad_key: test("^(raw_artifact|raw_artifacts|raw_body|artifact_body|artifact_content|raw_payload|payload|request_body|response_body|secret|token|password|passwd|api_key|authorization|cookie|session|private_key|credential)$"; "i");
+    def bad_key: test("^(raw_artifact|raw_artifacts|raw_body|raw_request|raw_response|artifact_body|artifact_content|raw_payload|payload|request_body|response_body|secret|token|password|passwd|api_key|authorization|cookie|session|private_key|credential)$"; "i");
     def bad_value: test("password=|passwd=|api_key=|secret=|token=|authorization:|bearer[[:space:]]|set-cookie:|BEGIN RSA|BEGIN OPENSSH|session=|cookie="; "i");
     (
       [
@@ -381,6 +381,174 @@ cmd_receipt_create() {
       "$receipt_id" \
       "$timestamp_value" \
       "$action" \
+      "$actor" \
+      "$subject_type" \
+      "$subject_ref" \
+      "$evidence_refs_json" \
+      "$artifact_refs_json" \
+      "$approval_refs_json" \
+      "$prev_hash_json" \
+      "$limitations_json"
+  )"
+  atlas_receipt_validate_json "$receipt_json" >/dev/null
+
+  if [ -n "$out_file" ]; then
+    printf '%s\n' "$receipt_json" >"$out_file"
+    chmod 600 "$out_file" 2>/dev/null || true
+    if [ "$json" -eq 1 ]; then
+      printf '%s\n' "$receipt_json"
+    else
+      printf 'receipt: %s\n' "$out_file"
+    fi
+  else
+    printf '%s\n' "$receipt_json"
+  fi
+}
+
+atlas_receipt_generic_event_read_json() {
+  local input="$1"
+
+  [ -f "$input" ] || fail "missing generic external event: $input"
+  cat -- "$input"
+}
+
+atlas_receipt_generic_event_validate_json() {
+  local event_json="$1"
+  local forbidden
+
+  intel_require_jq
+
+  printf '%s\n' "$event_json" | jq -e . >/dev/null 2>&1 ||
+    fail "invalid generic external event JSON"
+
+  forbidden="$(atlas_receipt_forbidden_content_paths "$event_json")"
+  [ -z "$forbidden" ] ||
+    fail "generic external event contains forbidden raw-content marker: $(printf '%s' "$forbidden" | paste -sd, -)"
+
+  printf '%s\n' "$event_json" | jq -e '
+    . as $event |
+    def exact_keys($allowed): (keys_unsorted - $allowed | length == 0);
+    def nonempty($key): ($event[$key] | type == "string" and length > 0);
+    ($event | type == "object") and
+    ($event | exact_keys([
+      "schema_version",
+      "adapter_id",
+      "event_id",
+      "observed_at",
+      "event_type",
+      "actor",
+      "source_ref",
+      "subject",
+      "evidence_refs",
+      "artifact_refs",
+      "approval_refs",
+      "metadata_only",
+      "raw_artifacts_embedded",
+      "known_limitations"
+    ])) and
+    $event.schema_version == "generic.external_event.v1" and
+    $event.adapter_id == "generic.external_event.v1" and
+    nonempty("event_id") and
+    nonempty("observed_at") and
+    nonempty("event_type") and
+    nonempty("actor") and
+    nonempty("source_ref") and
+    ($event.subject | type == "object" and exact_keys(["type", "ref"])) and
+    ($event.subject.type | type == "string" and length > 0) and
+    ($event.subject.ref | type == "string" and length > 0) and
+    ($event.evidence_refs | type == "array") and
+    all($event.evidence_refs[]; type == "string" and length > 0) and
+    ($event.artifact_refs | type == "array") and
+    all($event.artifact_refs[]; type == "object" and exact_keys(["path", "sha256"]) and (.path | type == "string" and length > 0) and (.sha256 | test("^[a-f0-9]{64}$"))) and
+    ($event.approval_refs | type == "array") and
+    all($event.approval_refs[]; type == "string" and length > 0) and
+    $event.metadata_only == true and
+    $event.raw_artifacts_embedded == false and
+    ($event.known_limitations | type == "array" and length > 0) and
+    all($event.known_limitations[]; type == "string" and length > 0)
+  ' >/dev/null || fail "invalid generic external event fields"
+}
+
+cmd_receipt_import_generic_event() {
+  need_args 1 "$#" "receipt import-generic-event <event.json> [--prev-hash sha256] [--out receipt.json] [--json]"
+
+  local event_file="$1"
+  local prev_hash=""
+  local prev_hash_json="null"
+  local out_file=""
+  local json=0
+  local event_json
+  local event_id
+  local event_slug
+  local receipt_id
+  local observed_at
+  local event_type
+  local actor
+  local subject_type
+  local subject_ref
+  local evidence_refs_json
+  local artifact_refs_json
+  local approval_refs_json
+  local limitations_json
+  local receipt_json
+
+  shift
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+    --prev-hash)
+      [ "$#" -ge 2 ] || fail "receipt import-generic-event requires --prev-hash value"
+      prev_hash="$2"
+      shift 2
+      ;;
+    --out)
+      [ "$#" -ge 2 ] || fail "receipt import-generic-event requires --out value"
+      out_file="$2"
+      shift 2
+      ;;
+    --json)
+      json=1
+      shift
+      ;;
+    *)
+      fail "unknown receipt import-generic-event option: $1"
+      ;;
+    esac
+  done
+
+  if [ -n "$prev_hash" ]; then
+    [[ "$prev_hash" =~ ^[a-f0-9]{64}$ ]] || fail "receipt import-generic-event requires --prev-hash as 64 lowercase hex characters"
+    prev_hash_json="$(jq -cn --arg prev_hash "$prev_hash" '$prev_hash')"
+  fi
+
+  event_json="$(atlas_receipt_generic_event_read_json "$event_file")"
+  atlas_receipt_generic_event_validate_json "$event_json"
+
+  event_id="$(printf '%s\n' "$event_json" | jq -r '.event_id')"
+  event_slug="$(slugify "$event_id")"
+  [ -n "$event_slug" ] || fail "generic external event event_id cannot be slugified"
+
+  receipt_id="receipt_generic_external_event_v1_$event_slug"
+  observed_at="$(printf '%s\n' "$event_json" | jq -r '.observed_at')"
+  event_type="$(printf '%s\n' "$event_json" | jq -r '.event_type')"
+  actor="$(printf '%s\n' "$event_json" | jq -r '.actor')"
+  subject_type="$(printf '%s\n' "$event_json" | jq -r '.subject.type')"
+  subject_ref="$(printf '%s\n' "$event_json" | jq -r '.subject.ref')"
+  evidence_refs_json="$(
+    printf '%s\n' "$event_json" |
+      jq -c '[.source_ref] + .evidence_refs'
+  )"
+  artifact_refs_json="$(printf '%s\n' "$event_json" | jq -c '.artifact_refs')"
+  approval_refs_json="$(printf '%s\n' "$event_json" | jq -c '.approval_refs')"
+  limitations_json="$(
+    printf '%s\n' "$event_json" |
+      jq -c '.known_limitations + ["Imported from a local generic.external_event.v1 file; Atlas does not call, control, or verify the source system."]'
+  )"
+
+  receipt_json="$(
+    atlas_receipt_write_json \
+      "$receipt_id" \
+      "$observed_at" \
+      "$event_type" \
       "$actor" \
       "$subject_type" \
       "$subject_ref" \

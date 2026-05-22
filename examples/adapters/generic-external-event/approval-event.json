@@ -1,0 +1,26 @@
+{
+  "schema_version": "generic.external_event.v1",
+  "adapter_id": "generic.external_event.v1",
+  "event_id": "m143-approval-event",
+  "observed_at": "2026-05-22T20:05:00Z",
+  "event_type": "synthetic.external_event.approval_recorded",
+  "actor": "synthetic-approver",
+  "source_ref": "examples/adapters/generic-external-event/approval-event.json",
+  "subject": {
+    "type": "synthetic-approval",
+    "ref": "atlas:m143:approval"
+  },
+  "evidence_refs": [
+    "docs/adapters/GENERIC_EXTERNAL_EVENT_RECEIPT_ADAPTER.md",
+    "schemas/generic-external-event.v1.schema.json"
+  ],
+  "artifact_refs": [],
+  "approval_refs": [
+    "approval://synthetic/m143-local-file-import"
+  ],
+  "metadata_only": true,
+  "raw_artifacts_embedded": false,
+  "known_limitations": [
+    "Synthetic approval metadata only; it does not prove human intent, legal compliance, or source-system authorization."
+  ]
+}

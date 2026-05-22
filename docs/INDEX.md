@@ -94,6 +94,9 @@ repository in filesystem order.
   capability manifest model and validation gate.
 - [governance/ADAPTER_REGISTRY.md](governance/ADAPTER_REGISTRY.md): M125
   import-only adapter registry and validation gate.
+- [adapters/GENERIC_EXTERNAL_EVENT_RECEIPT_ADAPTER.md](adapters/GENERIC_EXTERNAL_EVENT_RECEIPT_ADAPTER.md):
+  M143 local-file import-only adapter for converting synthetic generic external
+  events into Atlas receipts.
 - [governance/POLICY_PLANE.md](governance/POLICY_PLANE.md): M126 policy
   decision contract and validation gate.
 - [governance/APPROVAL_PLANE.md](governance/APPROVAL_PLANE.md): M127
@@ -170,6 +173,8 @@ repository in filesystem order.
 - [schemas/README.md](schemas/README.md): implemented JSON contracts.
 - [../schemas/atlas.receipt.v1.schema.json](../schemas/atlas.receipt.v1.schema.json):
   M131 receipt JSON Schema for metadata-only proof records.
+- [../schemas/generic-external-event.v1.schema.json](../schemas/generic-external-event.v1.schema.json):
+  M143 local-file generic external event input schema for receipt import.
 - [schemas/receipt-canonicalization.v1.md](schemas/receipt-canonicalization.v1.md):
   M137 deterministic receipt hash canonicalization contract.
 - [schemas/SCHEMA_FREEZE_CANDIDATE.md](schemas/SCHEMA_FREEZE_CANDIDATE.md):

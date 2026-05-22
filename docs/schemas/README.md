@@ -86,6 +86,7 @@ governance, evidence, hash-ledger, and receipt contracts:
 - `schemas/evidence-envelope.v1.schema.json`
 - `schemas/checkpoint.v1.schema.json`
 - `schemas/atlas.receipt.v1.schema.json`
+- `schemas/generic-external-event.v1.schema.json`
 
 Validate the runnable contract with:
 

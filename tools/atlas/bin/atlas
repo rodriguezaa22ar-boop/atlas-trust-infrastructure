@@ -135,7 +135,7 @@ atlas_command_skips_layout() {
 		;;
 	receipt)
 		case "${2:-}" in
-		create | verify | replay)
+		create | import-generic-event | verify | replay)
 			return 0
 			;;
 		esac
@@ -183,6 +183,7 @@ usage:
   atlas ledger verify <ledger-file|-> [--json]
   atlas ledger checkpoint <ledger-file|-> [--json]
   atlas receipt create --action action --actor actor --subject-type type --subject ref [--prev-hash sha256] [--evidence-ref ref] [--artifact-ref path=sha256] [--approval-ref ref] [--limitation text] [--out receipt.json] [--json]
+  atlas receipt import-generic-event <event.json> [--prev-hash sha256] [--out receipt.json] [--json]
   atlas receipt verify <receipt-file|-> [--json]
   atlas receipt replay <receipt-file> [receipt-file ...] [--json]
   atlas reviewer package <name>
@@ -417,6 +418,7 @@ ledger:
 
 receipts:
   atlas receipt create --action action --actor actor --subject-type type --subject ref [--prev-hash sha256] [--evidence-ref ref] [--artifact-ref path=sha256] [--approval-ref ref] [--limitation text] [--out receipt.json] [--json]
+  atlas receipt import-generic-event <event.json> [--prev-hash sha256] [--out receipt.json] [--json]
   atlas receipt verify <receipt-file|-> [--json]
   atlas receipt replay <receipt-file> [receipt-file ...] [--json]
 
@@ -2374,6 +2376,10 @@ receipt)
 	create)
 		shift
 		cmd_receipt_create "$@"
+		;;
+	import-generic-event)
+		shift
+		cmd_receipt_import_generic_event "$@"
 		;;
 	verify)
 		shift

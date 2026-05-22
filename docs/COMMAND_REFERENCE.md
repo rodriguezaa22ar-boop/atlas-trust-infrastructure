@@ -160,6 +160,7 @@ nix-shell --run './bin/dev-qa'
 ```bash
 ./tools/atlas/bin/atlas receipt create --action digital-action.recorded --actor operator --subject-type digital-action --subject demo:minimal --out receipt.json
 ./tools/atlas/bin/atlas receipt create --action software.release.packet.created --actor operator --subject-type git-commit --subject HEAD --prev-hash <event_hash> --evidence-ref docs/retention/releases/atlas-current.json --artifact-ref docs/retention/releases/atlas-current.json=<sha256> --out receipt.json
+./tools/atlas/bin/atlas receipt import-generic-event examples/adapters/generic-external-event/minimal-event.json --out receipt.json
 ./tools/atlas/bin/atlas receipt verify receipt.json
 ./tools/atlas/bin/atlas receipt verify receipt.json --json
 ./tools/atlas/bin/atlas receipt replay receipt-1.json receipt-2.json --json
@@ -172,6 +173,11 @@ canonical `receipt_hash`. Replay verifies each receipt and checks
 `prev_hash -> event_hash` linkage in the provided order. It does not prove
 external artifact availability, human intent, legal compliance, artifact
 correctness, authorization, or production readiness.
+
+`receipt import-generic-event` is local-file import only. It converts a
+`generic.external_event.v1` JSON file into an Atlas receipt without calling the
+network, executing source-system actions, or creating runtime state beyond the
+requested output receipt.
 
 ## Atlas Business Flows
 
