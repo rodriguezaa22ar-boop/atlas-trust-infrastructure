@@ -9,6 +9,8 @@ repository in filesystem order.
 
 - [ATLAS_ONE_PAGE.md](ATLAS_ONE_PAGE.md): one-page explanation of what Atlas is,
   who it is for, what it does, and what it does not do.
+- [RECEIPT_OPEN_CORE_RC.md](RECEIPT_OPEN_CORE_RC.md): receipt, replay, and
+  reviewer-proof open-core RC packaging checkpoint.
 - [TRY_RECEIPTS.md](TRY_RECEIPTS.md): five-minute local receipt verify and
   replay quickstart.
 - [../README.md](../README.md): short landing page with quick start, safety
@@ -73,6 +75,8 @@ repository in filesystem order.
 - [TRUST_MODEL.md](TRUST_MODEL.md): trust anchors and verification pattern.
 - [RECEIPTS.md](RECEIPTS.md): M131 metadata-only portable proof receipts for
   critical digital actions, with M133 local replay and ledger binding.
+- [RECEIPT_OPEN_CORE_RC.md](RECEIPT_OPEN_CORE_RC.md): reviewer-facing package
+  for the current receipt/replay proof surface and M140 retained evidence.
 - [TRY_RECEIPTS.md](TRY_RECEIPTS.md): fast reviewer path for verifying and
   replaying the synthetic receipt chain locally.
 - [atlas/TRUST_LIFECYCLE.md](atlas/TRUST_LIFECYCLE.md): Atlas-local lifecycle

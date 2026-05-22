@@ -1630,6 +1630,56 @@ write_test_slsa_reference() {
     .chain_checkpoint.head_receipt_hash == $expected_head_receipt'
 }
 
+@test "M141 receipt open-core RC packages reviewer proof surface" {
+  rc_doc="$TEST_ROOT/toolkit/docs/RECEIPT_OPEN_CORE_RC.md"
+  readme="$TEST_ROOT/toolkit/README.md"
+  docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
+  milestone="$TEST_ROOT/toolkit/docs/retention/milestones/MILESTONE_141.md"
+  milestone_index="$TEST_ROOT/toolkit/docs/retention/MILESTONE_INDEX.md"
+
+  [ -f "$rc_doc" ]
+  [ -f "$milestone" ]
+
+  grep -q '^# Atlas Receipt Open-Core RC$' "$rc_doc"
+  grep -q 'outside' "$rc_doc"
+  grep -q 'reviewer' "$rc_doc"
+  grep -q 'What Atlas Proves' "$rc_doc"
+  grep -q 'What Atlas Does Not Prove' "$rc_doc"
+  grep -q 'TRY_RECEIPTS.md' "$rc_doc"
+  grep -q 'schemas/atlas.receipt.v1.schema.json' "$rc_doc"
+  grep -q 'schemas/receipt-replay.v1.md' "$rc_doc"
+  grep -q 'schemas/receipt-canonicalization.v1.md' "$rc_doc"
+  grep -q 'demo/DEMO_RECEIPT_PACKET.md' "$rc_doc"
+  grep -q 'examples/receipt/demo-site' "$rc_doc"
+  grep -q 'Security Regressions' "$rc_doc"
+  grep -q 'metadata_only=false' "$rc_doc"
+  grep -q 'raw_artifacts_embedded=true' "$rc_doc"
+  grep -q 'atlas reviewer package full-capability-review' "$rc_doc"
+  grep -q 'docs/retention/reviewer-packages/full-capability-review' "$rc_doc"
+  grep -q 'atlas-m140-refresh-release-reviewer-evidence.manifest.json' "$rc_doc"
+  grep -q 'atlas-production-candidate-m140' "$rc_doc"
+  grep -q 'external audit or certification' "$rc_doc"
+  grep -q 'external SLSA certification' "$rc_doc"
+  grep -q 'runtime behavior' "$rc_doc"
+  grep -q 'receipt semantics' "$rc_doc"
+  grep -q 'weakened release or reviewer gates' "$rc_doc"
+  grep -q 'do not embed raw artifacts' "$rc_doc"
+
+  grep -q 'docs/RECEIPT_OPEN_CORE_RC.md' "$readme"
+  grep -q 'docs/TRY_RECEIPTS.md' "$readme"
+  grep -q 'RECEIPT_OPEN_CORE_RC.md' "$docs_index"
+  grep -q 'M140 retained evidence' "$docs_index"
+
+  grep -q '^# Milestone 141: Receipt Open-Core RC Packaging$' "$milestone"
+  grep -q 'docs/RECEIPT_OPEN_CORE_RC.md' "$milestone"
+  grep -q 'docs and tests only' "$milestone"
+  grep -q 'does not add runtime behavior' "$milestone"
+  grep -q 'does not claim external audit' "$milestone"
+  grep -q 'atlas-retention-m141' "$milestone"
+  grep -q 'MILESTONE_141.md' "$milestone_index"
+  grep -q 'atlas-retention-m141' "$milestone_index"
+}
+
 @test "capability manifest defines machine-readable governance root" {
   manifest="$TEST_ROOT/toolkit/capabilities.yaml"
   schema="$TEST_ROOT/toolkit/schemas/capability.v1.schema.json"
