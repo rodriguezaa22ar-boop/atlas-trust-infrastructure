@@ -1722,6 +1722,142 @@ write_test_slsa_reference() {
   grep -q 'atlas-retention-m142' "$milestone_index"
 }
 
+@test "M143 generic external event adapter imports metadata-only receipts" {
+  schema="$TEST_ROOT/toolkit/schemas/generic-external-event.v1.schema.json"
+  doc="$TEST_ROOT/toolkit/docs/adapters/GENERIC_EXTERNAL_EVENT_RECEIPT_ADAPTER.md"
+  minimal_event="$TEST_ROOT/toolkit/examples/adapters/generic-external-event/minimal-event.json"
+  approval_event="$TEST_ROOT/toolkit/examples/adapters/generic-external-event/approval-event.json"
+  command_ref="$TEST_ROOT/toolkit/docs/COMMAND_REFERENCE.md"
+  schema_index="$TEST_ROOT/toolkit/docs/schemas/README.md"
+  docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
+
+  [ -f "$schema" ]
+  [ -f "$doc" ]
+  [ -f "$minimal_event" ]
+  [ -f "$approval_event" ]
+
+  jq -e '
+    .title == "Generic External Event v1" and
+    .properties.schema_version.const == "generic.external_event.v1" and
+    .properties.adapter_id.const == "generic.external_event.v1" and
+    .properties.metadata_only.const == true and
+    .properties.raw_artifacts_embedded.const == false and
+    (.required | index("known_limitations")) and
+    .additionalProperties == false
+  ' "$schema"
+
+  for event in "$minimal_event" "$approval_event"; do
+    jq -e '
+      .schema_version == "generic.external_event.v1" and
+      .adapter_id == "generic.external_event.v1" and
+      .metadata_only == true and
+      .raw_artifacts_embedded == false and
+      (.known_limitations | type == "array" and length > 0)
+    ' "$event"
+  done
+
+  grep -q '^# Generic External Event Receipt Adapter$' "$doc"
+  grep -q 'generic.external_event.v1' "$doc"
+  grep -q 'local-file import only' "$doc"
+  grep -q 'must not:' "$doc"
+  grep -q 'call the network' "$doc"
+  grep -q 'execute external actions' "$doc"
+  grep -q 'hidden cache files' "$doc"
+  grep -q 'metadata_only=true' "$doc"
+  grep -q 'raw_artifacts_embedded=false' "$doc"
+  grep -q 'known_limitations' "$doc"
+  grep -q 'source-system truth' "$doc"
+  grep -q 'external audit or certification' "$doc"
+  grep -q 'receipt import-generic-event' "$command_ref"
+  grep -q 'generic-external-event.v1.schema.json' "$schema_index"
+  grep -q 'GENERIC_EXTERNAL_EVENT_RECEIPT_ADAPTER.md' "$docs_index"
+  grep -q 'generic-external-event.v1.schema.json' "$docs_index"
+
+  rm -rf \
+    "$TEST_ROOT/toolkit/logs" \
+    "$TEST_ROOT/toolkit/releases" \
+    "$TEST_ROOT/toolkit/reports" \
+    "$TEST_ROOT/toolkit/sessions" \
+    "$TEST_ROOT/toolkit/state" \
+    "$TEST_ROOT/toolkit/targets"
+  before_dirs="$(find "$TEST_ROOT/toolkit" -maxdepth 2 -type d | sort)"
+
+  first_receipt="$TEST_ROOT/m143-generic-event-1.json"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt import-generic-event \
+    "$minimal_event" \
+    --out "$first_receipt"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"receipt: $first_receipt"* ]]
+  [ -f "$first_receipt" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt verify "$first_receipt" --json
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" | jq -e '
+    .schema_version == "atlas.receipt_verify.v1" and
+    .status == "ok" and
+    .metadata_only == true and
+    .raw_artifacts_embedded == false and
+    .evidence_ref_count == 2
+  '
+
+  jq -e '
+    .receipt_id == "receipt_generic_external_event_v1_m143-minimal-event" and
+    .timestamp == "2026-05-22T20:00:00Z" and
+    .action == "synthetic.external_event.observed" and
+    .actor == "synthetic-source" and
+    .subject.type == "synthetic-demo" and
+    .subject.ref == "atlas:m143:minimal" and
+    .metadata_only == true and
+    .raw_artifacts_embedded == false and
+    .prev_hash == null and
+    (.evidence_refs | index("examples/adapters/generic-external-event/minimal-event.json")) and
+    (.known_limitations | index("Imported from a local generic.external_event.v1 file; Atlas does not call, control, or verify the source system."))
+  ' "$first_receipt"
+
+  prev_hash="$(jq -r '.event_hash' "$first_receipt")"
+  second_receipt="$TEST_ROOT/m143-generic-event-2.json"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt import-generic-event \
+    "$approval_event" \
+    --prev-hash "$prev_hash" \
+    --out "$second_receipt"
+  [ "$status" -eq 0 ]
+  [ -f "$second_receipt" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt replay "$first_receipt" "$second_receipt" --json
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" | jq -e \
+    --arg prev_hash "$prev_hash" \
+    '.schema_version == "atlas.receipt_replay.v1" and
+    .status == "ok" and
+    .metadata_only == true and
+    .raw_artifacts_embedded == false and
+    .receipt_count == 2 and
+    .chain[0].linkage_status == "genesis" and
+    .chain[1].prev_hash == $prev_hash and
+    .ledger_binding.status == "ok"'
+
+  after_dirs="$(find "$TEST_ROOT/toolkit" -maxdepth 2 -type d | sort)"
+  [ "$before_dirs" = "$after_dirs" ]
+
+  bad_embedded="$TEST_ROOT/m143-bad-embedded-event.json"
+  jq '.raw_artifacts_embedded = true' "$minimal_event" >"$bad_embedded"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt import-generic-event "$bad_embedded" --out "$TEST_ROOT/bad.json"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"invalid generic external event fields"* ]]
+
+  missing_limitations="$TEST_ROOT/m143-missing-limitations-event.json"
+  jq 'del(.known_limitations)' "$minimal_event" >"$missing_limitations"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt import-generic-event "$missing_limitations" --out "$TEST_ROOT/missing.json"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"invalid generic external event fields"* ]]
+
+  raw_body="$TEST_ROOT/m143-raw-body-event.json"
+  jq '. + {raw_response: "synthetic raw response body"}' "$minimal_event" >"$raw_body"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt import-generic-event "$raw_body" --out "$TEST_ROOT/raw.json"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"generic external event contains forbidden raw-content marker"* ]]
+}
+
 @test "capability manifest defines machine-readable governance root" {
   manifest="$TEST_ROOT/toolkit/capabilities.yaml"
   schema="$TEST_ROOT/toolkit/schemas/capability.v1.schema.json"

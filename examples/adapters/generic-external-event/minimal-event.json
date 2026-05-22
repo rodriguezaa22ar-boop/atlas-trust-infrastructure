@@ -1,0 +1,23 @@
+{
+  "schema_version": "generic.external_event.v1",
+  "adapter_id": "generic.external_event.v1",
+  "event_id": "m143-minimal-event",
+  "observed_at": "2026-05-22T20:00:00Z",
+  "event_type": "synthetic.external_event.observed",
+  "actor": "synthetic-source",
+  "source_ref": "examples/adapters/generic-external-event/minimal-event.json",
+  "subject": {
+    "type": "synthetic-demo",
+    "ref": "atlas:m143:minimal"
+  },
+  "evidence_refs": [
+    "docs/adapters/GENERIC_EXTERNAL_EVENT_RECEIPT_ADAPTER.md"
+  ],
+  "artifact_refs": [],
+  "approval_refs": [],
+  "metadata_only": true,
+  "raw_artifacts_embedded": false,
+  "known_limitations": [
+    "Synthetic example only; it does not prove source-system truth or external artifact availability."
+  ]
+}
