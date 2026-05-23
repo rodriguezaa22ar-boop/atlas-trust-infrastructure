@@ -127,3 +127,10 @@ It does not prove:
 
 The generated receipt remains reviewer-safe because it is metadata-only and
 passes the normal Atlas receipt verifier.
+
+## Profiles
+
+- [AI Agent Event Receipt Profile](AI_AGENT_EVENT_RECEIPT_PROFILE.md):
+  metadata-only AI-agent proposal/report events imported through the existing
+  generic adapter. The agent is an event source only, not an authority or
+  execution engine.

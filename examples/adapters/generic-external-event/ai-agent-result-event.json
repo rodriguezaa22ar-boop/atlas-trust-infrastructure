@@ -1,0 +1,43 @@
+{
+  "schema_version": "generic.external_event.v1",
+  "adapter_id": "generic.external_event.v1",
+  "event_id": "m146-ai-agent-result-reported",
+  "observed_at": "2026-05-23T17:25:00Z",
+  "event_type": "ai_agent.action.reported",
+  "actor": "agent:local-engineering-agent",
+  "source_ref": "examples/adapters/generic-external-event/ai-agent-result-event.json",
+  "subject": {
+    "type": "task",
+    "ref": "personal-agent-lab:A004"
+  },
+  "evidence_refs": [
+    "docs/adapters/AI_AGENT_EVENT_RECEIPT_PROFILE.md",
+    "ai_agent_profile://agent_runtime/personal-agent-lab/local-engineering-agent",
+    "ai_agent_profile://model_label/local-model-label-redacted",
+    "ai_agent_profile://operator_id/operator:atlas-local",
+    "ai_agent_profile://proposed_action/propose-local-docs-update",
+    "ai_agent_profile://capability_id/local.documentation.review",
+    "ai_agent_profile://policy_decision/human-review-recorded",
+    "ai_agent_profile://approval_required/false",
+    "sha256:input:5c4d72071ca7716c5fe49cb46fedd6ab25cd5d5962bc40d7199767a280fb5094",
+    "sha256:output:7c45ef4865d69b6a0736c67ab18d88e423a16fcf3534840eec2a5d96563a2c8e"
+  ],
+  "artifact_refs": [
+    {
+      "path": "runs/A004-summary.md",
+      "sha256": "7c45ef4865d69b6a0736c67ab18d88e423a16fcf3534840eec2a5d96563a2c8e"
+    }
+  ],
+  "approval_refs": [
+    "approval://human/operator/A004/local-docs-update-reviewed"
+  ],
+  "metadata_only": true,
+  "raw_artifacts_embedded": false,
+  "known_limitations": [
+    "This event records AI-agent reported metadata only.",
+    "This event does not embed raw prompts, model responses, tool output bodies, or runtime logs.",
+    "This event does not prove source-runtime truth, artifact correctness, or human intent.",
+    "This event does not authorize execution.",
+    "Human and policy remain the authority."
+  ]
+}

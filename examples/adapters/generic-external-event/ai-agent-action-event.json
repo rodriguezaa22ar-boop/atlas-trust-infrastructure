@@ -1,0 +1,40 @@
+{
+  "schema_version": "generic.external_event.v1",
+  "adapter_id": "generic.external_event.v1",
+  "event_id": "m146-ai-agent-action-proposed",
+  "observed_at": "2026-05-23T17:20:00Z",
+  "event_type": "ai_agent.action.proposed",
+  "actor": "agent:local-engineering-agent",
+  "source_ref": "examples/adapters/generic-external-event/ai-agent-action-event.json",
+  "subject": {
+    "type": "task",
+    "ref": "personal-agent-lab:A004"
+  },
+  "evidence_refs": [
+    "docs/adapters/AI_AGENT_EVENT_RECEIPT_PROFILE.md",
+    "ai_agent_profile://agent_runtime/personal-agent-lab/local-engineering-agent",
+    "ai_agent_profile://model_label/local-model-label-redacted",
+    "ai_agent_profile://operator_id/operator:atlas-local",
+    "ai_agent_profile://proposed_action/propose-local-docs-update",
+    "ai_agent_profile://capability_id/local.documentation.review",
+    "ai_agent_profile://policy_decision/allow",
+    "ai_agent_profile://approval_required/false",
+    "sha256:input:5c4d72071ca7716c5fe49cb46fedd6ab25cd5d5962bc40d7199767a280fb5094"
+  ],
+  "artifact_refs": [
+    {
+      "path": "runs/A004-summary.md",
+      "sha256": "43e4de5e382f98762cf7e1f3dc064cd2e4ae39a0fc974ace1e8e74e92c271c76"
+    }
+  ],
+  "approval_refs": [],
+  "metadata_only": true,
+  "raw_artifacts_embedded": false,
+  "known_limitations": [
+    "This event records an AI-agent proposal only.",
+    "This event does not prove the agent was correct.",
+    "This event does not embed raw prompts or model outputs.",
+    "This event does not authorize execution.",
+    "Atlas is used only as an external verifier."
+  ]
+}

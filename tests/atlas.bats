@@ -2069,6 +2069,179 @@ write_test_slsa_reference() {
   [ "$before_dirs" = "$after_dirs" ]
 }
 
+@test "M146 AI agent event profile imports event-source receipts without execution authority" {
+  profile_doc="$TEST_ROOT/toolkit/docs/adapters/AI_AGENT_EVENT_RECEIPT_PROFILE.md"
+  generic_doc="$TEST_ROOT/toolkit/docs/adapters/GENERIC_EXTERNAL_EVENT_RECEIPT_ADAPTER.md"
+  docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
+  action_event="$TEST_ROOT/toolkit/examples/adapters/generic-external-event/ai-agent-action-event.json"
+  result_event="$TEST_ROOT/toolkit/examples/adapters/generic-external-event/ai-agent-result-event.json"
+  expected_first_event="396b7440e4786a90758be59e28203b235c3514182fb797d905e41cbedd262f8b"
+  expected_head_event="fbdbc3d57d09c5041274b7c037da3b64403e1fbe3795cda7daad4713e7fb51f0"
+  expected_head_receipt="d02dcbcdf2e22a156b0ff6d52f77bf658b07fc042391d4541e5bc4993f835018"
+
+  [ -f "$profile_doc" ]
+  [ -f "$action_event" ]
+  [ -f "$result_event" ]
+
+  grep -q '^# AI Agent Event Receipt Profile$' "$profile_doc"
+  grep -q 'AI agent may propose.' "$profile_doc"
+  grep -q 'Atlas may verify the proof envelope.' "$profile_doc"
+  grep -q 'Human and policy decide.' "$profile_doc"
+  grep -q 'It does not turn Atlas into an AI execution engine.' "$profile_doc"
+  grep -q 'agent_id' "$profile_doc"
+  grep -q 'agent_runtime' "$profile_doc"
+  grep -q 'model_label' "$profile_doc"
+  grep -q 'task_id' "$profile_doc"
+  grep -q 'operator_id' "$profile_doc"
+  grep -q 'proposed_action' "$profile_doc"
+  grep -q 'capability_id' "$profile_doc"
+  grep -q 'policy_decision' "$profile_doc"
+  grep -q 'approval_required' "$profile_doc"
+  grep -q 'input_hash' "$profile_doc"
+  grep -q 'output_hash' "$profile_doc"
+  grep -q 'raw prompts' "$profile_doc"
+  grep -q 'raw model responses' "$profile_doc"
+  grep -q 'system prompts' "$profile_doc"
+  grep -q 'tool output bodies' "$profile_doc"
+  grep -q 'API keys' "$profile_doc"
+  grep -q 'does not prove' "$profile_doc"
+  grep -q 'AI Agent Event Receipt Profile' "$generic_doc"
+  grep -q 'not an authority or' "$generic_doc"
+  grep -q 'AI_AGENT_EVENT_RECEIPT_PROFILE.md' "$docs_index"
+
+  for event in "$action_event" "$result_event"; do
+    jq -e '
+      .schema_version == "generic.external_event.v1" and
+      .adapter_id == "generic.external_event.v1" and
+      (.event_type | startswith("ai_agent.action.")) and
+      .actor == "agent:local-engineering-agent" and
+      .subject.type == "task" and
+      .subject.ref == "personal-agent-lab:A004" and
+      (.evidence_refs | index("docs/adapters/AI_AGENT_EVENT_RECEIPT_PROFILE.md")) and
+      any(.evidence_refs[]; startswith("ai_agent_profile://agent_runtime/")) and
+      any(.evidence_refs[]; startswith("ai_agent_profile://model_label/")) and
+      any(.evidence_refs[]; startswith("ai_agent_profile://operator_id/")) and
+      any(.evidence_refs[]; startswith("ai_agent_profile://proposed_action/")) and
+      any(.evidence_refs[]; startswith("ai_agent_profile://capability_id/")) and
+      any(.evidence_refs[]; startswith("ai_agent_profile://policy_decision/")) and
+      any(.evidence_refs[]; startswith("ai_agent_profile://approval_required/")) and
+      any(.evidence_refs[]; startswith("sha256:input:")) and
+      .metadata_only == true and
+      .raw_artifacts_embedded == false and
+      (.known_limitations | length > 0)
+    ' "$event"
+  done
+
+  assert_ai_import_rejected() {
+    local event_file="$1"
+    local out_file="$TEST_ROOT/rejected-$(basename "$event_file").receipt.json"
+
+    rm -f "$out_file"
+    run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt import-generic-event "$event_file" --out "$out_file"
+    [ "$status" -ne 0 ]
+    [ ! -e "$out_file" ]
+  }
+
+  raw_prompt="$TEST_ROOT/m146-raw-prompt-event.json"
+  jq '. + {raw_prompt: "full prompt body"}' "$action_event" >"$raw_prompt"
+  assert_ai_import_rejected "$raw_prompt"
+
+  raw_response="$TEST_ROOT/m146-raw-response-event.json"
+  jq '. + {raw_response: "full model response body"}' "$action_event" >"$raw_response"
+  assert_ai_import_rejected "$raw_response"
+
+  system_prompt="$TEST_ROOT/m146-system-prompt-event.json"
+  jq '. + {system_prompt: "system prompt body"}' "$action_event" >"$system_prompt"
+  assert_ai_import_rejected "$system_prompt"
+
+  tool_output_body="$TEST_ROOT/m146-tool-output-body-event.json"
+  jq '. + {tool_output_body: "tool output body"}' "$action_event" >"$tool_output_body"
+  assert_ai_import_rejected "$tool_output_body"
+
+  bearer_marker="$TEST_ROOT/m146-bearer-marker-event.json"
+  jq '.evidence_refs += ["Authorization: Bearer abc123"]' "$action_event" >"$bearer_marker"
+  assert_ai_import_rejected "$bearer_marker"
+
+  secret_marker="$TEST_ROOT/m146-secret-marker-event.json"
+  jq '.known_limitations += ["secret=abc123"]' "$action_event" >"$secret_marker"
+  assert_ai_import_rejected "$secret_marker"
+
+  bad_metadata="$TEST_ROOT/m146-bad-metadata-event.json"
+  jq '.metadata_only = false' "$action_event" >"$bad_metadata"
+  assert_ai_import_rejected "$bad_metadata"
+
+  bad_embedded="$TEST_ROOT/m146-bad-embedded-event.json"
+  jq '.raw_artifacts_embedded = true' "$action_event" >"$bad_embedded"
+  assert_ai_import_rejected "$bad_embedded"
+
+  missing_limitations="$TEST_ROOT/m146-missing-limitations-event.json"
+  jq 'del(.known_limitations)' "$action_event" >"$missing_limitations"
+  assert_ai_import_rejected "$missing_limitations"
+
+  rm -rf \
+    "$TEST_ROOT/toolkit/logs" \
+    "$TEST_ROOT/toolkit/releases" \
+    "$TEST_ROOT/toolkit/reports" \
+    "$TEST_ROOT/toolkit/sessions" \
+    "$TEST_ROOT/toolkit/state" \
+    "$TEST_ROOT/toolkit/targets"
+  before_dirs="$(find "$TEST_ROOT/toolkit" -maxdepth 2 -type d | sort)"
+
+  action_receipt="$TEST_ROOT/m146-ai-agent-action-receipt.json"
+  result_receipt="$TEST_ROOT/m146-ai-agent-result-receipt.json"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt import-generic-event \
+    "$action_event" \
+    --out "$action_receipt"
+  [ "$status" -eq 0 ]
+  [ -f "$action_receipt" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt verify "$action_receipt"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"receipt: ok"* ]]
+  [[ "$output" == *"metadata-only proof record"* ]]
+
+  jq -e \
+    --arg expected_first_event "$expected_first_event" \
+    '.receipt_id == "receipt_generic_external_event_v1_m146-ai-agent-action-proposed" and
+    .action == "ai_agent.action.proposed" and
+    .actor == "agent:local-engineering-agent" and
+    .subject.ref == "personal-agent-lab:A004" and
+    .event_hash == $expected_first_event and
+    .metadata_only == true and
+    .raw_artifacts_embedded == false and
+    (.evidence_refs | index("docs/adapters/AI_AGENT_EVENT_RECEIPT_PROFILE.md")) and
+    (.known_limitations | index("This event does not authorize execution."))' \
+    "$action_receipt"
+
+  prev_hash="$(jq -r '.event_hash' "$action_receipt")"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt import-generic-event \
+    "$result_event" \
+    --prev-hash "$prev_hash" \
+    --out "$result_receipt"
+  [ "$status" -eq 0 ]
+  [ -f "$result_receipt" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt replay "$action_receipt" "$result_receipt" --json
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" | jq -e \
+    --arg expected_first_event "$expected_first_event" \
+    --arg expected_head_event "$expected_head_event" \
+    --arg expected_head_receipt "$expected_head_receipt" \
+    '.schema_version == "atlas.receipt_replay.v1" and
+    .status == "ok" and
+    .metadata_only == true and
+    .raw_artifacts_embedded == false and
+    .receipt_count == 2 and
+    .first_event_hash == $expected_first_event and
+    .chain_checkpoint.head_event_hash == $expected_head_event and
+    .chain_checkpoint.head_receipt_hash == $expected_head_receipt and
+    .ledger_binding.status == "ok"'
+
+  after_dirs="$(find "$TEST_ROOT/toolkit" -maxdepth 2 -type d | sort)"
+  [ "$before_dirs" = "$after_dirs" ]
+}
+
 @test "capability manifest defines machine-readable governance root" {
   manifest="$TEST_ROOT/toolkit/capabilities.yaml"
   schema="$TEST_ROOT/toolkit/schemas/capability.v1.schema.json"
