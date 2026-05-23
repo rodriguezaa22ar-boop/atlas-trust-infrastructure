@@ -102,6 +102,9 @@ repository in filesystem order.
 - [adapters/GENERIC_EXTERNAL_EVENT_RECEIPT_ADAPTER.md](adapters/GENERIC_EXTERNAL_EVENT_RECEIPT_ADAPTER.md):
   M143 local-file import-only adapter for converting synthetic generic external
   events into Atlas receipts.
+- [adapters/AI_AGENT_EVENT_RECEIPT_PROFILE.md](adapters/AI_AGENT_EVENT_RECEIPT_PROFILE.md):
+  M146 metadata-only AI-agent event profile that treats agents as event
+  sources, not authorities or execution engines.
 - [TRY_GENERIC_EVENT_ADAPTER.md](TRY_GENERIC_EVENT_ADAPTER.md): M145
   five-minute local quickstart for the generic external event adapter.
 - [governance/POLICY_PLANE.md](governance/POLICY_PLANE.md): M126 policy
