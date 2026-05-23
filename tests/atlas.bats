@@ -1858,6 +1858,107 @@ write_test_slsa_reference() {
   [[ "$output" == *"generic external event contains forbidden raw-content marker"* ]]
 }
 
+@test "M144 generic event adapter security regressions fail closed" {
+  minimal_event="$TEST_ROOT/toolkit/examples/adapters/generic-external-event/minimal-event.json"
+  approval_event="$TEST_ROOT/toolkit/examples/adapters/generic-external-event/approval-event.json"
+
+  assert_import_rejected() {
+    local event_file="$1"
+    local expected="$2"
+    local out_file="$TEST_ROOT/rejected-$(basename "$event_file").receipt.json"
+
+    rm -f "$out_file"
+    run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt import-generic-event "$event_file" --out "$out_file"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"$expected"* ]]
+    [ ! -e "$out_file" ]
+  }
+
+  missing_limitations="$TEST_ROOT/m144-missing-limitations-event.json"
+  jq 'del(.known_limitations)' "$minimal_event" >"$missing_limitations"
+  assert_import_rejected "$missing_limitations" "invalid generic external event fields"
+
+  bad_metadata="$TEST_ROOT/m144-bad-metadata-event.json"
+  jq '.metadata_only = false' "$minimal_event" >"$bad_metadata"
+  assert_import_rejected "$bad_metadata" "invalid generic external event fields"
+
+  bad_embedded="$TEST_ROOT/m144-bad-embedded-event.json"
+  jq '.raw_artifacts_embedded = true' "$minimal_event" >"$bad_embedded"
+  assert_import_rejected "$bad_embedded" "invalid generic external event fields"
+
+  raw_request="$TEST_ROOT/m144-raw-request-event.json"
+  jq '. + {raw_request: "GET /private HTTP/1.1"}' "$minimal_event" >"$raw_request"
+  assert_import_rejected "$raw_request" "generic external event contains forbidden raw-content marker"
+
+  raw_response="$TEST_ROOT/m144-raw-response-event.json"
+  jq '. + {raw_response: "HTTP/1.1 200 OK"}' "$minimal_event" >"$raw_response"
+  assert_import_rejected "$raw_response" "generic external event contains forbidden raw-content marker"
+
+  secret_marker="$TEST_ROOT/m144-secret-marker-event.json"
+  jq '.known_limitations += ["secret=abc123"]' "$minimal_event" >"$secret_marker"
+  assert_import_rejected "$secret_marker" "generic external event contains forbidden raw-content marker"
+
+  bearer_marker="$TEST_ROOT/m144-bearer-marker-event.json"
+  jq '.evidence_refs += ["Authorization: Bearer abc123"]' "$minimal_event" >"$bearer_marker"
+  assert_import_rejected "$bearer_marker" "generic external event contains forbidden raw-content marker"
+
+  embedded_raw_artifact="$TEST_ROOT/m144-embedded-raw-artifact-event.json"
+  jq '.artifact_refs = [{"path":"artifact.txt","sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","raw_artifact":"embedded raw artifact"}]' \
+    "$minimal_event" >"$embedded_raw_artifact"
+  assert_import_rejected "$embedded_raw_artifact" "generic external event contains forbidden raw-content marker"
+
+  malformed_artifact="$TEST_ROOT/m144-malformed-artifact-event.json"
+  jq '.artifact_refs = [{"path":"artifact.txt","sha256":"not-a-sha"}]' "$minimal_event" >"$malformed_artifact"
+  assert_import_rejected "$malformed_artifact" "invalid generic external event fields"
+
+  rm -rf \
+    "$TEST_ROOT/toolkit/logs" \
+    "$TEST_ROOT/toolkit/releases" \
+    "$TEST_ROOT/toolkit/reports" \
+    "$TEST_ROOT/toolkit/sessions" \
+    "$TEST_ROOT/toolkit/state" \
+    "$TEST_ROOT/toolkit/targets"
+  before_dirs="$(find "$TEST_ROOT/toolkit" -maxdepth 2 -type d | sort)"
+
+  first_receipt="$TEST_ROOT/m144-generic-event-1.json"
+  second_receipt="$TEST_ROOT/m144-generic-event-2.json"
+  unexpected_receipt="$TEST_ROOT/toolkit/state/m144-unexpected-receipt.json"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt import-generic-event \
+    "$minimal_event" \
+    --out "$first_receipt"
+  [ "$status" -eq 0 ]
+  [ -f "$first_receipt" ]
+  [ ! -e "$unexpected_receipt" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt verify "$first_receipt"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"receipt: ok"* ]]
+
+  printf '%s\n' "$(<"$first_receipt")" | jq -e '
+    .metadata_only == true and
+    .raw_artifacts_embedded == false and
+    (.known_limitations | length > 0)
+  '
+
+  prev_hash="$(jq -r '.event_hash' "$first_receipt")"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt import-generic-event \
+    "$approval_event" \
+    --prev-hash "$prev_hash" \
+    --out "$second_receipt"
+  [ "$status" -eq 0 ]
+  [ -f "$second_receipt" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt replay "$first_receipt" "$second_receipt"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"receipt replay: ok"* ]]
+  [[ "$output" == *"ledger binding: ok prev_hash -> event_hash"* ]]
+  [[ "$output" == *"metadata-only boundary: ok"* ]]
+
+  after_dirs="$(find "$TEST_ROOT/toolkit" -maxdepth 2 -type d | sort)"
+  [ "$before_dirs" = "$after_dirs" ]
+}
+
 @test "capability manifest defines machine-readable governance root" {
   manifest="$TEST_ROOT/toolkit/capabilities.yaml"
   schema="$TEST_ROOT/toolkit/schemas/capability.v1.schema.json"
