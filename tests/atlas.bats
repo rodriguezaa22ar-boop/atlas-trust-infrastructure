@@ -1959,6 +1959,116 @@ write_test_slsa_reference() {
   [ "$before_dirs" = "$after_dirs" ]
 }
 
+@test "M145 generic event adapter quickstart gives copy-paste import verify and replay path" {
+  quickstart="$TEST_ROOT/toolkit/docs/TRY_GENERIC_EVENT_ADAPTER.md"
+  readme="$TEST_ROOT/toolkit/README.md"
+  docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
+  minimal_event="$TEST_ROOT/toolkit/examples/adapters/generic-external-event/minimal-event.json"
+  approval_event="$TEST_ROOT/toolkit/examples/adapters/generic-external-event/approval-event.json"
+  expected_first_event="78f12641e7b0cd4a9e34d3be6d66f2ed490965ad455e6116d6bad222b7288991"
+  expected_head_event="005591822b5807e694a1d983b9e97288bb2821bb324c9bd65a58993d4e92efea"
+  expected_head_receipt="0bb047acaf335aceeef986ef655c5194a5024af6036b6d7899887e458129a945"
+
+  [ -f "$quickstart" ]
+  grep -q '^# Try The Generic Event Adapter$' "$quickstart"
+  grep -q 'under five minutes' "$quickstart"
+  grep -q 'source system, network access, scanner, webhook, or backend' "$quickstart"
+  grep -q 'nix-shell' "$quickstart"
+  grep -q 'atlas receipt import-generic-event' "$quickstart"
+  grep -q 'atlas receipt verify' "$quickstart"
+  grep -q 'atlas receipt replay' "$quickstart"
+  grep -q 'Expected output:' "$quickstart"
+  grep -q 'receipt: /tmp/atlas-generic-event-quickstart-1.json' "$quickstart"
+  grep -q 'receipt: ok' "$quickstart"
+  grep -q 'receipt replay: ok' "$quickstart"
+  grep -q 'metadata_only: true' "$quickstart"
+  grep -q 'raw_artifacts_embedded: false' "$quickstart"
+  grep -q 'known_limitations' "$quickstart"
+  grep -q "$expected_first_event" "$quickstart"
+  grep -q "$expected_head_event" "$quickstart"
+  grep -q "$expected_head_receipt" "$quickstart"
+  grep -q 'writes only the requested output receipt files' "$quickstart"
+  grep -q 'does not call a network' "$quickstart"
+  grep -q 'does not execute actions' "$quickstart"
+  grep -q 'does not create ledgers, sessions, targets, reports, logs' "$quickstart"
+  grep -q 'rejects raw request bodies' "$quickstart"
+  grep -q 'does not prove external artifact availability' "$quickstart"
+  grep -q 'GENERIC_EXTERNAL_EVENT_RECEIPT_ADAPTER.md' "$quickstart"
+  grep -q 'generic-external-event.v1.schema.json' "$quickstart"
+  grep -q 'receipt-canonicalization.v1.md' "$quickstart"
+  grep -q 'docs/TRY_GENERIC_EVENT_ADAPTER.md' "$readme"
+  grep -q 'TRY_GENERIC_EVENT_ADAPTER.md' "$docs_index"
+
+  rm -rf \
+    "$TEST_ROOT/toolkit/logs" \
+    "$TEST_ROOT/toolkit/releases" \
+    "$TEST_ROOT/toolkit/reports" \
+    "$TEST_ROOT/toolkit/sessions" \
+    "$TEST_ROOT/toolkit/state" \
+    "$TEST_ROOT/toolkit/targets"
+  before_dirs="$(find "$TEST_ROOT/toolkit" -maxdepth 2 -type d | sort)"
+
+  first_receipt="$TEST_ROOT/m145-generic-event-quickstart-1.json"
+  second_receipt="$TEST_ROOT/m145-generic-event-quickstart-2.json"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt import-generic-event \
+    "$minimal_event" \
+    --out "$first_receipt"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"receipt: $first_receipt"* ]]
+  [ -f "$first_receipt" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt verify "$first_receipt"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"receipt: ok"* ]]
+  [[ "$output" == *"This receipt validates as a metadata-only proof record."* ]]
+  [[ "$output" == *"does not prove external artifact availability"* ]]
+
+  jq -e \
+    --arg expected_first_event "$expected_first_event" \
+    '.event_hash == $expected_first_event and
+    .metadata_only == true and
+    .raw_artifacts_embedded == false and
+    (.known_limitations | length > 0)' \
+    "$first_receipt"
+
+  prev_hash="$(jq -r '.event_hash' "$first_receipt")"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt import-generic-event \
+    "$approval_event" \
+    --prev-hash "$prev_hash" \
+    --out "$second_receipt"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"receipt: $second_receipt"* ]]
+  [ -f "$second_receipt" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt replay "$first_receipt" "$second_receipt"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"receipt replay: ok"* ]]
+  [[ "$output" == *"receipts: 2"* ]]
+  [[ "$output" == *"ledger binding: ok prev_hash -> event_hash"* ]]
+  [[ "$output" == *"chain_head_event_hash: $expected_head_event"* ]]
+  [[ "$output" == *"chain_head_receipt_hash: $expected_head_receipt"* ]]
+  [[ "$output" == *"metadata-only boundary: ok"* ]]
+  [[ "$output" == *"authorization, or production readiness"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt replay "$first_receipt" "$second_receipt" --json
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" | jq -e \
+    --arg expected_first_event "$expected_first_event" \
+    --arg expected_head_event "$expected_head_event" \
+    --arg expected_head_receipt "$expected_head_receipt" \
+    '.schema_version == "atlas.receipt_replay.v1" and
+    .metadata_only == true and
+    .raw_artifacts_embedded == false and
+    .receipt_count == 2 and
+    .first_event_hash == $expected_first_event and
+    .chain_checkpoint.head_event_hash == $expected_head_event and
+    .chain_checkpoint.head_receipt_hash == $expected_head_receipt'
+
+  after_dirs="$(find "$TEST_ROOT/toolkit" -maxdepth 2 -type d | sort)"
+  [ "$before_dirs" = "$after_dirs" ]
+}
+
 @test "capability manifest defines machine-readable governance root" {
   manifest="$TEST_ROOT/toolkit/capabilities.yaml"
   schema="$TEST_ROOT/toolkit/schemas/capability.v1.schema.json"

@@ -13,6 +13,8 @@ repository in filesystem order.
   reviewer-proof open-core RC packaging checkpoint.
 - [TRY_RECEIPTS.md](TRY_RECEIPTS.md): five-minute local receipt verify and
   replay quickstart.
+- [TRY_GENERIC_EVENT_ADAPTER.md](TRY_GENERIC_EVENT_ADAPTER.md): five-minute
+  local generic external event import, verify, and replay quickstart.
 - [../README.md](../README.md): short landing page with quick start, safety
   boundary, current maturity, and docs map.
 - [REPOSITORY_BOUNDARY.md](REPOSITORY_BOUNDARY.md): public/private repository
@@ -55,6 +57,9 @@ repository in filesystem order.
   demo-site receipt packet and replay path.
 - [TRY_RECEIPTS.md](TRY_RECEIPTS.md): copy-paste local receipt verify and
   replay path with expected output.
+- [TRY_GENERIC_EVENT_ADAPTER.md](TRY_GENERIC_EVENT_ADAPTER.md): copy-paste
+  generic external event adapter import path with expected verify and replay
+  output.
 
 ## Case studies
 
@@ -97,6 +102,8 @@ repository in filesystem order.
 - [adapters/GENERIC_EXTERNAL_EVENT_RECEIPT_ADAPTER.md](adapters/GENERIC_EXTERNAL_EVENT_RECEIPT_ADAPTER.md):
   M143 local-file import-only adapter for converting synthetic generic external
   events into Atlas receipts.
+- [TRY_GENERIC_EVENT_ADAPTER.md](TRY_GENERIC_EVENT_ADAPTER.md): M145
+  five-minute local quickstart for the generic external event adapter.
 - [governance/POLICY_PLANE.md](governance/POLICY_PLANE.md): M126 policy
   decision contract and validation gate.
 - [governance/APPROVAL_PLANE.md](governance/APPROVAL_PLANE.md): M127
