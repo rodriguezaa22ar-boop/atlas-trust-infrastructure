@@ -2580,6 +2580,64 @@ write_test_slsa_reference() {
   [ "$before_dirs" = "$after_dirs" ]
 }
 
+@test "M149 AI-agent event public reviewer dry-run records fresh clone verification" {
+  review_doc="$TEST_ROOT/toolkit/docs/reviews/AI_AGENT_EVENT_REVIEWER_DRY_RUN_M149.md"
+  docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
+  milestone="$TEST_ROOT/toolkit/docs/retention/milestones/MILESTONE_149.md"
+  milestone_index="$TEST_ROOT/toolkit/docs/retention/MILESTONE_INDEX.md"
+
+  [ -f "$review_doc" ]
+  [ -f "$milestone" ]
+
+  grep -q '^# AI-Agent Event Reviewer Dry-Run M149$' "$review_doc"
+  grep -q 'fresh public clone' "$review_doc"
+  grep -q '68444ccb2892230cf67b696aa17076f1b5fcdda6' "$review_doc"
+  grep -q 'Private notes used: none' "$review_doc"
+  grep -q 'README.md' "$review_doc"
+  grep -q 'docs/TRY_AI_AGENT_EVENT_RECEIPTS.md' "$review_doc"
+  grep -q 'docs/adapters/AI_AGENT_EVENT_RECEIPT_PROFILE.md' "$review_doc"
+  grep -q 'docs/adapters/GENERIC_EXTERNAL_EVENT_RECEIPT_ADAPTER.md' "$review_doc"
+  grep -q 'docs/KNOWN_LIMITATIONS.md' "$review_doc"
+  grep -q "nix-shell --run './bin/dev-qa'" "$review_doc"
+  grep -q '140/140 Bats' "$review_doc"
+  grep -q 'AI-agent proposed-action import' "$review_doc"
+  grep -q 'AI-agent result import' "$review_doc"
+  grep -q 'receipt: ok' "$review_doc"
+  grep -q 'receipt replay: ok' "$review_doc"
+  grep -q 'metadata-only boundary: ok' "$review_doc"
+  grep -q '396b7440e4786a90758be59e28203b235c3514182fb797d905e41cbedd262f8b' "$review_doc"
+  grep -q 'fbdbc3d57d09c5041274b7c037da3b64403e1fbe3795cda7daad4713e7fb51f0' "$review_doc"
+  grep -q 'd02dcbcdf2e22a156b0ff6d52f77bf658b07fc042391d4541e5bc4993f835018' "$review_doc"
+  grep -q 'Public Trust Export' "$review_doc"
+  grep -q 'Forbidden paths: 0' "$review_doc"
+  grep -q 'Private markers: 0' "$review_doc"
+  grep -q 'raw_prompt' "$review_doc"
+  grep -q 'raw_model_output' "$review_doc"
+  grep -q 'tool_call_raw' "$review_doc"
+  grep -q 'Authorization: Bearer' "$review_doc"
+  grep -q 'No raw `.pcap` or `.pcapng` files were found' "$review_doc"
+  grep -q 'guardrail references, not retained raw artifacts' "$review_doc"
+  grep -q 'does not prove' "$review_doc"
+  grep -q 'No runtime behavior added' "$review_doc"
+  grep -q 'No new adapter added' "$review_doc"
+  grep -q 'No agent runtime added' "$review_doc"
+  grep -q 'No tool execution added' "$review_doc"
+  grep -q 'Atlas remains verifier, not authority' "$review_doc"
+
+  grep -q 'reviews/AI_AGENT_EVENT_REVIEWER_DRY_RUN_M149.md' "$docs_index"
+  grep -q '^# Milestone 149: AI-Agent Event Public Reviewer Dry-Run$' "$milestone"
+  grep -q 'docs/reviews/AI_AGENT_EVENT_REVIEWER_DRY_RUN_M149.md' "$milestone"
+  grep -q 'Fresh public clone: passed' "$milestone"
+  grep -q 'Linked AI-agent receipt replay: passed' "$milestone"
+  grep -q 'Docs and tests only' "$milestone"
+  grep -q 'No runtime behavior added' "$milestone"
+  grep -q 'No receipt semantics changed' "$milestone"
+  grep -q 'No new adapter added' "$milestone"
+  grep -q 'atlas-retention-m149' "$milestone"
+  grep -q 'MILESTONE_149.md' "$milestone_index"
+  grep -q 'atlas-retention-m149' "$milestone_index"
+}
+
 @test "capability manifest defines machine-readable governance root" {
   manifest="$TEST_ROOT/toolkit/capabilities.yaml"
   schema="$TEST_ROOT/toolkit/schemas/capability.v1.schema.json"
