@@ -2638,6 +2638,131 @@ write_test_slsa_reference() {
   grep -q 'atlas-retention-m149' "$milestone_index"
 }
 
+@test "M150 AI-agent event proof package bundles reviewer path" {
+  proof_package="$TEST_ROOT/toolkit/docs/reviews/AI_AGENT_EVENT_PROOF_PACKAGE_M150.md"
+  docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
+  milestone="$TEST_ROOT/toolkit/docs/retention/milestones/MILESTONE_150.md"
+  milestone_index="$TEST_ROOT/toolkit/docs/retention/MILESTONE_INDEX.md"
+  quickstart="$TEST_ROOT/toolkit/docs/TRY_AI_AGENT_EVENT_RECEIPTS.md"
+  profile="$TEST_ROOT/toolkit/docs/adapters/AI_AGENT_EVENT_RECEIPT_PROFILE.md"
+  adapter_doc="$TEST_ROOT/toolkit/docs/adapters/GENERIC_EXTERNAL_EVENT_RECEIPT_ADAPTER.md"
+  limitations="$TEST_ROOT/toolkit/docs/KNOWN_LIMITATIONS.md"
+  action_event="$TEST_ROOT/toolkit/examples/adapters/generic-external-event/ai-agent-action-event.json"
+  result_event="$TEST_ROOT/toolkit/examples/adapters/generic-external-event/ai-agent-result-event.json"
+
+  [ -f "$proof_package" ]
+  [ -f "$milestone" ]
+  [ -f "$quickstart" ]
+  [ -f "$profile" ]
+  [ -f "$adapter_doc" ]
+  [ -f "$limitations" ]
+  [ -f "$action_event" ]
+  [ -f "$result_event" ]
+
+  grep -q '^# AI-Agent Event Proof Package M150$' "$proof_package"
+  grep -q '81d4c3c329f805108ceb8eed70c97bbfc47146d8' "$proof_package"
+  grep -q 'M146 AI-agent event receipt profile' "$proof_package"
+  grep -q 'M147 AI-agent event quickstart' "$proof_package"
+  grep -q 'M148 AI-agent event security regression' "$proof_package"
+  grep -q 'M149 AI-agent event public reviewer dry-run' "$proof_package"
+  grep -q 'docs/TRY_AI_AGENT_EVENT_RECEIPTS.md' "$proof_package"
+  grep -q 'docs/adapters/AI_AGENT_EVENT_RECEIPT_PROFILE.md' "$proof_package"
+  grep -q 'docs/adapters/GENERIC_EXTERNAL_EVENT_RECEIPT_ADAPTER.md' "$proof_package"
+  grep -q 'docs/KNOWN_LIMITATIONS.md' "$proof_package"
+  grep -q 'examples/adapters/generic-external-event/ai-agent-action-event.json' "$proof_package"
+  grep -q 'examples/adapters/generic-external-event/ai-agent-result-event.json' "$proof_package"
+  grep -q 'docs/retention/milestones/MILESTONE_148.md' "$proof_package"
+  grep -q 'AI_AGENT_EVENT_REVIEWER_DRY_RUN_M149.md' "$proof_package"
+  grep -q 'receipt import-generic-event' "$proof_package"
+  grep -q 'receipt verify' "$proof_package"
+  grep -q 'receipt replay' "$proof_package"
+  grep -q 'metadata-only boundary: ok' "$proof_package"
+  grep -q 'It does not prove external artifact availability, human intent, legal compliance, or artifact correctness.' "$proof_package"
+  grep -q 'raw_prompt' "$proof_package"
+  grep -q 'raw_model_output' "$proof_package"
+  grep -q 'tool_output_body' "$proof_package"
+  grep -q 'tool_call_raw' "$proof_package"
+  grep -q 'Authorization: Bearer' "$proof_package"
+  grep -q 'BEGIN PRIVATE KEY' "$proof_package"
+  grep -q 'generic external event contains forbidden raw-content marker' "$proof_package"
+  grep -q 'What Atlas Proves' "$proof_package"
+  grep -q 'What Atlas Does Not Prove' "$proof_package"
+  grep -q 'Known Limitations' "$proof_package"
+  grep -q 'Reviewer Checklist' "$proof_package"
+  grep -q 'AI agents are event sources only.' "$proof_package"
+  grep -q 'Atlas is verifier only.' "$proof_package"
+  grep -q 'Human and policy remain authority.' "$proof_package"
+  grep -q 'No agent runtime is added.' "$proof_package"
+  grep -q 'No tool execution is added.' "$proof_package"
+  grep -q 'No network collector is added.' "$proof_package"
+  grep -q 'No second adapter is added.' "$proof_package"
+  grep -q 'No receipt semantics are changed.' "$proof_package"
+  grep -q 'No external audit, certification, legal compliance, runtime safety, artifact' "$proof_package"
+
+  grep -q 'reviews/AI_AGENT_EVENT_PROOF_PACKAGE_M150.md' "$docs_index"
+  grep -q '^# Milestone 150: AI-Agent Event Proof Package$' "$milestone"
+  grep -q 'docs/reviews/AI_AGENT_EVENT_PROOF_PACKAGE_M150.md' "$milestone"
+  grep -q 'Generated AI-agent receipts verify.' "$milestone"
+  grep -q 'Linked AI-agent receipts replay.' "$milestone"
+  grep -q 'No runtime behavior added.' "$milestone"
+  grep -q 'No receipt semantics changed.' "$milestone"
+  grep -q 'No new adapter added.' "$milestone"
+  grep -q 'atlas-retention-m150' "$milestone"
+  grep -q 'MILESTONE_150.md' "$milestone_index"
+  grep -q 'atlas-retention-m150' "$milestone_index"
+
+  action_receipt="$TEST_ROOT/m150-ai-agent-action-receipt.json"
+  result_receipt="$TEST_ROOT/m150-ai-agent-result-receipt.json"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt import-generic-event \
+    "$action_event" \
+    --out "$action_receipt"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"receipt: $action_receipt"* ]]
+  [ -f "$action_receipt" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt verify "$action_receipt" --json
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" | jq -e '
+    .schema_version == "atlas.receipt_verify.v1" and
+    .status == "ok" and
+    .metadata_only == true and
+    .raw_artifacts_embedded == false
+  '
+
+  prev_hash="$(jq -r '.event_hash' "$action_receipt")"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt import-generic-event \
+    "$result_event" \
+    --prev-hash "$prev_hash" \
+    --out "$result_receipt"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"receipt: $result_receipt"* ]]
+  [ -f "$result_receipt" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt verify "$result_receipt" --json
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" | jq -e '
+    .schema_version == "atlas.receipt_verify.v1" and
+    .status == "ok" and
+    .metadata_only == true and
+    .raw_artifacts_embedded == false
+  '
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt replay "$action_receipt" "$result_receipt" --json
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" | jq -e \
+    --arg prev_hash "$prev_hash" '
+    .schema_version == "atlas.receipt_replay.v1" and
+    .status == "ok" and
+    .metadata_only == true and
+    .raw_artifacts_embedded == false and
+    .receipt_count == 2 and
+    .chain[0].linkage_status == "genesis" and
+    .chain[1].prev_hash == $prev_hash and
+    .ledger_binding.status == "ok"
+  '
+}
+
 @test "capability manifest defines machine-readable governance root" {
   manifest="$TEST_ROOT/toolkit/capabilities.yaml"
   schema="$TEST_ROOT/toolkit/schemas/capability.v1.schema.json"

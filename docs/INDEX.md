@@ -147,6 +147,8 @@ repository in filesystem order.
   fresh public-clone reviewer dry-run for the receipt Open-Core RC path.
 - [reviews/AI_AGENT_EVENT_REVIEWER_DRY_RUN_M149.md](reviews/AI_AGENT_EVENT_REVIEWER_DRY_RUN_M149.md):
   fresh public-clone reviewer dry-run for the AI-agent event receipt path.
+- [reviews/AI_AGENT_EVENT_PROOF_PACKAGE_M150.md](reviews/AI_AGENT_EVENT_PROOF_PACKAGE_M150.md):
+  reviewer-facing proof package for the AI-agent event receipt path.
 - [retention/releases/REPLAY_VERIFICATION.md](retention/releases/REPLAY_VERIFICATION.md):
   clean-checkout replay procedure.
 - [atlas/PRODUCTION_READINESS.md](atlas/PRODUCTION_READINESS.md): local
