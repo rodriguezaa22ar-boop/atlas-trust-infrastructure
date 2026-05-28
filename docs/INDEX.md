@@ -15,6 +15,8 @@ repository in filesystem order.
   replay quickstart.
 - [TRY_GENERIC_EVENT_ADAPTER.md](TRY_GENERIC_EVENT_ADAPTER.md): five-minute
   local generic external event import, verify, and replay quickstart.
+- [TRY_AI_AGENT_EVENT_RECEIPTS.md](TRY_AI_AGENT_EVENT_RECEIPTS.md):
+  five-minute local AI-agent event import, verify, and replay quickstart.
 - [../README.md](../README.md): short landing page with quick start, safety
   boundary, current maturity, and docs map.
 - [REPOSITORY_BOUNDARY.md](REPOSITORY_BOUNDARY.md): public/private repository
@@ -60,6 +62,8 @@ repository in filesystem order.
 - [TRY_GENERIC_EVENT_ADAPTER.md](TRY_GENERIC_EVENT_ADAPTER.md): copy-paste
   generic external event adapter import path with expected verify and replay
   output.
+- [TRY_AI_AGENT_EVENT_RECEIPTS.md](TRY_AI_AGENT_EVENT_RECEIPTS.md): copy-paste
+  AI-agent event profile import path with expected verify and replay output.
 
 ## Case studies
 
@@ -107,6 +111,9 @@ repository in filesystem order.
   sources, not authorities or execution engines.
 - [TRY_GENERIC_EVENT_ADAPTER.md](TRY_GENERIC_EVENT_ADAPTER.md): M145
   five-minute local quickstart for the generic external event adapter.
+- [TRY_AI_AGENT_EVENT_RECEIPTS.md](TRY_AI_AGENT_EVENT_RECEIPTS.md): M147
+  five-minute local quickstart for AI-agent event receipts and optional local
+  model helper metadata.
 - [governance/POLICY_PLANE.md](governance/POLICY_PLANE.md): M126 policy
   decision contract and validation gate.
 - [governance/APPROVAL_PLANE.md](governance/APPROVAL_PLANE.md): M127
