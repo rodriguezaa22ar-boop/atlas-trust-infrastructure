@@ -37,8 +37,8 @@ atlas_receipt_forbidden_content_paths() {
 
   printf '%s\n' "$receipt_json" | jq -r '
     def pathstr($p): $p | map(tostring) | join(".");
-    def bad_key: test("^(raw_artifact|raw_artifacts|raw_body|raw_request|raw_response|artifact_body|artifact_content|raw_payload|payload|request_body|response_body|secret|token|password|passwd|api_key|authorization|cookie|session|private_key|credential)$"; "i");
-    def bad_value: test("password=|passwd=|api_key=|secret=|token=|authorization:|bearer[[:space:]]|set-cookie:|BEGIN RSA|BEGIN OPENSSH|session=|cookie="; "i");
+    def bad_key: test("^(raw_artifact|raw_artifacts|raw_body|raw_request|raw_response|raw_prompt|raw_model_output|system_prompt|tool_output_body|tool_call_raw|artifact_body|artifact_content|raw_payload|payload|request_body|response_body|secret|token|password|passwd|api_key|authorization|cookie|session|private_key|credential)$"; "i");
+    def bad_value: test("password=|passwd=|api_key=|secret=|token=|authorization:|bearer[[:space:]]|set-cookie:|BEGIN (RSA |OPENSSH |EC )?PRIVATE KEY|session=|cookie="; "i");
     (
       [
         paths as $p
@@ -467,6 +467,26 @@ atlas_receipt_generic_event_validate_json() {
     ($event.known_limitations | type == "array" and length > 0) and
     all($event.known_limitations[]; type == "string" and length > 0)
   ' >/dev/null || fail "invalid generic external event fields"
+
+  if printf '%s\n' "$event_json" | jq -e '.event_type | startswith("ai_agent.")' >/dev/null; then
+    printf '%s\n' "$event_json" | jq -e '
+      . as $event |
+      def has_ref($prefix): any($event.evidence_refs[]; startswith($prefix));
+      def approval_required_true: any($event.evidence_refs[]; . == "ai_agent_profile://approval_required/true");
+      (.actor | startswith("agent:")) and
+      ($event.evidence_refs | index("docs/adapters/AI_AGENT_EVENT_RECEIPT_PROFILE.md")) and
+      has_ref("ai_agent_profile://agent_runtime/") and
+      has_ref("ai_agent_profile://model_label/") and
+      has_ref("ai_agent_profile://operator_id/") and
+      has_ref("ai_agent_profile://proposed_action/") and
+      has_ref("ai_agent_profile://capability_id/") and
+      has_ref("ai_agent_profile://policy_decision/") and
+      has_ref("ai_agent_profile://approval_required/") and
+      has_ref("sha256:input:") and
+      ((.event_type != "ai_agent.action.reported") or has_ref("sha256:output:")) and
+      ((approval_required_true | not) or (($event.approval_refs | length) > 0))
+    ' >/dev/null || fail "invalid AI-agent event profile fields"
+  fi
 }
 
 cmd_receipt_import_generic_event() {
