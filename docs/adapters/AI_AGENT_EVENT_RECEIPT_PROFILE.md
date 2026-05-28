@@ -65,6 +65,8 @@ adapter. AI-agent metadata is represented as inert refs.
 | `policy_decision` | `evidence_refs[]` as `ai_agent_profile://policy_decision/...` |
 | `approval_required` | `evidence_refs[]` as `ai_agent_profile://approval_required/...` |
 | `approval_refs` | `approval_refs[]` |
+| `task_label` | `evidence_refs[]` as `ai_agent_profile://task_label/...` |
+| `summary` | `evidence_refs[]` as `ai_agent_profile://summary/...` |
 | `input_hash` | `evidence_refs[]` as `sha256:input:<hash>` |
 | `output_hash` | `artifact_refs[]` or `evidence_refs[]` as a hash-only ref |
 | `artifact_refs` | `artifact_refs[]` |
@@ -72,6 +74,37 @@ adapter. AI-agent metadata is represented as inert refs.
 
 This keeps the profile compatible with `generic.external_event.v1` while still
 making the reviewer-visible AI-agent context explicit.
+
+## Local Model Helper Event
+
+An optional Atlas Node workstation may expose a local model helper through the
+builder. When important model-assisted actions need a receipt, use this event
+type:
+
+```text
+atlas_node.local_model.used
+```
+
+Store metadata only:
+
+```text
+timestamp
+operator
+model_label
+task_label
+input_hash
+output_hash
+summary
+known_limitations
+```
+
+Do not store raw prompts or raw model output by default. The local model helper
+is allowed only for thinking, summarizing, drafting, and workflow support. It is
+not Atlas authority, an approval engine, an autonomous operator, or a trust
+source.
+
+The dual-node workstation boundary is documented in
+[docs/ops/DUAL_NODE_COCKPIT.md](../ops/DUAL_NODE_COCKPIT.md).
 
 ## Example Commands
 
@@ -107,6 +140,14 @@ Replay the linked AI-agent event chain:
 ./tools/atlas/bin/atlas receipt replay \
   /tmp/atlas-ai-agent-action-receipt.json \
   /tmp/atlas-ai-agent-result-receipt.json
+```
+
+Import a local model helper usage event:
+
+```bash
+./tools/atlas/bin/atlas receipt import-generic-event \
+  examples/adapters/generic-external-event/local-model-used-event.json \
+  --out /tmp/atlas-local-model-used-receipt.json
 ```
 
 Expected properties:

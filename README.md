@@ -3,7 +3,6 @@
 Atlas is metadata-first integrity infrastructure for operational proof.
 It acts as a trust overlay for authorized work. It does not replace GitHub,
 Nix, SSH, tmux, scanners, approval tools, or business systems.
-
 It records and verifies the proof chain around them.
 
 The chain answers:
@@ -119,6 +118,7 @@ own retained trust-packet verification.
 | [docs/ATLAS_ONE_PAGE.md](docs/ATLAS_ONE_PAGE.md) | One-page Atlas explanation. |
 | [docs/OPERATOR_GUIDE.md](docs/OPERATOR_GUIDE.md) / [docs/ops/DUAL_NODE_COCKPIT.md](docs/ops/DUAL_NODE_COCKPIT.md) / [docs/ops/PORTABILITY_CONTRACT.md](docs/ops/PORTABILITY_CONTRACT.md) | Operator workflow, dual-node cockpit, and portability contract. |
 | [docs/demo/DEMO_OPERATION.md](docs/demo/DEMO_OPERATION.md) | Synthetic metadata-only demo operation. |
+| [docs/TRY_AI_AGENT_EVENT_RECEIPTS.md](docs/TRY_AI_AGENT_EVENT_RECEIPTS.md) / [docs/TRY_GENERIC_EVENT_ADAPTER.md](docs/TRY_GENERIC_EVENT_ADAPTER.md) | Copy-paste receipt quickstarts for AI-agent events and generic external events. |
 | [docs/COMMAND_REFERENCE.md](docs/COMMAND_REFERENCE.md) | Full command reference moved out of the README. |
 | [docs/TRUST_LIFECYCLE.md](docs/TRUST_LIFECYCLE.md) | Scope-to-release trust chain explanation. |
 | [docs/case-studies/CASE_STUDY_RELEASE_TRUST.md](docs/case-studies/CASE_STUDY_RELEASE_TRUST.md) / [docs/case-studies/CASE_STUDY_VENDOR_PAYMENT_CHANGE.md](docs/case-studies/CASE_STUDY_VENDOR_PAYMENT_CHANGE.md) | Release-trust and business-flow case studies. |

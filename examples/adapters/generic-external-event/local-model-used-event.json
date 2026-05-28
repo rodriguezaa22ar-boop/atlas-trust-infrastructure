@@ -1,0 +1,40 @@
+{
+  "schema_version": "generic.external_event.v1",
+  "adapter_id": "generic.external_event.v1",
+  "event_id": "m147-local-model-used",
+  "observed_at": "2026-05-27T18:40:00Z",
+  "event_type": "atlas_node.local_model.used",
+  "actor": "operator:atlas-local",
+  "source_ref": "examples/adapters/generic-external-event/local-model-used-event.json",
+  "subject": {
+    "type": "workflow_support",
+    "ref": "atlas-node-workstation:local-model-helper"
+  },
+  "evidence_refs": [
+    "docs/ops/DUAL_NODE_COCKPIT.md",
+    "docs/adapters/AI_AGENT_EVENT_RECEIPT_PROFILE.md",
+    "ai_agent_profile://agent_runtime/atlas-builder/hermes-local-model",
+    "ai_agent_profile://model_label/builder-hermes-local-model-redacted",
+    "ai_agent_profile://operator_id/operator:atlas-local",
+    "ai_agent_profile://task_label/M147-ai-agent-event-quickstart",
+    "ai_agent_profile://summary/local-thinking-summary-drafting-and-workflow-support-only",
+    "ai_agent_profile://policy_decision/not-authority",
+    "ai_agent_profile://approval_required/false",
+    "workstation_command_policy://model.status/builder-api-status",
+    "workstation_command_policy://model.chat_test/builder-chat-TEST_OK",
+    "workstation_command_policy://model.open_repl/tmux-attach-builder-chat",
+    "sha256:input:b241d1c15a58d085a9060168f82cad1d34d261ca6150059ccc2ecf7b13cca07f",
+    "sha256:output:9286e0ab553441858fd08395b45800d00295c28da74217b19567f2204f98149f"
+  ],
+  "artifact_refs": [],
+  "approval_refs": [],
+  "metadata_only": true,
+  "raw_artifacts_embedded": false,
+  "known_limitations": [
+    "This event records local model helper use as metadata only.",
+    "This event does not embed raw prompts, raw model responses, tool output bodies, runtime logs, API keys, or local tunnel secrets.",
+    "This event does not make the local model an Atlas authority, approval engine, autonomous operator, or trust source.",
+    "This event does not prove the model output was correct, safe, complete, or authorized.",
+    "Human and policy remain the authority."
+  ]
+}

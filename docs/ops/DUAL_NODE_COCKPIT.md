@@ -83,6 +83,52 @@ enter the builder through SSH and tmux:
 ssh <builder-host> -t 'tmux new-session -A -s atlas'
 ```
 
+## Optional Local Model Helper
+
+A cockpit may expose a local model helper through the builder when the lab has
+one configured:
+
+```text
+cockpit node
+-> 127.0.0.1:18080 tunnel
+-> builder local model API
+-> builder-chat / builder-chat-repl
+```
+
+Use this helper for thinking, summarizing, drafting, and workflow support only.
+Do not use it as Atlas authority, an approval engine, an autonomous operator,
+or a trust source.
+
+The workstation command policy may expose these optional labels:
+
+| Policy label | Suggested command |
+| --- | --- |
+| `model.status` | `builder-api-status` |
+| `model.chat_test` | `builder-chat "TEST_OK"` |
+| `model.open_repl` | `tmux attach -t builder-chat` |
+
+The workstation tile may show:
+
+| Field | Status |
+| --- | --- |
+| Local Model | `online` / `offline` |
+| Tunnel | `127.0.0.1:18080 ok` / `fail` |
+| Builder Hermes | `ok` / `fail` |
+| REPL session | `running` / `stopped` |
+
+This panel is optional. Yellow or offline status must not block the whole
+workstation, release trust, v1 readiness, production readiness, or other Atlas
+trust gates.
+
+For important model-assisted actions, record only metadata through the AI-agent
+event receipt profile:
+
+```text
+atlas_node.local_model.used
+```
+
+Do not store raw prompts or raw model output by default.
+
 ## Layer Boundary
 
 | Layer | Tool |
@@ -136,9 +182,10 @@ This runbook is:
 - not runtime safety proof
 - not production deployability proof
 - not orchestration proof
+- not local model authority proof
 - not a claim that Atlas operates or controls the cockpit node, builder node,
-  SSH, tmux, private networking, GitHub, Nix, Codex, shell tools, or the
-  network
+  SSH, tmux, private networking, GitHub, Nix, Codex, shell tools, the local
+  model helper, or the network
 
 ## Related Retention
 

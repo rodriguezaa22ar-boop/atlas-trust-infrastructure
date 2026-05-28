@@ -2242,6 +2242,180 @@ write_test_slsa_reference() {
   [ "$before_dirs" = "$after_dirs" ]
 }
 
+@test "M147 AI agent event quickstart includes optional local model helper metadata" {
+  quickstart="$TEST_ROOT/toolkit/docs/TRY_AI_AGENT_EVENT_RECEIPTS.md"
+  profile_doc="$TEST_ROOT/toolkit/docs/adapters/AI_AGENT_EVENT_RECEIPT_PROFILE.md"
+  cockpit_doc="$TEST_ROOT/toolkit/docs/ops/DUAL_NODE_COCKPIT.md"
+  readme="$TEST_ROOT/toolkit/README.md"
+  docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
+  action_event="$TEST_ROOT/toolkit/examples/adapters/generic-external-event/ai-agent-action-event.json"
+  result_event="$TEST_ROOT/toolkit/examples/adapters/generic-external-event/ai-agent-result-event.json"
+  local_model_event="$TEST_ROOT/toolkit/examples/adapters/generic-external-event/local-model-used-event.json"
+  expected_first_event="396b7440e4786a90758be59e28203b235c3514182fb797d905e41cbedd262f8b"
+  expected_head_event="fbdbc3d57d09c5041274b7c037da3b64403e1fbe3795cda7daad4713e7fb51f0"
+  expected_head_receipt="d02dcbcdf2e22a156b0ff6d52f77bf658b07fc042391d4541e5bc4993f835018"
+
+  [ -f "$quickstart" ]
+  [ -f "$local_model_event" ]
+
+  grep -q '^# Try AI Agent Event Receipts$' "$quickstart"
+  grep -q 'under five minutes' "$quickstart"
+  grep -q 'without needing a model provider' "$quickstart"
+  grep -q 'agent runtime' "$quickstart"
+  grep -q 'nix-shell' "$quickstart"
+  grep -q 'atlas receipt import-generic-event' "$quickstart"
+  grep -q 'atlas receipt verify' "$quickstart"
+  grep -q 'atlas receipt replay' "$quickstart"
+  grep -q 'ai-agent-action-event.json' "$quickstart"
+  grep -q 'ai-agent-result-event.json' "$quickstart"
+  grep -q 'local-model-used-event.json' "$quickstart"
+  grep -q 'atlas_node.local_model.used' "$quickstart"
+  grep -q 'raw prompts or raw model output' "$quickstart"
+  grep -q "$expected_first_event" "$quickstart"
+  grep -q "$expected_head_event" "$quickstart"
+  grep -q "$expected_head_receipt" "$quickstart"
+  grep -q 'does not call a model provider' "$quickstart"
+  grep -q 'does not execute actions' "$quickstart"
+  grep -q 'does not create ledgers, sessions, targets, reports, logs' "$quickstart"
+  grep -q 'rejects raw prompt fields' "$quickstart"
+  grep -q 'does not prove model correctness' "$quickstart"
+  grep -q 'AI_AGENT_EVENT_RECEIPT_PROFILE.md' "$quickstart"
+  grep -q 'GENERIC_EXTERNAL_EVENT_RECEIPT_ADAPTER.md' "$quickstart"
+  grep -q 'generic-external-event.v1.schema.json' "$quickstart"
+  grep -q 'receipt-canonicalization.v1.md' "$quickstart"
+  grep -q 'docs/TRY_AI_AGENT_EVENT_RECEIPTS.md' "$readme"
+  grep -q 'TRY_AI_AGENT_EVENT_RECEIPTS.md' "$docs_index"
+
+  grep -q 'atlas_node.local_model.used' "$profile_doc"
+  grep -q 'task_label' "$profile_doc"
+  grep -q 'summary' "$profile_doc"
+  grep -q 'not Atlas authority, an approval engine, an autonomous operator, or a trust' "$profile_doc"
+
+  grep -q '^## Optional Local Model Helper$' "$cockpit_doc"
+  grep -q '127.0.0.1:18080 tunnel' "$cockpit_doc"
+  grep -q 'builder-chat / builder-chat-repl' "$cockpit_doc"
+  grep -q '`model.status`' "$cockpit_doc"
+  grep -q '`model.chat_test`' "$cockpit_doc"
+  grep -q '`model.open_repl`' "$cockpit_doc"
+  grep -q 'builder-api-status' "$cockpit_doc"
+  grep -q 'builder-chat "TEST_OK"' "$cockpit_doc"
+  grep -q 'tmux attach -t builder-chat' "$cockpit_doc"
+  grep -q 'Local Model' "$cockpit_doc"
+  grep -q 'Builder Hermes' "$cockpit_doc"
+  grep -q 'REPL session' "$cockpit_doc"
+  grep -q 'Yellow or offline status must not block' "$cockpit_doc"
+  grep -q 'Do not store raw prompts or raw model output by default.' "$cockpit_doc"
+
+  jq -e '
+    .schema_version == "generic.external_event.v1" and
+    .adapter_id == "generic.external_event.v1" and
+    .event_id == "m147-local-model-used" and
+    .event_type == "atlas_node.local_model.used" and
+    .actor == "operator:atlas-local" and
+    .subject.type == "workflow_support" and
+    .subject.ref == "atlas-node-workstation:local-model-helper" and
+    (.evidence_refs | index("docs/ops/DUAL_NODE_COCKPIT.md")) and
+    (.evidence_refs | index("docs/adapters/AI_AGENT_EVENT_RECEIPT_PROFILE.md")) and
+    any(.evidence_refs[]; startswith("ai_agent_profile://agent_runtime/")) and
+    any(.evidence_refs[]; startswith("ai_agent_profile://model_label/")) and
+    any(.evidence_refs[]; startswith("ai_agent_profile://operator_id/")) and
+    any(.evidence_refs[]; startswith("ai_agent_profile://task_label/")) and
+    any(.evidence_refs[]; startswith("ai_agent_profile://summary/")) and
+    any(.evidence_refs[]; startswith("workstation_command_policy://model.status/")) and
+    any(.evidence_refs[]; startswith("workstation_command_policy://model.chat_test/")) and
+    any(.evidence_refs[]; startswith("workstation_command_policy://model.open_repl/")) and
+    any(.evidence_refs[]; startswith("sha256:input:")) and
+    any(.evidence_refs[]; startswith("sha256:output:")) and
+    (.artifact_refs | length == 0) and
+    .metadata_only == true and
+    .raw_artifacts_embedded == false and
+    (.known_limitations | index("This event does not make the local model an Atlas authority, approval engine, autonomous operator, or trust source."))
+  ' "$local_model_event"
+
+  ! jq -e 'has("raw_prompt") or has("raw_response") or has("system_prompt") or has("tool_output_body")' "$local_model_event"
+
+  rm -rf \
+    "$TEST_ROOT/toolkit/logs" \
+    "$TEST_ROOT/toolkit/releases" \
+    "$TEST_ROOT/toolkit/reports" \
+    "$TEST_ROOT/toolkit/sessions" \
+    "$TEST_ROOT/toolkit/state" \
+    "$TEST_ROOT/toolkit/targets"
+  before_dirs="$(find "$TEST_ROOT/toolkit" -maxdepth 2 -type d | sort)"
+
+  first_receipt="$TEST_ROOT/m147-ai-agent-quickstart-1.json"
+  second_receipt="$TEST_ROOT/m147-ai-agent-quickstart-2.json"
+  local_model_receipt="$TEST_ROOT/m147-local-model-used-receipt.json"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt import-generic-event \
+    "$action_event" \
+    --out "$first_receipt"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"receipt: $first_receipt"* ]]
+  [ -f "$first_receipt" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt verify "$first_receipt"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"receipt: ok"* ]]
+
+  prev_hash="$(jq -r '.event_hash' "$first_receipt")"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt import-generic-event \
+    "$result_event" \
+    --prev-hash "$prev_hash" \
+    --out "$second_receipt"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"receipt: $second_receipt"* ]]
+  [ -f "$second_receipt" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt replay "$first_receipt" "$second_receipt"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"receipt replay: ok"* ]]
+  [[ "$output" == *"chain_head_event_hash: $expected_head_event"* ]]
+  [[ "$output" == *"chain_head_receipt_hash: $expected_head_receipt"* ]]
+  [[ "$output" == *"metadata-only boundary: ok"* ]]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt replay "$first_receipt" "$second_receipt" --json
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" | jq -e \
+    --arg expected_first_event "$expected_first_event" \
+    --arg expected_head_event "$expected_head_event" \
+    --arg expected_head_receipt "$expected_head_receipt" \
+    '.schema_version == "atlas.receipt_replay.v1" and
+    .status == "ok" and
+    .metadata_only == true and
+    .raw_artifacts_embedded == false and
+    .receipt_count == 2 and
+    .first_event_hash == $expected_first_event and
+    .chain_checkpoint.head_event_hash == $expected_head_event and
+    .chain_checkpoint.head_receipt_hash == $expected_head_receipt'
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt import-generic-event \
+    "$local_model_event" \
+    --out "$local_model_receipt"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"receipt: $local_model_receipt"* ]]
+  [ -f "$local_model_receipt" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt verify "$local_model_receipt"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"receipt: ok"* ]]
+
+  jq -e '
+    .action == "atlas_node.local_model.used" and
+    .actor == "operator:atlas-local" and
+    .subject.ref == "atlas-node-workstation:local-model-helper" and
+    (.evidence_refs | index("docs/ops/DUAL_NODE_COCKPIT.md")) and
+    (.evidence_refs | index("sha256:input:b241d1c15a58d085a9060168f82cad1d34d261ca6150059ccc2ecf7b13cca07f")) and
+    (.evidence_refs | index("sha256:output:9286e0ab553441858fd08395b45800d00295c28da74217b19567f2204f98149f")) and
+    .metadata_only == true and
+    .raw_artifacts_embedded == false and
+    (.known_limitations | length > 0)
+  ' "$local_model_receipt"
+
+  after_dirs="$(find "$TEST_ROOT/toolkit" -maxdepth 2 -type d | sort)"
+  [ "$before_dirs" = "$after_dirs" ]
+}
+
 @test "capability manifest defines machine-readable governance root" {
   manifest="$TEST_ROOT/toolkit/capabilities.yaml"
   schema="$TEST_ROOT/toolkit/schemas/capability.v1.schema.json"
