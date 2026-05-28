@@ -2416,6 +2416,170 @@ write_test_slsa_reference() {
   [ "$before_dirs" = "$after_dirs" ]
 }
 
+@test "M148 AI-agent event security regression fails closed" {
+  action_event="$TEST_ROOT/toolkit/examples/adapters/generic-external-event/ai-agent-action-event.json"
+  result_event="$TEST_ROOT/toolkit/examples/adapters/generic-external-event/ai-agent-result-event.json"
+
+  [ -f "$action_event" ]
+  [ -f "$result_event" ]
+
+  assert_ai_import_rejected() {
+    local event_file="$1"
+    local expected="$2"
+    local out_file="$TEST_ROOT/rejected-$(basename "$event_file").receipt.json"
+
+    rm -f "$out_file"
+    run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt import-generic-event "$event_file" --out "$out_file"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"$expected"* ]]
+    [ ! -e "$out_file" ]
+  }
+
+  raw_prompt="$TEST_ROOT/m148-raw-prompt-event.json"
+  jq '. + {raw_prompt: "full raw prompt body"}' "$action_event" >"$raw_prompt"
+  assert_ai_import_rejected "$raw_prompt" "generic external event contains forbidden raw-content marker"
+
+  raw_model_output="$TEST_ROOT/m148-raw-model-output-event.json"
+  jq '. + {raw_model_output: "full raw model output body"}' "$action_event" >"$raw_model_output"
+  assert_ai_import_rejected "$raw_model_output" "generic external event contains forbidden raw-content marker"
+
+  raw_response="$TEST_ROOT/m148-raw-response-event.json"
+  jq '. + {raw_response: "full raw response body"}' "$action_event" >"$raw_response"
+  assert_ai_import_rejected "$raw_response" "generic external event contains forbidden raw-content marker"
+
+  system_prompt="$TEST_ROOT/m148-system-prompt-event.json"
+  jq '. + {system_prompt: "system prompt body"}' "$action_event" >"$system_prompt"
+  assert_ai_import_rejected "$system_prompt" "generic external event contains forbidden raw-content marker"
+
+  tool_output_body="$TEST_ROOT/m148-tool-output-body-event.json"
+  jq '. + {tool_output_body: "tool output body"}' "$action_event" >"$tool_output_body"
+  assert_ai_import_rejected "$tool_output_body" "generic external event contains forbidden raw-content marker"
+
+  tool_call_raw="$TEST_ROOT/m148-tool-call-raw-event.json"
+  jq '. + {tool_call_raw: "raw tool call payload"}' "$action_event" >"$tool_call_raw"
+  assert_ai_import_rejected "$tool_call_raw" "generic external event contains forbidden raw-content marker"
+
+  bearer_marker="$TEST_ROOT/m148-bearer-marker-event.json"
+  jq '.evidence_refs += ["Authorization: Bearer abc123"]' "$action_event" >"$bearer_marker"
+  assert_ai_import_rejected "$bearer_marker" "generic external event contains forbidden raw-content marker"
+
+  for marker in "token=abc123" "password=abc123" "secret=abc123"; do
+    marker_slug="$(printf '%s\n' "$marker" | tr '=:' '--')"
+    marker_event="$TEST_ROOT/m148-${marker_slug}-event.json"
+    jq --arg marker "$marker" '.known_limitations += [$marker]' "$action_event" >"$marker_event"
+    assert_ai_import_rejected "$marker_event" "generic external event contains forbidden raw-content marker"
+  done
+
+  private_key_marker="$TEST_ROOT/m148-private-key-marker-event.json"
+  jq '.known_limitations += ["BEGIN PRIVATE KEY"]' "$action_event" >"$private_key_marker"
+  assert_ai_import_rejected "$private_key_marker" "generic external event contains forbidden raw-content marker"
+
+  bad_metadata="$TEST_ROOT/m148-bad-metadata-event.json"
+  jq '.metadata_only = false' "$action_event" >"$bad_metadata"
+  assert_ai_import_rejected "$bad_metadata" "invalid generic external event fields"
+
+  bad_embedded="$TEST_ROOT/m148-bad-embedded-event.json"
+  jq '.raw_artifacts_embedded = true' "$action_event" >"$bad_embedded"
+  assert_ai_import_rejected "$bad_embedded" "invalid generic external event fields"
+
+  missing_limitations="$TEST_ROOT/m148-missing-limitations-event.json"
+  jq 'del(.known_limitations)' "$action_event" >"$missing_limitations"
+  assert_ai_import_rejected "$missing_limitations" "invalid generic external event fields"
+
+  missing_actor="$TEST_ROOT/m148-missing-actor-event.json"
+  jq 'del(.actor)' "$action_event" >"$missing_actor"
+  assert_ai_import_rejected "$missing_actor" "invalid generic external event fields"
+
+  missing_agent_identity="$TEST_ROOT/m148-missing-agent-identity-event.json"
+  jq '.evidence_refs |= map(select(startswith("ai_agent_profile://agent_runtime/") | not))' \
+    "$action_event" >"$missing_agent_identity"
+  assert_ai_import_rejected "$missing_agent_identity" "invalid AI-agent event profile fields"
+
+  approval_without_refs="$TEST_ROOT/m148-approval-required-without-refs-event.json"
+  jq '.evidence_refs |= map(if startswith("ai_agent_profile://approval_required/") then "ai_agent_profile://approval_required/true" else . end) | .approval_refs = []' \
+    "$action_event" >"$approval_without_refs"
+  assert_ai_import_rejected "$approval_without_refs" "invalid AI-agent event profile fields"
+
+  rm -rf \
+    "$TEST_ROOT/toolkit/logs" \
+    "$TEST_ROOT/toolkit/releases" \
+    "$TEST_ROOT/toolkit/reports" \
+    "$TEST_ROOT/toolkit/sessions" \
+    "$TEST_ROOT/toolkit/state" \
+    "$TEST_ROOT/toolkit/targets"
+  before_dirs="$(find "$TEST_ROOT/toolkit" -maxdepth 2 -type d | sort)"
+
+  action_receipt="$TEST_ROOT/m148-ai-agent-action-receipt.json"
+  result_receipt="$TEST_ROOT/m148-ai-agent-result-receipt.json"
+  unexpected_receipt="$TEST_ROOT/toolkit/state/m148-unexpected-receipt.json"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt import-generic-event \
+    "$action_event" \
+    --out "$action_receipt"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"receipt: $action_receipt"* ]]
+  [ -f "$action_receipt" ]
+  [ ! -e "$unexpected_receipt" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt verify "$action_receipt" --json
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" | jq -e '
+    .schema_version == "atlas.receipt_verify.v1" and
+    .status == "ok" and
+    .metadata_only == true and
+    .raw_artifacts_embedded == false
+  '
+
+  prev_hash="$(jq -r '.event_hash' "$action_receipt")"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt import-generic-event \
+    "$result_event" \
+    --prev-hash "$prev_hash" \
+    --out "$result_receipt"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"receipt: $result_receipt"* ]]
+  [ -f "$result_receipt" ]
+  [ ! -e "$unexpected_receipt" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt verify "$result_receipt" --json
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" | jq -e '
+    .schema_version == "atlas.receipt_verify.v1" and
+    .status == "ok" and
+    .metadata_only == true and
+    .raw_artifacts_embedded == false
+  '
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt replay "$action_receipt" "$result_receipt" --json
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" | jq -e \
+    --arg prev_hash "$prev_hash" '
+    .schema_version == "atlas.receipt_replay.v1" and
+    .status == "ok" and
+    .metadata_only == true and
+    .raw_artifacts_embedded == false and
+    .receipt_count == 2 and
+    .chain[0].linkage_status == "genesis" and
+    .chain[1].prev_hash == $prev_hash and
+    .ledger_binding.status == "ok"
+  '
+
+  for receipt in "$action_receipt" "$result_receipt"; do
+    jq -e '
+      .metadata_only == true and
+      .raw_artifacts_embedded == false and
+      (.actor | startswith("agent:")) and
+      (.known_limitations | length > 0) and
+      (.evidence_refs | index("docs/adapters/AI_AGENT_EVENT_RECEIPT_PROFILE.md")) and
+      any(.evidence_refs[]; startswith("ai_agent_profile://agent_runtime/")) and
+      any(.evidence_refs[]; startswith("ai_agent_profile://approval_required/"))
+    ' "$receipt"
+    ! grep -Eiq 'raw_prompt|raw_model_output|raw_response|system_prompt|tool_output_body|tool_call_raw|Authorization: Bearer|token=|password=|secret=|BEGIN PRIVATE KEY' "$receipt"
+  done
+
+  after_dirs="$(find "$TEST_ROOT/toolkit" -maxdepth 2 -type d | sort)"
+  [ "$before_dirs" = "$after_dirs" ]
+}
+
 @test "capability manifest defines machine-readable governance root" {
   manifest="$TEST_ROOT/toolkit/capabilities.yaml"
   schema="$TEST_ROOT/toolkit/schemas/capability.v1.schema.json"
