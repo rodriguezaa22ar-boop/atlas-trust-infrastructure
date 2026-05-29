@@ -19,6 +19,9 @@ repository in filesystem order.
   five-minute local AI-agent event import, verify, and replay quickstart.
 - [reviews/GITHUB_ACTIONS_RUN_RECEIPT_CANDIDATE_M151.md](reviews/GITHUB_ACTIONS_RUN_RECEIPT_CANDIDATE_M151.md):
   first real-world import-only GitHub Actions run/check receipt candidate.
+- [reviews/GITHUB_ACTIONS_EVENT_PROOF_PACKAGE_M153.md](reviews/GITHUB_ACTIONS_EVENT_PROOF_PACKAGE_M153.md):
+  reviewer-facing proof package for the GitHub Actions run/check event receipt
+  path.
 - [../README.md](../README.md): short landing page with quick start, safety
   boundary, current maturity, and docs map.
 - [REPOSITORY_BOUNDARY.md](REPOSITORY_BOUNDARY.md): public/private repository
@@ -69,6 +72,9 @@ repository in filesystem order.
 - [reviews/GITHUB_ACTIONS_RUN_RECEIPT_CANDIDATE_M151.md](reviews/GITHUB_ACTIONS_RUN_RECEIPT_CANDIDATE_M151.md):
   local-file GitHub Actions run/check event receipt candidate using the
   generic adapter.
+- [reviews/GITHUB_ACTIONS_EVENT_PROOF_PACKAGE_M153.md](reviews/GITHUB_ACTIONS_EVENT_PROOF_PACKAGE_M153.md):
+  proof package for importing, verifying, replaying, and reviewing the GitHub
+  Actions metadata-only receipt path.
 
 ## Case studies
 
@@ -117,6 +123,9 @@ repository in filesystem order.
 - [reviews/GITHUB_ACTIONS_RUN_RECEIPT_CANDIDATE_M151.md](reviews/GITHUB_ACTIONS_RUN_RECEIPT_CANDIDATE_M151.md):
   M151 import-only GitHub Actions run/check event candidate using the existing
   generic external event adapter.
+- [reviews/GITHUB_ACTIONS_EVENT_PROOF_PACKAGE_M153.md](reviews/GITHUB_ACTIONS_EVENT_PROOF_PACKAGE_M153.md):
+  M153 reviewer-facing proof package for the GitHub Actions run/check receipt
+  path and its M152 security boundary.
 - [TRY_GENERIC_EVENT_ADAPTER.md](TRY_GENERIC_EVENT_ADAPTER.md): M145
   five-minute local quickstart for the generic external event adapter.
 - [TRY_AI_AGENT_EVENT_RECEIPTS.md](TRY_AI_AGENT_EVENT_RECEIPTS.md): M147
@@ -160,6 +169,9 @@ repository in filesystem order.
 - [reviews/GITHUB_ACTIONS_RUN_RECEIPT_CANDIDATE_M151.md](reviews/GITHUB_ACTIONS_RUN_RECEIPT_CANDIDATE_M151.md):
   first real-world import-only GitHub Actions run/check event receipt
   candidate.
+- [reviews/GITHUB_ACTIONS_EVENT_PROOF_PACKAGE_M153.md](reviews/GITHUB_ACTIONS_EVENT_PROOF_PACKAGE_M153.md):
+  reviewer-facing proof package for the GitHub Actions run/check metadata
+  receipt path.
 - [retention/releases/REPLAY_VERIFICATION.md](retention/releases/REPLAY_VERIFICATION.md):
   clean-checkout replay procedure.
 - [atlas/PRODUCTION_READINESS.md](atlas/PRODUCTION_READINESS.md): local
