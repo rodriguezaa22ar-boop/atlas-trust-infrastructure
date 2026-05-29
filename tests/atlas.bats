@@ -2945,6 +2945,199 @@ write_test_slsa_reference() {
   [ "$before_dirs" = "$after_dirs" ]
 }
 
+@test "M152 GitHub Actions event security regression fails closed" {
+  milestone="$TEST_ROOT/toolkit/docs/retention/milestones/MILESTONE_152.md"
+  milestone_index="$TEST_ROOT/toolkit/docs/retention/MILESTONE_INDEX.md"
+  run_event="$TEST_ROOT/toolkit/examples/adapters/generic-external-event/github-actions-run-event.json"
+  check_event="$TEST_ROOT/toolkit/examples/adapters/generic-external-event/github-actions-check-event.json"
+
+  [ -f "$milestone" ]
+  [ -f "$run_event" ]
+  [ -f "$check_event" ]
+
+  grep -q '^# Milestone 152: GitHub Actions Event Security Regression$' "$milestone"
+  grep -q 'GitHub token marker rejected' "$milestone"
+  grep -q 'raw_logs rejected' "$milestone"
+  grep -q 'raw_job_output rejected' "$milestone"
+  grep -q 'raw_workflow_output rejected' "$milestone"
+  grep -q 'No GitHub API calls.' "$milestone"
+  grep -q 'No webhook server.' "$milestone"
+  grep -q 'No action execution.' "$milestone"
+  grep -q 'No new adapter.' "$milestone"
+  grep -q 'No hidden state.' "$milestone"
+  grep -q 'atlas-retention-m152' "$milestone"
+  grep -q 'MILESTONE_152.md' "$milestone_index"
+  grep -q 'atlas-retention-m152' "$milestone_index"
+
+  assert_github_actions_import_rejected() {
+    local event_file="$1"
+    local expected="$2"
+    local out_file="$TEST_ROOT/rejected-$(basename "$event_file").receipt.json"
+
+    rm -f "$out_file"
+    run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt import-generic-event "$event_file" --out "$out_file"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"$expected"* ]]
+    [ ! -e "$out_file" ]
+  }
+
+  github_token="$TEST_ROOT/m152-github-token-event.json"
+  jq '.evidence_refs += ["github-actions://token/ghs_123456789012345678901234567890123456"]' \
+    "$run_event" >"$github_token"
+  assert_github_actions_import_rejected "$github_token" "generic external event contains forbidden raw-content marker"
+
+  bearer_marker="$TEST_ROOT/m152-bearer-marker-event.json"
+  jq '.evidence_refs += ["Authorization: Bearer abc123"]' "$run_event" >"$bearer_marker"
+  assert_github_actions_import_rejected "$bearer_marker" "generic external event contains forbidden raw-content marker"
+
+  webhook_secret="$TEST_ROOT/m152-webhook-secret-event.json"
+  jq '.known_limitations += ["webhook_secret=abc123"]' "$run_event" >"$webhook_secret"
+  assert_github_actions_import_rejected "$webhook_secret" "generic external event contains forbidden raw-content marker"
+
+  raw_logs="$TEST_ROOT/m152-raw-logs-event.json"
+  jq '. + {raw_logs: "full raw workflow log body"}' "$run_event" >"$raw_logs"
+  assert_github_actions_import_rejected "$raw_logs" "generic external event contains forbidden raw-content marker"
+
+  raw_job_output="$TEST_ROOT/m152-raw-job-output-event.json"
+  jq '. + {raw_job_output: "full raw job output body"}' "$run_event" >"$raw_job_output"
+  assert_github_actions_import_rejected "$raw_job_output" "generic external event contains forbidden raw-content marker"
+
+  raw_workflow_output="$TEST_ROOT/m152-raw-workflow-output-event.json"
+  jq '. + {raw_workflow_output: "full raw workflow output body"}' "$run_event" >"$raw_workflow_output"
+  assert_github_actions_import_rejected "$raw_workflow_output" "generic external event contains forbidden raw-content marker"
+
+  raw_request="$TEST_ROOT/m152-raw-request-event.json"
+  jq '. + {raw_request: "POST /github/webhook HTTP/1.1"}' "$run_event" >"$raw_request"
+  assert_github_actions_import_rejected "$raw_request" "generic external event contains forbidden raw-content marker"
+
+  raw_response="$TEST_ROOT/m152-raw-response-event.json"
+  jq '. + {raw_response: "HTTP/1.1 200 OK"}' "$run_event" >"$raw_response"
+  assert_github_actions_import_rejected "$raw_response" "generic external event contains forbidden raw-content marker"
+
+  environment_secrets="$TEST_ROOT/m152-environment-secrets-event.json"
+  jq '. + {environment: {GITHUB_TOKEN: "ghs_123456789012345678901234567890123456", DEPLOY_SECRET: "abc123"}}' \
+    "$run_event" >"$environment_secrets"
+  assert_github_actions_import_rejected "$environment_secrets" "generic external event contains forbidden raw-content marker"
+
+  private_key_marker="$TEST_ROOT/m152-private-key-marker-event.json"
+  jq '.known_limitations += ["BEGIN OPENSSH PRIVATE KEY"]' "$run_event" >"$private_key_marker"
+  assert_github_actions_import_rejected "$private_key_marker" "generic external event contains forbidden raw-content marker"
+
+  bad_metadata="$TEST_ROOT/m152-bad-metadata-event.json"
+  jq '.metadata_only = false' "$run_event" >"$bad_metadata"
+  assert_github_actions_import_rejected "$bad_metadata" "invalid generic external event fields"
+
+  bad_embedded="$TEST_ROOT/m152-bad-embedded-event.json"
+  jq '.raw_artifacts_embedded = true' "$run_event" >"$bad_embedded"
+  assert_github_actions_import_rejected "$bad_embedded" "invalid generic external event fields"
+
+  missing_limitations="$TEST_ROOT/m152-missing-limitations-event.json"
+  jq 'del(.known_limitations)' "$run_event" >"$missing_limitations"
+  assert_github_actions_import_rejected "$missing_limitations" "invalid generic external event fields"
+
+  malformed_artifact="$TEST_ROOT/m152-malformed-artifact-event.json"
+  jq '.artifact_refs = [{"path":"github-actions.log","sha256":"not-a-sha256"}]' "$run_event" >"$malformed_artifact"
+  assert_github_actions_import_rejected "$malformed_artifact" "invalid generic external event fields"
+
+  missing_repository="$TEST_ROOT/m152-missing-repository-event.json"
+  jq '.evidence_refs |= map(select(startswith("github-actions://repository/") | not))' \
+    "$run_event" >"$missing_repository"
+  assert_github_actions_import_rejected "$missing_repository" "invalid GitHub Actions event profile fields"
+
+  missing_workflow="$TEST_ROOT/m152-missing-workflow-event.json"
+  jq '.evidence_refs |= map(select(startswith("github-actions://workflow/") | not))' \
+    "$run_event" >"$missing_workflow"
+  assert_github_actions_import_rejected "$missing_workflow" "invalid GitHub Actions event profile fields"
+
+  missing_run="$TEST_ROOT/m152-missing-run-event.json"
+  jq '.evidence_refs |= map(select(startswith("github-actions://run/") | not))' \
+    "$run_event" >"$missing_run"
+  assert_github_actions_import_rejected "$missing_run" "invalid GitHub Actions event profile fields"
+
+  missing_check="$TEST_ROOT/m152-missing-check-event.json"
+  jq '.evidence_refs |= map(select(startswith("github-actions://check_run/") | not))' \
+    "$check_event" >"$missing_check"
+  assert_github_actions_import_rejected "$missing_check" "invalid GitHub Actions event profile fields"
+
+  rm -rf \
+    "$TEST_ROOT/toolkit/logs" \
+    "$TEST_ROOT/toolkit/releases" \
+    "$TEST_ROOT/toolkit/reports" \
+    "$TEST_ROOT/toolkit/sessions" \
+    "$TEST_ROOT/toolkit/state" \
+    "$TEST_ROOT/toolkit/targets"
+  before_dirs="$(find "$TEST_ROOT/toolkit" -maxdepth 2 -type d | sort)"
+
+  run_receipt="$TEST_ROOT/m152-github-actions-run-receipt.json"
+  check_receipt="$TEST_ROOT/m152-github-actions-check-receipt.json"
+  unexpected_receipt="$TEST_ROOT/toolkit/state/m152-unexpected-receipt.json"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt import-generic-event \
+    "$run_event" \
+    --out "$run_receipt"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"receipt: $run_receipt"* ]]
+  [ -f "$run_receipt" ]
+  [ ! -e "$unexpected_receipt" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt verify "$run_receipt" --json
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" | jq -e '
+    .schema_version == "atlas.receipt_verify.v1" and
+    .status == "ok" and
+    .metadata_only == true and
+    .raw_artifacts_embedded == false
+  '
+
+  prev_hash="$(jq -r '.event_hash' "$run_receipt")"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt import-generic-event \
+    "$check_event" \
+    --prev-hash "$prev_hash" \
+    --out "$check_receipt"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"receipt: $check_receipt"* ]]
+  [ -f "$check_receipt" ]
+  [ ! -e "$unexpected_receipt" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt verify "$check_receipt" --json
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" | jq -e '
+    .schema_version == "atlas.receipt_verify.v1" and
+    .status == "ok" and
+    .metadata_only == true and
+    .raw_artifacts_embedded == false
+  '
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt replay "$run_receipt" "$check_receipt" --json
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" | jq -e \
+    --arg prev_hash "$prev_hash" '
+    .schema_version == "atlas.receipt_replay.v1" and
+    .status == "ok" and
+    .metadata_only == true and
+    .raw_artifacts_embedded == false and
+    .receipt_count == 2 and
+    .chain[0].linkage_status == "genesis" and
+    .chain[1].prev_hash == $prev_hash and
+    .ledger_binding.status == "ok"
+  '
+
+  for receipt in "$run_receipt" "$check_receipt"; do
+    jq -e '
+      .metadata_only == true and
+      .raw_artifacts_embedded == false and
+      (.known_limitations | length > 0) and
+      (.evidence_refs | index("docs/reviews/GITHUB_ACTIONS_RUN_RECEIPT_CANDIDATE_M151.md")) and
+      any(.evidence_refs[]; startswith("github-actions://repository/")) and
+      any(.evidence_refs[]; startswith("github-actions://run/"))
+    ' "$receipt"
+    ! grep -Eiq 'gh[pousr]_|Authorization: Bearer|webhook_secret=|raw_logs|raw_job_output|raw_workflow_output|raw_request|raw_response|GITHUB_TOKEN|DEPLOY_SECRET|BEGIN .*PRIVATE KEY' "$receipt"
+  done
+
+  after_dirs="$(find "$TEST_ROOT/toolkit" -maxdepth 2 -type d | sort)"
+  [ "$before_dirs" = "$after_dirs" ]
+}
+
 @test "capability manifest defines machine-readable governance root" {
   manifest="$TEST_ROOT/toolkit/capabilities.yaml"
   schema="$TEST_ROOT/toolkit/schemas/capability.v1.schema.json"

@@ -37,8 +37,10 @@ atlas_receipt_forbidden_content_paths() {
 
   printf '%s\n' "$receipt_json" | jq -r '
     def pathstr($p): $p | map(tostring) | join(".");
-    def bad_key: test("^(raw_artifact|raw_artifacts|raw_body|raw_request|raw_response|raw_prompt|raw_model_output|system_prompt|tool_output_body|tool_call_raw|artifact_body|artifact_content|raw_payload|payload|request_body|response_body|secret|token|password|passwd|api_key|authorization|cookie|session|private_key|credential)$"; "i");
-    def bad_value: test("password=|passwd=|api_key=|secret=|token=|authorization:|bearer[[:space:]]|set-cookie:|BEGIN (RSA |OPENSSH |EC )?PRIVATE KEY|session=|cookie="; "i");
+    def bad_key:
+      test("^(raw_artifact|raw_artifacts|raw_body|raw_request|raw_response|raw_prompt|raw_model_output|system_prompt|tool_output_body|tool_call_raw|raw_logs|raw_job_output|raw_workflow_output|artifact_body|artifact_content|raw_payload|payload|request_body|response_body|secret|token|password|passwd|api_key|authorization|cookie|session|private_key|credential|webhook_secret|workflow_secret|environment_secret|github_token)$"; "i")
+      or test("(^|[_-])(secret|token|password|passwd|api_key|authorization|cookie|session|private_key|credential)([_-]|$)"; "i");
+    def bad_value: test("password=|passwd=|api_key=|secret=|token=|github_token=|webhook_secret=|workflow_secret=|environment_secret=|authorization:|bearer[[:space:]]|set-cookie:|BEGIN (RSA |OPENSSH |EC )?PRIVATE KEY|session=|cookie=|gh[pousr]_[A-Za-z0-9_]{20,}"; "i");
     (
       [
         paths as $p
@@ -486,6 +488,31 @@ atlas_receipt_generic_event_validate_json() {
       ((.event_type != "ai_agent.action.reported") or has_ref("sha256:output:")) and
       ((approval_required_true | not) or (($event.approval_refs | length) > 0))
     ' >/dev/null || fail "invalid AI-agent event profile fields"
+  fi
+
+  if printf '%s\n' "$event_json" | jq -e '.event_type | startswith("github.actions.")' >/dev/null; then
+    printf '%s\n' "$event_json" | jq -e '
+      . as $event |
+      def has_ref($prefix): any($event.evidence_refs[]; startswith($prefix));
+      ($event.evidence_refs | index("docs/reviews/GITHUB_ACTIONS_RUN_RECEIPT_CANDIDATE_M151.md")) and
+      has_ref("github-actions://repository/") and
+      has_ref("github-actions://conclusion/") and
+      (
+        if $event.event_type == "github.actions.workflow_run.completed" then
+          ($event.subject.type == "github-actions-workflow-run") and
+          has_ref("github-actions://workflow/") and
+          has_ref("github-actions://run/") and
+          has_ref("github-actions://head_sha/")
+        elif $event.event_type == "github.actions.check_run.completed" then
+          ($event.subject.type == "github-actions-check-run") and
+          has_ref("github-actions://run/") and
+          has_ref("github-actions://check_run/") and
+          has_ref("github-actions://check_name/")
+        else
+          false
+        end
+      )
+    ' >/dev/null || fail "invalid GitHub Actions event profile fields"
   fi
 }
 
