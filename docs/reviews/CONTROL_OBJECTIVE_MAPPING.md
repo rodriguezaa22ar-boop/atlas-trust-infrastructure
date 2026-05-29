@@ -14,6 +14,7 @@ remaining outside-Atlas determination.
 | GitHub Actions / CI integrity | GitHub Actions run/check examples, M151 candidate, M152 regression, M153 proof package, linked receipts. | `atlas receipt import-generic-event`; `atlas receipt verify`; `atlas receipt replay`. | Atlas supports review of CI run/check metadata as local-file, import-only receipts. | Source-system truth, run authority, CI policy acceptance, and external GitHub-side evidence needs. |
 | release governance | Release packet, release manifest, signed tag metadata, retained SLSA reference metadata when present, release replay output. | `atlas release verify`; `atlas release manifest-verify`; `atlas release replay`; `git tag -v`. | Atlas supports review of retained release evidence and replayable release-trust state. | Release approval, deployment decision, external release review, certification, and residual risk acceptance. |
 | production-readiness review | Production-readiness contract, v1 readiness, clean/synced repo state, release trust packet, artifact manifest, signing/provenance, production dry-run, reviewer package, public export check. | `atlas production status --strict --explain`; `atlas v1 status --strict`; `atlas release verify`; `atlas release manifest-verify`; `atlas reviewer package`; `bin/export-public-trust --check`. | Atlas supports production-readiness review under the local Atlas contract with retained, verifiable release evidence. | External production certification, deployment approval, external audit completion, legal compliance, artifact correctness, and residual risk acceptance. |
+| evidence sufficiency review | Evidence sufficiency report, production-readiness mapping, verifier outputs, replay outputs, status outputs, known limitations. | `atlas production status --strict --explain`; `atlas release verify`; `atlas release manifest-verify`; `atlas reviewer package`; `bin/export-public-trust --check`. | Atlas supports review of whether objective evidence is present, missing, stale, or unverifiable. | Whether gaps block the objective, require remediation, or can be accepted as residual risk. |
 | approval integrity | Approval event JSON, policy refs, receipt `approval_refs`, requester/approver/risk/scope/expiry/rationale metadata. | `atlas approval verify`; `atlas policy evaluate`; `atlas receipt verify`; `atlas receipt replay`. | Atlas supports review of approval evidence linked to governed actions. | Approver authority, rule-of-engagement sufficiency, policy interpretation, and risk acceptance. |
 | audit readiness | Reviewer package, public export manifest, proof packages, retained milestones, known limitations. | `atlas reviewer package`; `bin/export-public-trust --check`; receipt and release verifier commands. | Atlas supports cloneable, bounded review of public trust evidence. | Audit objective definition, evidence sufficiency, external audit completion, and follow-up scope. |
 | business workflow assurance | Business-flow records, control objective labels, evidence/finding/validation/approval/retention links, flow packet, assurance status. | `atlas flow packet`; `atlas flow verify`; `atlas flow assurance`; `atlas op trust-chain`. | Atlas supports review of workflow evidence coverage without embedding sensitive business data. | Business control effectiveness, process owner acceptance, compliance conclusion, and remediation priority. |
@@ -189,6 +190,48 @@ Remaining outside-Atlas determination:
 - whether artifact contents and distribution channels are accepted;
 - whether dry-run evidence is realistic and sufficient;
 - whether external audit, compliance, or production approval is granted.
+
+## Evidence Sufficiency Review
+
+Atlas supports evidence sufficiency review by classifying each required
+evidence item for a review objective as `present`, `missing`, `stale`, or
+`unverifiable`. M158 applies that report shape to the production-readiness
+review objective without adding runtime behavior.
+
+Evidence Atlas can provide:
+
+- [reviews/EVIDENCE_SUFFICIENCY_REPORT_M158.md](EVIDENCE_SUFFICIENCY_REPORT_M158.md)
+- [reviews/PRODUCTION_READINESS_CONTROL_MAPPING_M156.md](PRODUCTION_READINESS_CONTROL_MAPPING_M156.md)
+- [TRUST_CLAIM_LADDER.md](../TRUST_CLAIM_LADDER.md)
+- verifier, replay, status, reviewer package, and public export output
+  summaries from the reviewed local checkout.
+
+Verification commands:
+
+```bash
+./tools/atlas/bin/atlas production status --strict --explain
+./tools/atlas/bin/atlas v1 status --strict
+./tools/atlas/bin/atlas release verify <release-packet> --commit <commit>
+./tools/atlas/bin/atlas release manifest-verify <manifest> --commit <commit>
+./tools/atlas/bin/atlas release replay <release-packet> --json
+./tools/atlas/bin/atlas reviewer package full-capability-review
+./bin/export-public-trust --check
+```
+
+Positive support claim:
+
+```text
+Atlas supports evidence sufficiency review by mapping required evidence to
+present, missing, stale, or unverifiable status with local verification paths
+and reviewer follow-up.
+```
+
+Remaining outside-Atlas determination:
+
+- whether missing evidence blocks the objective;
+- whether stale evidence must be refreshed;
+- whether unverifiable evidence can be remediated;
+- whether the reviewer accepts remaining gaps as residual risk.
 
 ## Approval Integrity
 

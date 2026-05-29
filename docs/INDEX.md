@@ -16,6 +16,9 @@ repository in filesystem order.
   review objectives.
 - [reviews/PRODUCTION_READINESS_CONTROL_MAPPING_M156.md](reviews/PRODUCTION_READINESS_CONTROL_MAPPING_M156.md):
   production-readiness control mapping under the local Atlas contract.
+- [reviews/EVIDENCE_SUFFICIENCY_REPORT_M158.md](reviews/EVIDENCE_SUFFICIENCY_REPORT_M158.md):
+  reviewer-facing evidence sufficiency report for present, missing, stale, and
+  unverifiable objective evidence.
 - [TRY_RECEIPTS.md](TRY_RECEIPTS.md): five-minute local receipt verify and
   replay quickstart.
 - [TRY_GENERIC_EVENT_ADAPTER.md](TRY_GENERIC_EVENT_ADAPTER.md): five-minute
@@ -43,6 +46,7 @@ repository in filesystem order.
 - SLSA reviewer: [atlas/SLSA_CLAIM.md](atlas/SLSA_CLAIM.md)
 - External reviewer: [atlas/EXTERNAL_REVIEWER_PACKAGE.md](atlas/EXTERNAL_REVIEWER_PACKAGE.md)
 - Production readiness reviewer: [reviews/PRODUCTION_READINESS_CONTROL_MAPPING_M156.md](reviews/PRODUCTION_READINESS_CONTROL_MAPPING_M156.md)
+- Evidence sufficiency reviewer: [reviews/EVIDENCE_SUFFICIENCY_REPORT_M158.md](reviews/EVIDENCE_SUFFICIENCY_REPORT_M158.md)
 - Control reviewer: [reviews/CONTROL_OBJECTIVE_MAPPING.md](reviews/CONTROL_OBJECTIVE_MAPPING.md)
 - Contributor: [../CONTRIBUTING.md](../CONTRIBUTING.md)
 - Security reporter: [../SECURITY.md](../SECURITY.md)
@@ -143,6 +147,9 @@ repository in filesystem order.
 - [reviews/PRODUCTION_READINESS_CONTROL_MAPPING_M156.md](reviews/PRODUCTION_READINESS_CONTROL_MAPPING_M156.md):
   maps the production-readiness contract to retained evidence, verification
   commands, positive support claims, and outside-Atlas determinations.
+- [reviews/EVIDENCE_SUFFICIENCY_REPORT_M158.md](reviews/EVIDENCE_SUFFICIENCY_REPORT_M158.md):
+  applies Trust Claim Ladder Level 4 to classify objective evidence as present,
+  missing, stale, or unverifiable.
 - [TRY_GENERIC_EVENT_ADAPTER.md](TRY_GENERIC_EVENT_ADAPTER.md): M145
   five-minute local quickstart for the generic external event adapter.
 - [TRY_AI_AGENT_EVENT_RECEIPTS.md](TRY_AI_AGENT_EVENT_RECEIPTS.md): M147
@@ -181,6 +188,8 @@ repository in filesystem order.
   production-readiness control mapping for the local Atlas contract, release
   trust, artifact manifest, signing/provenance, production dry-run, reviewer
   package, and public export evidence.
+- [reviews/EVIDENCE_SUFFICIENCY_REPORT_M158.md](reviews/EVIDENCE_SUFFICIENCY_REPORT_M158.md):
+  evidence sufficiency report shape for mapped review objectives.
 - [retention/reviews/atlas-v0.4.0-rc1-review-packet.md](retention/reviews/atlas-v0.4.0-rc1-review-packet.md):
   executable independent-review packet for the retained v0.4.0-rc1 SLSA
   evidence.
@@ -223,6 +232,8 @@ repository in filesystem order.
 - [reviews/PRODUCTION_READINESS_CONTROL_MAPPING_M156.md](reviews/PRODUCTION_READINESS_CONTROL_MAPPING_M156.md):
   reviewer-facing mapping from production-readiness gates to control
   objectives and outside-Atlas determinations.
+- [reviews/EVIDENCE_SUFFICIENCY_REPORT_M158.md](reviews/EVIDENCE_SUFFICIENCY_REPORT_M158.md):
+  reviewer-facing report for objective evidence sufficiency states.
 - [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md): what Atlas still does not
   claim.
 
