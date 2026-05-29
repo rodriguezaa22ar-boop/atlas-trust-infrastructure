@@ -3491,6 +3491,99 @@ write_test_slsa_reference() {
   ! grep -Eiq 'Atlas (certifies|guarantees|is externally audited|is legally compliant|is legal compliance|is tamper-proof|proves compliance|proves model correctness|proves runtime safety|prevents fraud|is fraud-proof|is fully secure)' "$control_map"
 }
 
+@test "M156 production readiness control mapping supports local contract review" {
+  production_map="$TEST_ROOT/toolkit/docs/reviews/PRODUCTION_READINESS_CONTROL_MAPPING_M156.md"
+  control_map="$TEST_ROOT/toolkit/docs/reviews/CONTROL_OBJECTIVE_MAPPING.md"
+  docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
+  milestone="$TEST_ROOT/toolkit/docs/retention/milestones/MILESTONE_156.md"
+  milestone_index="$TEST_ROOT/toolkit/docs/retention/MILESTONE_INDEX.md"
+
+  [ -f "$production_map" ]
+  [ -f "$control_map" ]
+  [ -f "$milestone" ]
+
+  grep -q '^# Production Readiness Control Mapping M156$' "$production_map"
+  sed -n '1,12p' "$production_map" | grep -q '^Atlas supports production-readiness review under the local Atlas contract'
+  ! sed -n '1,12p' "$production_map" | grep -q 'Atlas does not'
+
+  grep -q 'Purpose' "$production_map"
+  grep -q 'Relationship To The Trust Claim Ladder' "$production_map"
+  grep -q 'Relationship To The Production Readiness Contract' "$production_map"
+  grep -q 'Production Readiness Control Mapping' "$production_map"
+  grep -q 'Evidence Paths' "$production_map"
+  grep -q 'Verification Commands' "$production_map"
+  grep -q 'Known Limitations' "$production_map"
+  grep -q 'Reviewer Checklist' "$production_map"
+
+  grep -q 'v1 internal readiness' "$production_map"
+  grep -q 'repository clean/synced state' "$production_map"
+  grep -q 'release trust packet verification' "$production_map"
+  grep -q 'release artifact manifest verification' "$production_map"
+  grep -q 'signing/provenance verification' "$production_map"
+  grep -q 'production dry-run evidence' "$production_map"
+  grep -q 'known limitations handling' "$production_map"
+  grep -q 'explainability for external reviewers' "$production_map"
+  grep -q 'local production-readiness contract' "$production_map"
+  grep -q 'Atlas supports production-readiness review under the local Atlas contract with' "$production_map"
+  grep -q 'retained, metadata-only, verifiable evidence' "$production_map"
+  grep -q 'What Atlas verifies' "$production_map"
+  grep -q 'Outside-Atlas determination' "$production_map"
+
+  grep -q 'TRUST_CLAIM_LADDER.md' "$production_map"
+  grep -q 'docs/atlas/PRODUCTION_READINESS.md' "$production_map"
+  grep -q 'V1_PILLAR_READINESS.md' "$production_map"
+  grep -q 'RELEASE_TRUST.md' "$production_map"
+  grep -q 'RELEASE_ARTIFACT_MANIFEST.md' "$production_map"
+  grep -q 'SLSA_PROVENANCE.md' "$production_map"
+  grep -q 'SLSA_CLAIM.md' "$production_map"
+  grep -q 'EXTERNAL_REVIEWER_PACKAGE.md' "$production_map"
+  grep -q 'KNOWN_LIMITATIONS.md' "$production_map"
+  grep -q 'docs/retention/releases/' "$production_map"
+  grep -q 'docs/retention/production/' "$production_map"
+  grep -q 'exports/public-trust-manifest.json' "$production_map"
+
+  grep -q 'atlas production status --strict --explain' "$production_map"
+  grep -q 'atlas v1 status --strict' "$production_map"
+  grep -q 'git status --short --branch' "$production_map"
+  grep -Fq 'git rev-list --left-right --count HEAD...@{u}' "$production_map"
+  grep -q 'atlas release verify' "$production_map"
+  grep -q 'atlas release manifest-verify' "$production_map"
+  grep -q 'atlas release replay' "$production_map"
+  grep -q 'git tag -v' "$production_map"
+  grep -q 'atlas reviewer package full-capability-review' "$production_map"
+  grep -q 'bin/export-public-trust --check' "$production_map"
+
+  grep -q 'This support is not external production certification.' "$production_map"
+  grep -q 'This support is not external audit completion.' "$production_map"
+  grep -q 'This support is not legal compliance.' "$production_map"
+  grep -q 'This support is not tamper-proof infrastructure.' "$production_map"
+  grep -q 'This support is not guaranteed safety.' "$production_map"
+  grep -q 'This support is not external SLSA certification.' "$production_map"
+  grep -q 'This support is not production deployability outside the local Atlas' "$production_map"
+
+  grep -q 'production-readiness review' "$control_map"
+  grep -q 'PRODUCTION_READINESS_CONTROL_MAPPING_M156.md' "$control_map"
+  grep -q 'Atlas supports production-readiness review under the local Atlas contract with retained, verifiable release evidence' "$control_map"
+  grep -q 'atlas production status --strict --explain' "$control_map"
+  grep -q 'atlas release manifest-verify' "$control_map"
+  grep -q 'bin/export-public-trust --check' "$control_map"
+
+  grep -q 'reviews/PRODUCTION_READINESS_CONTROL_MAPPING_M156.md' "$docs_index"
+  grep -q 'Production readiness reviewer' "$docs_index"
+  grep -q 'production-readiness control mapping under the local Atlas contract' "$docs_index"
+
+  grep -q '^# Milestone 156: Production Readiness Control Mapping$' "$milestone"
+  grep -q '5ee0f747777c9962426f4510b94709025f6443f5' "$milestone"
+  grep -q 'No Atlas runtime behavior changed.' "$milestone"
+  grep -q 'atlas-retention-m156' "$milestone"
+  grep -q 'MILESTONE_156.md' "$milestone_index"
+  grep -q 'Production Readiness Control Mapping' "$milestone_index"
+  grep -q 'atlas-retention-m156' "$milestone_index"
+
+  ! grep -Eiq 'Atlas (certifies|guarantees|is externally audited|is legally compliant|is legal compliance|is tamper-proof|proves compliance|proves model correctness|proves runtime safety|prevents fraud|is fraud-proof|is fully secure)' "$production_map"
+  ! grep -Eiq 'Atlas (certifies|guarantees|is externally audited|is legally compliant|is legal compliance|is tamper-proof|proves compliance|proves model correctness|proves runtime safety|prevents fraud|is fraud-proof|is fully secure)' "$control_map"
+}
+
 @test "capability manifest defines machine-readable governance root" {
   manifest="$TEST_ROOT/toolkit/capabilities.yaml"
   schema="$TEST_ROOT/toolkit/schemas/capability.v1.schema.json"
