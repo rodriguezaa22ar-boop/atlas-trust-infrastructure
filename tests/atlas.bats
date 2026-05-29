@@ -3584,6 +3584,56 @@ write_test_slsa_reference() {
   ! grep -Eiq 'Atlas (certifies|guarantees|is externally audited|is legally compliant|is legal compliance|is tamper-proof|proves compliance|proves model correctness|proves runtime safety|prevents fraud|is fraud-proof|is fully secure)' "$control_map"
 }
 
+@test "M157 production readiness claim safety keeps local contract boundary" {
+  production_map="$TEST_ROOT/toolkit/docs/reviews/PRODUCTION_READINESS_CONTROL_MAPPING_M156.md"
+  production_contract="$TEST_ROOT/toolkit/docs/atlas/PRODUCTION_READINESS.md"
+  trust_ladder="$TEST_ROOT/toolkit/docs/TRUST_CLAIM_LADDER.md"
+  control_map="$TEST_ROOT/toolkit/docs/reviews/CONTROL_OBJECTIVE_MAPPING.md"
+  milestone="$TEST_ROOT/toolkit/docs/retention/milestones/MILESTONE_157.md"
+  milestone_index="$TEST_ROOT/toolkit/docs/retention/MILESTONE_INDEX.md"
+
+  [ -f "$production_map" ]
+  [ -f "$production_contract" ]
+  [ -f "$trust_ladder" ]
+  [ -f "$control_map" ]
+  [ -f "$milestone" ]
+
+  grep -q 'supports production-readiness review' "$production_map"
+  grep -q 'local Atlas contract' "$production_map"
+  grep -q 'retained' "$production_map"
+  grep -q 'metadata-only' "$production_map"
+  grep -q 'verifiable evidence' "$production_map"
+
+  grep -q 'v1 internal readiness' "$production_map"
+  grep -q 'release trust packet' "$production_map"
+  grep -q 'release artifact manifest' "$production_map"
+  grep -q 'signing/provenance' "$production_map"
+  grep -q 'production dry-run' "$production_map"
+  grep -q 'reviewer package' "$production_map"
+  grep -q 'public export' "$production_map"
+
+  for doc in "$production_map" "$production_contract" "$trust_ladder" "$control_map"; do
+    ! grep -Eiq 'certified compliant|guaranteed safe|legally sufficient|production deployability proof|runtime safety proof|external audit complete' "$doc"
+    ! grep -Eiq 'Atlas (certifies|guarantees|is externally audited|is legally compliant|is legal compliance|is tamper-proof|proves compliance|proves model correctness|proves runtime safety|prevents fraud|is fraud-proof|is fully secure)' "$doc"
+    ! grep -Eiq '(Atlas|This support|This contract) (grants|creates|provides|proves|certifies|guarantees) (certification|external audit|legal compliance|enterprise deployment approval|external SLSA certification|production deployability|model correctness|runtime safety)' "$doc"
+  done
+
+  unbounded_production_ready="$(
+    grep -Einh 'production-ready' "$production_map" "$production_contract" "$trust_ladder" "$control_map" |
+      grep -Eiv 'local Atlas contract|local contract|contract reports|not production-ready|No production-ready claim is made|Overall `production-ready` requires|state is `production-ready`|reports `production-ready`|promoted as a production release|production status|exact state reported|defines what production-ready means' || true
+  )"
+  [ -z "$unbounded_production_ready" ]
+
+  grep -q '^# Milestone 157: Production Readiness Claim Safety Regression$' "$milestone"
+  grep -q 'b827e9c27b586442a83f75b2aac8725ce5817261' "$milestone"
+  grep -q 'M156 positive production-readiness support claim' "$milestone"
+  grep -q 'No Atlas runtime behavior changed.' "$milestone"
+  grep -q 'atlas-retention-m157' "$milestone"
+  grep -q 'MILESTONE_157.md' "$milestone_index"
+  grep -q 'Production Readiness Claim Safety Regression' "$milestone_index"
+  grep -q 'atlas-retention-m157' "$milestone_index"
+}
+
 @test "capability manifest defines machine-readable governance root" {
   manifest="$TEST_ROOT/toolkit/capabilities.yaml"
   schema="$TEST_ROOT/toolkit/schemas/capability.v1.schema.json"
