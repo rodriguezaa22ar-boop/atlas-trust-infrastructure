@@ -51,6 +51,13 @@ CodeQL runs as an automated code scanning signal for tracked public source. It
 does not replace manual review, external audit, runtime testing, or Atlas'
 retained trust-packet verification.
 
+Repository workflows pin third-party GitHub Actions to immutable commits where
+the upstream action supports it.
+
+Dependabot is configured for GitHub Actions updates.
+
+Maintainers review new pins intentionally.
+
 ## Supported Surface
 
 The public repository supports reports against tracked source, tests,

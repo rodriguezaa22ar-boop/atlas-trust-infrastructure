@@ -93,3 +93,16 @@ Pull requests should include:
 For readiness, release trust, retention, business-flow evidence, or packet
 schema changes, include the verification command output summary in the pull
 request description.
+
+Use the repository pull request template when available. It asks for scope,
+validation, boundary checks, and reviewer notes so public trust changes remain
+metadata-only and reviewable.
+
+## Issues And Conduct
+
+Use the issue templates for reproducible bugs and trust-claim or documentation
+concerns. Public issues must stay metadata-only and must not include secrets,
+raw target data, raw logs, raw prompts, raw model output, or private runtime
+evidence.
+
+Participation is governed by [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).

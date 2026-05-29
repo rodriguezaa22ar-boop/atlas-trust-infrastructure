@@ -138,6 +138,7 @@ write_test_slsa_reference() {
     (.allow_paths | index("ledger/")) and
     (.allow_paths | index("approval/")) and
     (.allow_paths | index("policy/")) and
+    (.allow_paths | index("CODE_OF_CONDUCT.md")) and
     (.allow_paths | index("exports/public-trust-manifest.json")) and
     (.forbidden_paths | index("sessions/")) and
     (.forbidden_paths | index("state/")) and
@@ -3402,6 +3403,94 @@ write_test_slsa_reference() {
   ! grep -Eiq 'Atlas (certifies|guarantees|is externally audited|is legal compliance|is tamper-proof)' "$control_map"
 }
 
+@test "M155 repo hygiene hardens trust claim safety surface" {
+  qa_workflow="$TEST_ROOT/toolkit/.github/workflows/qa.yml"
+  codeql_workflow="$TEST_ROOT/toolkit/.github/workflows/codeql.yml"
+  dependabot="$TEST_ROOT/toolkit/.github/dependabot.yml"
+  pr_template="$TEST_ROOT/toolkit/.github/pull_request_template.md"
+  issue_dir="$TEST_ROOT/toolkit/.github/ISSUE_TEMPLATE"
+  bug_template="$issue_dir/bug_report.md"
+  trust_docs_template="$issue_dir/trust_claim_or_docs.md"
+  issue_config="$issue_dir/config.yml"
+  conduct="$TEST_ROOT/toolkit/CODE_OF_CONDUCT.md"
+  contributing="$TEST_ROOT/toolkit/CONTRIBUTING.md"
+  security_policy="$TEST_ROOT/toolkit/SECURITY.md"
+  docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
+  ci_doc="$TEST_ROOT/toolkit/docs/CI.md"
+  manifest="$TEST_ROOT/toolkit/exports/public-trust-manifest.json"
+  milestone="$TEST_ROOT/toolkit/docs/retention/milestones/MILESTONE_155.md"
+  milestone_index="$TEST_ROOT/toolkit/docs/retention/MILESTONE_INDEX.md"
+  trust_claim="$TEST_ROOT/toolkit/docs/TRUST_CLAIM_LADDER.md"
+  control_map="$TEST_ROOT/toolkit/docs/reviews/CONTROL_OBJECTIVE_MAPPING.md"
+
+  [ -f "$qa_workflow" ]
+  [ -f "$codeql_workflow" ]
+  [ -f "$dependabot" ]
+  [ -f "$pr_template" ]
+  [ -d "$issue_dir" ]
+  [ -f "$bug_template" ]
+  [ -f "$trust_docs_template" ]
+  [ -f "$issue_config" ]
+  [ -f "$conduct" ]
+  [ -f "$milestone" ]
+  [ -f "$milestone_index" ]
+
+  grep -q 'actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd' "$qa_workflow"
+  grep -q 'cachix/install-nix-action@ab739621df7a23f52766f9ccc97f38da6b7af14f' "$qa_workflow"
+  ! grep -q 'actions/checkout@v6' "$qa_workflow"
+  ! grep -q 'cachix/install-nix-action@v31' "$qa_workflow"
+  grep -q 'github/codeql-action/init@7211b7c8077ea37d8641b6271f6a365a22a5fbfa' "$codeql_workflow"
+  grep -q 'github/codeql-action/analyze@7211b7c8077ea37d8641b6271f6a365a22a5fbfa' "$codeql_workflow"
+  ! grep -q 'github/codeql-action/init@v4' "$codeql_workflow"
+  ! grep -q 'github/codeql-action/analyze@v4' "$codeql_workflow"
+  ! grep -E '^[[:space:]]*uses: .+@(v[0-9]+|main|master)$' "$qa_workflow" "$codeql_workflow"
+
+  grep -q 'package-ecosystem: "github-actions"' "$dependabot"
+  grep -q 'directory: "/"' "$dependabot"
+  grep -q 'interval: "weekly"' "$dependabot"
+  grep -q 'github-actions' "$dependabot"
+
+  grep -q '^# Purpose$' "$pr_template"
+  grep -q 'Boundary Check' "$pr_template"
+  grep -q 'No secrets, tokens, private keys, passwords, or session cookies added' "$pr_template"
+  grep -q 'No certification, legal compliance, tamper-proof, guaranteed safety, or' "$pr_template"
+  grep -q 'model correctness claim added' "$pr_template"
+
+  grep -q 'metadata-only detail' "$bug_template"
+  grep -q 'No credentials, tokens, passwords, private keys, or session cookies' "$bug_template"
+  grep -q 'Trust claim or docs issue' "$trust_docs_template"
+  grep -q 'Language risks overclaiming' "$trust_docs_template"
+  grep -q 'This issue is metadata-only' "$trust_docs_template"
+  grep -q 'Security vulnerability report' "$issue_config"
+
+  grep -q '^# Code of Conduct$' "$conduct"
+  grep -q 'authorized-use boundary' "$conduct"
+  grep -q 'metadata-only examples' "$conduct"
+  grep -q 'raw target data' "$conduct"
+  grep -q 'safety-guaranteed' "$conduct"
+  grep -q 'Security-sensitive reports should follow' "$conduct"
+  grep -q 'CODE_OF_CONDUCT.md' "$docs_index"
+  grep -q 'conduct expectations for the' "$docs_index"
+  grep -q 'CODE_OF_CONDUCT.md' "$contributing"
+  grep -q 'Dependabot is configured for GitHub Actions updates' "$security_policy"
+  grep -q '.github/dependabot.yml' "$ci_doc"
+  grep -q 'QA and CodeQL workflows follow the same public trust rule' "$ci_doc"
+  grep -q 'CodeQL workflow pins `github/codeql-action` v4 to an immutable commit' "$ci_doc"
+  jq -e '(.allow_paths | index("CODE_OF_CONDUCT.md")) and (.allow_paths | index(".github/"))' "$manifest"
+
+  grep -q '^# Milestone 155: Trust Claim Safety Repo Hygiene Hardening$' "$milestone"
+  grep -q 'bae34cfb6dc16cf2e1f78c619a688126257f1424' "$milestone"
+  grep -q 'CodeQL unpinned-action alert' "$milestone"
+  grep -q 'No Atlas runtime behavior changed.' "$milestone"
+  grep -q 'atlas-retention-m155' "$milestone"
+  grep -q 'MILESTONE_155.md' "$milestone_index"
+  grep -q 'Trust Claim Safety Repo Hygiene Hardening' "$milestone_index"
+  grep -q 'atlas-retention-m155' "$milestone_index"
+
+  ! grep -Eiq 'Atlas (certifies|guarantees|is externally audited|is legally compliant|is legal compliance|is tamper-proof|proves compliance|proves model correctness|proves runtime safety|prevents fraud|is fraud-proof|is fully secure)' "$trust_claim"
+  ! grep -Eiq 'Atlas (certifies|guarantees|is externally audited|is legally compliant|is legal compliance|is tamper-proof|proves compliance|proves model correctness|proves runtime safety|prevents fraud|is fraud-proof|is fully secure)' "$control_map"
+}
+
 @test "capability manifest defines machine-readable governance root" {
   manifest="$TEST_ROOT/toolkit/capabilities.yaml"
   schema="$TEST_ROOT/toolkit/schemas/capability.v1.schema.json"
@@ -6186,7 +6275,8 @@ EOF
   grep -q '^name: QA$' "$workflow"
   grep -q 'pull_request:' "$workflow"
   grep -q 'workflow_dispatch:' "$workflow"
-  grep -q 'actions/checkout@v6' "$workflow"
+  grep -q 'actions/checkout v6 pinned to immutable commit' "$workflow"
+  grep -q 'actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd' "$workflow"
   grep -q 'fetch-depth: 0' "$workflow"
   grep -q 'fetch-tags: true' "$workflow"
   grep -q 'Prepare pull request branch context' "$workflow"
@@ -6194,15 +6284,20 @@ EOF
   grep -q "git fetch origin '+refs/heads/main:refs/remotes/origin/main'" "$workflow"
   grep -q 'git checkout -B "${GITHUB_HEAD_REF:-pull-request}" HEAD' "$workflow"
   grep -q 'git branch --set-upstream-to=origin/main "${GITHUB_HEAD_REF:-pull-request}"' "$workflow"
-  grep -q 'cachix/install-nix-action@v31' "$workflow"
+  grep -q 'cachix/install-nix-action v31 pinned to immutable commit' "$workflow"
+  grep -q 'cachix/install-nix-action@ab739621df7a23f52766f9ccc97f38da6b7af14f' "$workflow"
   grep -q 'nix_path: nixpkgs=channel:nixos-unstable' "$workflow"
   grep -q 'git diff --check' "$workflow"
   grep -q "nix-shell --run './bin/dev-qa'" "$workflow"
   grep -q "nix-shell --run './tools/atlas/bin/atlas v1 status --strict'" "$workflow"
   ! grep -q 'atlas production status' "$workflow"
+  ! grep -q 'actions/checkout@v6' "$workflow"
+  ! grep -q 'cachix/install-nix-action@v31' "$workflow"
 
   grep -q '.github/workflows/qa.yml' "$ci_doc"
   grep -q 'including tags' "$ci_doc"
+  grep -q '`actions/checkout` v6 pinned to an immutable commit' "$ci_doc"
+  grep -q '`cachix/install-nix-action` v31 pinned to an immutable commit' "$ci_doc"
   grep -q 'pull request branch context that tracks `origin/main`' "$ci_doc"
   grep -q 'For `pull_request` events' "$ci_doc"
   grep -q "nix-shell --run './bin/dev-qa'" "$ci_doc"
@@ -6245,14 +6340,19 @@ EOF
   grep -q 'schedule:' "$codeql_workflow"
   grep -q 'workflow_dispatch:' "$codeql_workflow"
   grep -q 'security-events: write' "$codeql_workflow"
-  grep -q 'actions/checkout@v6' "$codeql_workflow"
-  grep -q 'github/codeql-action/init@v4' "$codeql_workflow"
-  grep -q 'github/codeql-action/analyze@v4' "$codeql_workflow"
+  grep -q 'actions/checkout v6 pinned to immutable commit' "$codeql_workflow"
+  grep -q 'actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd' "$codeql_workflow"
+  grep -q 'github/codeql-action v4 pinned to immutable commit' "$codeql_workflow"
+  grep -q 'github/codeql-action/init@7211b7c8077ea37d8641b6271f6a365a22a5fbfa' "$codeql_workflow"
+  grep -q 'github/codeql-action/analyze@7211b7c8077ea37d8641b6271f6a365a22a5fbfa' "$codeql_workflow"
   grep -q "github.repository == 'rodriguezaa22ar-boop/atlas-trust-infrastructure'" "$codeql_workflow"
   grep -q 'languages: actions' "$codeql_workflow"
   grep -q 'build-mode: none' "$codeql_workflow"
   grep -q 'security-extended,security-and-quality' "$codeql_workflow"
   grep -q 'category: "/language:actions"' "$codeql_workflow"
+  ! grep -q 'actions/checkout@v6' "$codeql_workflow"
+  ! grep -q 'github/codeql-action/init@v4' "$codeql_workflow"
+  ! grep -q 'github/codeql-action/analyze@v4' "$codeql_workflow"
   ! grep -q 'javascript-typescript' "$codeql_workflow"
 
   grep -q '.github/workflows/codeql.yml' "$ci_doc"
@@ -6264,11 +6364,14 @@ EOF
   grep -q 'does not replace manual review, external audit, runtime' "$ci_doc"
   grep -q 'Shell-heavy Atlas' "$ci_doc"
   grep -q 'runtime behavior still depends on the local QA gate' "$ci_doc"
+  grep -q 'CodeQL workflow pins `github/codeql-action` v4 to an immutable commit' "$ci_doc"
+  grep -q 'scans the GitHub Actions workflow surface with `languages: actions`' "$ci_doc"
   grep -q 'automated code scanning signal for tracked public source' "$readme"
   grep -q "does not replace manual review, external audit, runtime testing, or Atlas'" "$readme"
   grep -q '^## Automated Code Scanning$' "$security_policy"
   grep -q 'automated code scanning signal for tracked public source' "$security_policy"
   grep -q "does not replace manual review, external audit, runtime testing, or Atlas'" "$security_policy"
+  grep -q 'Dependabot is configured for GitHub Actions updates' "$security_policy"
 
   grep -q '^name: Release Trust$' "$release_trust_workflow"
   grep -q 'pull_request:' "$release_trust_workflow"
@@ -6305,6 +6408,8 @@ EOF
   ! grep -q -- '--skip-qa' "$release_trust_workflow"
 
   grep -q 'pins third-party GitHub Actions to immutable commit' "$ci_doc"
+  grep -q 'QA and CodeQL workflows follow the same public trust rule' "$ci_doc"
+  grep -q '.github/dependabot.yml' "$ci_doc"
   grep -q 'mutable' "$ci_doc"
   grep -q 'tags are not the trust anchor' "$ci_doc"
 

@@ -44,8 +44,9 @@ It checks:
 
 - a full Git checkout, including tags, so retained release provenance and
   release artifact manifests can verify signed tags
-- current `actions/checkout@v6` checkout plumbing to avoid the Node 20
-  deprecation path for GitHub-hosted Actions
+- `actions/checkout` v6 pinned to an immutable commit to avoid mutable action
+  refs while retaining current GitHub-hosted checkout plumbing
+- `cachix/install-nix-action` v31 pinned to an immutable commit for Nix setup
 - pull request branch context that tracks `origin/main`, so Atlas release-gate
   tests have the same upstream comparison contract they expect in local
   development
@@ -116,6 +117,11 @@ The release-trust workflow pins third-party GitHub Actions to immutable commit
 SHAs. Human-readable comments record the upstream version tags, but mutable
 tags are not the trust anchor for this retained-evidence gate.
 
+The QA and CodeQL workflows follow the same public trust rule for third-party
+actions. Dependabot is configured in `.github/dependabot.yml` to propose
+GitHub Actions updates, but reviewed immutable commit pins remain the workflow
+trust anchor.
+
 Signed-tag verification in the release-trust workflow imports the retained
 public key into a temporary keyring with `gpg --batch --no-autostart --import`.
 Local reviewers should use `nix-shell --run '<atlas command>'` for parity with
@@ -156,6 +162,10 @@ enabled there. It does not replace manual review, external audit, runtime
 testing, or Atlas' own retained trust-packet verification. Shell-heavy Atlas
 runtime behavior still depends on the local QA gate, shell linting, Bats
 coverage, review, and retained packet verification.
+
+The CodeQL workflow pins `github/codeql-action` v4 to an immutable commit and
+scans the GitHub Actions workflow surface with `languages: actions` and
+`build-mode: none`.
 
 JavaScript/TypeScript CodeQL analysis should be added only when the public
 repository contains tracked JavaScript or TypeScript source. Until then, the

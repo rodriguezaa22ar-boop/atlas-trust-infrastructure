@@ -226,6 +226,8 @@ repository in filesystem order.
   no-secrets disclosure boundary.
 - [../CONTRIBUTING.md](../CONTRIBUTING.md): public contribution rules and QA
   expectations.
+- [../CODE_OF_CONDUCT.md](../CODE_OF_CONDUCT.md): conduct expectations for the
+  public trust and reviewer surface.
 - [agents/AGENT_WORKFLOW.md](agents/AGENT_WORKFLOW.md): agent work protocol.
 
 ## Schemas
