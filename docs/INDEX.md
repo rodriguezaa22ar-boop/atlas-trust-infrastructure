@@ -17,6 +17,8 @@ repository in filesystem order.
   local generic external event import, verify, and replay quickstart.
 - [TRY_AI_AGENT_EVENT_RECEIPTS.md](TRY_AI_AGENT_EVENT_RECEIPTS.md):
   five-minute local AI-agent event import, verify, and replay quickstart.
+- [reviews/GITHUB_ACTIONS_RUN_RECEIPT_CANDIDATE_M151.md](reviews/GITHUB_ACTIONS_RUN_RECEIPT_CANDIDATE_M151.md):
+  first real-world import-only GitHub Actions run/check receipt candidate.
 - [../README.md](../README.md): short landing page with quick start, safety
   boundary, current maturity, and docs map.
 - [REPOSITORY_BOUNDARY.md](REPOSITORY_BOUNDARY.md): public/private repository
@@ -64,6 +66,9 @@ repository in filesystem order.
   output.
 - [TRY_AI_AGENT_EVENT_RECEIPTS.md](TRY_AI_AGENT_EVENT_RECEIPTS.md): copy-paste
   AI-agent event profile import path with expected verify and replay output.
+- [reviews/GITHUB_ACTIONS_RUN_RECEIPT_CANDIDATE_M151.md](reviews/GITHUB_ACTIONS_RUN_RECEIPT_CANDIDATE_M151.md):
+  local-file GitHub Actions run/check event receipt candidate using the
+  generic adapter.
 
 ## Case studies
 
@@ -109,6 +114,9 @@ repository in filesystem order.
 - [adapters/AI_AGENT_EVENT_RECEIPT_PROFILE.md](adapters/AI_AGENT_EVENT_RECEIPT_PROFILE.md):
   M146 metadata-only AI-agent event profile that treats agents as event
   sources, not authorities or execution engines.
+- [reviews/GITHUB_ACTIONS_RUN_RECEIPT_CANDIDATE_M151.md](reviews/GITHUB_ACTIONS_RUN_RECEIPT_CANDIDATE_M151.md):
+  M151 import-only GitHub Actions run/check event candidate using the existing
+  generic external event adapter.
 - [TRY_GENERIC_EVENT_ADAPTER.md](TRY_GENERIC_EVENT_ADAPTER.md): M145
   five-minute local quickstart for the generic external event adapter.
 - [TRY_AI_AGENT_EVENT_RECEIPTS.md](TRY_AI_AGENT_EVENT_RECEIPTS.md): M147
@@ -149,6 +157,9 @@ repository in filesystem order.
   fresh public-clone reviewer dry-run for the AI-agent event receipt path.
 - [reviews/AI_AGENT_EVENT_PROOF_PACKAGE_M150.md](reviews/AI_AGENT_EVENT_PROOF_PACKAGE_M150.md):
   reviewer-facing proof package for the AI-agent event receipt path.
+- [reviews/GITHUB_ACTIONS_RUN_RECEIPT_CANDIDATE_M151.md](reviews/GITHUB_ACTIONS_RUN_RECEIPT_CANDIDATE_M151.md):
+  first real-world import-only GitHub Actions run/check event receipt
+  candidate.
 - [retention/releases/REPLAY_VERIFICATION.md](retention/releases/REPLAY_VERIFICATION.md):
   clean-checkout replay procedure.
 - [atlas/PRODUCTION_READINESS.md](atlas/PRODUCTION_READINESS.md): local

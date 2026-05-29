@@ -2770,6 +2770,181 @@ write_test_slsa_reference() {
   '
 }
 
+@test "M151 GitHub Actions run receipt candidate imports verifies and replays" {
+  candidate_doc="$TEST_ROOT/toolkit/docs/reviews/GITHUB_ACTIONS_RUN_RECEIPT_CANDIDATE_M151.md"
+  docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
+  milestone="$TEST_ROOT/toolkit/docs/retention/milestones/MILESTONE_151.md"
+  milestone_index="$TEST_ROOT/toolkit/docs/retention/MILESTONE_INDEX.md"
+  run_event="$TEST_ROOT/toolkit/examples/adapters/generic-external-event/github-actions-run-event.json"
+  check_event="$TEST_ROOT/toolkit/examples/adapters/generic-external-event/github-actions-check-event.json"
+
+  [ -f "$candidate_doc" ]
+  [ -f "$milestone" ]
+  [ -f "$run_event" ]
+  [ -f "$check_event" ]
+
+  grep -q '^# GitHub Actions Run Receipt Candidate M151$' "$candidate_doc"
+  grep -q '1a80a80439a08c41e34d87c3e8f1bdef1ecc4a3e' "$candidate_doc"
+  grep -q 'existing generic external event adapter' "$candidate_doc"
+  grep -q 'generic.external_event.v1' "$candidate_doc"
+  grep -q 'github-actions-run-event.json' "$candidate_doc"
+  grep -q 'github-actions-check-event.json' "$candidate_doc"
+  grep -q 'receipt import-generic-event' "$candidate_doc"
+  grep -q 'receipt verify' "$candidate_doc"
+  grep -q 'receipt replay' "$candidate_doc"
+  grep -q 'metadata-only boundary: ok' "$candidate_doc"
+  grep -q 'local-file input only' "$candidate_doc"
+  grep -q 'no GitHub API calls' "$candidate_doc"
+  grep -q 'no webhook server' "$candidate_doc"
+  grep -q 'no network collector' "$candidate_doc"
+  grep -q 'no GitHub Actions execution' "$candidate_doc"
+  grep -q 'no database' "$candidate_doc"
+  grep -q 'no new adapter runtime' "$candidate_doc"
+  grep -q 'no hidden state' "$candidate_doc"
+  grep -q 'no production readiness' "$candidate_doc"
+  grep -q 'What Atlas Proves' "$candidate_doc"
+  grep -q 'What Atlas Does Not Prove' "$candidate_doc"
+  grep -q 'Known Limitations' "$candidate_doc"
+  grep -q 'Reviewer Checklist' "$candidate_doc"
+
+  grep -q 'reviews/GITHUB_ACTIONS_RUN_RECEIPT_CANDIDATE_M151.md' "$docs_index"
+  grep -q '^# Milestone 151: GitHub Actions Run Receipt Candidate$' "$milestone"
+  grep -q 'docs/reviews/GITHUB_ACTIONS_RUN_RECEIPT_CANDIDATE_M151.md' "$milestone"
+  grep -q 'No GitHub API calls.' "$milestone"
+  grep -q 'No webhook server.' "$milestone"
+  grep -q 'No network collector.' "$milestone"
+  grep -q 'No action execution.' "$milestone"
+  grep -q 'No new adapter runtime.' "$milestone"
+  grep -q 'No hidden state.' "$milestone"
+  grep -q 'No receipt semantics changed.' "$milestone"
+  grep -q 'atlas-retention-m151' "$milestone"
+  grep -q 'MILESTONE_151.md' "$milestone_index"
+  grep -q 'atlas-retention-m151' "$milestone_index"
+
+  for event_file in "$run_event" "$check_event"; do
+    jq -e '
+      .schema_version == "generic.external_event.v1" and
+      .adapter_id == "generic.external_event.v1" and
+      .metadata_only == true and
+      .raw_artifacts_embedded == false and
+      (.artifact_refs | length) == 0 and
+      (.approval_refs | length) == 0 and
+      (.known_limitations | length) > 0 and
+      (.evidence_refs | index("docs/reviews/GITHUB_ACTIONS_RUN_RECEIPT_CANDIDATE_M151.md")) and
+      (.evidence_refs | index("schemas/generic-external-event.v1.schema.json"))
+    ' "$event_file"
+  done
+
+  jq -e '
+    .event_id == "m151-github-actions-run-completed" and
+    .event_type == "github.actions.workflow_run.completed" and
+    .actor == "github-actions[bot]" and
+    .subject.type == "github-actions-workflow-run" and
+    .subject.ref == "atlas-trust-infrastructure/actions/runs/1510000001" and
+    (.evidence_refs | index("github-actions://run/1510000001")) and
+    (.evidence_refs | index("github-actions://conclusion/success"))
+  ' "$run_event"
+
+  jq -e '
+    .event_id == "m151-github-actions-check-completed" and
+    .event_type == "github.actions.check_run.completed" and
+    .actor == "github-actions[bot]" and
+    .subject.type == "github-actions-check-run" and
+    .subject.ref == "atlas-trust-infrastructure/check-runs/1510000002" and
+    (.evidence_refs | index("github-actions://run/1510000001")) and
+    (.evidence_refs | index("github-actions://check_run/1510000002"))
+  ' "$check_event"
+
+  rm -rf \
+    "$TEST_ROOT/toolkit/logs" \
+    "$TEST_ROOT/toolkit/releases" \
+    "$TEST_ROOT/toolkit/reports" \
+    "$TEST_ROOT/toolkit/sessions" \
+    "$TEST_ROOT/toolkit/state" \
+    "$TEST_ROOT/toolkit/targets"
+  before_dirs="$(find "$TEST_ROOT/toolkit" -maxdepth 2 -type d | sort)"
+
+  run_receipt="$TEST_ROOT/m151-github-actions-run-receipt.json"
+  check_receipt="$TEST_ROOT/m151-github-actions-check-receipt.json"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt import-generic-event \
+    "$run_event" \
+    --out "$run_receipt"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"receipt: $run_receipt"* ]]
+  [ -f "$run_receipt" ]
+
+  jq -e '
+    .receipt_id == "receipt_generic_external_event_v1_m151-github-actions-run-completed" and
+    .timestamp == "2026-05-28T23:10:00Z" and
+    .action == "github.actions.workflow_run.completed" and
+    .actor == "github-actions[bot]" and
+    .subject.type == "github-actions-workflow-run" and
+    .metadata_only == true and
+    .raw_artifacts_embedded == false and
+    .prev_hash == null and
+    (.evidence_refs | index("examples/adapters/generic-external-event/github-actions-run-event.json")) and
+    (.known_limitations | index("Imported from a local generic.external_event.v1 file; Atlas does not call, control, or verify the source system."))
+  ' "$run_receipt"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt verify "$run_receipt" --json
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" | jq -e '
+    .schema_version == "atlas.receipt_verify.v1" and
+    .status == "ok" and
+    .metadata_only == true and
+    .raw_artifacts_embedded == false
+  '
+
+  prev_hash="$(jq -r '.event_hash' "$run_receipt")"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt import-generic-event \
+    "$check_event" \
+    --prev-hash "$prev_hash" \
+    --out "$check_receipt"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"receipt: $check_receipt"* ]]
+  [ -f "$check_receipt" ]
+
+  jq -e \
+    --arg prev_hash "$prev_hash" '
+    .receipt_id == "receipt_generic_external_event_v1_m151-github-actions-check-completed" and
+    .timestamp == "2026-05-28T23:12:00Z" and
+    .action == "github.actions.check_run.completed" and
+    .actor == "github-actions[bot]" and
+    .subject.type == "github-actions-check-run" and
+    .metadata_only == true and
+    .raw_artifacts_embedded == false and
+    .prev_hash == $prev_hash and
+    (.evidence_refs | index("examples/adapters/generic-external-event/github-actions-check-event.json"))
+  ' "$check_receipt"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt verify "$check_receipt" --json
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" | jq -e '
+    .schema_version == "atlas.receipt_verify.v1" and
+    .status == "ok" and
+    .metadata_only == true and
+    .raw_artifacts_embedded == false
+  '
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt replay "$run_receipt" "$check_receipt" --json
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" | jq -e \
+    --arg prev_hash "$prev_hash" '
+    .schema_version == "atlas.receipt_replay.v1" and
+    .status == "ok" and
+    .metadata_only == true and
+    .raw_artifacts_embedded == false and
+    .receipt_count == 2 and
+    .chain[0].linkage_status == "genesis" and
+    .chain[1].prev_hash == $prev_hash and
+    .ledger_binding.status == "ok"
+  '
+
+  after_dirs="$(find "$TEST_ROOT/toolkit" -maxdepth 2 -type d | sort)"
+  [ "$before_dirs" = "$after_dirs" ]
+}
+
 @test "capability manifest defines machine-readable governance root" {
   manifest="$TEST_ROOT/toolkit/capabilities.yaml"
   schema="$TEST_ROOT/toolkit/schemas/capability.v1.schema.json"

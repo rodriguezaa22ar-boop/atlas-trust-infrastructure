@@ -1,0 +1,31 @@
+{
+  "schema_version": "generic.external_event.v1",
+  "adapter_id": "generic.external_event.v1",
+  "event_id": "m151-github-actions-run-completed",
+  "observed_at": "2026-05-28T23:10:00Z",
+  "event_type": "github.actions.workflow_run.completed",
+  "actor": "github-actions[bot]",
+  "source_ref": "examples/adapters/generic-external-event/github-actions-run-event.json",
+  "subject": {
+    "type": "github-actions-workflow-run",
+    "ref": "atlas-trust-infrastructure/actions/runs/1510000001"
+  },
+  "evidence_refs": [
+    "docs/reviews/GITHUB_ACTIONS_RUN_RECEIPT_CANDIDATE_M151.md",
+    "schemas/generic-external-event.v1.schema.json",
+    "github-actions://repository/atlas-trust-infrastructure",
+    "github-actions://workflow/nix-qa",
+    "github-actions://run/1510000001",
+    "github-actions://head_sha/1a80a80439a08c41e34d87c3e8f1bdef1ecc4a3e",
+    "github-actions://conclusion/success"
+  ],
+  "artifact_refs": [],
+  "approval_refs": [],
+  "metadata_only": true,
+  "raw_artifacts_embedded": false,
+  "known_limitations": [
+    "Representative local GitHub Actions metadata sample only; Atlas does not call GitHub or verify that this run exists.",
+    "The event does not embed workflow logs, check annotations, artifacts, webhook payloads, credentials, or secrets.",
+    "A receipt proves local metadata shape, deterministic receipt hashing, and replay linkage only; it does not prove source-system truth, run correctness, authorization, or production approval."
+  ]
+}
