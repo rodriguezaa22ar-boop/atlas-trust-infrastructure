@@ -14,6 +14,8 @@ repository in filesystem order.
 - [TRUST_CLAIM_LADDER.md](TRUST_CLAIM_LADDER.md): positive claim ladder
   mapping Atlas receipts, adapters, proof packages, and reviewer workflows to
   review objectives.
+- [reviews/PRODUCTION_READINESS_CONTROL_MAPPING_M156.md](reviews/PRODUCTION_READINESS_CONTROL_MAPPING_M156.md):
+  production-readiness control mapping under the local Atlas contract.
 - [TRY_RECEIPTS.md](TRY_RECEIPTS.md): five-minute local receipt verify and
   replay quickstart.
 - [TRY_GENERIC_EVENT_ADAPTER.md](TRY_GENERIC_EVENT_ADAPTER.md): five-minute
@@ -40,6 +42,7 @@ repository in filesystem order.
 - Release reviewer: [RELEASE_TRUST.md](RELEASE_TRUST.md)
 - SLSA reviewer: [atlas/SLSA_CLAIM.md](atlas/SLSA_CLAIM.md)
 - External reviewer: [atlas/EXTERNAL_REVIEWER_PACKAGE.md](atlas/EXTERNAL_REVIEWER_PACKAGE.md)
+- Production readiness reviewer: [reviews/PRODUCTION_READINESS_CONTROL_MAPPING_M156.md](reviews/PRODUCTION_READINESS_CONTROL_MAPPING_M156.md)
 - Control reviewer: [reviews/CONTROL_OBJECTIVE_MAPPING.md](reviews/CONTROL_OBJECTIVE_MAPPING.md)
 - Contributor: [../CONTRIBUTING.md](../CONTRIBUTING.md)
 - Security reporter: [../SECURITY.md](../SECURITY.md)
@@ -135,7 +138,11 @@ repository in filesystem order.
 - [reviews/CONTROL_OBJECTIVE_MAPPING.md](reviews/CONTROL_OBJECTIVE_MAPPING.md):
   maps receipts, adapters, proof packages, and reviewer workflows to AI-agent
   governance, CI integrity, release governance, approval integrity, and audit
-  readiness, and business workflow assurance objectives.
+  readiness, production-readiness review, and business workflow assurance
+  objectives.
+- [reviews/PRODUCTION_READINESS_CONTROL_MAPPING_M156.md](reviews/PRODUCTION_READINESS_CONTROL_MAPPING_M156.md):
+  maps the production-readiness contract to retained evidence, verification
+  commands, positive support claims, and outside-Atlas determinations.
 - [TRY_GENERIC_EVENT_ADAPTER.md](TRY_GENERIC_EVENT_ADAPTER.md): M145
   five-minute local quickstart for the generic external event adapter.
 - [TRY_AI_AGENT_EVENT_RECEIPTS.md](TRY_AI_AGENT_EVENT_RECEIPTS.md): M147
@@ -168,8 +175,12 @@ repository in filesystem order.
   translating Atlas proof records into bounded reviewer objectives.
 - [reviews/CONTROL_OBJECTIVE_MAPPING.md](reviews/CONTROL_OBJECTIVE_MAPPING.md):
   control-objective mapping for AI-agent governance, CI integrity, release
-  governance, approval integrity, audit readiness, and business workflow
-  assurance.
+  governance, production-readiness review, approval integrity, audit readiness,
+  and business workflow assurance.
+- [reviews/PRODUCTION_READINESS_CONTROL_MAPPING_M156.md](reviews/PRODUCTION_READINESS_CONTROL_MAPPING_M156.md):
+  production-readiness control mapping for the local Atlas contract, release
+  trust, artifact manifest, signing/provenance, production dry-run, reviewer
+  package, and public export evidence.
 - [retention/reviews/atlas-v0.4.0-rc1-review-packet.md](retention/reviews/atlas-v0.4.0-rc1-review-packet.md):
   executable independent-review packet for the retained v0.4.0-rc1 SLSA
   evidence.
@@ -209,6 +220,9 @@ repository in filesystem order.
 - [atlas/V1_INTERNAL_RC.md](atlas/V1_INTERNAL_RC.md): Atlas v1 Internal Release Candidate scope, verification checklist, and non-guarantees.
 - [atlas/PRODUCTION_READINESS.md](atlas/PRODUCTION_READINESS.md): stricter
   production-readiness gates.
+- [reviews/PRODUCTION_READINESS_CONTROL_MAPPING_M156.md](reviews/PRODUCTION_READINESS_CONTROL_MAPPING_M156.md):
+  reviewer-facing mapping from production-readiness gates to control
+  objectives and outside-Atlas determinations.
 - [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md): what Atlas still does not
   claim.
 

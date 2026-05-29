@@ -13,6 +13,7 @@ remaining outside-Atlas determination.
 | AI-agent action governance | AI-agent profile, proposed-action/result examples, M148 regression, M150 proof package, linked receipts. | `atlas receipt import-generic-event`; `atlas receipt verify`; `atlas receipt replay`. | Atlas supports review of AI-agent activity as metadata-only event-source evidence. | Authorization, approval sufficiency, model correctness, usefulness, and risk acceptance. |
 | GitHub Actions / CI integrity | GitHub Actions run/check examples, M151 candidate, M152 regression, M153 proof package, linked receipts. | `atlas receipt import-generic-event`; `atlas receipt verify`; `atlas receipt replay`. | Atlas supports review of CI run/check metadata as local-file, import-only receipts. | Source-system truth, run authority, CI policy acceptance, and external GitHub-side evidence needs. |
 | release governance | Release packet, release manifest, signed tag metadata, retained SLSA reference metadata when present, release replay output. | `atlas release verify`; `atlas release manifest-verify`; `atlas release replay`; `git tag -v`. | Atlas supports review of retained release evidence and replayable release-trust state. | Release approval, deployment decision, external release review, certification, and residual risk acceptance. |
+| production-readiness review | Production-readiness contract, v1 readiness, clean/synced repo state, release trust packet, artifact manifest, signing/provenance, production dry-run, reviewer package, public export check. | `atlas production status --strict --explain`; `atlas v1 status --strict`; `atlas release verify`; `atlas release manifest-verify`; `atlas reviewer package`; `bin/export-public-trust --check`. | Atlas supports production-readiness review under the local Atlas contract with retained, verifiable release evidence. | External production certification, deployment approval, external audit completion, legal compliance, artifact correctness, and residual risk acceptance. |
 | approval integrity | Approval event JSON, policy refs, receipt `approval_refs`, requester/approver/risk/scope/expiry/rationale metadata. | `atlas approval verify`; `atlas policy evaluate`; `atlas receipt verify`; `atlas receipt replay`. | Atlas supports review of approval evidence linked to governed actions. | Approver authority, rule-of-engagement sufficiency, policy interpretation, and risk acceptance. |
 | audit readiness | Reviewer package, public export manifest, proof packages, retained milestones, known limitations. | `atlas reviewer package`; `bin/export-public-trust --check`; receipt and release verifier commands. | Atlas supports cloneable, bounded review of public trust evidence. | Audit objective definition, evidence sufficiency, external audit completion, and follow-up scope. |
 | business workflow assurance | Business-flow records, control objective labels, evidence/finding/validation/approval/retention links, flow packet, assurance status. | `atlas flow packet`; `atlas flow verify`; `atlas flow assurance`; `atlas op trust-chain`. | Atlas supports review of workflow evidence coverage without embedding sensitive business data. | Business control effectiveness, process owner acceptance, compliance conclusion, and remediation priority. |
@@ -133,6 +134,61 @@ Remaining outside-Atlas determination:
 - whether external artifact retrieval is needed;
 - whether an external assurance process grants certification or other formal
   conclusion.
+
+## Production-Readiness Review
+
+Atlas supports production-readiness review by mapping the local production
+contract to retained readiness, release, artifact, provenance, dry-run,
+reviewer, and public export evidence.
+
+Evidence Atlas can provide:
+
+- [atlas/PRODUCTION_READINESS.md](../atlas/PRODUCTION_READINESS.md)
+- [reviews/PRODUCTION_READINESS_CONTROL_MAPPING_M156.md](PRODUCTION_READINESS_CONTROL_MAPPING_M156.md)
+- [TRUST_CLAIM_LADDER.md](../TRUST_CLAIM_LADDER.md)
+- [atlas/V1_PILLAR_READINESS.md](../atlas/V1_PILLAR_READINESS.md)
+- [RELEASE_TRUST.md](../RELEASE_TRUST.md)
+- [atlas/RELEASE_ARTIFACT_MANIFEST.md](../atlas/RELEASE_ARTIFACT_MANIFEST.md)
+- [atlas/SLSA_PROVENANCE.md](../atlas/SLSA_PROVENANCE.md)
+- [atlas/SLSA_CLAIM.md](../atlas/SLSA_CLAIM.md)
+- [atlas/EXTERNAL_REVIEWER_PACKAGE.md](../atlas/EXTERNAL_REVIEWER_PACKAGE.md)
+- [KNOWN_LIMITATIONS.md](../KNOWN_LIMITATIONS.md)
+- retained release packets under `docs/retention/releases/`
+- retained production dry-run notes under `docs/retention/production/`
+- `exports/public-trust-manifest.json`
+
+Verification commands:
+
+```bash
+./tools/atlas/bin/atlas production status --strict --explain
+./tools/atlas/bin/atlas v1 status --strict
+git status --short --branch
+git rev-list --left-right --count HEAD...@{u}
+./tools/atlas/bin/atlas release verify <release-packet> --commit <commit>
+./tools/atlas/bin/atlas release manifest-verify <manifest> --commit <commit>
+./tools/atlas/bin/atlas release replay <release-packet> --json
+git tag -v <tag>
+./tools/atlas/bin/atlas reviewer package full-capability-review
+./bin/export-public-trust --check
+```
+
+Positive support claim:
+
+```text
+Atlas supports production-readiness review under the local Atlas contract with
+retained, metadata-only, verifiable evidence for readiness, release trust,
+artifact manifests, signing/provenance, dry-run evidence, reviewer package
+generation, and public export checks.
+```
+
+Remaining outside-Atlas determination:
+
+- whether the local contract is sufficient for a specific release or
+  deployment decision;
+- whether signing identity and provenance meet external authority expectations;
+- whether artifact contents and distribution channels are accepted;
+- whether dry-run evidence is realistic and sufficient;
+- whether external audit, compliance, or production approval is granted.
 
 ## Approval Integrity
 
