@@ -3634,6 +3634,89 @@ write_test_slsa_reference() {
   grep -q 'atlas-retention-m157' "$milestone_index"
 }
 
+@test "M158 evidence sufficiency report maps objective evidence status" {
+  sufficiency_report="$TEST_ROOT/toolkit/docs/reviews/EVIDENCE_SUFFICIENCY_REPORT_M158.md"
+  production_map="$TEST_ROOT/toolkit/docs/reviews/PRODUCTION_READINESS_CONTROL_MAPPING_M156.md"
+  control_map="$TEST_ROOT/toolkit/docs/reviews/CONTROL_OBJECTIVE_MAPPING.md"
+  docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
+  milestone="$TEST_ROOT/toolkit/docs/retention/milestones/MILESTONE_158.md"
+  milestone_index="$TEST_ROOT/toolkit/docs/retention/MILESTONE_INDEX.md"
+
+  [ -f "$sufficiency_report" ]
+  [ -f "$production_map" ]
+  [ -f "$control_map" ]
+  [ -f "$milestone" ]
+
+  grep -q '^# Evidence Sufficiency Report M158$' "$sufficiency_report"
+  sed -n '1,16p' "$sufficiency_report" | grep -q '^Atlas supports evidence sufficiency review'
+  ! sed -n '1,16p' "$sufficiency_report" | grep -q 'Atlas does not'
+
+  grep -q 'Positive Support Claim' "$sufficiency_report"
+  grep -q 'Relationship To The Trust Claim Ladder' "$sufficiency_report"
+  grep -q 'Status Vocabulary' "$sufficiency_report"
+  grep -q 'Report Subject' "$sufficiency_report"
+  grep -q 'Evidence Sufficiency Report' "$sufficiency_report"
+  grep -q 'Report Output Shape' "$sufficiency_report"
+  grep -q 'Reviewer Checklist' "$sufficiency_report"
+  grep -q 'Known Limitations' "$sufficiency_report"
+
+  grep -q '`present`' "$sufficiency_report"
+  grep -q '`missing`' "$sufficiency_report"
+  grep -q '`stale`' "$sufficiency_report"
+  grep -q '`unverifiable`' "$sufficiency_report"
+  grep -q 'present | missing | stale | unverifiable' "$sufficiency_report"
+
+  grep -q 'production-readiness review under the local Atlas contract' "$sufficiency_report"
+  grep -q 'TRUST_CLAIM_LADDER.md' "$sufficiency_report"
+  grep -q 'PRODUCTION_READINESS_CONTROL_MAPPING_M156.md' "$sufficiency_report"
+  grep -q 'CONTROL_OBJECTIVE_MAPPING.md' "$sufficiency_report"
+  grep -q 'M157 protects the claim boundary' "$sufficiency_report"
+
+  grep -q 'v1 internal readiness' "$sufficiency_report"
+  grep -q 'repository clean/synced state' "$sufficiency_report"
+  grep -q 'release trust packet' "$sufficiency_report"
+  grep -q 'release artifact manifest' "$sufficiency_report"
+  grep -q 'signing/provenance' "$sufficiency_report"
+  grep -q 'production dry-run evidence' "$sufficiency_report"
+  grep -q 'reviewer package' "$sufficiency_report"
+  grep -q 'public export' "$sufficiency_report"
+  grep -q 'known limitations' "$sufficiency_report"
+
+  grep -q 'atlas production status --strict --explain' "$sufficiency_report"
+  grep -q 'atlas v1 status --strict' "$sufficiency_report"
+  grep -q 'git status --short --branch' "$sufficiency_report"
+  grep -Fq 'git rev-list --left-right --count HEAD...@{u}' "$sufficiency_report"
+  grep -q 'atlas release verify' "$sufficiency_report"
+  grep -q 'atlas release manifest-verify' "$sufficiency_report"
+  grep -q 'atlas release replay' "$sufficiency_report"
+  grep -q 'git tag -v' "$sufficiency_report"
+  grep -q 'atlas reviewer package full-capability-review' "$sufficiency_report"
+  grep -q 'bin/export-public-trust --check' "$sufficiency_report"
+
+  grep -q 'evidence sufficiency review' "$control_map"
+  grep -q 'EVIDENCE_SUFFICIENCY_REPORT_M158.md' "$control_map"
+  grep -q 'Atlas supports review of whether objective evidence is present, missing, stale, or unverifiable.' "$control_map"
+  grep -q 'present, missing, stale, or unverifiable status with local verification paths' "$control_map"
+
+  grep -q 'reviews/EVIDENCE_SUFFICIENCY_REPORT_M158.md' "$docs_index"
+  grep -q 'Evidence sufficiency reviewer' "$docs_index"
+  grep -q 'present, missing, stale, and' "$docs_index"
+
+  grep -q '^# Milestone 158: Evidence Sufficiency Report$' "$milestone"
+  grep -q '23bc4e220e4b92223c93b60230bbd8515cf3561d' "$milestone"
+  grep -q 'Trust Claim Ladder Level 4' "$milestone"
+  grep -q 'No Atlas runtime behavior changed.' "$milestone"
+  grep -q 'atlas-retention-m158' "$milestone"
+  grep -q 'MILESTONE_158.md' "$milestone_index"
+  grep -q 'Evidence Sufficiency Report' "$milestone_index"
+  grep -q 'atlas-retention-m158' "$milestone_index"
+
+  for doc in "$sufficiency_report" "$control_map"; do
+    ! grep -Eiq 'Atlas (certifies|guarantees|is externally audited|is legally compliant|is legal compliance|is tamper-proof|proves compliance|proves model correctness|proves runtime safety|prevents fraud|is fraud-proof|is fully secure)' "$doc"
+    ! grep -Eiq '(Atlas|This support|This report) (grants|creates|provides|proves|certifies|guarantees) (certification|external audit|legal compliance|enterprise deployment approval|external SLSA certification|production deployability|model correctness|runtime safety)' "$doc"
+  done
+}
+
 @test "capability manifest defines machine-readable governance root" {
   manifest="$TEST_ROOT/toolkit/capabilities.yaml"
   schema="$TEST_ROOT/toolkit/schemas/capability.v1.schema.json"
