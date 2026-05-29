@@ -11,6 +11,9 @@ repository in filesystem order.
   who it is for, what it does, and what it does not do.
 - [RECEIPT_OPEN_CORE_RC.md](RECEIPT_OPEN_CORE_RC.md): receipt, replay, and
   reviewer-proof open-core RC packaging checkpoint.
+- [TRUST_CLAIM_LADDER.md](TRUST_CLAIM_LADDER.md): positive claim ladder
+  mapping Atlas receipts, adapters, proof packages, and reviewer workflows to
+  review objectives.
 - [TRY_RECEIPTS.md](TRY_RECEIPTS.md): five-minute local receipt verify and
   replay quickstart.
 - [TRY_GENERIC_EVENT_ADAPTER.md](TRY_GENERIC_EVENT_ADAPTER.md): five-minute
@@ -37,6 +40,7 @@ repository in filesystem order.
 - Release reviewer: [RELEASE_TRUST.md](RELEASE_TRUST.md)
 - SLSA reviewer: [atlas/SLSA_CLAIM.md](atlas/SLSA_CLAIM.md)
 - External reviewer: [atlas/EXTERNAL_REVIEWER_PACKAGE.md](atlas/EXTERNAL_REVIEWER_PACKAGE.md)
+- Control reviewer: [reviews/CONTROL_OBJECTIVE_MAPPING.md](reviews/CONTROL_OBJECTIVE_MAPPING.md)
 - Contributor: [../CONTRIBUTING.md](../CONTRIBUTING.md)
 - Security reporter: [../SECURITY.md](../SECURITY.md)
 
@@ -93,6 +97,8 @@ repository in filesystem order.
 - [demo/DEMO_RECEIPT_PACKET.md](demo/DEMO_RECEIPT_PACKET.md): metadata-only
   receipt replay binding for the synthetic demo path.
 - [TRUST_MODEL.md](TRUST_MODEL.md): trust anchors and verification pattern.
+- [TRUST_CLAIM_LADDER.md](TRUST_CLAIM_LADDER.md): positive review claim
+  ladder for receipts, adapters, proof packages, and reviewer workflows.
 - [RECEIPTS.md](RECEIPTS.md): M131 metadata-only portable proof receipts for
   critical digital actions, with M133 local replay and ledger binding.
 - [RECEIPT_OPEN_CORE_RC.md](RECEIPT_OPEN_CORE_RC.md): reviewer-facing package
@@ -126,6 +132,10 @@ repository in filesystem order.
 - [reviews/GITHUB_ACTIONS_EVENT_PROOF_PACKAGE_M153.md](reviews/GITHUB_ACTIONS_EVENT_PROOF_PACKAGE_M153.md):
   M153 reviewer-facing proof package for the GitHub Actions run/check receipt
   path and its M152 security boundary.
+- [reviews/CONTROL_OBJECTIVE_MAPPING.md](reviews/CONTROL_OBJECTIVE_MAPPING.md):
+  maps receipts, adapters, proof packages, and reviewer workflows to AI-agent
+  governance, CI integrity, release governance, approval integrity, and audit
+  readiness, and business workflow assurance objectives.
 - [TRY_GENERIC_EVENT_ADAPTER.md](TRY_GENERIC_EVENT_ADAPTER.md): M145
   five-minute local quickstart for the generic external event adapter.
 - [TRY_AI_AGENT_EVENT_RECEIPTS.md](TRY_AI_AGENT_EVENT_RECEIPTS.md): M147
@@ -154,6 +164,12 @@ repository in filesystem order.
   reviewer packet expectations for an external release-trust review.
 - [atlas/EXTERNAL_REVIEWER_PACKAGE.md](atlas/EXTERNAL_REVIEWER_PACKAGE.md):
   generated metadata-only reviewer package contract and contents.
+- [TRUST_CLAIM_LADDER.md](TRUST_CLAIM_LADDER.md): positive claim ladder for
+  translating Atlas proof records into bounded reviewer objectives.
+- [reviews/CONTROL_OBJECTIVE_MAPPING.md](reviews/CONTROL_OBJECTIVE_MAPPING.md):
+  control-objective mapping for AI-agent governance, CI integrity, release
+  governance, approval integrity, audit readiness, and business workflow
+  assurance.
 - [retention/reviews/atlas-v0.4.0-rc1-review-packet.md](retention/reviews/atlas-v0.4.0-rc1-review-packet.md):
   executable independent-review packet for the retained v0.4.0-rc1 SLSA
   evidence.
