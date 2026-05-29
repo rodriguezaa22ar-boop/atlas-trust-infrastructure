@@ -3138,6 +3138,171 @@ write_test_slsa_reference() {
   [ "$before_dirs" = "$after_dirs" ]
 }
 
+@test "M153 GitHub Actions event proof package bundles reviewer path" {
+  proof_package="$TEST_ROOT/toolkit/docs/reviews/GITHUB_ACTIONS_EVENT_PROOF_PACKAGE_M153.md"
+  candidate_doc="$TEST_ROOT/toolkit/docs/reviews/GITHUB_ACTIONS_RUN_RECEIPT_CANDIDATE_M151.md"
+  adapter_doc="$TEST_ROOT/toolkit/docs/adapters/GENERIC_EXTERNAL_EVENT_RECEIPT_ADAPTER.md"
+  schema="$TEST_ROOT/toolkit/schemas/generic-external-event.v1.schema.json"
+  docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
+  milestone="$TEST_ROOT/toolkit/docs/retention/milestones/MILESTONE_153.md"
+  m151="$TEST_ROOT/toolkit/docs/retention/milestones/MILESTONE_151.md"
+  m152="$TEST_ROOT/toolkit/docs/retention/milestones/MILESTONE_152.md"
+  milestone_index="$TEST_ROOT/toolkit/docs/retention/MILESTONE_INDEX.md"
+  run_event="$TEST_ROOT/toolkit/examples/adapters/generic-external-event/github-actions-run-event.json"
+  check_event="$TEST_ROOT/toolkit/examples/adapters/generic-external-event/github-actions-check-event.json"
+
+  [ -f "$proof_package" ]
+  [ -f "$candidate_doc" ]
+  [ -f "$adapter_doc" ]
+  [ -f "$schema" ]
+  [ -f "$milestone" ]
+  [ -f "$m151" ]
+  [ -f "$m152" ]
+  [ -f "$run_event" ]
+  [ -f "$check_event" ]
+
+  grep -q '^# GitHub Actions Event Proof Package M153$' "$proof_package"
+  grep -q '3a6ddccc3d9014ed41d5796a56be3503a60a0b4b' "$proof_package"
+  grep -q 'M151 GitHub Actions run receipt candidate' "$proof_package"
+  grep -q 'M152 GitHub Actions event security regression' "$proof_package"
+  grep -q 'docs/reviews/GITHUB_ACTIONS_RUN_RECEIPT_CANDIDATE_M151.md' "$proof_package"
+  grep -q 'docs/retention/milestones/MILESTONE_152.md' "$proof_package"
+  grep -q 'docs/adapters/GENERIC_EXTERNAL_EVENT_RECEIPT_ADAPTER.md' "$proof_package"
+  grep -q 'schemas/generic-external-event.v1.schema.json' "$proof_package"
+  grep -q 'examples/adapters/generic-external-event/github-actions-run-event.json' "$proof_package"
+  grep -q 'examples/adapters/generic-external-event/github-actions-check-event.json' "$proof_package"
+  grep -q 'generic.external_event.v1' "$proof_package"
+  grep -q 'receipt import-generic-event' "$proof_package"
+  grep -q 'receipt verify' "$proof_package"
+  grep -q 'receipt replay' "$proof_package"
+  grep -q 'Expected verifier output shape' "$proof_package"
+  grep -q 'Expected replay output shape' "$proof_package"
+  grep -q 'metadata-only boundary: ok' "$proof_package"
+  grep -q 'It does not prove external artifact availability, human intent, legal compliance, or artifact correctness.' "$proof_package"
+  grep -q 'It does not prove external artifact availability, human intent, legal compliance, artifact correctness, authorization, or production readiness.' "$proof_package"
+  grep -q 'What Atlas Proves' "$proof_package"
+  grep -q 'What Atlas Does Not Prove' "$proof_package"
+  grep -q 'Metadata-Only Boundary' "$proof_package"
+  grep -q 'Known Limitations' "$proof_package"
+  grep -q 'Reviewer Checklist' "$proof_package"
+  grep -q 'GitHub Actions metadata is an event source only.' "$proof_package"
+  grep -q 'Atlas is verifier only.' "$proof_package"
+  grep -q 'Human and policy remain authority.' "$proof_package"
+  grep -q 'No GitHub API calls.' "$proof_package"
+  grep -q 'No webhook server.' "$proof_package"
+  grep -q 'No network collector.' "$proof_package"
+  grep -q 'No action execution.' "$proof_package"
+  grep -q 'No database.' "$proof_package"
+  grep -q 'No new adapter.' "$proof_package"
+  grep -q 'No hidden state.' "$proof_package"
+  grep -q 'No runtime behavior added.' "$proof_package"
+  grep -q 'No receipt semantics changed.' "$proof_package"
+  grep -q 'no production readiness' "$proof_package"
+  grep -q 'GitHub token-shaped markers' "$proof_package"
+  grep -q 'raw_logs' "$proof_package"
+  grep -q 'raw_job_output' "$proof_package"
+  grep -q 'raw_workflow_output' "$proof_package"
+  grep -q 'webhook secret markers' "$proof_package"
+  grep -q 'environment secret fields' "$proof_package"
+  grep -q 'generic external event contains forbidden raw-content marker' "$proof_package"
+  grep -q 'invalid GitHub Actions event profile fields' "$proof_package"
+  grep -q 'This package does not add a GitHub adapter' "$proof_package"
+
+  grep -q 'reviews/GITHUB_ACTIONS_EVENT_PROOF_PACKAGE_M153.md' "$docs_index"
+  grep -q '^# Milestone 153: GitHub Actions Event Proof Package$' "$milestone"
+  grep -q '3a6ddccc3d9014ed41d5796a56be3503a60a0b4b' "$milestone"
+  grep -q 'docs/reviews/GITHUB_ACTIONS_EVENT_PROOF_PACKAGE_M153.md' "$milestone"
+  grep -q 'No runtime behavior added.' "$milestone"
+  grep -q 'No receipt semantics changed.' "$milestone"
+  grep -q 'No new adapter.' "$milestone"
+  grep -q 'Generated GitHub Actions receipts verify.' "$milestone"
+  grep -q 'Linked GitHub Actions receipts replay.' "$milestone"
+  grep -q 'atlas-retention-m153' "$milestone"
+  grep -q 'MILESTONE_153.md' "$milestone_index"
+  grep -q 'atlas-retention-m153' "$milestone_index"
+
+  jq -e '
+    .schema_version == "generic.external_event.v1" and
+    .adapter_id == "generic.external_event.v1" and
+    .metadata_only == true and
+    .raw_artifacts_embedded == false and
+    (.artifact_refs | length) == 0 and
+    (.approval_refs | length) == 0
+  ' "$run_event"
+
+  jq -e '
+    .schema_version == "generic.external_event.v1" and
+    .adapter_id == "generic.external_event.v1" and
+    .metadata_only == true and
+    .raw_artifacts_embedded == false and
+    (.artifact_refs | length) == 0 and
+    (.approval_refs | length) == 0
+  ' "$check_event"
+
+  rm -rf \
+    "$TEST_ROOT/toolkit/logs" \
+    "$TEST_ROOT/toolkit/releases" \
+    "$TEST_ROOT/toolkit/reports" \
+    "$TEST_ROOT/toolkit/sessions" \
+    "$TEST_ROOT/toolkit/state" \
+    "$TEST_ROOT/toolkit/targets"
+  before_dirs="$(find "$TEST_ROOT/toolkit" -maxdepth 2 -type d | sort)"
+
+  run_receipt="$TEST_ROOT/m153-github-actions-run-receipt.json"
+  check_receipt="$TEST_ROOT/m153-github-actions-check-receipt.json"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt import-generic-event \
+    "$run_event" \
+    --out "$run_receipt"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"receipt: $run_receipt"* ]]
+  [ -f "$run_receipt" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt verify "$run_receipt" --json
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" | jq -e '
+    .schema_version == "atlas.receipt_verify.v1" and
+    .status == "ok" and
+    .metadata_only == true and
+    .raw_artifacts_embedded == false
+  '
+
+  prev_hash="$(jq -r '.event_hash' "$run_receipt")"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt import-generic-event \
+    "$check_event" \
+    --prev-hash "$prev_hash" \
+    --out "$check_receipt"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"receipt: $check_receipt"* ]]
+  [ -f "$check_receipt" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt verify "$check_receipt" --json
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" | jq -e '
+    .schema_version == "atlas.receipt_verify.v1" and
+    .status == "ok" and
+    .metadata_only == true and
+    .raw_artifacts_embedded == false
+  '
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt replay "$run_receipt" "$check_receipt" --json
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" | jq -e \
+    --arg prev_hash "$prev_hash" '
+    .schema_version == "atlas.receipt_replay.v1" and
+    .status == "ok" and
+    .metadata_only == true and
+    .raw_artifacts_embedded == false and
+    .receipt_count == 2 and
+    .chain[0].linkage_status == "genesis" and
+    .chain[1].prev_hash == $prev_hash and
+    .ledger_binding.status == "ok"
+  '
+
+  after_dirs="$(find "$TEST_ROOT/toolkit" -maxdepth 2 -type d | sort)"
+  [ "$before_dirs" = "$after_dirs" ]
+}
+
 @test "capability manifest defines machine-readable governance root" {
   manifest="$TEST_ROOT/toolkit/capabilities.yaml"
   schema="$TEST_ROOT/toolkit/schemas/capability.v1.schema.json"
