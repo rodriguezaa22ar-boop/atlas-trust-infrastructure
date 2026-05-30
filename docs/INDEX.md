@@ -19,6 +19,9 @@ repository in filesystem order.
 - [reviews/EVIDENCE_SUFFICIENCY_REPORT_M158.md](reviews/EVIDENCE_SUFFICIENCY_REPORT_M158.md):
   reviewer-facing evidence sufficiency report for present, missing, stale, and
   unverifiable objective evidence.
+- [reviews/REVIEWER_DECISION_PACKET_M160.md](reviews/REVIEWER_DECISION_PACKET_M160.md):
+  reviewer-facing decision packet path from objective, evidence status, local
+  verification, known limitations, and outside-Atlas determination.
 - [TRY_RECEIPTS.md](TRY_RECEIPTS.md): five-minute local receipt verify and
   replay quickstart.
 - [TRY_GENERIC_EVENT_ADAPTER.md](TRY_GENERIC_EVENT_ADAPTER.md): five-minute
@@ -47,6 +50,7 @@ repository in filesystem order.
 - External reviewer: [atlas/EXTERNAL_REVIEWER_PACKAGE.md](atlas/EXTERNAL_REVIEWER_PACKAGE.md)
 - Production readiness reviewer: [reviews/PRODUCTION_READINESS_CONTROL_MAPPING_M156.md](reviews/PRODUCTION_READINESS_CONTROL_MAPPING_M156.md)
 - Evidence sufficiency reviewer: [reviews/EVIDENCE_SUFFICIENCY_REPORT_M158.md](reviews/EVIDENCE_SUFFICIENCY_REPORT_M158.md)
+- Decision reviewer: [reviews/REVIEWER_DECISION_PACKET_M160.md](reviews/REVIEWER_DECISION_PACKET_M160.md)
 - Control reviewer: [reviews/CONTROL_OBJECTIVE_MAPPING.md](reviews/CONTROL_OBJECTIVE_MAPPING.md)
 - Contributor: [../CONTRIBUTING.md](../CONTRIBUTING.md)
 - Security reporter: [../SECURITY.md](../SECURITY.md)
@@ -150,6 +154,8 @@ repository in filesystem order.
 - [reviews/EVIDENCE_SUFFICIENCY_REPORT_M158.md](reviews/EVIDENCE_SUFFICIENCY_REPORT_M158.md):
   applies Trust Claim Ladder Level 4 to classify objective evidence as present,
   missing, stale, or unverifiable.
+- [reviews/REVIEWER_DECISION_PACKET_M160.md](reviews/REVIEWER_DECISION_PACKET_M160.md):
+  turns mapped objectives and evidence sufficiency status into a bounded decision path for reviewers.
 - [TRY_GENERIC_EVENT_ADAPTER.md](TRY_GENERIC_EVENT_ADAPTER.md): M145
   five-minute local quickstart for the generic external event adapter.
 - [TRY_AI_AGENT_EVENT_RECEIPTS.md](TRY_AI_AGENT_EVENT_RECEIPTS.md): M147
@@ -190,6 +196,9 @@ repository in filesystem order.
   package, and public export evidence.
 - [reviews/EVIDENCE_SUFFICIENCY_REPORT_M158.md](reviews/EVIDENCE_SUFFICIENCY_REPORT_M158.md):
   evidence sufficiency report shape for mapped review objectives.
+- [reviews/REVIEWER_DECISION_PACKET_M160.md](reviews/REVIEWER_DECISION_PACKET_M160.md):
+  reviewer decision packet shape for objective, evidence status, verification
+  path, limitations, and outside-Atlas determination.
 - [retention/reviews/atlas-v0.4.0-rc1-review-packet.md](retention/reviews/atlas-v0.4.0-rc1-review-packet.md):
   executable independent-review packet for the retained v0.4.0-rc1 SLSA
   evidence.
@@ -234,6 +243,8 @@ repository in filesystem order.
   objectives and outside-Atlas determinations.
 - [reviews/EVIDENCE_SUFFICIENCY_REPORT_M158.md](reviews/EVIDENCE_SUFFICIENCY_REPORT_M158.md):
   reviewer-facing report for objective evidence sufficiency states.
+- [reviews/REVIEWER_DECISION_PACKET_M160.md](reviews/REVIEWER_DECISION_PACKET_M160.md):
+  reviewer-facing packet that turns evidence status into a bounded decision path without adding runtime behavior.
 - [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md): what Atlas still does not
   claim.
 
