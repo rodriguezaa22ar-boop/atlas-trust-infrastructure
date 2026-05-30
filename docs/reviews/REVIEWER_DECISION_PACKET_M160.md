@@ -78,6 +78,45 @@ The decision packet uses a reviewer-owned vocabulary:
 
 Atlas records support for the proof envelope. The reviewer owns the decision.
 
+## Supported Reviewer Actions
+
+The decision packet supports positive reviewer action when the evidence state is
+visible and bounded. Supported decisions include:
+
+- `proceed with internal review` when required evidence is `present`, local
+  verification commands are named, and known limitations remain visible.
+- `request missing evidence` when required evidence is `missing`.
+- `rerun verification` when a command summary is unavailable, malformed, or
+  tied to an unverifiable artifact.
+- `refresh stale retained evidence` when evidence exists but no longer matches
+  the reviewed commit, release packet, manifest, or retained proof state.
+- `reject production-readiness claim until required evidence is present` when
+  required local Atlas contract evidence is absent.
+- `escalate to external reviewer/auditor/authority` when the requested
+  determination belongs outside Atlas.
+
+These actions keep the packet decision-oriented without making Atlas the
+decision authority.
+
+## Unsupported Decision Claims
+
+The packet also makes unsupported decisions explicit. The following conclusions
+remain outside Atlas and must not be recorded as Atlas determinations:
+
+- `externally certified`
+- `legally compliant`
+- `tamper-proof`
+- `guaranteed safe`
+- `production deployable outside the local Atlas contract`
+- `external SLSA certified`
+- `model correctness proven`
+- `runtime safety proven`
+
+Atlas can preserve the proof envelope and surface whether evidence is present,
+missing, stale, or unverifiable. Reviewers, auditors, approvers, or authorities
+make any external certification, compliance, deployment, safety, model, or
+runtime determination.
+
 ## Production-Readiness Decision Packet Shape
 
 This packet applies first to:
