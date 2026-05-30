@@ -3717,6 +3717,55 @@ write_test_slsa_reference() {
   done
 }
 
+@test "M159 evidence sufficiency regression keeps gaps from implying sufficiency" {
+  sufficiency_report="$TEST_ROOT/toolkit/docs/reviews/EVIDENCE_SUFFICIENCY_REPORT_M158.md"
+  control_map="$TEST_ROOT/toolkit/docs/reviews/CONTROL_OBJECTIVE_MAPPING.md"
+  production_map="$TEST_ROOT/toolkit/docs/reviews/PRODUCTION_READINESS_CONTROL_MAPPING_M156.md"
+  milestone="$TEST_ROOT/toolkit/docs/retention/milestones/MILESTONE_159.md"
+  milestone_index="$TEST_ROOT/toolkit/docs/retention/MILESTONE_INDEX.md"
+
+  [ -f "$sufficiency_report" ]
+  [ -f "$control_map" ]
+  [ -f "$production_map" ]
+  [ -f "$milestone" ]
+
+  grep -q 'present | missing | stale | unverifiable' "$sufficiency_report"
+  grep -q 'overall_evidence_state: present | missing | stale | unverifiable' "$sufficiency_report"
+  grep -q 'outside_atlas_determination' "$sufficiency_report"
+
+  grep -q 'Treat the objective as incomplete until evidence is retained or the gap is explicitly accepted' "$sufficiency_report"
+  grep -q 'Regenerate or refresh the evidence before relying on the objective' "$sufficiency_report"
+  grep -q 'Do not treat the evidence as sufficient until the verification failure is resolved or documented as residual risk' "$sufficiency_report"
+  grep -q 'Confirm `missing`, `stale`, and `unverifiable` evidence is not treated as' "$sufficiency_report"
+  grep -q 'sufficient without reviewer follow-up' "$sufficiency_report"
+
+  grep -q 'whether missing evidence blocks the objective' "$control_map"
+  grep -q 'whether stale evidence must be refreshed' "$control_map"
+  grep -q 'whether unverifiable evidence can be remediated' "$control_map"
+  grep -q 'whether the reviewer accepts remaining gaps as residual risk' "$control_map"
+
+  grep -q 'known limitations' "$production_map"
+  grep -q 'Outside-Atlas determination' "$production_map"
+
+  for doc in "$sufficiency_report" "$control_map" "$production_map"; do
+    ! grep -Eiq 'missing evidence (is|counts as|can be treated as|should be treated as) sufficient' "$doc"
+    ! grep -Eiq 'stale evidence (is|counts as|can be treated as|should be treated as) sufficient' "$doc"
+    ! grep -Eiq 'unverifiable evidence (is|counts as|can be treated as|should be treated as) sufficient' "$doc"
+    ! grep -Eiq 'evidence sufficiency (proves|certifies|guarantees|grants|creates) (approval|certification|compliance|deployability|external audit|legal compliance|production readiness|runtime safety)' "$doc"
+    ! grep -Eiq 'Atlas (decides|approves|certifies|guarantees) evidence sufficiency' "$doc"
+    ! grep -Eiq 'Atlas (certifies|guarantees|is externally audited|is legally compliant|is legal compliance|is tamper-proof|proves compliance|proves model correctness|proves runtime safety|prevents fraud|is fraud-proof|is fully secure)' "$doc"
+  done
+
+  grep -q '^# Milestone 159: Evidence Sufficiency Regression$' "$milestone"
+  grep -q '6b3a559fe0c60d601cb00b1b0ce456e49085f8ad' "$milestone"
+  grep -q 'Protect the M158 evidence sufficiency report' "$milestone"
+  grep -q 'No Atlas runtime behavior changed.' "$milestone"
+  grep -q 'atlas-retention-m159' "$milestone"
+  grep -q 'MILESTONE_159.md' "$milestone_index"
+  grep -q 'Evidence Sufficiency Regression' "$milestone_index"
+  grep -q 'atlas-retention-m159' "$milestone_index"
+}
+
 @test "capability manifest defines machine-readable governance root" {
   manifest="$TEST_ROOT/toolkit/capabilities.yaml"
   schema="$TEST_ROOT/toolkit/schemas/capability.v1.schema.json"
