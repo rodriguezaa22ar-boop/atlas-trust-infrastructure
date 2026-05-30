@@ -3863,6 +3863,82 @@ write_test_slsa_reference() {
   done
 }
 
+@test "M161 reviewer decision packet safety keeps decisions bounded" {
+  decision_packet="$TEST_ROOT/toolkit/docs/reviews/REVIEWER_DECISION_PACKET_M160.md"
+  trust_ladder="$TEST_ROOT/toolkit/docs/TRUST_CLAIM_LADDER.md"
+  control_map="$TEST_ROOT/toolkit/docs/reviews/CONTROL_OBJECTIVE_MAPPING.md"
+  sufficiency_report="$TEST_ROOT/toolkit/docs/reviews/EVIDENCE_SUFFICIENCY_REPORT_M158.md"
+  production_map="$TEST_ROOT/toolkit/docs/reviews/PRODUCTION_READINESS_CONTROL_MAPPING_M156.md"
+  milestone="$TEST_ROOT/toolkit/docs/retention/milestones/MILESTONE_161.md"
+  milestone_index="$TEST_ROOT/toolkit/docs/retention/MILESTONE_INDEX.md"
+
+  [ -f "$decision_packet" ]
+  [ -f "$trust_ladder" ]
+  [ -f "$control_map" ]
+  [ -f "$sufficiency_report" ]
+  [ -f "$production_map" ]
+  [ -f "$milestone" ]
+
+  grep -q '`present`' "$decision_packet"
+  grep -q '`missing`' "$decision_packet"
+  grep -q '`stale`' "$decision_packet"
+  grep -q '`unverifiable`' "$decision_packet"
+  grep -q 'present | missing | stale | unverifiable' "$decision_packet"
+
+  grep -q 'Supported Reviewer Actions' "$decision_packet"
+  grep -q '`proceed with internal review`' "$decision_packet"
+  grep -q '`request missing evidence`' "$decision_packet"
+  grep -q '`rerun verification`' "$decision_packet"
+  grep -q '`refresh stale retained evidence`' "$decision_packet"
+  grep -q '`reject production-readiness claim until required evidence is present`' "$decision_packet"
+  grep -q '`escalate to external reviewer/auditor/authority`' "$decision_packet"
+
+  grep -q 'Unsupported Decision Claims' "$decision_packet"
+  grep -q '`externally certified`' "$decision_packet"
+  grep -q '`legally compliant`' "$decision_packet"
+  grep -q '`tamper-proof`' "$decision_packet"
+  grep -q '`guaranteed safe`' "$decision_packet"
+  grep -q '`production deployable outside the local Atlas contract`' "$decision_packet"
+  grep -q '`external SLSA certified`' "$decision_packet"
+  grep -q '`model correctness proven`' "$decision_packet"
+  grep -q '`runtime safety proven`' "$decision_packet"
+
+  grep -q 'production-readiness review under the local Atlas contract' "$decision_packet"
+  grep -q 'known limitations' "$decision_packet"
+  grep -q 'Reviewer Determinations' "$decision_packet"
+  grep -q 'reviewer, auditor, approver, or authority' "$decision_packet"
+  grep -q 'Verification Commands To Reference' "$decision_packet"
+  grep -q 'atlas production status --strict --explain' "$decision_packet"
+  grep -q 'atlas receipt verify' "$decision_packet"
+
+  ! grep -Eiq 'Atlas (certifies|guarantees|is externally audited|is legally compliant|is legal compliance|is tamper-proof|proves compliance|proves model correctness|proves runtime safety|prevents fraud|is fraud-proof|is fully secure)' "$decision_packet"
+  ! grep -Eiq '(Atlas|This packet|The packet|This support|The decision packet) (certifies|guarantees|grants|creates|proves|approves) (certification|compliance|legal compliance|external audit|external SLSA certification|production deployability|enterprise deployment approval|runtime safety|model correctness|artifact correctness)' "$decision_packet"
+  ! grep -Eiq '(certified compliant|externally audited|external audit complete|enterprise deployment approved|artifact correctness guaranteed) by Atlas' "$decision_packet"
+  ! grep -Eiq 'Atlas .*certified compliant' "$decision_packet"
+  ! grep -Eiq 'Atlas .*legally compliant' "$decision_packet"
+  ! grep -Eiq 'Atlas .*guaranteed safe' "$decision_packet"
+  ! grep -Eiq 'Atlas .*tamper-proof' "$decision_packet"
+  ! grep -Eiq 'Atlas .*external SLSA certified' "$decision_packet"
+  ! grep -Eiq 'Atlas .*production deployable outside the local Atlas contract' "$decision_packet"
+  ! grep -Eiq 'Atlas .*runtime safety proven' "$decision_packet"
+  ! grep -Eiq 'Atlas .*model correctness proven' "$decision_packet"
+
+  unbounded_production_ready="$(
+    grep -Ein 'production-ready' "$decision_packet" |
+      grep -Eiv 'local Atlas contract|local contract|explain-output|production status|not production-ready|production-ready claim|under the local Atlas contract' || true
+  )"
+  [ -z "$unbounded_production_ready" ]
+
+  grep -q '^# Milestone 161: Reviewer Decision Packet Safety Regression$' "$milestone"
+  grep -q '237156e43d3b4c82a1070ce7c7e8befbf0d2de9a' "$milestone"
+  grep -q 'Protect the M160 Reviewer Decision Packet' "$milestone"
+  grep -q 'No Atlas runtime behavior changed.' "$milestone"
+  grep -q 'atlas-retention-m161' "$milestone"
+  grep -q 'MILESTONE_161.md' "$milestone_index"
+  grep -q 'Reviewer Decision Packet Safety Regression' "$milestone_index"
+  grep -q 'atlas-retention-m161' "$milestone_index"
+}
+
 @test "capability manifest defines machine-readable governance root" {
   manifest="$TEST_ROOT/toolkit/capabilities.yaml"
   schema="$TEST_ROOT/toolkit/schemas/capability.v1.schema.json"
