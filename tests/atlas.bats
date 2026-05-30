@@ -3766,6 +3766,103 @@ write_test_slsa_reference() {
   grep -q 'atlas-retention-m159' "$milestone_index"
 }
 
+@test "M160 reviewer decision packet maps evidence status to reviewer path" {
+  decision_packet="$TEST_ROOT/toolkit/docs/reviews/REVIEWER_DECISION_PACKET_M160.md"
+  trust_ladder="$TEST_ROOT/toolkit/docs/TRUST_CLAIM_LADDER.md"
+  control_map="$TEST_ROOT/toolkit/docs/reviews/CONTROL_OBJECTIVE_MAPPING.md"
+  sufficiency_report="$TEST_ROOT/toolkit/docs/reviews/EVIDENCE_SUFFICIENCY_REPORT_M158.md"
+  production_map="$TEST_ROOT/toolkit/docs/reviews/PRODUCTION_READINESS_CONTROL_MAPPING_M156.md"
+  docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
+  milestone="$TEST_ROOT/toolkit/docs/retention/milestones/MILESTONE_160.md"
+  milestone_index="$TEST_ROOT/toolkit/docs/retention/MILESTONE_INDEX.md"
+
+  [ -f "$decision_packet" ]
+  [ -f "$trust_ladder" ]
+  [ -f "$control_map" ]
+  [ -f "$sufficiency_report" ]
+  [ -f "$production_map" ]
+  [ -f "$milestone" ]
+
+  grep -q '^# Reviewer Decision Packet M160$' "$decision_packet"
+  sed -n '1,20p' "$decision_packet" | grep -q '^Atlas supports reviewer decision paths'
+  ! sed -n '1,20p' "$decision_packet" | grep -q 'Atlas does not'
+
+  grep -q 'Positive Support Claim' "$decision_packet"
+  grep -q 'Relationship To Earlier Milestones' "$decision_packet"
+  grep -q 'Decision Path' "$decision_packet"
+  grep -q 'Decision Vocabulary' "$decision_packet"
+  grep -q 'Production-Readiness Decision Packet Shape' "$decision_packet"
+  grep -q 'Verification Commands To Reference' "$decision_packet"
+  grep -q 'What Atlas Supports' "$decision_packet"
+  grep -q 'What Atlas Verifies' "$decision_packet"
+  grep -q 'Reviewer Determinations' "$decision_packet"
+  grep -q 'Reviewer Checklist' "$decision_packet"
+  grep -q 'Known Limitations' "$decision_packet"
+
+  grep -q 'TRUST_CLAIM_LADDER.md' "$decision_packet"
+  grep -q 'CONTROL_OBJECTIVE_MAPPING.md' "$decision_packet"
+  grep -q 'PRODUCTION_READINESS_CONTROL_MAPPING_M156.md' "$decision_packet"
+  grep -q 'EVIDENCE_SUFFICIENCY_REPORT_M158.md' "$decision_packet"
+  grep -q 'M159 protects the evidence sufficiency claim' "$decision_packet"
+
+  grep -q 'review objective' "$decision_packet"
+  grep -q 'required evidence' "$decision_packet"
+  grep -q 'evidence sufficiency status' "$decision_packet"
+  grep -q 'local verification commands' "$decision_packet"
+  grep -q 'known limitations' "$decision_packet"
+  grep -q 'reviewer decision record' "$decision_packet"
+
+  grep -q '`present`' "$decision_packet"
+  grep -q '`missing`' "$decision_packet"
+  grep -q '`stale`' "$decision_packet"
+  grep -q '`unverifiable`' "$decision_packet"
+  grep -q 'present | missing | stale | unverifiable' "$decision_packet"
+
+  grep -q '`supported`' "$decision_packet"
+  grep -q '`supported_with_limitations`' "$decision_packet"
+  grep -q '`needs_refresh`' "$decision_packet"
+  grep -q '`needs_remediation`' "$decision_packet"
+  grep -q '`needs_investigation`' "$decision_packet"
+  grep -q '`outside_scope`' "$decision_packet"
+  grep -q 'Atlas records support for the proof envelope. The reviewer owns the decision.' "$decision_packet"
+
+  grep -q 'production-readiness review under the local Atlas contract' "$decision_packet"
+  grep -q 'schema_label: reviewer_decision_packet_m160' "$decision_packet"
+  grep -q 'outside_atlas_determination' "$decision_packet"
+  grep -q 'metadata-only summary' "$decision_packet"
+
+  grep -q 'atlas production status --strict --explain' "$decision_packet"
+  grep -q 'atlas v1 status --strict' "$decision_packet"
+  grep -q 'git status --short --branch' "$decision_packet"
+  grep -Fq 'git rev-list --left-right --count HEAD...@{u}' "$decision_packet"
+  grep -q 'atlas release verify' "$decision_packet"
+  grep -q 'atlas release manifest-verify' "$decision_packet"
+  grep -q 'atlas release replay' "$decision_packet"
+  grep -q 'atlas reviewer package full-capability-review' "$decision_packet"
+  grep -q 'bin/export-public-trust --check' "$decision_packet"
+  grep -q 'atlas receipt verify' "$decision_packet"
+  grep -q 'atlas receipt replay' "$decision_packet"
+
+  grep -q 'reviews/REVIEWER_DECISION_PACKET_M160.md' "$docs_index"
+  grep -q 'Decision reviewer' "$docs_index"
+  grep -q 'bounded decision path' "$docs_index"
+
+  grep -q '^# Milestone 160: Reviewer Decision Packet$' "$milestone"
+  grep -q '9d7dbca8767ab249cda29eb16c73bb31b78231ff' "$milestone"
+  grep -q 'Trust Claim Ladder, control-objective mapping, and evidence' "$milestone"
+  grep -q 'No Atlas runtime behavior changed.' "$milestone"
+  grep -q 'atlas-retention-m160' "$milestone"
+  grep -q 'MILESTONE_160.md' "$milestone_index"
+  grep -q 'Reviewer Decision Packet' "$milestone_index"
+  grep -q 'atlas-retention-m160' "$milestone_index"
+
+  for doc in "$decision_packet" "$milestone"; do
+    ! grep -Eiq 'Atlas (decides|approves|certifies|guarantees) (reviewer decisions|decision|approval|certification|compliance|deployability|runtime safety)' "$doc"
+    ! grep -Eiq 'decision packet (certifies|guarantees|grants|creates|proves) (approval|certification|compliance|deployability|external audit|legal compliance|production readiness|runtime safety)' "$doc"
+    ! grep -Eiq 'Atlas (certifies|guarantees|is externally audited|is legally compliant|is legal compliance|is tamper-proof|proves compliance|proves model correctness|proves runtime safety|prevents fraud|is fraud-proof|is fully secure)' "$doc"
+  done
+}
+
 @test "capability manifest defines machine-readable governance root" {
   manifest="$TEST_ROOT/toolkit/capabilities.yaml"
   schema="$TEST_ROOT/toolkit/schemas/capability.v1.schema.json"
