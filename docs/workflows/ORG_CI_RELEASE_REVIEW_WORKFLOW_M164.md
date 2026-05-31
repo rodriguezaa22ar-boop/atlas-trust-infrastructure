@@ -229,6 +229,10 @@ known_limitations:
 The output records what the proof envelope supports and what still needs human
 review.
 
+Receipt chains do not guarantee compliance. Receipt chains do not prove
+business approval or legal sufficiency. They make the provided evidence easier
+to inspect, replay, and discuss.
+
 ## Evidence Sufficiency Check
 
 Use the M158 vocabulary:
@@ -268,6 +272,9 @@ Atlas can show that the local proof envelope verifies. It cannot show that
 every relevant external event was captured unless the organization retained
 that event evidence and gave the reviewer a way to inspect it.
 
+Atlas does not prove complete event coverage. Missing events can exist outside
+the proof chain.
+
 Key blind spots:
 
 - a CI run/check event may be missing from the local packet;
@@ -278,6 +285,7 @@ Key blind spots:
 - a workflow approval may exist outside the provided metadata;
 - release notes or deployment records may be absent;
 - the event source may be wrong, incomplete, or stale;
+- human approval can be rubber-stamped or incomplete;
 - receipt replay checks provided-order linkage, not external GitHub truth.
 
 Negative proof matters because a clean replay of incomplete evidence is still
@@ -289,6 +297,7 @@ Atlas reduces ambiguity, but the organization's process still matters.
 Reviewers should watch for:
 
 - rubber-stamped approvals;
+- incomplete human approval;
 - missing separation of duties;
 - stale release notes copied from an older release;
 - screenshots used instead of retained metadata;
@@ -316,7 +325,10 @@ With Atlas, the reviewer gets a repeatable local path:
 - record a reviewer decision packet outcome.
 
 The main benefit is less ambiguity: the team can see which evidence is present
-and which gaps still need review in the same day.
+and which gaps still need review in the same day. That can support a faster
+review because the reviewer starts from named metadata-only proof, replay
+commands, sufficiency status, and reviewer decision support instead of
+reconstructing the path from scattered material.
 
 ## Known Limitations
 
@@ -326,6 +338,10 @@ and which gaps still need review in the same day.
 - The workflow uses local metadata files and existing example events.
 - Atlas verifies the proof envelope: receipt structure, hashes,
   metadata-only boundaries, and caller-provided replay order.
+- Atlas does not prove complete event coverage, detect all missing events, or
+  prove no action happened outside Atlas.
+- Receipt chains do not guarantee compliance, prove business approval, or
+  prove legal sufficiency.
 - Atlas does not decide source-system truth, workflow authorization, release
   approval, deployment approval, human approval quality, residual risk,
   external audit outcome, legal or compliance conclusion, model behavior, or

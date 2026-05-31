@@ -4213,6 +4213,67 @@ write_test_slsa_reference() {
   grep -q 'atlas-retention-m164' "$milestone_index"
 }
 
+@test "M165 organization workflow safety regression keeps CI review adoption bounded" {
+  workflow="$TEST_ROOT/toolkit/docs/workflows/ORG_CI_RELEASE_REVIEW_WORKFLOW_M164.md"
+  readme="$TEST_ROOT/toolkit/README.md"
+  docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
+  public_surface="$TEST_ROOT/toolkit/docs/PUBLIC_TRUST_SURFACE.md"
+  milestone="$TEST_ROOT/toolkit/docs/retention/milestones/MILESTONE_165.md"
+  milestone_index="$TEST_ROOT/toolkit/docs/retention/MILESTONE_INDEX.md"
+
+  [ -f "$workflow" ]
+  [ -f "$readme" ]
+  [ -f "$docs_index" ]
+  [ -f "$public_surface" ]
+  [ -f "$milestone" ]
+
+  grep -q '^# Organization CI Release Review Workflow M164$' "$workflow"
+  grep -q 'Blind Spots / Negative Proof' "$workflow"
+  grep -q 'Human Process Risks' "$workflow"
+  grep -q 'Known Limitations' "$workflow"
+
+  grep -q 'Atlas does not prove complete event coverage' "$workflow"
+  grep -q 'Missing events can exist outside' "$workflow"
+  grep -q 'the proof chain' "$workflow"
+  grep -q 'Receipt chains do not guarantee compliance' "$workflow"
+  grep -q 'Receipt chains do not prove' "$workflow"
+  grep -q 'business approval or legal sufficiency' "$workflow"
+  grep -q 'human approval can be rubber-stamped or incomplete' "$workflow"
+  grep -q 'incomplete human approval' "$workflow"
+
+  grep -q 'proceed with internal review' "$workflow"
+  grep -q 'request missing evidence' "$workflow"
+  grep -q 'rerun verification' "$workflow"
+  grep -q 'refresh stale retained evidence' "$workflow"
+  grep -q 'reject release-readiness claim until required evidence is present' "$workflow"
+  grep -q 'escalate to external reviewer/auditor/authority' "$workflow"
+  grep -q 'Missing, stale, or unverifiable evidence should drive follow-up' "$workflow"
+
+  grep -q 'one-day CI release review workflow' "$workflow"
+  grep -q 'less ambiguity' "$workflow"
+  grep -q 'faster' "$workflow"
+  grep -q 'review because' "$workflow"
+  grep -q 'metadata-only proof' "$workflow"
+  grep -q 'reviewer decision support' "$workflow"
+
+  for doc in "$workflow" "$readme" "$docs_index" "$public_surface"; do
+    ! grep -Eiq 'Atlas (guarantees|proves|certifies|approves|grants) (compliance|certification|legal sufficiency|complete event coverage|all actions happened|no action happened outside Atlas|business approval|production deployability|external SLSA certification|runtime safety|model correctness|artifact correctness)' "$doc"
+    ! grep -Eiq '(This workflow|This support|This public trust surface) (guarantees|proves|certifies|approves|grants) (compliance|certification|legal sufficiency|complete event coverage|all actions happened|no action happened outside Atlas|business approval|production deployability|external SLSA certification|runtime safety|model correctness|artifact correctness)' "$doc"
+    ! grep -Eiq 'guaranteed compliance|proves compliance|certified compliant|legally sufficient|guaranteed safe|externally audited|external audit complete|detects all missing events|proves all actions happened|proves no action happened outside Atlas|business approval guaranteed|production deployable outside the local Atlas contract|external SLSA certified|runtime safety proven|model correctness proven|artifact correctness guaranteed' "$doc"
+    ! grep -Eiq 'tamper-proof( infrastructure)?' "$doc"
+  done
+
+  grep -q '^# Milestone 165: Organization Workflow Safety Regression$' "$milestone"
+  grep -q '266bb4692b5483dfecc499fd2610824defcbe550' "$milestone"
+  grep -q 'Protect the M164 organization-facing CI release review workflow' "$milestone"
+  grep -q 'M164 adoption value preserved.' "$milestone"
+  grep -q 'No Atlas runtime behavior changed.' "$milestone"
+  grep -q 'atlas-retention-m165' "$milestone"
+  grep -q 'MILESTONE_165.md' "$milestone_index"
+  grep -q 'Organization Workflow Safety Regression' "$milestone_index"
+  grep -q 'atlas-retention-m165' "$milestone_index"
+}
+
 @test "capability manifest defines machine-readable governance root" {
   manifest="$TEST_ROOT/toolkit/capabilities.yaml"
   schema="$TEST_ROOT/toolkit/schemas/capability.v1.schema.json"
