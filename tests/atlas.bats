@@ -4274,6 +4274,87 @@ write_test_slsa_reference() {
   grep -q 'atlas-retention-m165' "$milestone_index"
 }
 
+@test "M166 reviewer plain-English output explains evidence without overclaiming" {
+  plain_output="$TEST_ROOT/toolkit/docs/reviews/REVIEWER_PLAIN_ENGLISH_OUTPUT_M166.md"
+  docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
+  milestone="$TEST_ROOT/toolkit/docs/retention/milestones/MILESTONE_166.md"
+  milestone_index="$TEST_ROOT/toolkit/docs/retention/MILESTONE_INDEX.md"
+  trust_ladder="$TEST_ROOT/toolkit/docs/TRUST_CLAIM_LADDER.md"
+  sufficiency_report="$TEST_ROOT/toolkit/docs/reviews/EVIDENCE_SUFFICIENCY_REPORT_M158.md"
+  decision_packet="$TEST_ROOT/toolkit/docs/reviews/REVIEWER_DECISION_PACKET_M160.md"
+  org_workflow="$TEST_ROOT/toolkit/docs/workflows/ORG_CI_RELEASE_REVIEW_WORKFLOW_M164.md"
+  known_limits="$TEST_ROOT/toolkit/docs/KNOWN_LIMITATIONS.md"
+
+  [ -f "$plain_output" ]
+  [ -f "$docs_index" ]
+  [ -f "$milestone" ]
+  [ -f "$trust_ladder" ]
+  [ -f "$sufficiency_report" ]
+  [ -f "$decision_packet" ]
+  [ -f "$org_workflow" ]
+  [ -f "$known_limits" ]
+
+  grep -q '^# Reviewer Plain-English Output M166$' "$plain_output"
+  grep -q 'TRUST_CLAIM_LADDER.md' "$plain_output"
+  grep -q 'EVIDENCE_SUFFICIENCY_REPORT_M158.md' "$plain_output"
+  grep -q 'REVIEWER_DECISION_PACKET_M160.md' "$plain_output"
+  grep -q 'ORG_CI_RELEASE_REVIEW_WORKFLOW_M164.md' "$plain_output"
+  grep -q 'KNOWN_LIMITATIONS.md' "$plain_output"
+  grep -q 'reviews/REVIEWER_PLAIN_ENGLISH_OUTPUT_M166.md' "$docs_index"
+
+  for heading in \
+    'Summary' \
+    'What happened' \
+    'What Atlas verified' \
+    'Evidence found' \
+    'Evidence missing or needs attention' \
+    'Decision this supports' \
+    'Decision this does not support' \
+    'What still needs human judgment' \
+    'Next recommended action'; do
+    grep -q "$heading" "$plain_output"
+  done
+
+  grep -q 'Example: CI Release Review' "$plain_output"
+  grep -q 'Example: AI-Agent Action Review' "$plain_output"
+  grep -q 'Example: Production-Readiness Review' "$plain_output"
+
+  grep -q 'proof receipt' "$plain_output"
+  grep -q 'metadata-only' "$plain_output"
+  grep -q 'The receipt stores references and hashes' "$plain_output"
+  grep -q 'not raw logs, secrets, prompts, customer data' "$plain_output"
+  grep -q 'Atlas checked that the receipts link together in the expected order' "$plain_output"
+  grep -q 'Atlas shows which evidence is present' "$plain_output"
+  grep -q 'stale, or unverifiable' "$plain_output"
+  grep -q 'local Atlas contract' "$plain_output"
+  grep -q 'this is not the same as external certification' "$plain_output"
+  grep -q 'Known Limitations' "$plain_output"
+  grep -q 'Human judgment remains required' "$plain_output"
+
+  grep -q 'faster review' "$plain_output"
+  grep -q 'less evidence chasing' "$plain_output"
+  grep -q 'decision path' "$plain_output"
+  grep -q 'lower exposure of sensitive data' "$plain_output"
+  grep -q 'better audit readiness' "$plain_output"
+  grep -q 'clearer accountability' "$plain_output"
+
+  for doc in "$plain_output" "$docs_index"; do
+    ! grep -Eiq 'certified compliant|legally compliant|guaranteed safe|externally audited|external audit complete|external SLSA certified|production deployable outside the local Atlas contract|enterprise deployment approved|runtime safety proven|model correctness proven|artifact correctness guaranteed|detects all missing events|proves no action happened outside Atlas' "$doc"
+    ! grep -Eiq 'Atlas (certifies|guarantees|approves|grants|proves|provides) (certification|compliance|legal compliance|external audit|external SLSA certification|production deployability|enterprise deployment approval|runtime safety|model correctness|artifact correctness|complete event coverage)' "$doc"
+    ! grep -Eiq 'tamper-proof( infrastructure)?' "$doc"
+  done
+
+  grep -q '^# Milestone 166: Reviewer Plain-English Output$' "$milestone"
+  grep -q '892cc001ac2a929f1d81d8f57d4fb8aedbcf3d81' "$milestone"
+  grep -q 'plain-English reviewer output format' "$milestone"
+  grep -q 'No Atlas runtime behavior changed.' "$milestone"
+  grep -q 'Known limitations preserved.' "$milestone"
+  grep -q 'atlas-retention-m166' "$milestone"
+  grep -q 'MILESTONE_166.md' "$milestone_index"
+  grep -q 'Reviewer Plain-English Output' "$milestone_index"
+  grep -q 'atlas-retention-m166' "$milestone_index"
+}
+
 @test "capability manifest defines machine-readable governance root" {
   manifest="$TEST_ROOT/toolkit/capabilities.yaml"
   schema="$TEST_ROOT/toolkit/schemas/capability.v1.schema.json"
