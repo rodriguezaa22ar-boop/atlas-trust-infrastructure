@@ -3925,7 +3925,7 @@ write_test_slsa_reference() {
 
   unbounded_production_ready="$(
     grep -Ein 'production-ready' "$decision_packet" |
-      grep -Eiv 'local Atlas contract|local contract|explain-output|production status|not production-ready|production-ready claim|under the local Atlas contract' || true
+      grep -Eiv 'local Atlas contract|local contract|local Atlas production contract|explain-output|production status|not production-ready|production-ready claim|under the local Atlas contract' || true
   )"
   [ -z "$unbounded_production_ready" ]
 
@@ -4050,6 +4050,82 @@ write_test_slsa_reference() {
   grep -q 'MILESTONE_162.md' "$milestone_index"
   grep -q 'Public Trust Surface Refresh' "$milestone_index"
   grep -q 'atlas-retention-m162' "$milestone_index"
+}
+
+@test "M163 public trust surface claim safety regression keeps public claims bounded" {
+  readme="$TEST_ROOT/toolkit/README.md"
+  docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
+  public_surface="$TEST_ROOT/toolkit/docs/PUBLIC_TRUST_SURFACE.md"
+  known_limits="$TEST_ROOT/toolkit/docs/KNOWN_LIMITATIONS.md"
+  trust_ladder="$TEST_ROOT/toolkit/docs/TRUST_CLAIM_LADDER.md"
+  control_map="$TEST_ROOT/toolkit/docs/reviews/CONTROL_OBJECTIVE_MAPPING.md"
+  sufficiency_report="$TEST_ROOT/toolkit/docs/reviews/EVIDENCE_SUFFICIENCY_REPORT_M158.md"
+  decision_packet="$TEST_ROOT/toolkit/docs/reviews/REVIEWER_DECISION_PACKET_M160.md"
+  production_map="$TEST_ROOT/toolkit/docs/reviews/PRODUCTION_READINESS_CONTROL_MAPPING_M156.md"
+  milestone="$TEST_ROOT/toolkit/docs/retention/milestones/MILESTONE_163.md"
+  milestone_index="$TEST_ROOT/toolkit/docs/retention/MILESTONE_INDEX.md"
+
+  [ -f "$public_surface" ]
+  [ -f "$readme" ]
+  [ -f "$docs_index" ]
+  [ -f "$known_limits" ]
+  [ -f "$trust_ladder" ]
+  [ -f "$control_map" ]
+  [ -f "$sufficiency_report" ]
+  [ -f "$decision_packet" ]
+  [ -f "$production_map" ]
+  [ -f "$milestone" ]
+
+  [ "$(wc -l < "$readme")" -le 150 ]
+  grep -q 'supports audit-ready evidence' "$readme"
+  grep -q 'supports audit-ready evidence' "$public_surface"
+  grep -q 'release governance' "$public_surface"
+  grep -q 'CI integrity review' "$public_surface"
+  grep -q 'AI-agent action review' "$public_surface"
+  grep -q 'approval integrity' "$public_surface"
+  grep -q 'evidence sufficiency review' "$public_surface"
+  grep -q 'reviewer decision support' "$public_surface"
+  grep -q 'replayable metadata-only proof receipts' "$public_surface"
+  grep -q 'metadata-only records' "$public_surface"
+  grep -q 'production-readiness review under the local Atlas contract' "$public_surface"
+
+  grep -q 'TRUST_CLAIM_LADDER.md' "$public_surface"
+  grep -q 'CONTROL_OBJECTIVE_MAPPING.md' "$public_surface"
+  grep -q 'EVIDENCE_SUFFICIENCY_REPORT_M158.md' "$public_surface"
+  grep -q 'REVIEWER_DECISION_PACKET_M160.md' "$public_surface"
+  grep -q 'KNOWN_LIMITATIONS.md' "$public_surface"
+  grep -q 'TRUST_CLAIM_LADDER.md' "$docs_index"
+  grep -q 'reviews/CONTROL_OBJECTIVE_MAPPING.md' "$docs_index"
+  grep -q 'reviews/EVIDENCE_SUFFICIENCY_REPORT_M158.md' "$docs_index"
+  grep -q 'reviews/REVIEWER_DECISION_PACKET_M160.md' "$docs_index"
+  grep -q 'KNOWN_LIMITATIONS.md' "$readme"
+
+  grep -q 'Known limitations are precision boundaries' "$known_limits"
+  grep -q 'Avoid describing Atlas as autonomous, unbreakable, fully secure' "$known_limits"
+  grep -q 'reviewers, auditors, approvers, or authorities make final determinations' "$public_surface"
+  grep -q 'This support is not certification' "$public_surface"
+
+  for doc in "$readme" "$public_surface" "$known_limits" "$docs_index" "$trust_ladder" "$control_map" "$sufficiency_report" "$decision_packet" "$production_map"; do
+    ! grep -Eiq 'certified compliant|legally compliant|guaranteed safe|externally audited|external audit complete|external SLSA certified|production deployable outside the local Atlas contract|enterprise deployment approved|runtime safety proven|model correctness proven|artifact correctness guaranteed' "$doc"
+    ! grep -Eiq 'Atlas (certifies|guarantees|approves|grants|proves|provides) (certification|compliance|legal compliance|external audit|external SLSA certification|production deployability|enterprise deployment approval|runtime safety|model correctness|artifact correctness|fully secure|unbreakable)' "$doc"
+    ! grep -Eiq 'Atlas (is|has been|was|becomes) (certified compliant|legally compliant|guaranteed safe|tamper-proof|externally audited|external SLSA certified|production deployable|enterprise deployment approved|runtime safety proven|model correctness proven|artifact correctness guaranteed|fully secure|unbreakable)' "$doc"
+    ! grep -Eiq '(This public trust surface|This support) (certifies|guarantees|approves|grants|proves) (certification|compliance|legal compliance|external audit|production deployability|runtime safety|model correctness|artifact correctness|fully secure|unbreakable)' "$doc"
+  done
+
+  unbounded_production_ready="$(
+    grep -RIn 'production-ready' "$readme" "$public_surface" "$known_limits" "$docs_index" "$trust_ladder" "$control_map" "$sufficiency_report" "$decision_packet" "$production_map" |
+      grep -Eiv 'local Atlas contract|local contract|local Atlas production contract|explain-output|production status|not production-ready|production-ready claim|under the local Atlas contract' || true
+  )"
+  [ -z "$unbounded_production_ready" ]
+
+  grep -q '^# Milestone 163: Public Trust Surface Claim Safety Regression$' "$milestone"
+  grep -q '6563f8ad2f952a6bf56f3f53b0617a694cf89d7e' "$milestone"
+  grep -q 'Protect the refreshed M162 public trust surface' "$milestone"
+  grep -q 'No Atlas runtime behavior changed.' "$milestone"
+  grep -q 'atlas-retention-m163' "$milestone"
+  grep -q 'MILESTONE_163.md' "$milestone_index"
+  grep -q 'Public Trust Surface Claim Safety Regression' "$milestone_index"
+  grep -q 'atlas-retention-m163' "$milestone_index"
 }
 
 @test "capability manifest defines machine-readable governance root" {
