@@ -13,6 +13,10 @@ repository in filesystem order.
   trust surface for audit-ready evidence, release governance, CI integrity
   review, AI-agent action review, evidence sufficiency, and reviewer decision
   support.
+- [workflows/ORG_CI_RELEASE_REVIEW_WORKFLOW_M164.md](workflows/ORG_CI_RELEASE_REVIEW_WORKFLOW_M164.md):
+  one-day organization-facing CI release review workflow using local
+  GitHub Actions metadata receipts, evidence sufficiency, and reviewer decision
+  support.
 - [RECEIPT_OPEN_CORE_RC.md](RECEIPT_OPEN_CORE_RC.md): receipt, replay, and
   reviewer-proof open-core RC packaging checkpoint.
 - [TRUST_CLAIM_LADDER.md](TRUST_CLAIM_LADDER.md): positive claim ladder
@@ -46,6 +50,7 @@ repository in filesystem order.
 
 - New reader: [ATLAS_ONE_PAGE.md](ATLAS_ONE_PAGE.md)
 - Public trust reviewer: [PUBLIC_TRUST_SURFACE.md](PUBLIC_TRUST_SURFACE.md)
+- Organization CI release reviewer: [workflows/ORG_CI_RELEASE_REVIEW_WORKFLOW_M164.md](workflows/ORG_CI_RELEASE_REVIEW_WORKFLOW_M164.md)
 - Security operator: [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md)
 - Lab operator: [ops/DUAL_NODE_COCKPIT.md](ops/DUAL_NODE_COCKPIT.md)
 - Host/runtime reviewer: [ops/PORTABILITY_CONTRACT.md](ops/PORTABILITY_CONTRACT.md)
@@ -95,6 +100,8 @@ repository in filesystem order.
 - [reviews/GITHUB_ACTIONS_EVENT_PROOF_PACKAGE_M153.md](reviews/GITHUB_ACTIONS_EVENT_PROOF_PACKAGE_M153.md):
   proof package for importing, verifying, replaying, and reviewing the GitHub
   Actions metadata-only receipt path.
+- [workflows/ORG_CI_RELEASE_REVIEW_WORKFLOW_M164.md](workflows/ORG_CI_RELEASE_REVIEW_WORKFLOW_M164.md):
+  one-day adoption workflow for trying Atlas on one CI release review.
 
 ## Case studies
 
@@ -110,6 +117,9 @@ repository in filesystem order.
 - [TRUST_LIFECYCLE.md](TRUST_LIFECYCLE.md): scope-to-release trust chain.
 - [PUBLIC_TRUST_SURFACE.md](PUBLIC_TRUST_SURFACE.md): public-facing
   proof-to-value summary and starting points for reviewer verification.
+- [workflows/ORG_CI_RELEASE_REVIEW_WORKFLOW_M164.md](workflows/ORG_CI_RELEASE_REVIEW_WORKFLOW_M164.md):
+  organization-facing CI release review workflow that connects proof receipts,
+  evidence sufficiency, and reviewer decision support.
 - [demo/DEMO_OPERATION.md](demo/DEMO_OPERATION.md): repeatable synthetic demo
   of the trust lifecycle.
 - [demo/DEMO_RECEIPT_PACKET.md](demo/DEMO_RECEIPT_PACKET.md): metadata-only
@@ -206,6 +216,9 @@ repository in filesystem order.
 - [reviews/REVIEWER_DECISION_PACKET_M160.md](reviews/REVIEWER_DECISION_PACKET_M160.md):
   reviewer decision packet shape for objective, evidence status, verification
   path, limitations, and outside-Atlas determination.
+- [workflows/ORG_CI_RELEASE_REVIEW_WORKFLOW_M164.md](workflows/ORG_CI_RELEASE_REVIEW_WORKFLOW_M164.md):
+  adoption workflow for a bounded one-day CI release review using GitHub
+  Actions metadata receipts and reviewer decision packet outcomes.
 - [retention/reviews/atlas-v0.4.0-rc1-review-packet.md](retention/reviews/atlas-v0.4.0-rc1-review-packet.md):
   executable independent-review packet for the retained v0.4.0-rc1 SLSA
   evidence.

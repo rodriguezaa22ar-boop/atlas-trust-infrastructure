@@ -4128,6 +4128,91 @@ write_test_slsa_reference() {
   grep -q 'atlas-retention-m163' "$milestone_index"
 }
 
+@test "M164 organization CI release review workflow maps one-day adoption value" {
+  workflow="$TEST_ROOT/toolkit/docs/workflows/ORG_CI_RELEASE_REVIEW_WORKFLOW_M164.md"
+  docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
+  milestone="$TEST_ROOT/toolkit/docs/retention/milestones/MILESTONE_164.md"
+  milestone_index="$TEST_ROOT/toolkit/docs/retention/MILESTONE_INDEX.md"
+  gha_proof="$TEST_ROOT/toolkit/docs/reviews/GITHUB_ACTIONS_EVENT_PROOF_PACKAGE_M153.md"
+  trust_ladder="$TEST_ROOT/toolkit/docs/TRUST_CLAIM_LADDER.md"
+  sufficiency_report="$TEST_ROOT/toolkit/docs/reviews/EVIDENCE_SUFFICIENCY_REPORT_M158.md"
+  decision_packet="$TEST_ROOT/toolkit/docs/reviews/REVIEWER_DECISION_PACKET_M160.md"
+  public_surface="$TEST_ROOT/toolkit/docs/PUBLIC_TRUST_SURFACE.md"
+
+  [ -f "$workflow" ]
+  [ -f "$docs_index" ]
+  [ -f "$milestone" ]
+  [ -f "$gha_proof" ]
+  [ -f "$trust_ladder" ]
+  [ -f "$sufficiency_report" ]
+  [ -f "$decision_packet" ]
+  [ -f "$public_surface" ]
+
+  grep -q '^# Organization CI Release Review Workflow M164$' "$workflow"
+  grep -q 'one-day CI release review workflow' "$workflow"
+  grep -q 'Who This Is For' "$workflow"
+  grep -q 'Problem It Solves' "$workflow"
+  grep -q 'One-Day Adoption Path' "$workflow"
+  grep -q 'Operator Workflow' "$workflow"
+  grep -q 'Reviewer Workflow' "$workflow"
+  grep -q 'Evidence Produced' "$workflow"
+  grep -q 'Commands To Run' "$workflow"
+  grep -q 'Expected Reviewer Output' "$workflow"
+  grep -q 'Evidence Sufficiency Check' "$workflow"
+  grep -q 'Reviewer Decision Packet Outcome' "$workflow"
+  grep -q 'Blind Spots / Negative Proof' "$workflow"
+  grep -q 'Human Process Risks' "$workflow"
+  grep -q 'Time / Cost Benefit' "$workflow"
+  grep -q 'Known Limitations' "$workflow"
+  grep -q 'What To Do Next' "$workflow"
+
+  grep -q 'GITHUB_ACTIONS_EVENT_PROOF_PACKAGE_M153.md' "$workflow"
+  grep -q 'GITHUB_ACTIONS_RUN_RECEIPT_CANDIDATE_M151.md' "$workflow"
+  grep -q 'TRUST_CLAIM_LADDER.md' "$workflow"
+  grep -q 'CONTROL_OBJECTIVE_MAPPING.md' "$workflow"
+  grep -q 'EVIDENCE_SUFFICIENCY_REPORT_M158.md' "$workflow"
+  grep -q 'REVIEWER_DECISION_PACKET_M160.md' "$workflow"
+  grep -q 'PUBLIC_TRUST_SURFACE.md' "$workflow"
+
+  grep -q 'GitHub Actions run/check metadata' "$workflow"
+  grep -q 'metadata-only receipts' "$workflow"
+  grep -q 'receipt import-generic-event' "$workflow"
+  grep -q 'receipt verify' "$workflow"
+  grep -q 'receipt replay' "$workflow"
+  grep -q 'present' "$workflow"
+  grep -q 'missing' "$workflow"
+  grep -q 'stale' "$workflow"
+  grep -q 'unverifiable' "$workflow"
+  grep -q 'proceed with internal review' "$workflow"
+  grep -q 'request missing evidence' "$workflow"
+  grep -q 'rerun verification' "$workflow"
+  grep -q 'refresh stale retained evidence' "$workflow"
+  grep -q 'escalate to external reviewer/auditor/authority' "$workflow"
+  grep -q 'rubber-stamped approvals' "$workflow"
+  grep -q 'missed events remain a risk' "$workflow"
+  grep -q 'rough qualitative comparison' "$workflow"
+  grep -q 'less ambiguity' "$workflow"
+
+  grep -q 'workflows/ORG_CI_RELEASE_REVIEW_WORKFLOW_M164.md' "$docs_index"
+  grep -q 'Organization CI release reviewer' "$docs_index"
+  grep -q 'one-day adoption workflow' "$docs_index"
+
+  for doc in "$workflow" "$docs_index"; do
+    ! grep -Eiq 'certified compliant|legally compliant|guaranteed safe|tamper-proof infrastructure|externally audited|external audit complete|external SLSA certified|production deployable outside the local Atlas contract|enterprise deployment approved|runtime safety proven|model correctness proven|artifact correctness guaranteed|complete event coverage' "$doc"
+    ! grep -Eiq 'Atlas (certifies|guarantees|approves|grants|proves|provides) (certification|compliance|legal compliance|external audit|external SLSA certification|production deployability|enterprise deployment approval|runtime safety|model correctness|artifact correctness|complete event coverage)' "$doc"
+    ! grep -Eiq '(This workflow|This support|Atlas) (adds|creates|runs|uses) (a live integration|GitHub API call|webhook|network collector|database|server|web UI|new adapter)' "$doc"
+  done
+
+  grep -q '^# Milestone 164: Organization CI Release Review Workflow$' "$milestone"
+  grep -q '7644fbb0b22df62b7ba20b6ebef72c2224cfac6f' "$milestone"
+  grep -q 'one-day organization-facing proof workflow' "$milestone"
+  grep -q 'No Atlas runtime behavior changed.' "$milestone"
+  grep -q 'atlas-retention-m164' "$milestone"
+  grep -q 'MILESTONE_164.md' "$milestone_index"
+  grep -q 'Organization CI Release Review Workflow' "$milestone_index"
+  grep -q 'atlas-retention-m164' "$milestone_index"
+}
+
 @test "capability manifest defines machine-readable governance root" {
   manifest="$TEST_ROOT/toolkit/capabilities.yaml"
   schema="$TEST_ROOT/toolkit/schemas/capability.v1.schema.json"
