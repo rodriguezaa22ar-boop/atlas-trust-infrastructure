@@ -9,6 +9,10 @@ repository in filesystem order.
 
 - [ATLAS_ONE_PAGE.md](ATLAS_ONE_PAGE.md): one-page explanation of what Atlas is,
   who it is for, what it does, and what it does not do.
+- [PUBLIC_TRUST_SURFACE.md](PUBLIC_TRUST_SURFACE.md): proof-to-value public
+  trust surface for audit-ready evidence, release governance, CI integrity
+  review, AI-agent action review, evidence sufficiency, and reviewer decision
+  support.
 - [RECEIPT_OPEN_CORE_RC.md](RECEIPT_OPEN_CORE_RC.md): receipt, replay, and
   reviewer-proof open-core RC packaging checkpoint.
 - [TRUST_CLAIM_LADDER.md](TRUST_CLAIM_LADDER.md): positive claim ladder
@@ -41,6 +45,7 @@ repository in filesystem order.
 ## Start here by role
 
 - New reader: [ATLAS_ONE_PAGE.md](ATLAS_ONE_PAGE.md)
+- Public trust reviewer: [PUBLIC_TRUST_SURFACE.md](PUBLIC_TRUST_SURFACE.md)
 - Security operator: [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md)
 - Lab operator: [ops/DUAL_NODE_COCKPIT.md](ops/DUAL_NODE_COCKPIT.md)
 - Host/runtime reviewer: [ops/PORTABILITY_CONTRACT.md](ops/PORTABILITY_CONTRACT.md)
@@ -103,6 +108,8 @@ repository in filesystem order.
 - [REPOSITORY_BOUNDARY.md](REPOSITORY_BOUNDARY.md): public/private repository
   boundary and public export contract.
 - [TRUST_LIFECYCLE.md](TRUST_LIFECYCLE.md): scope-to-release trust chain.
+- [PUBLIC_TRUST_SURFACE.md](PUBLIC_TRUST_SURFACE.md): public-facing
+  proof-to-value summary and starting points for reviewer verification.
 - [demo/DEMO_OPERATION.md](demo/DEMO_OPERATION.md): repeatable synthetic demo
   of the trust lifecycle.
 - [demo/DEMO_RECEIPT_PACKET.md](demo/DEMO_RECEIPT_PACKET.md): metadata-only

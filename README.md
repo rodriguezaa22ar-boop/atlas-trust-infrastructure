@@ -1,18 +1,17 @@
 # Atlas Trust Infrastructure
 
-Atlas is metadata-first integrity infrastructure for operational proof.
-It acts as a trust overlay for authorized work. It does not replace GitHub,
-Nix, SSH, tmux, scanners, approval tools, or business systems.
+Atlas is metadata-first integrity infrastructure for operational proof. It
+supports audit-ready evidence, release governance, CI integrity review,
+AI-agent action review, approval integrity, evidence sufficiency, and
+reviewer decision support.
+It acts as a trust overlay for authorized work around GitHub, Nix, SSH, tmux,
+scanners, approval tools, and business systems.
 It records and verifies the proof chain around them.
 
-The chain answers:
-
-- who requested the action
-- what capability and policy applied
-- whether approval was required
-- what evidence and artifact references were emitted
-- what commit or packet contains the result
-- how another reviewer can replay the proof
+The chain records who requested an action, what capability and policy applied,
+whether approval was required, which evidence and artifact references were
+emitted, what commit or packet contains the result, and how a reviewer can
+replay the proof.
 
 ## Public Repository Purpose
 
@@ -37,7 +36,7 @@ guarantee that an action was valid.
 
 ## Start Here
 
-- New reader: [docs/ATLAS_ONE_PAGE.md](docs/ATLAS_ONE_PAGE.md); receipt RC: [docs/RECEIPT_OPEN_CORE_RC.md](docs/RECEIPT_OPEN_CORE_RC.md); quickstarts: [docs/TRY_RECEIPTS.md](docs/TRY_RECEIPTS.md), [docs/TRY_GENERIC_EVENT_ADAPTER.md](docs/TRY_GENERIC_EVENT_ADAPTER.md)
+- New reader: [docs/ATLAS_ONE_PAGE.md](docs/ATLAS_ONE_PAGE.md); public trust surface: [docs/PUBLIC_TRUST_SURFACE.md](docs/PUBLIC_TRUST_SURFACE.md); receipt RC: [docs/RECEIPT_OPEN_CORE_RC.md](docs/RECEIPT_OPEN_CORE_RC.md); quickstarts: [docs/TRY_RECEIPTS.md](docs/TRY_RECEIPTS.md), [docs/TRY_GENERIC_EVENT_ADAPTER.md](docs/TRY_GENERIC_EVENT_ADAPTER.md)
 - Demo path: [docs/demo/DEMO_OPERATION.md](docs/demo/DEMO_OPERATION.md) and [docs/demo/DEMO_REVIEWER_RUNBOOK.md](docs/demo/DEMO_REVIEWER_RUNBOOK.md)
 - Security operator: [docs/OPERATOR_GUIDE.md](docs/OPERATOR_GUIDE.md)
 - Release reviewer: [docs/RELEASE_TRUST.md](docs/RELEASE_TRUST.md)
@@ -47,9 +46,9 @@ guarantee that an action was valid.
 - Contributor: [CONTRIBUTING.md](CONTRIBUTING.md)
 - Security reporter: [SECURITY.md](SECURITY.md)
 
-The demo uses synthetic/local-safe data only. It shows a metadata-only
-operation, evidence and finding links, approval references, retained packets,
-and reviewer verification without storing raw runtime evidence.
+The demo uses synthetic/local-safe data only. It shows metadata-only operation,
+evidence and finding links, approvals, retained packets, and reviewer
+verification without raw runtime evidence.
 
 ## Quick Start
 
@@ -75,9 +74,9 @@ out-of-scope target expansion. Target-touching workflows should preserve scope
 checks, capability classification, operator intent, approval gates where
 required, ledger events, and evidence handling.
 
-Atlas does not claim external audit, enterprise certification, external SLSA
-certification, deployment certification, immutable storage, tamper-proof
-infrastructure, runtime safety, or compliance approval.
+Atlas does not claim external audit, enterprise certification, deployment
+certification, immutable storage, tamper-proof infrastructure, runtime safety,
+or compliance approval.
 This is not external SLSA certification.
 
 ## Current Maturity

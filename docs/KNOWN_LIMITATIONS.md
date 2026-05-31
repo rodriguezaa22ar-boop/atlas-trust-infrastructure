@@ -1,11 +1,21 @@
 # Atlas Known Limitations
 
+Known limitations are precision boundaries for Atlas' public trust surface.
+They help reviewers understand which evidence Atlas can verify locally and
+which determinations remain with reviewers, auditors, approvers, or
+authorities.
+
 ## Current Maturity
 
 Atlas is in an internal engineering and refinement phase. Current readiness
 means ready-to-refine, not production-certified.
 
-## Trust Limitations
+## Trust Precision Boundaries
+
+Atlas supports audit-ready evidence, release governance, CI integrity review,
+AI-agent action review, approval integrity, evidence sufficiency review, and
+reviewer decision support through replayable metadata-only proof receipts. The
+boundaries below keep those support claims tied to evidence.
 
 - Release trust packets are hash-bound by release provenance; packet files are
   not individually signed.

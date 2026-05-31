@@ -7,6 +7,10 @@ Verify and replay a synthetic Atlas receipt chain in under five minutes.
 This path is for reviewers who want to see the receipt boundary before reading
 the full Atlas trust model. It uses committed, synthetic demo receipts only.
 
+Atlas supports receipt review by making the proof envelope replayable: the
+reviewer can verify metadata-only status, known limitations, local hashes, and
+provided chain order without raw artifacts or hidden runtime state.
+
 ## Requirements
 
 Run from the repository root with the Nix development shell:
