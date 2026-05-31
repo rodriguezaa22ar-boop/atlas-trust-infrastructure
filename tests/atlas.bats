@@ -3939,6 +3939,119 @@ write_test_slsa_reference() {
   grep -q 'atlas-retention-m161' "$milestone_index"
 }
 
+@test "M162 public trust surface leads with bounded review value" {
+  readme="$TEST_ROOT/toolkit/README.md"
+  docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
+  public_surface="$TEST_ROOT/toolkit/docs/PUBLIC_TRUST_SURFACE.md"
+  receipt_rc="$TEST_ROOT/toolkit/docs/RECEIPT_OPEN_CORE_RC.md"
+  try_receipts="$TEST_ROOT/toolkit/docs/TRY_RECEIPTS.md"
+  try_generic="$TEST_ROOT/toolkit/docs/TRY_GENERIC_EVENT_ADAPTER.md"
+  try_ai="$TEST_ROOT/toolkit/docs/TRY_AI_AGENT_EVENT_RECEIPTS.md"
+  known_limits="$TEST_ROOT/toolkit/docs/KNOWN_LIMITATIONS.md"
+  demo_readme="$TEST_ROOT/toolkit/docs/demo/README.md"
+  trust_ladder="$TEST_ROOT/toolkit/docs/TRUST_CLAIM_LADDER.md"
+  control_map="$TEST_ROOT/toolkit/docs/reviews/CONTROL_OBJECTIVE_MAPPING.md"
+  sufficiency_report="$TEST_ROOT/toolkit/docs/reviews/EVIDENCE_SUFFICIENCY_REPORT_M158.md"
+  production_map="$TEST_ROOT/toolkit/docs/reviews/PRODUCTION_READINESS_CONTROL_MAPPING_M156.md"
+  decision_packet="$TEST_ROOT/toolkit/docs/reviews/REVIEWER_DECISION_PACKET_M160.md"
+  gha_proof="$TEST_ROOT/toolkit/docs/reviews/GITHUB_ACTIONS_EVENT_PROOF_PACKAGE_M153.md"
+  milestone="$TEST_ROOT/toolkit/docs/retention/milestones/MILESTONE_162.md"
+  milestone_index="$TEST_ROOT/toolkit/docs/retention/MILESTONE_INDEX.md"
+
+  [ -f "$public_surface" ]
+  [ -f "$readme" ]
+  [ -f "$docs_index" ]
+  [ -f "$receipt_rc" ]
+  [ -f "$try_receipts" ]
+  [ -f "$try_generic" ]
+  [ -f "$try_ai" ]
+  [ -f "$known_limits" ]
+  [ -f "$demo_readme" ]
+  [ -f "$trust_ladder" ]
+  [ -f "$control_map" ]
+  [ -f "$sufficiency_report" ]
+  [ -f "$production_map" ]
+  [ -f "$decision_packet" ]
+  [ -f "$gha_proof" ]
+  [ -f "$milestone" ]
+
+  [ "$(wc -l < "$readme")" -le 150 ]
+  grep -q '^# Public Trust Surface$' "$public_surface"
+  sed -n '1,14p' "$public_surface" | grep -q '^Atlas supports audit-ready evidence'
+  sed -n '1,14p' "$public_surface" | grep -q 'reviewer decision support through replayable metadata-only proof receipts'
+  ! sed -n '1,20p' "$public_surface" | grep -q 'Atlas does not'
+
+  grep -q 'supports audit-ready evidence' "$readme"
+  grep -q 'release governance' "$readme"
+  grep -q 'CI integrity review' "$readme"
+  grep -q 'AI-agent action review' "$readme"
+  grep -q 'evidence sufficiency' "$readme"
+  grep -q 'reviewer decision support' "$readme"
+  grep -q 'docs/PUBLIC_TRUST_SURFACE.md' "$readme"
+  grep -q 'docs/TRY_RECEIPTS.md' "$readme"
+  grep -q 'docs/TRY_GENERIC_EVENT_ADAPTER.md' "$readme"
+  grep -q 'docs/TRY_AI_AGENT_EVENT_RECEIPTS.md' "$readme"
+
+  grep -q 'PUBLIC_TRUST_SURFACE.md' "$docs_index"
+  grep -q 'proof-to-value public' "$docs_index"
+  grep -q 'Public trust reviewer' "$docs_index"
+  grep -q 'TRUST_CLAIM_LADDER.md' "$docs_index"
+  grep -q 'reviews/EVIDENCE_SUFFICIENCY_REPORT_M158.md' "$docs_index"
+  grep -q 'reviews/REVIEWER_DECISION_PACKET_M160.md' "$docs_index"
+  grep -q 'reviews/PRODUCTION_READINESS_CONTROL_MAPPING_M156.md' "$docs_index"
+
+  grep -q 'What Atlas Supports' "$public_surface"
+  grep -q 'Proof Receipts' "$public_surface"
+  grep -q 'Reviewer Outcomes' "$public_surface"
+  grep -q 'Review Areas' "$public_surface"
+  grep -q 'Where To Start' "$public_surface"
+  grep -q 'Precision Boundaries' "$public_surface"
+  grep -q 'Trust Claim Ladder' "$public_surface"
+  grep -q 'Evidence Sufficiency Report' "$public_surface"
+  grep -q 'Reviewer Decision Packet' "$public_surface"
+  grep -q 'Production Readiness Control Mapping' "$public_surface"
+  grep -q 'GitHub Actions event proof package' "$public_surface"
+  grep -q 'TRY_RECEIPTS.md' "$public_surface"
+  grep -q 'TRY_GENERIC_EVENT_ADAPTER.md' "$public_surface"
+  grep -q 'TRY_AI_AGENT_EVENT_RECEIPTS.md' "$public_surface"
+  grep -q 'GITHUB_ACTIONS_EVENT_PROOF_PACKAGE_M153.md' "$public_surface"
+  grep -q 'REVIEWER_DECISION_PACKET_M160.md' "$public_surface"
+
+  grep -q 'present' "$public_surface"
+  grep -q 'missing' "$public_surface"
+  grep -q 'stale' "$public_surface"
+  grep -q 'unverifiable' "$public_surface"
+  grep -q 'AI-agent action review' "$public_surface"
+  grep -q 'GitHub Actions / CI integrity review' "$public_surface"
+  grep -q 'production-readiness review under the local Atlas contract' "$public_surface"
+  grep -q 'reviewer decision packets' "$public_surface"
+  grep -q 'known limitations' "$public_surface"
+
+  grep -q 'Review Value' "$receipt_rc"
+  grep -q 'Atlas supports reviewer inspection of critical actions' "$receipt_rc"
+  grep -q 'Atlas supports receipt review' "$try_receipts"
+  grep -q 'Atlas supports external-event review' "$try_generic"
+  grep -q 'Atlas supports AI-agent action review' "$try_ai"
+  grep -q 'Atlas supports demo review' "$demo_readme"
+  grep -q 'Known limitations are precision boundaries' "$known_limits"
+  grep -q 'Trust Precision Boundaries' "$known_limits"
+
+  for doc in "$readme" "$public_surface" "$receipt_rc" "$try_receipts" "$try_generic" "$try_ai" "$known_limits" "$demo_readme" "$docs_index"; do
+    ! grep -Eiq 'Atlas (certifies|guarantees|is externally audited|is legally compliant|is legal compliance|is tamper-proof|proves compliance|proves model correctness|proves runtime safety|prevents fraud|is fraud-proof|is fully secure)' "$doc"
+    ! grep -Eiq '(Atlas|This support|This public trust surface) (grants|creates|provides|proves|certifies|guarantees|approves) (certification|external audit|legal compliance|enterprise deployment approval|external SLSA certification|production deployability|model correctness|runtime safety|artifact correctness)' "$doc"
+    ! grep -Eiq 'certified compliant|legally compliant|guaranteed safe|external audit complete|external SLSA certified|enterprise deployment approved|runtime safety proven|model correctness proven|artifact correctness guaranteed' "$doc"
+  done
+
+  grep -q '^# Milestone 162: Public Trust Surface Refresh$' "$milestone"
+  grep -q 'da0de203ca3ab2ab5fc8d452736ec77f4d30a7a9' "$milestone"
+  grep -q 'proof-to-value phase' "$milestone"
+  grep -q 'No Atlas runtime behavior changed.' "$milestone"
+  grep -q 'atlas-retention-m162' "$milestone"
+  grep -q 'MILESTONE_162.md' "$milestone_index"
+  grep -q 'Public Trust Surface Refresh' "$milestone_index"
+  grep -q 'atlas-retention-m162' "$milestone_index"
+}
+
 @test "capability manifest defines machine-readable governance root" {
   manifest="$TEST_ROOT/toolkit/capabilities.yaml"
   schema="$TEST_ROOT/toolkit/schemas/capability.v1.schema.json"

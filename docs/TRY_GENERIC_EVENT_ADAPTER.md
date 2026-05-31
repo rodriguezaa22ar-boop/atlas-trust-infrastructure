@@ -8,6 +8,10 @@ two-receipt chain in under five minutes.
 This path is for reviewers who want to test the first import-only adapter
 without needing a source system, network access, scanner, webhook, or backend.
 
+Atlas supports external-event review by turning local metadata files into
+replayable receipts. This gives reviewers an import, verify, and replay path
+without expanding Atlas into a collector or source-system authority.
+
 ## Requirements
 
 Run from the repository root with the Nix development shell:

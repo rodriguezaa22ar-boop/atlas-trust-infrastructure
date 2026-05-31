@@ -9,6 +9,11 @@ This path is for reviewers who want to test the M146 AI-agent event profile
 without needing a model provider, network access, webhook, scanner, backend, or
 agent runtime.
 
+Atlas supports AI-agent action review by treating agents as metadata-only event
+sources. The quickstart verifies proposed action and reported result receipts
+without adding model execution, tool execution, approval authority, or raw
+prompt/output storage.
+
 ## Requirements
 
 Run from the repository root with the Nix development shell:

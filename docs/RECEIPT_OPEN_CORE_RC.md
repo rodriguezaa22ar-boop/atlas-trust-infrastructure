@@ -11,6 +11,14 @@ This is packaging for the current proof layer. It does not change receipt
 semantics, verifier behavior, replay behavior, release gates, or reviewer
 package checks.
 
+## Review Value
+
+Atlas supports reviewer inspection of critical actions by producing replayable
+metadata-only proof receipts. A reviewer can verify receipt structure, hashes,
+known limitations, and replay order locally, then use the Trust Claim Ladder,
+Evidence Sufficiency Report, and Reviewer Decision Packet to decide what the
+evidence supports.
+
 ## What Atlas Proves
 
 Atlas can currently prove these local properties for receipt records and
@@ -180,6 +188,7 @@ package current retained release evidence for reviewer inspection.
 The incorrect interpretation is broader than the evidence supports:
 
 ```text
-Atlas is externally audited, certified, legally compliant, tamper-proof,
-production-approved, or externally SLSA-certified.
+The incorrect interpretation would treat this package as external audit or
+certification, legal compliance, tamper-proof infrastructure, production
+approval, or external SLSA certification.
 ```
