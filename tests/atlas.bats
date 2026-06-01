@@ -4597,6 +4597,79 @@ write_test_slsa_reference() {
   grep -q 'atlas-retention-m169' "$milestone_index"
 }
 
+@test "M170 scale and storage strategy keeps future storage metadata-first" {
+  strategy="$TEST_ROOT/toolkit/docs/architecture/SCALE_AND_STORAGE_STRATEGY_M170.md"
+  docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
+  milestone="$TEST_ROOT/toolkit/docs/retention/milestones/MILESTONE_170.md"
+  milestone_index="$TEST_ROOT/toolkit/docs/retention/MILESTONE_INDEX.md"
+
+  [ -f "$strategy" ]
+  [ -f "$docs_index" ]
+  [ -f "$milestone" ]
+  [ -f "$milestone_index" ]
+
+  grep -q '^# Scale and Storage Strategy M170$' "$strategy"
+  grep -q 'architecture planning, not production storage implementation' "$strategy"
+  grep -q 'local-first' "$strategy"
+  grep -q 'file-backed' "$strategy"
+  grep -q 'metadata-only' "$strategy"
+  grep -q 'docs/retention/' "$strategy"
+  grep -q 'examples/' "$strategy"
+  grep -q 'thousands of metadata-only receipts' "$strategy"
+  grep -q 'CI/release, AI-agent, approval, and business workflow events' "$strategy"
+
+  grep -q 'Indexing Strategy' "$strategy"
+  grep -q 'content-addressed receipt hashes' "$strategy"
+  grep -q 'event_hash' "$strategy"
+  grep -q 'receipt_hash' "$strategy"
+  grep -q 'prev_hash' "$strategy"
+  grep -q 'review objective' "$strategy"
+  grep -q 'sufficiency status' "$strategy"
+
+  grep -q 'Deduplication Strategy' "$strategy"
+  grep -q 'dedupe identical receipt files by `receipt_hash`' "$strategy"
+  grep -q 'detect duplicate `event_hash` values' "$strategy"
+  grep -q 'do not collapse evidence meaning just because hashes match' "$strategy"
+
+  grep -q 'Archive and Rotation Strategy' "$strategy"
+  grep -q 'Compression Strategy' "$strategy"
+  grep -q 'Batch Verification' "$strategy"
+  grep -q 'Batch Replay' "$strategy"
+  grep -q 'Evidence Sufficiency At Scale' "$strategy"
+  grep -q 'Reviewer Query Needs' "$strategy"
+  grep -q 'Public/Private Boundary' "$strategy"
+  grep -q 'Future Private Collector Boundary' "$strategy"
+  grep -q 'Future Hosted Verifier Boundary' "$strategy"
+  grep -q 'Failure Modes' "$strategy"
+
+  grep -q 'raw logs' "$strategy"
+  grep -q 'secrets' "$strategy"
+  grep -q 'raw prompts' "$strategy"
+  grep -q 'raw model outputs' "$strategy"
+  grep -q 'private keys' "$strategy"
+  grep -q 'request bodies' "$strategy"
+  grep -q 'response bodies' "$strategy"
+  grep -q 'packet captures' "$strategy"
+  grep -q 'customer data' "$strategy"
+
+  grep -q 'Future indexing must not replace inspectable receipts as the source of truth' "$strategy"
+  grep -q 'Future private collectors or hosted verifiers must preserve metadata-only' "$strategy"
+  grep -q 'Storage scale must not weaken receipt verify, replay' "$strategy"
+  grep -q 'local verifier remains open and authoritative' "$strategy"
+  grep -q 'does not prove complete event coverage' "$strategy"
+
+  grep -q 'architecture/SCALE_AND_STORAGE_STRATEGY_M170.md' "$docs_index"
+  grep -q '^# Milestone 170: Scale and Storage Strategy$' "$milestone"
+  grep -q '9d774a4f25ab2016a1032f8418e77755b8610e99' "$milestone"
+  grep -q 'atlas-retention-m170' "$milestone"
+  grep -q 'MILESTONE_170.md' "$milestone_index"
+  grep -q 'Scale and Storage Strategy' "$milestone_index"
+  grep -q 'atlas-retention-m170' "$milestone_index"
+
+  ! grep -Eiq 'Atlas (implements|provides|delivers|guarantees|certifies) (production storage|enterprise-scale storage|hosted verifier|private collector|complete event coverage|compliance|certification|legal sufficiency|guaranteed safety)' "$strategy"
+  ! grep -Eiq 'production storage readiness: ready|enterprise-scale storage implemented|hosted verifier implemented|private collector implemented|tamper-proof infrastructure|certified compliant|legally compliant|guaranteed safe|external audit complete|external SLSA certified|model correctness proven|runtime safety proven|artifact correctness guaranteed' "$strategy"
+}
+
 @test "capability manifest defines machine-readable governance root" {
   manifest="$TEST_ROOT/toolkit/capabilities.yaml"
   schema="$TEST_ROOT/toolkit/schemas/capability.v1.schema.json"
