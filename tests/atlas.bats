@@ -4355,6 +4355,136 @@ write_test_slsa_reference() {
   grep -q 'atlas-retention-m166' "$milestone_index"
 }
 
+@test "M167 adoption friction dry-run keeps reviewer workflow usable and bounded" {
+  dry_run="$TEST_ROOT/toolkit/docs/reviews/ADOPTION_FRICTION_DRY_RUN_M167.md"
+  docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
+  milestone="$TEST_ROOT/toolkit/docs/retention/milestones/MILESTONE_167.md"
+  milestone_index="$TEST_ROOT/toolkit/docs/retention/MILESTONE_INDEX.md"
+  org_workflow="$TEST_ROOT/toolkit/docs/workflows/ORG_CI_RELEASE_REVIEW_WORKFLOW_M164.md"
+  plain_output="$TEST_ROOT/toolkit/docs/reviews/REVIEWER_PLAIN_ENGLISH_OUTPUT_M166.md"
+  decision_packet="$TEST_ROOT/toolkit/docs/reviews/REVIEWER_DECISION_PACKET_M160.md"
+  sufficiency_report="$TEST_ROOT/toolkit/docs/reviews/EVIDENCE_SUFFICIENCY_REPORT_M158.md"
+  github_actions_package="$TEST_ROOT/toolkit/docs/reviews/GITHUB_ACTIONS_EVENT_PROOF_PACKAGE_M153.md"
+  public_surface="$TEST_ROOT/toolkit/docs/PUBLIC_TRUST_SURFACE.md"
+  try_receipts="$TEST_ROOT/toolkit/docs/TRY_RECEIPTS.md"
+  try_adapter="$TEST_ROOT/toolkit/docs/TRY_GENERIC_EVENT_ADAPTER.md"
+
+  [ -f "$dry_run" ]
+  [ -f "$docs_index" ]
+  [ -f "$milestone" ]
+  [ -f "$org_workflow" ]
+  [ -f "$plain_output" ]
+  [ -f "$decision_packet" ]
+  [ -f "$sufficiency_report" ]
+  [ -f "$github_actions_package" ]
+  [ -f "$public_surface" ]
+  [ -f "$try_receipts" ]
+  [ -f "$try_adapter" ]
+
+  grep -q '^# Adoption Friction Dry-Run M167$' "$dry_run"
+  grep -q 'ORG_CI_RELEASE_REVIEW_WORKFLOW_M164.md' "$dry_run"
+  grep -q 'REVIEWER_PLAIN_ENGLISH_OUTPUT_M166.md' "$dry_run"
+  grep -q 'REVIEWER_DECISION_PACKET_M160.md' "$dry_run"
+  grep -q 'EVIDENCE_SUFFICIENCY_REPORT_M158.md' "$dry_run"
+  grep -q 'GITHUB_ACTIONS_EVENT_PROOF_PACKAGE_M153.md' "$dry_run"
+  grep -q 'PUBLIC_TRUST_SURFACE.md' "$dry_run"
+  grep -q 'TRY_RECEIPTS.md' "$dry_run"
+  grep -q 'TRY_GENERIC_EVENT_ADAPTER.md' "$dry_run"
+  grep -q 'reviews/ADOPTION_FRICTION_DRY_RUN_M167.md' "$docs_index"
+
+  for heading in \
+    'Purpose' \
+    'Reviewer Persona' \
+    'Starting Point' \
+    'Fresh-Clone Setup' \
+    'Commands Run' \
+    'Expected Outputs' \
+    'Friction Log' \
+    'Confusing Points Found' \
+    'Fixes Or Follow-Up Recommendations' \
+    'Time-To-First-Result Target' \
+    'Evidence Reviewed' \
+    'Plain-English Summary Reviewed' \
+    'Reviewer Decision Packet Reviewed' \
+    'Evidence Sufficiency Reviewed' \
+    'Known Limitations Reviewed' \
+    'Unsupported Decisions' \
+    'Final Adoption Result' \
+    'Remaining Adoption Risks'; do
+    grep -q "$heading" "$dry_run"
+  done
+
+  grep -q 'git clone <repo> atlas-review' "$dry_run"
+  grep -q "nix-shell --run './bin/dev-qa'" "$dry_run"
+  grep -q "nix-shell --run './bin/export-public-trust --check'" "$dry_run"
+  grep -q 'receipt verify examples/receipt/minimal.json' "$dry_run"
+  grep -q 'receipt replay examples/receipt/demo-site/\*.json' "$dry_run"
+  grep -q 'github-actions-run-event.json' "$dry_run"
+  grep -q 'github-actions-check-event.json' "$dry_run"
+  grep -q 'prev_hash' "$dry_run"
+  grep -q 'receipt replay /tmp/github-actions-run.atlas.json /tmp/github-actions-check.atlas.json' "$dry_run"
+
+  grep -q 'ok: receipt verified' "$dry_run"
+  grep -q 'ok: receipt chain replay verified' "$dry_run"
+  grep -q 'present' "$dry_run"
+  grep -q 'missing' "$dry_run"
+  grep -q 'stale' "$dry_run"
+  grep -q 'unverifiable' "$dry_run"
+
+  for category in \
+    'clear' \
+    'confusing' \
+    'blocked' \
+    'missing context' \
+    'too much jargon' \
+    'command friction' \
+    'output friction' \
+    'reviewer-decision friction' \
+    'limitation clarity issue'; do
+    grep -q "$category" "$dry_run"
+  done
+
+  grep -q 'Time to first successful verify' "$dry_run"
+  grep -q 'Time to first replay' "$dry_run"
+  grep -q 'Time to understand what Atlas verifies' "$dry_run"
+  grep -q 'Time to understand what Atlas does not verify' "$dry_run"
+  grep -q 'Time to identify supported decision' "$dry_run"
+  grep -q 'Time to identify unsupported decision' "$dry_run"
+  grep -q 'Overall adoption result' "$dry_run"
+  grep -q 'Overall result: `warning`' "$dry_run"
+
+  grep -q 'This dry-run does not prove market adoption' "$dry_run"
+  grep -q 'This dry-run does not prove external user success' "$dry_run"
+  grep -q 'This dry-run does not prove compliance, certification, legal sufficiency' "$dry_run"
+  grep -q 'complete event coverage' "$dry_run"
+  grep -q 'production deployability' "$dry_run"
+  grep -q 'This dry-run helps identify adoption friction and reviewer clarity issues' "$dry_run"
+  grep -q 'metadata-only' "$dry_run"
+  grep -q 'human judgment' "$dry_run"
+
+  grep -q 'certified or legally compliant' "$dry_run"
+  grep -q 'all events were captured' "$dry_run"
+  grep -q 'all missing events were detected' "$dry_run"
+  grep -q 'model correctness or runtime safety is established' "$dry_run"
+  grep -q 'artifact correctness is established' "$dry_run"
+
+  for doc in "$dry_run" "$docs_index"; do
+    ! grep -Eiq 'guaranteed adoption|proven market fit|certified compliant|externally audited|external audit complete|external SLSA certified|production deployable outside the local Atlas contract|detects all missing events|proves no action happened outside Atlas|model correctness proven|runtime safety proven|artifact correctness guaranteed' "$doc"
+    ! grep -Eiq 'Atlas (guarantees|proves|certifies|approves|grants) (adoption|market fit|compliance|certification|legal sufficiency|complete event coverage|all actions happened|no action happened outside Atlas|business approval|production deployability|external SLSA certification|runtime safety|model correctness|artifact correctness)' "$doc"
+    ! grep -Eiq '(This dry-run|This workflow|This support) (guarantees|proves|certifies|approves|grants) (market adoption|external user success|compliance|certification|legal sufficiency|complete event coverage|all actions happened|no action happened outside Atlas|business approval|production deployability|external SLSA certification|runtime safety|model correctness|artifact correctness)' "$doc"
+  done
+
+  grep -q '^# Milestone 167: Adoption Friction Dry-Run$' "$milestone"
+  grep -q '7a5d30cd9742d41fe5846c0d891ab25447f33222' "$milestone"
+  grep -q 'retained adoption friction dry-run' "$milestone"
+  grep -q 'No Atlas runtime behavior changed.' "$milestone"
+  grep -q 'Known limitations preserved.' "$milestone"
+  grep -q 'atlas-retention-m167' "$milestone"
+  grep -q 'MILESTONE_167.md' "$milestone_index"
+  grep -q 'Adoption Friction Dry-Run' "$milestone_index"
+  grep -q 'atlas-retention-m167' "$milestone_index"
+}
+
 @test "capability manifest defines machine-readable governance root" {
   manifest="$TEST_ROOT/toolkit/capabilities.yaml"
   schema="$TEST_ROOT/toolkit/schemas/capability.v1.schema.json"
