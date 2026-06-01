@@ -4560,6 +4560,43 @@ write_test_slsa_reference() {
   grep -q 'atlas-retention-m168' "$milestone_index"
 }
 
+@test "M169 reviewer quickstart safety regression keeps simplified path bounded" {
+  quickstart="$TEST_ROOT/toolkit/docs/REVIEWER_QUICKSTART.md"
+  milestone="$TEST_ROOT/toolkit/docs/retention/milestones/MILESTONE_169.md"
+  milestone_index="$TEST_ROOT/toolkit/docs/retention/MILESTONE_INDEX.md"
+
+  [ -f "$quickstart" ]
+  [ -f "$milestone" ]
+  [ -f "$milestone_index" ]
+
+  grep -q '^# Reviewer Quickstart$' "$quickstart"
+  grep -q 'Atlas supports a simplified reviewer path' "$quickstart"
+  grep -q 'reduces the adoption friction recorded in' "$quickstart"
+  grep -q 'Evidence `present` does not automatically mean evidence sufficient' "$quickstart"
+  grep -q 'Missing events may exist outside the proof chain' "$quickstart"
+  grep -q 'Receipt replay verifies receipt hashes and caller-provided chain order' "$quickstart"
+  grep -q 'external truth' "$quickstart"
+  grep -q 'does not prove that every source-system event was captured' "$quickstart"
+  grep -q 'do not mark the objective sufficient by default' "$quickstart"
+  grep -q 'Reviewers, approvers, auditors, and authorities still make final' "$quickstart"
+  grep -q 'determinations' "$quickstart"
+
+  for doc in "$quickstart"; do
+    ! grep -Eiq 'guaranteed compliance|certified compliant|legally sufficient|guaranteed safe|tamper-proof|externally audited|external audit complete|complete event coverage|detects all missing events|proves no action happened outside Atlas|production deployable outside the local Atlas contract|external SLSA certified|model correctness proven|runtime safety proven|artifact correctness guaranteed' "$doc"
+    ! grep -Eiq 'Atlas (guarantees|proves|certifies|approves|grants) (compliance|certification|legal sufficiency|complete event coverage|all actions happened|no action happened outside Atlas|business approval|production deployability|external SLSA certification|runtime safety|model correctness|artifact correctness)' "$doc"
+  done
+
+  grep -q '^# Milestone 169: Reviewer Quickstart Safety Regression$' "$milestone"
+  grep -q '8f0d66f7167c3697775d18f1c2fa0e5030732c71' "$milestone"
+  grep -q 'automatic evidence' "$milestone"
+  grep -q 'No Atlas runtime behavior changed.' "$milestone"
+  grep -q 'Known limitations preserved.' "$milestone"
+  grep -q 'atlas-retention-m169' "$milestone"
+  grep -q 'MILESTONE_169.md' "$milestone_index"
+  grep -q 'Reviewer Quickstart Safety Regression' "$milestone_index"
+  grep -q 'atlas-retention-m169' "$milestone_index"
+}
+
 @test "capability manifest defines machine-readable governance root" {
   manifest="$TEST_ROOT/toolkit/capabilities.yaml"
   schema="$TEST_ROOT/toolkit/schemas/capability.v1.schema.json"
