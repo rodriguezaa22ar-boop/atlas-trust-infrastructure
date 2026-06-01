@@ -17,6 +17,9 @@ repository in filesystem order.
   one-day organization-facing CI release review workflow using local
   GitHub Actions metadata receipts, evidence sufficiency, and reviewer decision
   support.
+- [REVIEWER_QUICKSTART.md](REVIEWER_QUICKSTART.md): simplified path from fresh
+  clone to first verify, first replay, GitHub Actions metadata import,
+  evidence sufficiency review, and reviewer decision summary.
 - [reviews/ADOPTION_FRICTION_DRY_RUN_M167.md](reviews/ADOPTION_FRICTION_DRY_RUN_M167.md):
   retained adoption dry-run for following the CI release review workflow from a
   fresh clone without live builder help.
@@ -56,6 +59,7 @@ repository in filesystem order.
 
 - New reader: [ATLAS_ONE_PAGE.md](ATLAS_ONE_PAGE.md)
 - Public trust reviewer: [PUBLIC_TRUST_SURFACE.md](PUBLIC_TRUST_SURFACE.md)
+- First-time reviewer: [REVIEWER_QUICKSTART.md](REVIEWER_QUICKSTART.md)
 - Organization CI release reviewer: [workflows/ORG_CI_RELEASE_REVIEW_WORKFLOW_M164.md](workflows/ORG_CI_RELEASE_REVIEW_WORKFLOW_M164.md)
 - Adoption dry-run reviewer: [reviews/ADOPTION_FRICTION_DRY_RUN_M167.md](reviews/ADOPTION_FRICTION_DRY_RUN_M167.md)
 - Security operator: [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md)
@@ -97,6 +101,9 @@ repository in filesystem order.
   demo-site receipt packet and replay path.
 - [TRY_RECEIPTS.md](TRY_RECEIPTS.md): copy-paste local receipt verify and
   replay path with expected output.
+- [REVIEWER_QUICKSTART.md](REVIEWER_QUICKSTART.md): simplified reviewer path
+  for first verify, first replay, GitHub Actions metadata import, evidence
+  sufficiency review, and decision summary.
 - [TRY_GENERIC_EVENT_ADAPTER.md](TRY_GENERIC_EVENT_ADAPTER.md): copy-paste
   generic external event adapter import path with expected verify and replay
   output.
@@ -128,6 +135,9 @@ repository in filesystem order.
 - [TRUST_LIFECYCLE.md](TRUST_LIFECYCLE.md): scope-to-release trust chain.
 - [PUBLIC_TRUST_SURFACE.md](PUBLIC_TRUST_SURFACE.md): public-facing
   proof-to-value summary and starting points for reviewer verification.
+- [REVIEWER_QUICKSTART.md](REVIEWER_QUICKSTART.md): first-reviewer path that
+  reduces adoption friction from clone through verify, replay, event import,
+  evidence sufficiency, and decision summary.
 - [workflows/ORG_CI_RELEASE_REVIEW_WORKFLOW_M164.md](workflows/ORG_CI_RELEASE_REVIEW_WORKFLOW_M164.md):
   organization-facing CI release review workflow that connects proof receipts,
   evidence sufficiency, and reviewer decision support.
@@ -189,6 +199,9 @@ repository in filesystem order.
 - [reviews/REVIEWER_PLAIN_ENGLISH_OUTPUT_M166.md](reviews/REVIEWER_PLAIN_ENGLISH_OUTPUT_M166.md):
   translates receipts, replay, evidence sufficiency, and reviewer decisions
   into plain-English reader-mode output.
+- [REVIEWER_QUICKSTART.md](REVIEWER_QUICKSTART.md): simplified reviewer
+  quickstart with copy-paste commands, expected outputs, `prev_hash`
+  explanation, and blocked-path guidance.
 - [reviews/ADOPTION_FRICTION_DRY_RUN_M167.md](reviews/ADOPTION_FRICTION_DRY_RUN_M167.md):
   tests whether a new reviewer/operator can follow the CI release review path
   and understand the result without live explanation.
@@ -237,6 +250,9 @@ repository in filesystem order.
   path, limitations, and outside-Atlas determination.
 - [reviews/REVIEWER_PLAIN_ENGLISH_OUTPUT_M166.md](reviews/REVIEWER_PLAIN_ENGLISH_OUTPUT_M166.md):
   plain-English output format for mixed technical and non-technical reviewers.
+- [REVIEWER_QUICKSTART.md](REVIEWER_QUICKSTART.md): simplified reviewer path
+  from first verify and replay to GitHub Actions metadata import and evidence
+  sufficiency review.
 - [workflows/ORG_CI_RELEASE_REVIEW_WORKFLOW_M164.md](workflows/ORG_CI_RELEASE_REVIEW_WORKFLOW_M164.md):
   adoption workflow for a bounded one-day CI release review using GitHub
   Actions metadata receipts and reviewer decision packet outcomes.
