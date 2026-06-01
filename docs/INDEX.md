@@ -20,6 +20,10 @@ repository in filesystem order.
 - [REVIEWER_QUICKSTART.md](REVIEWER_QUICKSTART.md): simplified path from fresh
   clone to first verify, first replay, GitHub Actions metadata import,
   evidence sufficiency review, and reviewer decision summary.
+- [architecture/SCALE_AND_STORAGE_STRATEGY_M170.md](architecture/SCALE_AND_STORAGE_STRATEGY_M170.md):
+  scale and storage strategy for larger metadata-only receipt volumes,
+  indexing, batch verification, batch replay, archive rotation, and future
+  collector/verifier boundaries without adding storage runtime.
 - [reviews/ADOPTION_FRICTION_DRY_RUN_M167.md](reviews/ADOPTION_FRICTION_DRY_RUN_M167.md):
   retained adoption dry-run for following the CI release review workflow from a
   fresh clone without live builder help.
@@ -74,6 +78,7 @@ repository in filesystem order.
 - Decision reviewer: [reviews/REVIEWER_DECISION_PACKET_M160.md](reviews/REVIEWER_DECISION_PACKET_M160.md)
 - Plain-English reviewer: [reviews/REVIEWER_PLAIN_ENGLISH_OUTPUT_M166.md](reviews/REVIEWER_PLAIN_ENGLISH_OUTPUT_M166.md)
 - Control reviewer: [reviews/CONTROL_OBJECTIVE_MAPPING.md](reviews/CONTROL_OBJECTIVE_MAPPING.md)
+- Scale/storage reviewer: [architecture/SCALE_AND_STORAGE_STRATEGY_M170.md](architecture/SCALE_AND_STORAGE_STRATEGY_M170.md)
 - Contributor: [../CONTRIBUTING.md](../CONTRIBUTING.md)
 - Security reporter: [../SECURITY.md](../SECURITY.md)
 
@@ -164,6 +169,10 @@ repository in filesystem order.
   packets, schemas, freshness, verification, replay, and retention.
 - [atlas/BUSINESS_FLOW_EVIDENCE.md](atlas/BUSINESS_FLOW_EVIDENCE.md):
   metadata-only business-flow evidence design.
+- [architecture/SCALE_AND_STORAGE_STRATEGY_M170.md](architecture/SCALE_AND_STORAGE_STRATEGY_M170.md):
+  architecture strategy for scaling receipt storage, indexes, archives,
+  checkpoints, batch verification, batch replay, and reviewer queries while
+  preserving file-backed source-of-truth receipts.
 
 ## Governance
 
@@ -202,6 +211,10 @@ repository in filesystem order.
 - [REVIEWER_QUICKSTART.md](REVIEWER_QUICKSTART.md): simplified reviewer
   quickstart with copy-paste commands, expected outputs, `prev_hash`
   explanation, and blocked-path guidance.
+- [architecture/SCALE_AND_STORAGE_STRATEGY_M170.md](architecture/SCALE_AND_STORAGE_STRATEGY_M170.md):
+  M170 scale/storage strategy for metadata-only receipts, generated indexes,
+  archive rotation, future private collector boundaries, and future hosted
+  verifier boundaries.
 - [reviews/ADOPTION_FRICTION_DRY_RUN_M167.md](reviews/ADOPTION_FRICTION_DRY_RUN_M167.md):
   tests whether a new reviewer/operator can follow the CI release review path
   and understand the result without live explanation.
@@ -259,6 +272,9 @@ repository in filesystem order.
 - [reviews/ADOPTION_FRICTION_DRY_RUN_M167.md](reviews/ADOPTION_FRICTION_DRY_RUN_M167.md):
   retained internal dry-run for adoption friction and reviewer clarity on the
   one-day CI release review path.
+- [architecture/SCALE_AND_STORAGE_STRATEGY_M170.md](architecture/SCALE_AND_STORAGE_STRATEGY_M170.md):
+  scale and storage strategy for larger metadata-only receipt volumes without
+  adding runtime storage or weakening release-trust verification.
 - [retention/reviews/atlas-v0.4.0-rc1-review-packet.md](retention/reviews/atlas-v0.4.0-rc1-review-packet.md):
   executable independent-review packet for the retained v0.4.0-rc1 SLSA
   evidence.
@@ -391,3 +407,7 @@ repository in filesystem order.
 - [ROADMAP.md](ROADMAP.md): current and future phases.
 - [ATLAS_BLUEPRINT.md](ATLAS_BLUEPRINT.md): detailed architecture and milestone
   blueprint.
+- [architecture/SCALE_AND_STORAGE_STRATEGY_M170.md](architecture/SCALE_AND_STORAGE_STRATEGY_M170.md):
+  M170 architecture plan for receipt volume, file-backed truth, indexing,
+  archive rotation, batch verification, batch replay, and future storage
+  boundaries.
