@@ -4670,6 +4670,89 @@ write_test_slsa_reference() {
   ! grep -Eiq 'production storage readiness: ready|enterprise-scale storage implemented|hosted verifier implemented|private collector implemented|tamper-proof infrastructure|certified compliant|legally compliant|guaranteed safe|external audit complete|external SLSA certified|model correctness proven|runtime safety proven|artifact correctness guaranteed' "$strategy"
 }
 
+@test "M171 scale and storage safety regression keeps storage authority bounded" {
+  strategy="$TEST_ROOT/toolkit/docs/architecture/SCALE_AND_STORAGE_STRATEGY_M170.md"
+  milestone="$TEST_ROOT/toolkit/docs/retention/milestones/MILESTONE_171.md"
+  milestone_index="$TEST_ROOT/toolkit/docs/retention/MILESTONE_INDEX.md"
+
+  [ -f "$strategy" ]
+  [ -f "$milestone" ]
+  [ -f "$milestone_index" ]
+
+  grep -q 'Current Atlas remains local-first' "$strategy"
+  grep -q 'file-backed' "$strategy"
+  grep -q 'current receipts remain inspectable files' "$strategy"
+  grep -q 'Future indexing must not replace inspectable receipts as the source of truth' "$strategy"
+  grep -q 'hidden databases must not become the only source of truth' "$strategy"
+
+  grep -q 'metadata-only by default' "$strategy"
+  grep -q 'raw logs' "$strategy"
+  grep -q 'secrets' "$strategy"
+  grep -q 'raw prompts' "$strategy"
+  grep -q 'raw model outputs' "$strategy"
+  grep -q 'private keys' "$strategy"
+  grep -q 'credentials' "$strategy"
+  grep -q 'Authorization headers' "$strategy"
+  grep -q 'request bodies' "$strategy"
+  grep -q 'response bodies' "$strategy"
+  grep -q 'packet captures' "$strategy"
+  grep -q 'customer data' "$strategy"
+  grep -q 'payment data' "$strategy"
+  grep -q 'private business records' "$strategy"
+  grep -q 'unredacted evidence bodies' "$strategy"
+
+  grep -q 'A future private collector may index receipts' "$strategy"
+  grep -q 'an action authority' "$strategy"
+  grep -q 'emit exportable portable receipts' "$strategy"
+  grep -q 'preserve local verifier compatibility' "$strategy"
+  grep -q 'not store raw logs, secrets, prompts, customer data, or private artifacts by' "$strategy"
+  grep -q 'hosted verifier may provide convenience' "$strategy"
+  grep -q 'must not be required to' "$strategy"
+  grep -q 'must not require raw sensitive data' "$strategy"
+
+  grep -q 'Storage scale must not weaken receipt verify, replay' "$strategy"
+  grep -q 'canonicalization' "$strategy"
+  grep -q 'release trust' "$strategy"
+  grep -q 'reviewer packages' "$strategy"
+  grep -q 'evidence sufficiency boundaries' "$strategy"
+  grep -q 'Replay verifies local receipt hashes and caller-provided chain order' "$strategy"
+  grep -q 'external truth' "$strategy"
+
+  grep -q 'Evidence present does not automatically mean evidence sufficient' "$strategy"
+  grep -q 'missing' "$strategy"
+  grep -q 'stale' "$strategy"
+  grep -q 'unverifiable' "$strategy"
+  grep -q 'private/public boundary violation' "$strategy"
+  grep -q 'stale index' "$strategy"
+  grep -q 'index/source mismatch' "$strategy"
+  grep -q 'archive corruption' "$strategy"
+  grep -q 'missing archive manifest' "$strategy"
+
+  grep -q 'Indexing Strategy' "$strategy"
+  grep -q 'Deduplication Strategy' "$strategy"
+  grep -q 'Archive and Rotation Strategy' "$strategy"
+  grep -q 'Compression Strategy' "$strategy"
+  grep -q 'Batch Verification' "$strategy"
+  grep -q 'Batch Replay' "$strategy"
+  grep -q 'Reviewer Query Needs' "$strategy"
+  grep -q 'Future Milestones' "$strategy"
+
+  ! grep -Eiq 'production storage readiness|enterprise-scale storage (is )?implemented|hosted verifier (is )?implemented|private collector (is )?implemented|immutable storage|tamper-proof infrastructure|complete event coverage: (true|ready|implemented)|certified compliant|legally compliant|guaranteed safe|raw artifact preservation|database-backed production readiness' "$strategy"
+  ! grep -Eiq 'Atlas (guarantees|certifies|proves|implements|delivers) (production storage|enterprise-scale storage|hosted verifier|private collector|immutable storage|tamper-proof infrastructure|complete event coverage|compliance|certification|legal sufficiency|guaranteed safety|raw artifact preservation|database-backed production readiness)' "$strategy"
+
+  grep -q '^# Milestone 171: Scale and Storage Safety Regression$' "$milestone"
+  grep -q '875c503e2ca3e4075c10a595b0e1562f7928cc97' "$milestone"
+  grep -q 'hidden database authority' "$milestone"
+  grep -q 'No Atlas runtime behavior changed.' "$milestone"
+  grep -q 'No database implementation.' "$milestone"
+  grep -q 'No hidden state added.' "$milestone"
+  grep -q 'Known limitations preserved.' "$milestone"
+  grep -q 'atlas-retention-m171' "$milestone"
+  grep -q 'MILESTONE_171.md' "$milestone_index"
+  grep -q 'Scale and Storage Safety Regression' "$milestone_index"
+  grep -q 'atlas-retention-m171' "$milestone_index"
+}
+
 @test "capability manifest defines machine-readable governance root" {
   manifest="$TEST_ROOT/toolkit/capabilities.yaml"
   schema="$TEST_ROOT/toolkit/schemas/capability.v1.schema.json"

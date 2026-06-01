@@ -18,6 +18,7 @@ Current Atlas remains local-first and file-backed:
 - shell-native commands are the primary interface;
 - receipts, examples, schemas, proof packages, and retained evidence are
   inspectable files;
+- current receipts remain inspectable files;
 - proof receipts are metadata-only records;
 - retained public evidence lives under `docs/retention/`;
 - public examples live under `examples/`;
@@ -94,8 +95,8 @@ logs, secrets, prompts, customer data, or hosted dependencies.
 Atlas storage should follow these rules:
 
 - metadata-only by default;
-- raw logs, secrets, prompts, private data, and sensitive business content are
-  excluded;
+- raw logs, secrets, prompts, private artifacts, private data, and sensitive
+  business content are excluded;
 - receipts remain portable files;
 - local verifier compatibility remains mandatory;
 - indexed views may exist, but source-of-truth receipts remain inspectable;
@@ -285,7 +286,8 @@ The public repository may contain:
 The public repository must not contain raw sensitive data. Private or on-prem
 collectors may later store private receipt metadata, but they must preserve the
 metadata-only boundary by default and avoid raw logs, secrets, prompts, private
-business records, customer data, and unredacted evidence bodies.
+artifacts, private business records, customer data, and unredacted evidence
+bodies.
 
 ## Future Private Collector Boundary
 
@@ -302,6 +304,8 @@ A private collector should:
 - emit exportable portable receipts;
 - preserve local verifier compatibility;
 - store metadata-only records by default;
+- not store raw logs, secrets, prompts, customer data, or private artifacts by
+  default;
 - keep private source-system credentials out of receipt exports;
 - make index/source mismatches visible;
 - support reviewer package generation without raw sensitive content.
