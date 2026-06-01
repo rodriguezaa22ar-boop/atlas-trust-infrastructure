@@ -17,6 +17,9 @@ repository in filesystem order.
   one-day organization-facing CI release review workflow using local
   GitHub Actions metadata receipts, evidence sufficiency, and reviewer decision
   support.
+- [reviews/ADOPTION_FRICTION_DRY_RUN_M167.md](reviews/ADOPTION_FRICTION_DRY_RUN_M167.md):
+  retained adoption dry-run for following the CI release review workflow from a
+  fresh clone without live builder help.
 - [RECEIPT_OPEN_CORE_RC.md](RECEIPT_OPEN_CORE_RC.md): receipt, replay, and
   reviewer-proof open-core RC packaging checkpoint.
 - [TRUST_CLAIM_LADDER.md](TRUST_CLAIM_LADDER.md): positive claim ladder
@@ -54,6 +57,7 @@ repository in filesystem order.
 - New reader: [ATLAS_ONE_PAGE.md](ATLAS_ONE_PAGE.md)
 - Public trust reviewer: [PUBLIC_TRUST_SURFACE.md](PUBLIC_TRUST_SURFACE.md)
 - Organization CI release reviewer: [workflows/ORG_CI_RELEASE_REVIEW_WORKFLOW_M164.md](workflows/ORG_CI_RELEASE_REVIEW_WORKFLOW_M164.md)
+- Adoption dry-run reviewer: [reviews/ADOPTION_FRICTION_DRY_RUN_M167.md](reviews/ADOPTION_FRICTION_DRY_RUN_M167.md)
 - Security operator: [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md)
 - Lab operator: [ops/DUAL_NODE_COCKPIT.md](ops/DUAL_NODE_COCKPIT.md)
 - Host/runtime reviewer: [ops/PORTABILITY_CONTRACT.md](ops/PORTABILITY_CONTRACT.md)
@@ -106,6 +110,9 @@ repository in filesystem order.
   Actions metadata-only receipt path.
 - [workflows/ORG_CI_RELEASE_REVIEW_WORKFLOW_M164.md](workflows/ORG_CI_RELEASE_REVIEW_WORKFLOW_M164.md):
   one-day adoption workflow for trying Atlas on one CI release review.
+- [reviews/ADOPTION_FRICTION_DRY_RUN_M167.md](reviews/ADOPTION_FRICTION_DRY_RUN_M167.md):
+  retained dry-run for testing adoption friction, expected outputs, evidence
+  sufficiency understanding, and reviewer decision clarity.
 
 ## Case studies
 
@@ -124,6 +131,8 @@ repository in filesystem order.
 - [workflows/ORG_CI_RELEASE_REVIEW_WORKFLOW_M164.md](workflows/ORG_CI_RELEASE_REVIEW_WORKFLOW_M164.md):
   organization-facing CI release review workflow that connects proof receipts,
   evidence sufficiency, and reviewer decision support.
+- [reviews/ADOPTION_FRICTION_DRY_RUN_M167.md](reviews/ADOPTION_FRICTION_DRY_RUN_M167.md):
+  internal adoption friction dry-run for the one-day CI release review path.
 - [demo/DEMO_OPERATION.md](demo/DEMO_OPERATION.md): repeatable synthetic demo
   of the trust lifecycle.
 - [demo/DEMO_RECEIPT_PACKET.md](demo/DEMO_RECEIPT_PACKET.md): metadata-only
@@ -180,6 +189,9 @@ repository in filesystem order.
 - [reviews/REVIEWER_PLAIN_ENGLISH_OUTPUT_M166.md](reviews/REVIEWER_PLAIN_ENGLISH_OUTPUT_M166.md):
   translates receipts, replay, evidence sufficiency, and reviewer decisions
   into plain-English reader-mode output.
+- [reviews/ADOPTION_FRICTION_DRY_RUN_M167.md](reviews/ADOPTION_FRICTION_DRY_RUN_M167.md):
+  tests whether a new reviewer/operator can follow the CI release review path
+  and understand the result without live explanation.
 - [TRY_GENERIC_EVENT_ADAPTER.md](TRY_GENERIC_EVENT_ADAPTER.md): M145
   five-minute local quickstart for the generic external event adapter.
 - [TRY_AI_AGENT_EVENT_RECEIPTS.md](TRY_AI_AGENT_EVENT_RECEIPTS.md): M147
@@ -228,6 +240,9 @@ repository in filesystem order.
 - [workflows/ORG_CI_RELEASE_REVIEW_WORKFLOW_M164.md](workflows/ORG_CI_RELEASE_REVIEW_WORKFLOW_M164.md):
   adoption workflow for a bounded one-day CI release review using GitHub
   Actions metadata receipts and reviewer decision packet outcomes.
+- [reviews/ADOPTION_FRICTION_DRY_RUN_M167.md](reviews/ADOPTION_FRICTION_DRY_RUN_M167.md):
+  retained internal dry-run for adoption friction and reviewer clarity on the
+  one-day CI release review path.
 - [retention/reviews/atlas-v0.4.0-rc1-review-packet.md](retention/reviews/atlas-v0.4.0-rc1-review-packet.md):
   executable independent-review packet for the retained v0.4.0-rc1 SLSA
   evidence.
