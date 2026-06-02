@@ -66,6 +66,122 @@
       }
     },
     {
+      "id": "atlas.release.packet",
+      "class": "mutate",
+      "system": "atlas",
+      "resources": [
+        "release_packet",
+        "retained_milestone",
+        "release_trust_metadata"
+      ],
+      "effects": [
+        "write_metadata"
+      ],
+      "approval": {
+        "type": "change_control",
+        "threshold": "high"
+      },
+      "evidence": {
+        "emits": [
+          "decision",
+          "release_packet_ref",
+          "readiness_ref",
+          "known_limitations"
+        ]
+      }
+    },
+    {
+      "id": "atlas.receipt.create",
+      "class": "mutate",
+      "system": "atlas_receipts",
+      "resources": [
+        "receipt_output",
+        "metadata_checkpoint"
+      ],
+      "effects": [
+        "write_metadata"
+      ],
+      "approval": {
+        "type": "policy_threshold",
+        "threshold": "low"
+      },
+      "evidence": {
+        "emits": [
+          "decision",
+          "receipt_ref",
+          "event_hash",
+          "receipt_hash",
+          "known_limitations"
+        ]
+      }
+    },
+    {
+      "id": "atlas.receipt.verify",
+      "class": "verify",
+      "system": "atlas_receipts",
+      "resources": [
+        "receipt_file",
+        "receipt_hash",
+        "metadata_only_boundary"
+      ],
+      "effects": [
+        "verify"
+      ],
+      "approval": "none",
+      "evidence": {
+        "emits": [
+          "decision",
+          "verification_result",
+          "receipt_hash",
+          "known_limitations"
+        ]
+      }
+    },
+    {
+      "id": "atlas.receipt.replay",
+      "class": "verify",
+      "system": "atlas_receipts",
+      "resources": [
+        "receipt_chain",
+        "prev_hash",
+        "event_hash"
+      ],
+      "effects": [
+        "verify"
+      ],
+      "approval": "none",
+      "evidence": {
+        "emits": [
+          "decision",
+          "replay_result",
+          "chain_order",
+          "known_limitations"
+        ]
+      }
+    },
+    {
+      "id": "atlas.receipt.import_generic_event",
+      "class": "import",
+      "system": "generic_adapter",
+      "resources": [
+        "generic_external_event",
+        "receipt_output"
+      ],
+      "effects": [
+        "ingest"
+      ],
+      "approval": "none",
+      "evidence": {
+        "emits": [
+          "decision",
+          "source_ref",
+          "generated_receipt_ref",
+          "receipt_hash",
+          "known_limitations"
+        ]
+      }
+    },
+    {
       "id": "atlas.public_export.check",
       "class": "export",
       "system": "atlas",
@@ -82,6 +198,101 @@
           "decision",
           "export_manifest_ref",
           "boundary_result"
+        ]
+      }
+    },
+    {
+      "id": "atlas.reviewer.package",
+      "class": "export",
+      "system": "atlas",
+      "resources": [
+        "reviewer_package",
+        "retained_evidence",
+        "public_trust_surface"
+      ],
+      "effects": [
+        "package_metadata"
+      ],
+      "approval": "none",
+      "evidence": {
+        "emits": [
+          "decision",
+          "package_manifest_ref",
+          "retained_evidence_refs",
+          "known_limitations"
+        ]
+      }
+    },
+    {
+      "id": "atlas.evidence.sufficiency.review",
+      "class": "verify",
+      "system": "atlas",
+      "resources": [
+        "review_objective",
+        "evidence_status",
+        "known_limitations"
+      ],
+      "effects": [
+        "classify"
+      ],
+      "approval": "none",
+      "evidence": {
+        "emits": [
+          "decision",
+          "present",
+          "missing",
+          "stale",
+          "unverifiable",
+          "outside_atlas"
+        ]
+      }
+    },
+    {
+      "id": "atlas.policy.evaluate",
+      "class": "verify",
+      "system": "atlas",
+      "resources": [
+        "capability",
+        "policy_contract",
+        "approval_event"
+      ],
+      "effects": [
+        "evaluate"
+      ],
+      "approval": "none",
+      "evidence": {
+        "emits": [
+          "decision",
+          "policy_ref",
+          "approval_required",
+          "reason"
+        ]
+      }
+    },
+    {
+      "id": "atlas.approval.request",
+      "class": "mutate",
+      "system": "atlas",
+      "resources": [
+        "approval_event",
+        "capability",
+        "scope"
+      ],
+      "effects": [
+        "write_metadata"
+      ],
+      "approval": {
+        "type": "policy_threshold",
+        "threshold": "low"
+      },
+      "evidence": {
+        "emits": [
+          "decision",
+          "approval_event_ref",
+          "requester",
+          "approver",
+          "expiry",
+          "known_limitations"
         ]
       }
     },

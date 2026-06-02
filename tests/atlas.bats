@@ -4753,6 +4753,71 @@ write_test_slsa_reference() {
   grep -q 'atlas-retention-m171' "$milestone_index"
 }
 
+@test "M172 capability manifest draft maps actions to governance metadata" {
+  manifest="$TEST_ROOT/toolkit/capabilities.yaml"
+  capability_doc="$TEST_ROOT/toolkit/docs/governance/CAPABILITY_MANIFEST_M172.md"
+  docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
+  milestone="$TEST_ROOT/toolkit/docs/retention/milestones/MILESTONE_172.md"
+  milestone_index="$TEST_ROOT/toolkit/docs/retention/MILESTONE_INDEX.md"
+
+  [ -f "$manifest" ]
+  [ -f "$capability_doc" ]
+  [ -f "$milestone" ]
+
+  jq -e '
+    .default_mode == "deny" and
+    (.capabilities | length >= 15) and
+    any(.capabilities[]; .id == "atlas.receipt.create" and .class == "mutate" and .approval.type == "policy_threshold" and .approval.threshold == "low" and (.evidence.emits | index("receipt_hash"))) and
+    any(.capabilities[]; .id == "atlas.receipt.verify" and .class == "verify" and .approval == "none" and (.evidence.emits | index("verification_result"))) and
+    any(.capabilities[]; .id == "atlas.receipt.replay" and .class == "verify" and .approval == "none" and (.evidence.emits | index("replay_result"))) and
+    any(.capabilities[]; .id == "atlas.receipt.import_generic_event" and .class == "import" and .approval == "none" and (.evidence.emits | index("generated_receipt_ref"))) and
+    any(.capabilities[]; .id == "atlas.policy.evaluate" and .class == "verify" and .approval == "none" and (.evidence.emits | index("approval_required"))) and
+    any(.capabilities[]; .id == "atlas.approval.request" and .class == "mutate" and .approval.type == "policy_threshold" and (.evidence.emits | index("approval_event_ref"))) and
+    any(.capabilities[]; .id == "atlas.release.packet" and .class == "mutate" and .approval.type == "change_control" and (.evidence.emits | index("release_packet_ref"))) and
+    any(.capabilities[]; .id == "atlas.reviewer.package" and .class == "export" and (.evidence.emits | index("package_manifest_ref"))) and
+    any(.capabilities[]; .id == "atlas.evidence.sufficiency.review" and .class == "verify" and (.evidence.emits | index("missing")) and (.evidence.emits | index("unverifiable"))) and
+    all(.capabilities[]; if (.class == "mutate" or .class == "bounded_exec" or .class == "admin") then .approval != "none" else true end)
+  ' "$manifest"
+
+  grep -q '^# Capability Manifest Draft M172$' "$capability_doc"
+  grep -q 'M172 drafts the next Atlas capability manifest layer' "$capability_doc"
+  grep -q 'No runtime enforcement' "$capability_doc"
+  grep -q 'default_mode: deny' "$capability_doc"
+  grep -q 'who requested the action' "$capability_doc"
+  grep -q 'what capability was requested' "$capability_doc"
+  grep -q 'what policy decision applied' "$capability_doc"
+  grep -q 'whether approval was required' "$capability_doc"
+  grep -q 'what metadata artifact was emitted' "$capability_doc"
+  grep -q 'autonomous exploitation' "$capability_doc"
+  grep -q 'credential spraying' "$capability_doc"
+  grep -q 'denial-of-service workflows' "$capability_doc"
+  grep -q 'hidden database authority' "$capability_doc"
+  grep -q 'hosted verifier authority replacing local verification' "$capability_doc"
+  grep -q 'raw logs' "$capability_doc"
+  grep -q 'private keys' "$capability_doc"
+  grep -q 'tokens' "$capability_doc"
+  grep -q 'complete event coverage' "$capability_doc"
+  grep -q 'legal sufficiency' "$capability_doc"
+  grep -q 'certification' "$capability_doc"
+  grep -q 'production deployability' "$capability_doc"
+
+  ! grep -qi 'production certified' "$capability_doc"
+  ! grep -qi 'enterprise ready' "$capability_doc"
+  ! grep -qi 'guaranteed safe' "$capability_doc"
+  ! grep -qi 'tamper-proof infrastructure is implemented' "$capability_doc"
+
+  grep -q 'governance/CAPABILITY_MANIFEST_M172.md' "$docs_index"
+  grep -q 'Capability Manifest Draft' "$milestone"
+  grep -q 'No Atlas runtime enforcement added' "$milestone"
+  grep -q 'MILESTONE_172.md' "$milestone_index"
+  grep -q 'Capability Manifest Draft' "$milestone_index"
+  grep -q 'atlas-retention-m172' "$milestone_index"
+
+  run "$TEST_ROOT/toolkit/bin/dev-capabilities"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"capabilities: ok"* ]]
+}
+
 @test "capability manifest defines machine-readable governance root" {
   manifest="$TEST_ROOT/toolkit/capabilities.yaml"
   schema="$TEST_ROOT/toolkit/schemas/capability.v1.schema.json"
@@ -4769,10 +4834,12 @@ write_test_slsa_reference() {
     .version == 1 and
     .default_mode == "deny" and
     .generated_by == "atlas-governance" and
-    (.capabilities | length == 7) and
+    (.capabilities | length >= 15) and
     any(.capabilities[]; .id == "atlas.status.read" and .class == "read" and .approval == "none") and
     any(.capabilities[]; .id == "atlas.production.verify" and .class == "verify" and .approval == "none") and
     any(.capabilities[]; .id == "atlas.adapter.import" and .class == "import" and .approval == "none") and
+    any(.capabilities[]; .id == "atlas.receipt.verify" and .class == "verify" and .approval == "none") and
+    any(.capabilities[]; .id == "atlas.evidence.sufficiency.review" and .class == "verify" and .approval == "none") and
     any(.capabilities[]; .id == "atlas.agent.tool.exec" and .class == "bounded_exec" and .approval.type == "policy_threshold") and
     all(.capabilities[]; (.evidence.emits | type == "array" and length > 0))
   ' "$manifest"
