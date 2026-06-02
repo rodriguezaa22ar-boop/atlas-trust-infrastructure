@@ -24,6 +24,9 @@ repository in filesystem order.
   scale and storage strategy for larger metadata-only receipt volumes,
   indexing, batch verification, batch replay, archive rotation, and future
   collector/verifier boundaries without adding storage runtime.
+- [governance/CAPABILITY_MANIFEST_M172.md](governance/CAPABILITY_MANIFEST_M172.md):
+  capability manifest draft mapping recognized Atlas actions to capability
+  class, approval posture, emitted evidence, and blocked-action boundaries.
 - [reviews/ADOPTION_FRICTION_DRY_RUN_M167.md](reviews/ADOPTION_FRICTION_DRY_RUN_M167.md):
   retained adoption dry-run for following the CI release review workflow from a
   fresh clone without live builder help.
@@ -79,6 +82,7 @@ repository in filesystem order.
 - Plain-English reviewer: [reviews/REVIEWER_PLAIN_ENGLISH_OUTPUT_M166.md](reviews/REVIEWER_PLAIN_ENGLISH_OUTPUT_M166.md)
 - Control reviewer: [reviews/CONTROL_OBJECTIVE_MAPPING.md](reviews/CONTROL_OBJECTIVE_MAPPING.md)
 - Scale/storage reviewer: [architecture/SCALE_AND_STORAGE_STRATEGY_M170.md](architecture/SCALE_AND_STORAGE_STRATEGY_M170.md)
+- Capability governance reviewer: [governance/CAPABILITY_MANIFEST_M172.md](governance/CAPABILITY_MANIFEST_M172.md)
 - Contributor: [../CONTRIBUTING.md](../CONTRIBUTING.md)
 - Security reporter: [../SECURITY.md](../SECURITY.md)
 
@@ -176,6 +180,10 @@ repository in filesystem order.
 
 ## Governance
 
+- [governance/CAPABILITY_MANIFEST_M172.md](governance/CAPABILITY_MANIFEST_M172.md):
+  M172 capability manifest draft for recognized actions, classes, approval
+  posture, evidence emissions, and blocked-action boundaries before runtime
+  enforcement.
 - [governance/CAPABILITY_MODEL.md](governance/CAPABILITY_MODEL.md): M124
   capability manifest model and validation gate.
 - [governance/ADAPTER_REGISTRY.md](governance/ADAPTER_REGISTRY.md): M125
