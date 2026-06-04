@@ -4,6 +4,7 @@ set -euo pipefail
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 WORKFLOWS="${1:-$ROOT/approval/workflows.yaml}"
+PLANE="${2:-$ROOT/approval/approval-plane.yaml}"
 SCHEMA="$ROOT/schemas/approval-event.v1.schema.json"
 ATLAS="$ROOT/tools/atlas/bin/atlas"
 
@@ -26,11 +27,134 @@ require_command sort
 require_command uniq
 
 [ -f "$WORKFLOWS" ] || fail "missing approval/workflows.yaml"
+[ -f "$PLANE" ] || fail "missing approval/approval-plane.yaml"
 [ -f "$SCHEMA" ] || fail "missing schemas/approval-event.v1.schema.json"
 [ -x "$ATLAS" ] || fail "missing atlas CLI"
 
 jq -e . "$WORKFLOWS" >/dev/null 2>&1 || fail "invalid workflows JSON-compatible YAML"
+jq -e . "$PLANE" >/dev/null 2>&1 || fail "invalid approval plane JSON-compatible YAML"
 jq -e . "$SCHEMA" >/dev/null 2>&1 || fail "invalid approval event schema JSON"
+
+jq -e '
+  .schema_version == "atlas.approval_plane.v1" and
+  .status == "draft" and
+  .approval_engine_enabled == false and
+  .live_workflows_enabled == false and
+  .automatic_approval_enabled == false and
+  .break_glass_execution_enabled == false and
+  .metadata_only == true and
+  .default_state == "approval_required_when_policy_requires" and
+  (.approval_states | type == "array" and length > 0) and
+  (.approval_workflows | type == "array" and length > 0)
+' "$PLANE" >/dev/null || fail "invalid approval plane draft"
+
+for state in \
+  not_required \
+  required \
+  requested \
+  approved \
+  rejected \
+  expired \
+  revoked \
+  stale \
+  escalated \
+  unsupported \
+  boundary_violation; do
+  jq -e --arg state "$state" '.approval_states | index($state)' "$PLANE" >/dev/null ||
+    fail "missing approval state $state"
+done
+
+for workflow in \
+  atlas.release_exception_review \
+  atlas.ticket_transition_proposal_review \
+  atlas.cloud_change_proposal_review \
+  atlas.ai_agent_tool_execution_review \
+  atlas.production_readiness_exception_review \
+  atlas.business_flow_sensitive_change_review \
+  atlas.public_export_boundary_review \
+  atlas.break_glass_documentation_review; do
+  jq -e --arg workflow "$workflow" 'any(.approval_workflows[]; .id == $workflow)' "$PLANE" >/dev/null ||
+    fail "missing approval plane workflow $workflow"
+done
+
+duplicate_plane_workflow="$(jq -r '.approval_workflows[].id' "$PLANE" | sort | uniq -d | head -n 1)"
+[ -z "$duplicate_plane_workflow" ] || fail "duplicate approval plane workflow $duplicate_plane_workflow"
+
+missing_plane_field="$(
+  jq -r '
+    .approval_workflows[]
+    | select(
+        ((.id // "") == "")
+        or ((.title // "") == "")
+        or ((.status // "") == "")
+        or ((.purpose // "") == "")
+        or ((.triggering_capabilities | type) != "array" or (.triggering_capabilities | length) == 0)
+        or ((.triggering_adapters | type) != "array")
+        or ((.applies_to | type) != "array" or (.applies_to | length) == 0)
+        or (has("approval_required") | not)
+        or (has("minimum_reviewers") | not)
+        or ((.approver_roles | type) != "array" or (.approver_roles | length) == 0)
+        or ((.expiration | type) != "object")
+        or ((.reapproval_triggers | type) != "array" or (.reapproval_triggers | length) == 0)
+        or ((.decision_outputs | type) != "array" or (.decision_outputs | length) == 0)
+        or ((.evidence_required | type) != "array" or (.evidence_required | length) == 0)
+        or (has("metadata_only") | not)
+        or (has("live_execution") | not)
+        or (has("automatic_execution") | not)
+        or ((.break_glass | type) != "object")
+        or ((.known_limitations | type) != "array" or (.known_limitations | length) == 0)
+      )
+    | .id // "unnamed"
+  ' "$PLANE" | head -n 1
+)"
+[ -z "$missing_plane_field" ] || fail "missing approval plane workflow field $missing_plane_field"
+
+live_plane_workflow="$(jq -r '.approval_workflows[] | select(.live_execution != false) | .id' "$PLANE" | head -n 1)"
+[ -z "$live_plane_workflow" ] || fail "live approval workflow is not allowed $live_plane_workflow"
+
+automatic_plane_workflow="$(jq -r '.approval_workflows[] | select(.automatic_execution != false) | .id' "$PLANE" | head -n 1)"
+[ -z "$automatic_plane_workflow" ] || fail "automatic approval workflow is not allowed $automatic_plane_workflow"
+
+executing_break_glass_workflow="$(jq -r '.approval_workflows[] | select(.break_glass.execution_enabled != false) | .id' "$PLANE" | head -n 1)"
+[ -z "$executing_break_glass_workflow" ] || fail "break-glass execution is not allowed $executing_break_glass_workflow"
+
+not_metadata_only_workflow="$(jq -r '.approval_workflows[] | select(.metadata_only != true) | .id' "$PLANE" | head -n 1)"
+[ -z "$not_metadata_only_workflow" ] || fail "approval workflow must be metadata_only $not_metadata_only_workflow"
+
+for forbidden in \
+  "raw logs" \
+  "secrets" \
+  "private keys" \
+  "tokens" \
+  "Authorization headers" \
+  "request bodies" \
+  "response bodies" \
+  "packet captures" \
+  "raw prompts" \
+  "raw model outputs" \
+  "customer data" \
+  "payment data" \
+  "private business records" \
+  "unredacted evidence bodies"; do
+  jq -e --arg forbidden "$forbidden" '.forbidden_inputs | index($forbidden)' "$PLANE" >/dev/null ||
+    fail "missing forbidden approval input $forbidden"
+done
+
+jq -e '
+  any(.approval_workflows[]; .id == "atlas.ai_agent_tool_execution_review" and any(.known_limitations[]; contains("AI agents are requesters, not authorities"))) and
+  any(.approval_workflows[]; .id == "atlas.break_glass_documentation_review" and .break_glass.allowed == true and .break_glass.execution_enabled == false and any(.known_limitations[]; contains("documentation and review only"))) and
+  any(.approval_workflows[]; .id == "atlas.cloud_change_proposal_review" and .live_execution == false and any(.known_limitations[]; contains("proposal-only"))) and
+  any(.approval_workflows[]; .id == "atlas.ticket_transition_proposal_review" and .live_execution == false and any(.known_limitations[]; contains("proposal-only"))) and
+  any(.approval_workflows[]; .id == "atlas.public_export_boundary_review" and any(.known_limitations[]; contains("private-marker and metadata-only boundaries"))) and
+  any(.approval_workflows[]; .id == "atlas.business_flow_sensitive_change_review" and any(.known_limitations[]; contains("Private business records")) and any(.known_limitations[]; contains("Payment data")))
+' "$PLANE" >/dev/null || fail "missing approval plane safety workflow wording"
+
+unsafe_plane_text="$(
+  jq -r '.. | strings?' "$PLANE" |
+    grep -Ei 'approval engine implemented|approval workflow execution implemented|automatic approval execution implemented|break-glass execution implemented|live integration enabled|API calls enabled|webhooks enabled|network collectors enabled|credentials configured|mutation authority added|guaranteed compliance|certified compliant|legally compliant|external audit complete|enterprise deployment approved|production approval implemented|complete event coverage: (true|ready|implemented)|runtime safety proven|model correctness proven|artifact correctness guaranteed|actions outside Atlas cannot happen|Atlas grants authorization' |
+    head -n 1 || true
+)"
+[ -z "$unsafe_plane_text" ] || fail "unsafe approval plane claim $unsafe_plane_text"
 
 jq -e '
   .schema_version == "atlas.approval_workflows.v1" and
