@@ -1502,6 +1502,184 @@ write_test_slsa_reference() {
   [[ "$output" == *"governance: ok"* ]]
 }
 
+@test "M180 evidence envelope schema draft defines metadata-only proof envelope contract" {
+  schema="$TEST_ROOT/toolkit/evidence/schemas/evidence-envelope.v1.schema.json"
+  examples_dir="$TEST_ROOT/toolkit/evidence/examples/evidence-envelope"
+  evidence_doc="$TEST_ROOT/toolkit/docs/governance/EVIDENCE_ENVELOPE_SCHEMA_M180.md"
+  evidence_plane_doc="$TEST_ROOT/toolkit/docs/governance/EVIDENCE_PLANE.md"
+  docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
+  milestone="$TEST_ROOT/toolkit/docs/retention/milestones/MILESTONE_180.md"
+  milestone_index="$TEST_ROOT/toolkit/docs/retention/MILESTONE_INDEX.md"
+  combined_text="$TEST_ROOT/m180-evidence-envelope-text.txt"
+
+  [ -f "$schema" ]
+  [ -d "$examples_dir" ]
+  [ -f "$evidence_doc" ]
+  [ -f "$evidence_plane_doc" ]
+  [ -f "$milestone" ]
+
+  jq -e . "$schema"
+  jq -e '
+    .properties.schema_version.const == "atlas.evidence_envelope.v1" and
+    (.required | index("schema_version")) and
+    (.required | index("envelope_id")) and
+    (.required | index("envelope_type")) and
+    (.required | index("created_at")) and
+    (.required | index("producer")) and
+    (.required | index("actor")) and
+    (.required | index("subject")) and
+    (.required | index("action")) and
+    (.required | index("capability")) and
+    (.required | index("adapter")) and
+    (.required | index("policy")) and
+    (.required | index("approval")) and
+    (.required | index("evidence")) and
+    (.required | index("artifacts")) and
+    (.required | index("hashes")) and
+    (.required | index("review")) and
+    (.required | index("privacy")) and
+    (.required | index("known_limitations"))
+  ' "$schema"
+
+  jq -e '
+    (.properties.envelope_type.enum | index("decision")) and
+    (.properties.envelope_type.enum | index("adapter_event")) and
+    (.properties.envelope_type.enum | index("approval_event")) and
+    (.properties.envelope_type.enum | index("run_event")) and
+    (.properties.envelope_type.enum | index("receipt_event")) and
+    (.properties.envelope_type.enum | index("release_verify")) and
+    (.properties.envelope_type.enum | index("business_flow_event")) and
+    (.properties.envelope_type.enum | index("ai_agent_action")) and
+    (.properties.envelope_type.enum | index("checkpoint"))
+  ' "$schema"
+
+  jq -e '
+    .properties.privacy.properties.metadata_only.const == true and
+    .properties.privacy.properties.raw_artifacts_embedded.const == false and
+    .properties.privacy.properties.forbidden_content_excluded.const == true and
+    .properties.policy.properties.runtime_enforcement.const == false and
+    (.properties.policy.required | index("runtime_enforcement")) and
+    (.properties.evidence.required | index("sufficiency_status")) and
+    (.properties.hashes.required | index("event_hash")) and
+    (.properties.hashes.required | index("prev_hash")) and
+    (.properties.hashes.required | index("receipt_hash")) and
+    (.properties.hashes.required | index("content_hash")) and
+    (.properties.hashes.required | index("chain_head")) and
+    (.properties.review.required | index("replay_hint"))
+  ' "$schema"
+
+  for example in \
+    minimal.json \
+    policy-decision.json \
+    adapter-event.json \
+    approval-event.json \
+    ai-agent-action.json \
+    release-verify.json; do
+    [ -f "$examples_dir/$example" ]
+    jq -e . "$examples_dir/$example"
+    jq -e '
+      .schema_version == "atlas.evidence_envelope.v1" and
+      .privacy.metadata_only == true and
+      .privacy.raw_artifacts_embedded == false and
+      .privacy.forbidden_content_excluded == true and
+      (.known_limitations | type == "array" and length > 0)
+    ' "$examples_dir/$example"
+  done
+
+  jq -e '.envelope_type == "checkpoint"' "$examples_dir/minimal.json"
+  jq -e '.envelope_type == "decision" and .policy.runtime_enforcement == false and (.policy.decision == "evidence_required" or .policy.decision == "approval_required")' "$examples_dir/policy-decision.json"
+  jq -e '.envelope_type == "adapter_event" and .adapter.id == "github.actions.import" and .adapter.live_integration == false' "$examples_dir/adapter-event.json"
+  jq -e '.envelope_type == "approval_event" and .approval.workflow_id == "atlas.cloud_change_proposal_review" and .approval.required == true' "$examples_dir/approval-event.json"
+  jq -e '.envelope_type == "ai_agent_action" and .actor.type == "agent" and (.review.summary | contains("requester, not authority")) and .approval.required == true' "$examples_dir/ai-agent-action.json"
+  jq -e '.envelope_type == "release_verify" and .action.mode == "verify" and (.review.summary | contains("read-only"))' "$examples_dir/release-verify.json"
+  ! jq -e '[[paths(scalars) as $p | $p[]? | strings] | map(select(test("raw_prompt|raw_model_output"))) | length] > 0' "$examples_dir/ai-agent-action.json"
+
+  {
+    jq -r '.. | strings?' "$schema"
+    for example in "$examples_dir"/*.json; do
+      jq -r '.. | strings?' "$example"
+    done
+    cat "$evidence_doc"
+    cat "$evidence_plane_doc"
+  } >"$combined_text"
+
+  grep -q 'raw logs' "$combined_text"
+  grep -q 'secrets' "$combined_text"
+  grep -q 'private keys' "$combined_text"
+  grep -q 'tokens' "$combined_text"
+  grep -q 'Authorization headers' "$combined_text"
+  grep -q 'request bodies' "$combined_text"
+  grep -q 'response bodies' "$combined_text"
+  grep -q 'packet captures' "$combined_text"
+  grep -q 'raw prompts' "$combined_text"
+  grep -q 'raw model outputs' "$combined_text"
+  grep -q 'customer data' "$combined_text"
+  grep -q 'payment data' "$combined_text"
+  grep -q 'private business records' "$combined_text"
+  grep -q 'unredacted evidence bodies' "$combined_text"
+  grep -q 'raw artifacts' "$combined_text"
+
+  grep -q 'capabilities.yaml' "$evidence_doc"
+  grep -q 'adapters/registry.yaml' "$evidence_doc"
+  grep -q 'policy/policy-plane.yaml' "$evidence_doc"
+  grep -q 'approval/approval-plane.yaml' "$evidence_doc"
+  grep -q 'Evidence envelopes do not grant authorization' "$evidence_doc"
+  grep -q 'Evidence envelopes do not prove the action was valid' "$evidence_doc"
+  grep -q 'Evidence envelopes do not prove legal compliance' "$evidence_doc"
+  grep -q 'Evidence envelopes do not prove production deployability' "$evidence_doc"
+  grep -q 'Evidence envelopes do not prove complete event coverage' "$evidence_doc"
+  grep -q 'Evidence envelopes do not prove actions outside Atlas did not happen' "$evidence_doc"
+  grep -q 'Evidence envelopes do not replace human judgment' "$evidence_doc"
+
+  grep -q 'M180 does not add runtime evidence collection' "$evidence_doc"
+  grep -q 'M180 does not add automatic evidence capture' "$evidence_doc"
+  grep -q 'M180 does not add a database, evidence lake, server, web UI' "$evidence_doc"
+  grep -q 'M180 does not add an evidence lake implementation' "$evidence_doc"
+  grep -q 'M180 does not add live integrations' "$evidence_doc"
+  grep -q 'M180 does not add adapter execution' "$evidence_doc"
+  grep -q 'M180 does not add policy enforcement' "$evidence_doc"
+  grep -q 'M180 does not add approval execution' "$evidence_doc"
+  grep -q 'M180 does not change receipt semantics' "$evidence_doc"
+  grep -q 'M180 does not change receipt semantics, hashing, canonicalization, or replay behavior' "$evidence_doc"
+
+  grep -q 'AI-agent envelopes treat agents as requesters, not authorities' "$evidence_doc"
+  grep -q 'must not embed raw prompts or raw model outputs' "$evidence_doc"
+  grep -q 'Release verification envelopes describe read-only verification metadata' "$evidence_doc"
+  grep -q 'Business-flow envelopes are metadata-only and referential' "$evidence_doc"
+  grep -q 'must not embed private business data' "$evidence_doc"
+  grep -q 'payment data' "$evidence_doc"
+  grep -q 'Evidence Sufficiency States' "$evidence_doc"
+  grep -q 'Review And Replay Hints' "$evidence_doc"
+  grep -q 'Privacy Boundary' "$evidence_doc"
+  grep -q 'Known Limitations' "$evidence_doc"
+
+  grep -q 'clearer review' "$evidence_doc"
+  grep -q 'fewer ambiguous evidence records' "$evidence_doc"
+  grep -q 'lower evidence reconstruction work' "$evidence_doc"
+  grep -q 'privacy-preserving proof' "$evidence_doc"
+  grep -q 'stronger audit readiness' "$evidence_doc"
+  grep -q 'lower cost of trust without lowering standards' "$evidence_doc"
+  grep -q 'proof without exposure' "$evidence_doc"
+
+  grep -q 'governance/EVIDENCE_ENVELOPE_SCHEMA_M180.md' "$docs_index"
+  grep -q 'governance/EVIDENCE_PLANE.md' "$docs_index"
+  grep -q '^# Milestone 180: Evidence Envelope Schema Draft$' "$milestone"
+  grep -q 'MILESTONE_180.md' "$milestone_index"
+  grep -q 'Evidence Envelope Schema Draft' "$milestone_index"
+
+  run "$TEST_ROOT/toolkit/bin/dev-evidence"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"evidence: ok"* ]]
+
+  run "$TEST_ROOT/toolkit/bin/dev-governance"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"evidence: ok"* ]]
+  [[ "$output" == *"governance: ok"* ]]
+
+  ! grep -Eiq 'guaranteed compliance|certified compliant|legally compliant|legal sufficiency guaranteed|compliance guarantee|certification guarantee|external audit complete|enterprise deployment approved by Atlas|production evidence system implemented|production deployability proven|complete event coverage: (true|ready|implemented)|runtime safety proven|model correctness proven|artifact correctness guaranteed|actions outside Atlas cannot happen|tamper-proof infrastructure|immutable storage|proves legal sufficiency' "$combined_text"
+  ! grep -Eiq 'Atlas (guarantees|certifies|proves|implements|delivers) (compliance|certification|legal sufficiency|external audit|enterprise deployment approval|production evidence system|production deployability|complete event coverage|runtime safety|model correctness|artifact correctness|tamper-proof infrastructure|immutable storage)' "$combined_text"
+}
+
 @test "evidence envelope and hash ledger validate replayable proof chain read-only" {
   ledger_doc="$TEST_ROOT/toolkit/ledger/README.md"
   decision_schema="$TEST_ROOT/toolkit/schemas/decision.v1.schema.json"

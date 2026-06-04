@@ -1,0 +1,548 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atlas.local/evidence/schemas/evidence-envelope.v1.schema.json",
+  "title": "Atlas Governance Evidence Envelope v1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "envelope_id",
+    "envelope_type",
+    "created_at",
+    "producer",
+    "actor",
+    "subject",
+    "action",
+    "capability",
+    "adapter",
+    "policy",
+    "approval",
+    "evidence",
+    "artifacts",
+    "hashes",
+    "review",
+    "privacy",
+    "known_limitations"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "atlas.evidence_envelope.v1"
+    },
+    "envelope_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "envelope_type": {
+      "type": "string",
+      "enum": [
+        "decision",
+        "adapter_event",
+        "approval_event",
+        "run_event",
+        "receipt_event",
+        "release_verify",
+        "business_flow_event",
+        "ai_agent_action",
+        "checkpoint"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "producer": {
+      "type": "object",
+      "required": [
+        "name",
+        "version",
+        "source_ref"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_ref": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "actor": {
+      "type": "object",
+      "required": [
+        "id",
+        "type",
+        "display"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "human",
+            "service",
+            "workflow",
+            "agent"
+          ]
+        },
+        "display": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "subject": {
+      "type": "object",
+      "required": [
+        "type",
+        "ref",
+        "summary"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "action": {
+      "type": "object",
+      "required": [
+        "id",
+        "class",
+        "mode",
+        "requested_effect",
+        "actual_effect"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "class": {
+          "type": "string",
+          "enum": [
+            "read",
+            "import",
+            "verify",
+            "export",
+            "propose",
+            "mutate",
+            "bounded_exec"
+          ]
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "read",
+            "import",
+            "verify",
+            "export",
+            "propose",
+            "mutate",
+            "bounded_exec"
+          ]
+        },
+        "requested_effect": {
+          "type": "string"
+        },
+        "actual_effect": {
+          "type": "string"
+        }
+      }
+    },
+    "capability": {
+      "type": "object",
+      "required": [
+        "id",
+        "class",
+        "known",
+        "status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "class": {
+          "type": "string",
+          "minLength": 1
+        },
+        "known": {
+          "type": "boolean"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "known",
+            "unknown",
+            "unsupported",
+            "draft"
+          ]
+        }
+      }
+    },
+    "adapter": {
+      "type": "object",
+      "required": [
+        "id",
+        "mode",
+        "known",
+        "live_integration",
+        "source_system"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "read",
+            "import",
+            "verify",
+            "export",
+            "propose"
+          ]
+        },
+        "known": {
+          "type": "boolean"
+        },
+        "live_integration": {
+          "type": "boolean"
+        },
+        "source_system": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "required": [
+        "decision",
+        "bundle_refs",
+        "reason_refs",
+        "boundary_violations",
+        "runtime_enforcement"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "decision": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "deny",
+            "approval_required",
+            "evidence_required",
+            "unsupported",
+            "unknown_capability",
+            "unknown_adapter",
+            "boundary_violation"
+          ]
+        },
+        "bundle_refs": {
+          "$ref": "#/$defs/non_empty_string_array"
+        },
+        "reason_refs": {
+          "$ref": "#/$defs/string_array"
+        },
+        "boundary_violations": {
+          "$ref": "#/$defs/string_array"
+        },
+        "runtime_enforcement": {
+          "type": "boolean",
+          "const": false
+        }
+      }
+    },
+    "approval": {
+      "type": "object",
+      "required": [
+        "state",
+        "workflow_id",
+        "required",
+        "approver_refs",
+        "decision_ref",
+        "expires_at",
+        "reapproval_required"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": [
+            "not_required",
+            "required",
+            "requested",
+            "approved",
+            "rejected",
+            "expired",
+            "revoked",
+            "stale",
+            "escalated",
+            "unsupported",
+            "boundary_violation"
+          ]
+        },
+        "workflow_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "approver_refs": {
+          "$ref": "#/$defs/string_array"
+        },
+        "decision_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "expires_at": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reapproval_required": {
+          "type": "boolean"
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "required": [
+        "refs",
+        "sufficiency_status",
+        "missing",
+        "stale",
+        "unverifiable",
+        "outside_atlas"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "refs": {
+          "$ref": "#/$defs/string_array"
+        },
+        "sufficiency_status": {
+          "type": "string",
+          "enum": [
+            "present",
+            "missing",
+            "stale",
+            "unverifiable",
+            "outside_atlas",
+            "not_evaluated"
+          ]
+        },
+        "missing": {
+          "$ref": "#/$defs/string_array"
+        },
+        "stale": {
+          "$ref": "#/$defs/string_array"
+        },
+        "unverifiable": {
+          "$ref": "#/$defs/string_array"
+        },
+        "outside_atlas": {
+          "$ref": "#/$defs/string_array"
+        }
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "required": [
+        "refs",
+        "hashes",
+        "source_refs"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "refs": {
+          "$ref": "#/$defs/string_array"
+        },
+        "hashes": {
+          "$ref": "#/$defs/string_array"
+        },
+        "source_refs": {
+          "$ref": "#/$defs/string_array"
+        }
+      }
+    },
+    "hashes": {
+      "type": "object",
+      "required": [
+        "event_hash",
+        "prev_hash",
+        "receipt_hash",
+        "content_hash",
+        "chain_head"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "event_hash": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "prev_hash": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "receipt_hash": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "content_hash": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "chain_head": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "review": {
+      "type": "object",
+      "required": [
+        "summary",
+        "supported_decision",
+        "unsupported_decisions",
+        "human_judgment_required",
+        "replay_hint"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "summary": {
+          "type": "string"
+        },
+        "supported_decision": {
+          "type": "string"
+        },
+        "unsupported_decisions": {
+          "$ref": "#/$defs/string_array"
+        },
+        "human_judgment_required": {
+          "type": "boolean"
+        },
+        "replay_hint": {
+          "type": "string"
+        }
+      }
+    },
+    "privacy": {
+      "type": "object",
+      "required": [
+        "metadata_only",
+        "raw_artifacts_embedded",
+        "forbidden_content_excluded",
+        "redaction_required",
+        "sensitive_data_classes_excluded"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "metadata_only": {
+          "type": "boolean",
+          "const": true
+        },
+        "raw_artifacts_embedded": {
+          "type": "boolean",
+          "const": false
+        },
+        "forbidden_content_excluded": {
+          "type": "boolean",
+          "const": true
+        },
+        "redaction_required": {
+          "type": "boolean"
+        },
+        "sensitive_data_classes_excluded": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "raw logs",
+              "secrets",
+              "private keys",
+              "tokens",
+              "Authorization headers",
+              "request bodies",
+              "response bodies",
+              "packet captures",
+              "raw prompts",
+              "raw model outputs",
+              "customer data",
+              "payment data",
+              "private business records",
+              "unredacted evidence bodies",
+              "raw artifacts"
+            ]
+          }
+        }
+      }
+    },
+    "known_limitations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "$defs": {
+    "string_array": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "non_empty_string_array": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}

@@ -1,0 +1,130 @@
+{
+  "schema_version": "atlas.evidence_envelope.v1",
+  "envelope_id": "env-policy-decision-001",
+  "envelope_type": "decision",
+  "created_at": "2026-06-04T00:01:00Z",
+  "producer": {
+    "name": "atlas-policy-plane",
+    "version": "draft",
+    "source_ref": "policy/policy-plane.yaml"
+  },
+  "actor": {
+    "id": "local:user:operator",
+    "type": "human",
+    "display": "Local operator"
+  },
+  "subject": {
+    "type": "capability_request",
+    "ref": "capability:atlas.public.export.verify",
+    "summary": "Policy decision metadata for a public export verification request"
+  },
+  "action": {
+    "id": "atlas.public.export.verify",
+    "class": "verify",
+    "mode": "verify",
+    "requested_effect": "Verify public export metadata boundaries.",
+    "actual_effect": "Decision metadata only; no runtime enforcement occurred."
+  },
+  "capability": {
+    "id": "atlas.public.export.verify",
+    "class": "verify",
+    "known": true,
+    "status": "known"
+  },
+  "adapter": {
+    "id": "none",
+    "mode": "verify",
+    "known": false,
+    "live_integration": false,
+    "source_system": "local files"
+  },
+  "policy": {
+    "decision": "evidence_required",
+    "bundle_refs": [
+      "atlas.default_deny",
+      "atlas.public_export_boundary",
+      "atlas.evidence_required_for_decision"
+    ],
+    "reason_refs": [
+      "Public export review requires private-marker and metadata-only evidence references."
+    ],
+    "boundary_violations": [],
+    "runtime_enforcement": false
+  },
+  "approval": {
+    "state": "not_required",
+    "workflow_id": null,
+    "required": false,
+    "approver_refs": [],
+    "decision_ref": "policy-decision:atlas.public.export.verify",
+    "expires_at": null,
+    "reapproval_required": false
+  },
+  "evidence": {
+    "refs": [
+      "export-public-trust:check"
+    ],
+    "sufficiency_status": "present",
+    "missing": [],
+    "stale": [],
+    "unverifiable": [],
+    "outside_atlas": []
+  },
+  "artifacts": {
+    "refs": [
+      "exports/public-trust-manifest.json"
+    ],
+    "hashes": [
+      "sha256:example-public-export-manifest-hash"
+    ],
+    "source_refs": [
+      "git:HEAD"
+    ]
+  },
+  "hashes": {
+    "event_hash": null,
+    "prev_hash": null,
+    "receipt_hash": null,
+    "content_hash": null,
+    "chain_head": null
+  },
+  "review": {
+    "summary": "Policy decision metadata identifies required public-export evidence.",
+    "supported_decision": "Reviewer can see which policy bundles and evidence refs were named.",
+    "unsupported_decisions": [
+      "The envelope does not enforce the policy at runtime.",
+      "The envelope does not prove external legal compliance."
+    ],
+    "human_judgment_required": true,
+    "replay_hint": "Run ./bin/export-public-trust --check and inspect retained hashes."
+  },
+  "privacy": {
+    "metadata_only": true,
+    "raw_artifacts_embedded": false,
+    "forbidden_content_excluded": true,
+    "redaction_required": false,
+    "sensitive_data_classes_excluded": [
+      "raw logs",
+      "secrets",
+      "private keys",
+      "tokens",
+      "Authorization headers",
+      "request bodies",
+      "response bodies",
+      "packet captures",
+      "raw prompts",
+      "raw model outputs",
+      "customer data",
+      "payment data",
+      "private business records",
+      "unredacted evidence bodies",
+      "raw artifacts"
+    ]
+  },
+  "known_limitations": [
+    "This policy decision envelope is metadata-only.",
+    "It records a modeled decision and required evidence references, not runtime policy enforcement.",
+    "It does not prove action validity, complete event coverage, legal compliance, or production deployability.",
+    "It does not replace reviewer judgment."
+  ]
+}

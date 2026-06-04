@@ -37,6 +37,10 @@ repository in filesystem order.
   approval plane draft defining metadata-only approval states, reviewer
   workflows, expiration, rejection, escalation, and break-glass documentation
   before approval engine execution.
+- [governance/EVIDENCE_ENVELOPE_SCHEMA_M180.md](governance/EVIDENCE_ENVELOPE_SCHEMA_M180.md):
+  evidence-envelope schema draft defining the shared metadata-only record shape
+  for future capability, adapter, policy, approval, workflow, receipt, and
+  reviewer evidence records before runtime evidence collection.
 - [reviews/ADOPTION_FRICTION_DRY_RUN_M167.md](reviews/ADOPTION_FRICTION_DRY_RUN_M167.md):
   retained adoption dry-run for following the CI release review workflow from a
   fresh clone without live builder help.
@@ -96,6 +100,7 @@ repository in filesystem order.
 - Adapter governance reviewer: [governance/ADAPTER_REGISTRY_M174.md](governance/ADAPTER_REGISTRY_M174.md)
 - Policy governance reviewer: [governance/POLICY_PLANE_M176.md](governance/POLICY_PLANE_M176.md)
 - Approval governance reviewer: [governance/APPROVAL_PLANE_M178.md](governance/APPROVAL_PLANE_M178.md)
+- Evidence governance reviewer: [governance/EVIDENCE_ENVELOPE_SCHEMA_M180.md](governance/EVIDENCE_ENVELOPE_SCHEMA_M180.md)
 - Contributor: [../CONTRIBUTING.md](../CONTRIBUTING.md)
 - Security reporter: [../SECURITY.md](../SECURITY.md)
 
@@ -211,6 +216,12 @@ repository in filesystem order.
   M178 approval plane draft for approval states, reviewer workflows,
   expiration, rejection, escalation, break-glass documentation, and
   metadata-only approval evidence before workflow execution.
+- [governance/EVIDENCE_ENVELOPE_SCHEMA_M180.md](governance/EVIDENCE_ENVELOPE_SCHEMA_M180.md):
+  M180 evidence-envelope schema draft for metadata-only capability, adapter,
+  policy, approval, workflow, receipt, AI-agent, release verification, and
+  checkpoint evidence records before runtime collection.
+- [governance/EVIDENCE_PLANE.md](governance/EVIDENCE_PLANE.md): stable
+  evidence plane entry point and validation gate.
 - [adapters/GENERIC_EXTERNAL_EVENT_RECEIPT_ADAPTER.md](adapters/GENERIC_EXTERNAL_EVENT_RECEIPT_ADAPTER.md):
   M143 local-file import-only adapter for converting synthetic generic external
   events into Atlas receipts.

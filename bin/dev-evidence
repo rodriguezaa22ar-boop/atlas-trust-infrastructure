@@ -4,6 +4,8 @@ set -euo pipefail
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 ATLAS="$ROOT/tools/atlas/bin/atlas"
+GOVERNANCE_SCHEMA="$ROOT/evidence/schemas/evidence-envelope.v1.schema.json"
+GOVERNANCE_EXAMPLES_DIR="$ROOT/evidence/examples/evidence-envelope"
 WORKDIR="$(mktemp -d)"
 
 cleanup() {
@@ -45,6 +47,187 @@ require_schema() {
     "$path" >/dev/null || fail "schema header invalid $path"
 }
 
+require_json() {
+  local path="$1"
+
+  [ -f "$path" ] || fail "missing $path"
+  jq -e . "$path" >/dev/null 2>&1 || fail "invalid JSON $path"
+}
+
+require_governance_schema() {
+  local field
+  local envelope_type
+  local forbidden_class
+  local required_fields=(
+    schema_version
+    envelope_id
+    envelope_type
+    created_at
+    producer
+    actor
+    subject
+    action
+    capability
+    adapter
+    policy
+    approval
+    evidence
+    artifacts
+    hashes
+    review
+    privacy
+    known_limitations
+  )
+  local envelope_types=(
+    decision
+    adapter_event
+    approval_event
+    run_event
+    receipt_event
+    release_verify
+    business_flow_event
+    ai_agent_action
+    checkpoint
+  )
+  local forbidden_classes=(
+    "raw logs"
+    "secrets"
+    "private keys"
+    "tokens"
+    "Authorization headers"
+    "request bodies"
+    "response bodies"
+    "packet captures"
+    "raw prompts"
+    "raw model outputs"
+    "customer data"
+    "payment data"
+    "private business records"
+    "unredacted evidence bodies"
+    "raw artifacts"
+  )
+
+  require_json "$GOVERNANCE_SCHEMA"
+  jq -e \
+    '.properties.schema_version.const == "atlas.evidence_envelope.v1"' \
+    "$GOVERNANCE_SCHEMA" >/dev/null ||
+    fail "M180 schema missing evidence envelope version"
+
+  for field in "${required_fields[@]}"; do
+    jq -e --arg field "$field" '.required | index($field)' "$GOVERNANCE_SCHEMA" >/dev/null ||
+      fail "M180 schema missing required field $field"
+  done
+
+  for envelope_type in "${envelope_types[@]}"; do
+    jq -e --arg envelope_type "$envelope_type" \
+      '.properties.envelope_type.enum | index($envelope_type)' \
+      "$GOVERNANCE_SCHEMA" >/dev/null ||
+      fail "M180 schema missing envelope type $envelope_type"
+  done
+
+  jq -e '
+    .properties.privacy.properties.metadata_only.const == true and
+    .properties.privacy.properties.raw_artifacts_embedded.const == false and
+    .properties.privacy.properties.forbidden_content_excluded.const == true and
+    .properties.policy.properties.runtime_enforcement.const == false
+  ' "$GOVERNANCE_SCHEMA" >/dev/null ||
+    fail "M180 schema missing privacy or runtime-enforcement boundary"
+
+  for forbidden_class in "${forbidden_classes[@]}"; do
+    jq -e --arg forbidden_class "$forbidden_class" \
+      '.properties.privacy.properties.sensitive_data_classes_excluded.items.enum | index($forbidden_class)' \
+      "$GOVERNANCE_SCHEMA" >/dev/null ||
+      fail "M180 schema missing forbidden class $forbidden_class"
+  done
+}
+
+require_governance_example() {
+  local path="$1"
+  local field
+  local envelope_type
+  local required_fields=(
+    schema_version
+    envelope_id
+    envelope_type
+    created_at
+    producer
+    actor
+    subject
+    action
+    capability
+    adapter
+    policy
+    approval
+    evidence
+    artifacts
+    hashes
+    review
+    privacy
+    known_limitations
+  )
+
+  require_json "$path"
+
+  for field in "${required_fields[@]}"; do
+    jq -e --arg field "$field" 'has($field)' "$path" >/dev/null ||
+      fail "M180 example missing field $field in $path"
+  done
+
+  envelope_type="$(jq -r '.envelope_type' "$path")"
+  jq -e --arg envelope_type "$envelope_type" \
+    '.properties.envelope_type.enum | index($envelope_type)' \
+    "$GOVERNANCE_SCHEMA" >/dev/null ||
+    fail "M180 example has unsupported envelope type $envelope_type"
+
+  jq -e '
+    .schema_version == "atlas.evidence_envelope.v1" and
+    .privacy.metadata_only == true and
+    .privacy.raw_artifacts_embedded == false and
+    .privacy.forbidden_content_excluded == true and
+    (.known_limitations | type == "array" and length > 0)
+  ' "$path" >/dev/null ||
+    fail "M180 example privacy or limitation boundary invalid $path"
+}
+
+require_governance_examples() {
+  local example
+  local example_names=(
+    minimal.json
+    policy-decision.json
+    adapter-event.json
+    approval-event.json
+    ai-agent-action.json
+    release-verify.json
+  )
+
+  [ -d "$GOVERNANCE_EXAMPLES_DIR" ] || fail "missing $GOVERNANCE_EXAMPLES_DIR"
+
+  for example in "${example_names[@]}"; do
+    require_governance_example "$GOVERNANCE_EXAMPLES_DIR/$example"
+  done
+
+  jq -e '.envelope_type == "checkpoint"' "$GOVERNANCE_EXAMPLES_DIR/minimal.json" >/dev/null ||
+    fail "minimal evidence envelope example has wrong type"
+  jq -e '.envelope_type == "decision" and .policy.runtime_enforcement == false' \
+    "$GOVERNANCE_EXAMPLES_DIR/policy-decision.json" >/dev/null ||
+    fail "policy decision evidence envelope example implies runtime enforcement"
+  jq -e '.envelope_type == "adapter_event" and .adapter.live_integration == false' \
+    "$GOVERNANCE_EXAMPLES_DIR/adapter-event.json" >/dev/null ||
+    fail "adapter event evidence envelope example implies live integration"
+  jq -e '.envelope_type == "approval_event" and .approval.required == true' \
+    "$GOVERNANCE_EXAMPLES_DIR/approval-event.json" >/dev/null ||
+    fail "approval event evidence envelope example missing approval state"
+  jq -e '
+    .envelope_type == "ai_agent_action" and
+    .actor.type == "agent" and
+    ((.known_limitations + [.review.summary]) | any(contains("requester, not authority")))
+  ' "$GOVERNANCE_EXAMPLES_DIR/ai-agent-action.json" >/dev/null ||
+    fail "AI-agent evidence envelope example missing requester boundary"
+  jq -e '.envelope_type == "release_verify" and .action.mode == "verify"' \
+    "$GOVERNANCE_EXAMPLES_DIR/release-verify.json" >/dev/null ||
+    fail "release verify evidence envelope example is not read-only verify"
+}
+
 require_command jq
 require_command sha256sum
 require_command awk
@@ -56,6 +239,8 @@ require_schema "$ROOT/schemas/decision.v1.schema.json" "Atlas Decision v1" "atla
 require_schema "$ROOT/schemas/run-event.v1.schema.json" "Atlas Run Event v1" "atlas.run_event.v1"
 require_schema "$ROOT/schemas/evidence-envelope.v1.schema.json" "Atlas Evidence Envelope v1" "atlas.evidence_envelope.v1"
 require_schema "$ROOT/schemas/checkpoint.v1.schema.json" "Atlas Ledger Checkpoint v1" "atlas.checkpoint.v1"
+require_governance_schema
+require_governance_examples
 
 jq -e '
   (.required | index("decision_id")) and

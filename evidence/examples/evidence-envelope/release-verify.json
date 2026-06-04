@@ -1,0 +1,133 @@
+{
+  "schema_version": "atlas.evidence_envelope.v1",
+  "envelope_id": "env-release-verify-001",
+  "envelope_type": "release_verify",
+  "created_at": "2026-06-04T00:05:00Z",
+  "producer": {
+    "name": "atlas-release-trust",
+    "version": "draft",
+    "source_ref": "tools/atlas"
+  },
+  "actor": {
+    "id": "local:user:release-reviewer",
+    "type": "human",
+    "display": "Release reviewer"
+  },
+  "subject": {
+    "type": "release",
+    "ref": "release:metadata-only-example",
+    "summary": "Release verification metadata envelope with artifact and provenance references"
+  },
+  "action": {
+    "id": "atlas.release.verify",
+    "class": "verify",
+    "mode": "verify",
+    "requested_effect": "Verify release metadata and referenced provenance.",
+    "actual_effect": "Read-only verification metadata example; no artifact download or mutation occurred."
+  },
+  "capability": {
+    "id": "atlas.release.verify",
+    "class": "verify",
+    "known": true,
+    "status": "known"
+  },
+  "adapter": {
+    "id": "github.release.verify",
+    "mode": "verify",
+    "known": true,
+    "live_integration": false,
+    "source_system": "release metadata"
+  },
+  "policy": {
+    "decision": "allow",
+    "bundle_refs": [
+      "atlas.release_verify_read_only",
+      "atlas.evidence_required_for_decision"
+    ],
+    "reason_refs": [
+      "Release verification remains read-only and evidence-backed."
+    ],
+    "boundary_violations": [],
+    "runtime_enforcement": false
+  },
+  "approval": {
+    "state": "not_required",
+    "workflow_id": null,
+    "required": false,
+    "approver_refs": [],
+    "decision_ref": "policy-decision:release-verify-read-only",
+    "expires_at": null,
+    "reapproval_required": false
+  },
+  "evidence": {
+    "refs": [
+      "release-packet:metadata-ref",
+      "provenance:metadata-ref",
+      "attestation:metadata-ref"
+    ],
+    "sufficiency_status": "present",
+    "missing": [],
+    "stale": [],
+    "unverifiable": [],
+    "outside_atlas": []
+  },
+  "artifacts": {
+    "refs": [
+      "release/packet.json",
+      "release/provenance.json"
+    ],
+    "hashes": [
+      "sha256:example-release-packet-hash",
+      "sha256:example-provenance-hash"
+    ],
+    "source_refs": [
+      "git:tag"
+    ]
+  },
+  "hashes": {
+    "event_hash": null,
+    "prev_hash": null,
+    "receipt_hash": null,
+    "content_hash": null,
+    "chain_head": null
+  },
+  "review": {
+    "summary": "Release verification evidence envelope is read-only and reference-based.",
+    "supported_decision": "Reviewer can replay local release verification against referenced metadata.",
+    "unsupported_decisions": [
+      "This envelope does not guarantee artifact correctness.",
+      "This envelope does not certify production deployability."
+    ],
+    "human_judgment_required": true,
+    "replay_hint": "Run atlas release verify against the retained release packet and compare referenced hashes."
+  },
+  "privacy": {
+    "metadata_only": true,
+    "raw_artifacts_embedded": false,
+    "forbidden_content_excluded": true,
+    "redaction_required": false,
+    "sensitive_data_classes_excluded": [
+      "raw logs",
+      "secrets",
+      "private keys",
+      "tokens",
+      "Authorization headers",
+      "request bodies",
+      "response bodies",
+      "packet captures",
+      "raw prompts",
+      "raw model outputs",
+      "customer data",
+      "payment data",
+      "private business records",
+      "unredacted evidence bodies",
+      "raw artifacts"
+    ]
+  },
+  "known_limitations": [
+    "This release verification envelope is metadata-only.",
+    "Release verification is read-only and does not mutate external systems.",
+    "It records artifact and provenance references only; raw artifacts are not embedded.",
+    "It does not prove artifact correctness, production deployability, compliance, certification, or complete event coverage."
+  ]
+}
