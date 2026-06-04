@@ -1320,6 +1320,188 @@ write_test_slsa_reference() {
   [[ "$output" == *"governance: ok"* ]]
 }
 
+@test "M179 approval plane safety regression keeps approvals non-executing and bounded" {
+  plane="$TEST_ROOT/toolkit/approval/approval-plane.yaml"
+  approval_doc="$TEST_ROOT/toolkit/docs/governance/APPROVAL_PLANE.md"
+  approval_m178_doc="$TEST_ROOT/toolkit/docs/governance/APPROVAL_PLANE_M178.md"
+  milestone="$TEST_ROOT/toolkit/docs/retention/milestones/MILESTONE_179.md"
+  milestone_index="$TEST_ROOT/toolkit/docs/retention/MILESTONE_INDEX.md"
+  combined_text="$TEST_ROOT/m179-approval-plane-text.txt"
+
+  [ -f "$plane" ]
+  [ -f "$approval_m178_doc" ]
+  [ -f "$milestone" ]
+
+  jq -e '
+    .schema_version == "atlas.approval_plane.v1" and
+    .status == "draft" and
+    .approval_engine_enabled == false and
+    .live_workflows_enabled == false and
+    .automatic_approval_enabled == false and
+    .break_glass_execution_enabled == false and
+    .metadata_only == true and
+    (.approval_states | index("not_required")) and
+    (.approval_states | index("required")) and
+    (.approval_states | index("requested")) and
+    (.approval_states | index("approved")) and
+    (.approval_states | index("rejected")) and
+    (.approval_states | index("expired")) and
+    (.approval_states | index("revoked")) and
+    (.approval_states | index("stale")) and
+    (.approval_states | index("escalated")) and
+    (.approval_states | index("unsupported")) and
+    (.approval_states | index("boundary_violation")) and
+    (.approval_workflows | type == "array" and length >= 8)
+  ' "$plane"
+
+  jq -e '
+    any(.approval_workflows[]; .id == "atlas.release_exception_review") and
+    any(.approval_workflows[]; .id == "atlas.ticket_transition_proposal_review") and
+    any(.approval_workflows[]; .id == "atlas.cloud_change_proposal_review") and
+    any(.approval_workflows[]; .id == "atlas.ai_agent_tool_execution_review") and
+    any(.approval_workflows[]; .id == "atlas.production_readiness_exception_review") and
+    any(.approval_workflows[]; .id == "atlas.business_flow_sensitive_change_review") and
+    any(.approval_workflows[]; .id == "atlas.public_export_boundary_review") and
+    any(.approval_workflows[]; .id == "atlas.break_glass_documentation_review")
+  ' "$plane"
+
+  jq -e '
+    all(.approval_workflows[];
+      ((.id // "") != "") and
+      ((.title // "") != "") and
+      ((.status // "") != "") and
+      ((.purpose // "") != "") and
+      ((.triggering_capabilities | type) == "array") and
+      ((.applies_to | type) == "array") and
+      (has("approval_required")) and
+      (has("minimum_reviewers")) and
+      ((.approver_roles | type) == "array") and
+      ((.expiration | type) == "object") and
+      ((.reapproval_triggers | type) == "array") and
+      ((.decision_outputs | type) == "array") and
+      ((.evidence_required | type) == "array") and
+      (.metadata_only == true) and
+      (.live_execution == false) and
+      (.automatic_execution == false) and
+      ((.known_limitations | type) == "array" and (.known_limitations | length) > 0)
+    )
+  ' "$plane"
+
+  jq -e '
+    all(.approval_workflows[]; .live_execution == false and .automatic_execution == false and .break_glass.execution_enabled == false) and
+    any(.approval_workflows[]; .id == "atlas.break_glass_documentation_review" and any(.known_limitations[]; contains("documentation and review only")) and any(.known_limitations[]; contains("Requires retained evidence") or contains("requires retained evidence")) and any(.known_limitations[]; contains("does not bypass future evidence requirements")) and any(.known_limitations[]; contains("does not prove legal or production sufficiency"))) and
+    any(.approval_workflows[]; .id == "atlas.ai_agent_tool_execution_review" and any(.known_limitations[]; contains("AI agents are requesters, not authorities")) and any(.known_limitations[]; contains("do not execute tools")) and any(.known_limitations[]; contains("human/reviewer judgment")) and any(.known_limitations[]; contains("Raw prompts and raw model outputs must not be embedded"))) and
+    any(.approval_workflows[]; .id == "atlas.cloud_change_proposal_review" and .live_execution == false and any(.known_limitations[]; contains("proposal-only")) and any(.known_limitations[]; contains("Approval is required before any future state-changing execution")) and any(.known_limitations[]; contains("missing-evidence explanation"))) and
+    any(.approval_workflows[]; .id == "atlas.ticket_transition_proposal_review" and .live_execution == false and any(.known_limitations[]; contains("proposal-only")) and any(.known_limitations[]; contains("No live ticket mutation")) and any(.known_limitations[]; contains("missing-evidence explanation"))) and
+    any(.approval_workflows[]; .id == "atlas.public_export_boundary_review" and any(.known_limitations[]; contains("private-marker and metadata-only boundaries"))) and
+    any(.approval_workflows[]; .id == "atlas.business_flow_sensitive_change_review" and any(.known_limitations[]; contains("Private business records")) and any(.known_limitations[]; contains("Payment data")) and any(.known_limitations[]; contains("review support, not business or legal approval by itself")))
+  ' "$plane"
+
+  {
+    jq -r '.. | strings?' "$plane"
+    cat "$approval_doc"
+    cat "$approval_m178_doc"
+  } >"$combined_text"
+
+  grep -q 'M178/M179 do not add approval engine execution' "$combined_text"
+  grep -q 'M178/M179 do not execute approval workflows' "$combined_text"
+  grep -q 'M178/M179 do not add automatic approval' "$combined_text"
+  grep -q 'M178/M179 do not add automatic escalation' "$combined_text"
+  grep -q 'M178/M179 do not add break-glass execution' "$combined_text"
+  grep -q 'M178/M179 do not add credentials' "$combined_text"
+  grep -q 'M178/M179 do not add API calls' "$combined_text"
+  grep -q 'M178/M179 do not add webhooks' "$combined_text"
+  grep -q 'M178/M179 do not add network collectors' "$combined_text"
+  grep -q 'M178/M179 do not add mutation authority' "$combined_text"
+
+  grep -q 'Approval records do not grant authorization by themselves' "$combined_text"
+  grep -q 'Approval records do not prove the action was valid' "$combined_text"
+  grep -q 'Approval records do not prove legal compliance' "$combined_text"
+  grep -q 'Approval records do not prove legal sufficiency' "$combined_text"
+  grep -q 'Approval records do not prove production deployability' "$combined_text"
+  grep -q 'Approval records do not prove enterprise deployment approval' "$combined_text"
+  grep -q 'Approval records do not prove complete event coverage' "$combined_text"
+  grep -q 'Approval records do not prove actions outside Atlas did not happen' "$combined_text"
+  grep -q 'Approval records support review, not replace reviewer judgment' "$combined_text"
+  grep -q 'Approval state must remain tied to capability, policy, evidence, and scope' "$combined_text"
+
+  grep -q 'capabilities.yaml' "$approval_m178_doc"
+  grep -q 'adapters/registry.yaml' "$approval_m178_doc"
+  grep -q 'policy/policy-plane.yaml' "$approval_m178_doc"
+  grep -q 'future evidence envelope' "$approval_m178_doc"
+  grep -q 'must remain capability-named' "$approval_m178_doc"
+  grep -q 'must remain policy-aware' "$approval_m178_doc"
+  grep -q 'must remain evidence-emitting' "$approval_m178_doc"
+  grep -q 'must remain metadata-only' "$approval_m178_doc"
+  grep -q 'Existing external systems remain the source of their own operational truth' "$approval_m178_doc"
+
+  grep -q 'Expired approval means the review window closed' "$approval_m178_doc"
+  grep -q 'Stale approval means relevant context changed' "$approval_m178_doc"
+  grep -q 'Reapproval is required when the reviewed context changes' "$approval_m178_doc"
+  grep -q 'Approval can expire' "$approval_m178_doc"
+  grep -q 'Approval can be revoked' "$approval_m178_doc"
+  grep -q 'Changed scope, changed evidence, or changed action may require reapproval' "$approval_m178_doc"
+  grep -q 'Rejected approval is a decision state' "$approval_m178_doc"
+  grep -q 'Escalation records that the reviewer path needs a higher role' "$approval_m178_doc"
+  grep -q 'Escalation is not automatic approval' "$approval_m178_doc"
+
+  grep -q 'Break-glass workflow is documentation/review only' "$approval_m178_doc"
+  grep -q 'Break-glass workflow does not execute recovery or emergency actions' "$approval_m178_doc"
+  grep -q 'Break-glass workflow requires retained evidence or explanation' "$approval_m178_doc"
+  grep -q 'Break-glass does not bypass future evidence requirements' "$approval_m178_doc"
+  grep -q 'Break-glass does not prove legal or production sufficiency' "$approval_m178_doc"
+
+  grep -q 'raw logs' "$combined_text"
+  grep -q 'secrets' "$combined_text"
+  grep -q 'private keys' "$combined_text"
+  grep -q 'tokens' "$combined_text"
+  grep -q 'Authorization headers' "$combined_text"
+  grep -q 'request bodies' "$combined_text"
+  grep -q 'response bodies' "$combined_text"
+  grep -q 'packet captures' "$combined_text"
+  grep -q 'raw prompts' "$combined_text"
+  grep -q 'raw model outputs' "$combined_text"
+  grep -q 'customer data' "$combined_text"
+  grep -q 'payment data' "$combined_text"
+  grep -q 'private business records' "$combined_text"
+  grep -q 'unredacted evidence bodies' "$combined_text"
+
+  grep -q 'Approval States' "$approval_m178_doc"
+  grep -q 'Approval Workflow Vocabulary' "$approval_m178_doc"
+  grep -q 'Who Can Approve' "$approval_m178_doc"
+  grep -q 'What Approval Can Support' "$approval_m178_doc"
+  grep -q 'What Approval Does Not Prove' "$approval_m178_doc"
+  grep -q 'Expiration And Stale Approval Handling' "$approval_m178_doc"
+  grep -q 'Reapproval Triggers' "$approval_m178_doc"
+  grep -q 'Rejection Handling' "$approval_m178_doc"
+  grep -q 'Escalation Handling' "$approval_m178_doc"
+  grep -q 'Break-Glass Boundary' "$approval_m178_doc"
+  grep -q 'Known Limitations' "$approval_m178_doc"
+  grep -q 'Why Atlas Needs An Approval Plane' "$approval_m178_doc"
+  grep -q 'clearer review' "$approval_m178_doc"
+  grep -q 'fewer ambiguous approvals' "$approval_m178_doc"
+  grep -q 'safer future workflows' "$approval_m178_doc"
+  grep -q 'lower evidence reconstruction work' "$approval_m178_doc"
+  grep -q 'privacy-preserving governance' "$approval_m178_doc"
+  grep -q 'stronger audit readiness' "$approval_m178_doc"
+  grep -q 'lower cost of trust without lowering standards' "$approval_m178_doc"
+
+  grep -q 'MILESTONE_179.md' "$milestone_index"
+  grep -q 'Approval Plane Safety Regression' "$milestone"
+
+  ! grep -Eiq 'approval engine implemented|approval workflow execution implemented|automatic approval execution implemented|automatic escalation execution implemented|break-glass execution implemented|live integration enabled|API calls enabled|webhooks enabled|network collectors enabled|credentials configured|mutation authority added|guaranteed compliance|certified compliant|legally compliant|legal sufficiency guaranteed|compliance guarantee|certification guarantee|external audit complete|enterprise deployment approved by Atlas|production approval implemented|production deployability proven|complete event coverage: (true|ready|implemented)|runtime safety proven|model correctness proven|artifact correctness guaranteed|actions outside Atlas cannot happen|Atlas grants authorization|approval records replace human judgment' "$combined_text"
+  ! grep -Eiq 'Atlas (guarantees|certifies|proves|implements|delivers) (compliance|certification|legal sufficiency|external audit|enterprise deployment approval|production approval|production deployability|approval engine|approval workflow execution|automatic approval execution|automatic escalation execution|break-glass execution|complete event coverage|runtime safety|model correctness|artifact correctness|authorization)' "$combined_text"
+
+  run "$TEST_ROOT/toolkit/bin/dev-approval"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"approval: ok"* ]]
+
+  run "$TEST_ROOT/toolkit/bin/dev-governance"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"approval: ok"* ]]
+  [[ "$output" == *"governance: ok"* ]]
+}
+
 @test "evidence envelope and hash ledger validate replayable proof chain read-only" {
   ledger_doc="$TEST_ROOT/toolkit/ledger/README.md"
   decision_schema="$TEST_ROOT/toolkit/schemas/decision.v1.schema.json"
