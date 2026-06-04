@@ -228,36 +228,61 @@ write_test_slsa_reference() {
   [ ! -e "$TEST_ROOT/toolkit/shared" ]
 }
 
-@test "adapter registry defines import-only adapter plane" {
+@test "M174 adapter registry draft defines metadata-only non-live adapter plane" {
   registry="$TEST_ROOT/toolkit/adapters/registry.yaml"
   adapter_doc="$TEST_ROOT/toolkit/docs/governance/ADAPTER_REGISTRY.md"
-  capability_doc="$TEST_ROOT/toolkit/docs/governance/CAPABILITY_MODEL.md"
+  adapter_m174_doc="$TEST_ROOT/toolkit/docs/governance/ADAPTER_REGISTRY_M174.md"
   readme="$TEST_ROOT/toolkit/README.md"
   docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
+  milestone="$TEST_ROOT/toolkit/docs/retention/milestones/MILESTONE_174.md"
+  milestone_index="$TEST_ROOT/toolkit/docs/retention/MILESTONE_INDEX.md"
   public_manifest="$TEST_ROOT/toolkit/exports/public-trust-manifest.json"
 
   [ -f "$registry" ]
   [ -f "$adapter_doc" ]
+  [ -f "$adapter_m174_doc" ]
+  [ -f "$milestone" ]
 
   jq -e '
-    .version == 1 and
-    .default_mode == "import_only" and
-    .mutation_requires == ["capability", "policy", "approval", "evidence"] and
-    (.adapters | length == 6) and
-    all(.adapters[]; .mode == "import_only") and
-    all(.adapters[]; (.capabilities_used | type == "array" and length > 0)) and
-    all(.adapters[]; (.evidence_emitted | type == "array" and length > 0)) and
-    all(.adapters[]; . as $adapter | ($adapter.input_schema | startswith("adapters/" + $adapter.id + "/"))) and
-    all(.adapters[]; . as $adapter | ($adapter.output_schema | startswith("adapters/" + $adapter.id + "/"))) and
-    any(.adapters[]; .id == "github" and (.capabilities_used | index("atlas.release.verify"))) and
-    any(.adapters[]; .id == "agent-runtime" and (.capabilities_used | index("atlas.agent.tool.exec")))
+    .schema_version == "atlas.adapter_registry.v1" and
+    .default_mode == "deny" and
+    .status == "draft" and
+    .live_integrations_enabled == false and
+    .metadata_only == true and
+    (.adapters | type == "array" and length >= 9) and
+    all(.adapters[]; (.id // "") != "") and
+    all(.adapters[]; (.title // "") != "") and
+    all(.adapters[]; (.status // "") != "") and
+    all(.adapters[]; (.mode // "") != "") and
+    all(.adapters[]; (.systems | type == "array" and length > 0)) and
+    all(.adapters[]; (.resources | type == "array" and length > 0)) and
+    all(.adapters[]; (.effects | type == "array" and length > 0)) and
+    all(.adapters[]; (.capabilities | type == "array" and length > 0)) and
+    all(.adapters[]; has("approval")) and
+    all(.adapters[]; (.evidence.emits | type == "array" and length > 0)) and
+    all(.adapters[]; .metadata_only == true) and
+    all(.adapters[]; .live_integration == false) and
+    all(.adapters[]; (.secrets_policy // "") != "") and
+    all(.adapters[]; (.forbidden_inputs | type == "array")) and
+    all(.adapters[]; (.test_fixtures | type == "array" and length > 0)) and
+    all(.adapters[]; (.known_limitations | type == "array" and length > 0)) and
+    all(.adapters[]; .mode != "mutate") and
+    any(.adapters[]; .id == "generic.external_event.import" and .mode == "import" and (.capabilities | index("atlas.adapter.import"))) and
+    any(.adapters[]; .id == "github.actions.import" and .mode == "import" and .live_integration == false and (.capabilities | index("atlas.adapter.import"))) and
+    any(.adapters[]; .id == "github.release.verify" and .mode == "verify" and (.capabilities | index("atlas.release.verify"))) and
+    any(.adapters[]; .id == "scanner.finding.import" and .mode == "import" and (.forbidden_inputs | index("raw_scanner_logs"))) and
+    any(.adapters[]; .id == "ticket.issue.import" and .mode == "import" and (.forbidden_inputs | index("ticket_body_dump"))) and
+    any(.adapters[]; .id == "ticket.transition.propose" and .mode == "propose" and .approval.type == "policy_threshold" and .live_integration == false) and
+    any(.adapters[]; .id == "ai_agent.action.import" and .mode == "import" and (.forbidden_inputs | index("raw_prompts")) and (.forbidden_inputs | index("raw_model_outputs"))) and
+    any(.adapters[]; .id == "cloud.change.propose" and .mode == "propose" and .approval.type == "policy_threshold" and .approval.threshold == "high" and .live_integration == false) and
+    any(.adapters[]; .id == "business_flow.event.import" and .mode == "import" and (.forbidden_inputs | index("private_business_records")) and (.forbidden_inputs | index("payment_data"))) and
+    all(.adapters[].evidence.emits[]; test("raw_log|secret|private_key|token|authorization_header|request_body|response_body|packet_capture|raw_prompt|raw_model_output|customer_data|payment_data|private_business_record"; "i") | not)
   ' "$registry"
 
   for adapter in github generic-webhook scanner ticketing cloud agent-runtime; do
     [ -f "$TEST_ROOT/toolkit/adapters/$adapter/README.md" ]
     [ -f "$TEST_ROOT/toolkit/adapters/$adapter/input.v1.schema.json" ]
     [ -f "$TEST_ROOT/toolkit/adapters/$adapter/output.v1.schema.json" ]
-    grep -q 'Status: import-only contract.' "$TEST_ROOT/toolkit/adapters/$adapter/README.md"
     jq -e \
       --arg adapter "$adapter" \
       '.properties.adapter_id.const == $adapter and .properties.metadata_only.const == true and .additionalProperties == false' \
@@ -269,16 +294,70 @@ write_test_slsa_reference() {
   done
 
   grep -q '^# Atlas Adapter Registry$' "$adapter_doc"
-  grep -q 'Adapters are import-only by default' "$adapter_doc"
-  grep -q 'Mutation requires capability + policy + approval + evidence' "$adapter_doc"
+  grep -q 'M174 expands it into the current draft adapter' "$adapter_doc"
+  grep -q 'Adapters are default-deny and import-first' "$adapter_doc"
+  grep -q 'Future mutation requires capability + policy + approval + evidence' "$adapter_doc"
   grep -q './bin/dev-adapters' "$adapter_doc"
-  grep -q 'does not add external API clients' "$adapter_doc"
-  grep -q 'M125 builds on it with an import-only adapter' "$capability_doc"
+  grep -q 'does not add runtime adapter execution' "$adapter_doc"
   grep -q 'M126 policy decisions evaluate the capabilities referenced here' "$adapter_doc"
+
+  grep -q '^# Adapter Registry Draft M174$' "$adapter_m174_doc"
+  grep -q 'governance contract, not runtime execution' "$adapter_m174_doc"
+  grep -q 'not add runtime adapter execution' "$adapter_m174_doc"
+  grep -q 'does not add live integrations' "$adapter_m174_doc"
+  grep -q 'does not add live integrations, credentials, API calls, webhooks, network' "$adapter_m174_doc" || {
+    grep -q 'does not add live integrations, credentials, API calls, webhooks' "$adapter_m174_doc"
+    grep -q 'collectors, mutation, a policy engine' "$adapter_m174_doc"
+  }
+  grep -q 'default_mode: deny' "$adapter_m174_doc"
+  grep -q 'import-first' "$adapter_m174_doc"
+  grep -q 'metadata-only' "$adapter_m174_doc"
+  grep -q 'capabilities.yaml' "$adapter_m174_doc"
+  grep -q 'Future Policy Plane' "$adapter_m174_doc"
+  grep -q 'Future Approval Plane' "$adapter_m174_doc"
+  grep -q 'Future Evidence Envelope' "$adapter_m174_doc"
+  grep -q 'Known Limitations' "$adapter_m174_doc"
+  grep -q 'generic.external_event.import' "$adapter_m174_doc"
+  grep -q 'github.actions.import' "$adapter_m174_doc"
+  grep -q 'github.release.verify' "$adapter_m174_doc"
+  grep -q 'scanner.finding.import' "$adapter_m174_doc"
+  grep -q 'ticket.issue.import' "$adapter_m174_doc"
+  grep -q 'ticket.transition.propose' "$adapter_m174_doc"
+  grep -q 'ai_agent.action.import' "$adapter_m174_doc"
+  grep -q 'cloud.change.propose' "$adapter_m174_doc"
+  grep -q 'business_flow.event.import' "$adapter_m174_doc"
+  grep -q 'raw logs' "$adapter_m174_doc"
+  grep -q 'secrets' "$adapter_m174_doc"
+  grep -q 'private keys' "$adapter_m174_doc"
+  grep -q 'tokens' "$adapter_m174_doc"
+  grep -q 'Authorization headers' "$adapter_m174_doc"
+  grep -q 'request bodies' "$adapter_m174_doc"
+  grep -q 'response bodies' "$adapter_m174_doc"
+  grep -q 'packet captures' "$adapter_m174_doc"
+  grep -q 'raw prompts' "$adapter_m174_doc"
+  grep -q 'raw model outputs' "$adapter_m174_doc"
+  grep -q 'customer data' "$adapter_m174_doc"
+  grep -q 'payment data' "$adapter_m174_doc"
+  grep -q 'private business records' "$adapter_m174_doc"
+  grep -q 'clearer review' "$adapter_m174_doc"
+  grep -q 'ambiguous integrations' "$adapter_m174_doc"
+  grep -q 'privacy-preserving integration design' "$adapter_m174_doc"
+
+  ! grep -Eiq 'guaranteed compliance|certified compliant|legally compliant|legally sufficient|production integration implemented|live adapter execution implemented|external audit complete|enterprise deployment approved|complete event coverage: (true|ready|implemented)|runtime safety proven|model correctness proven|artifact correctness guaranteed' "$adapter_m174_doc"
+  ! grep -Eiq 'Atlas (guarantees|certifies|proves|implements|delivers) (compliance|certification|production integration|live adapter execution|external audit|enterprise deployment approval|complete event coverage|runtime safety|model correctness|artifact correctness)' "$adapter_m174_doc"
 
   grep -q 'docs/governance/ADAPTER_REGISTRY.md' "$readme"
   grep -q 'governance/ADAPTER_REGISTRY.md' "$docs_index"
+  grep -q 'governance/ADAPTER_REGISTRY_M174.md' "$docs_index"
   jq -e '(.allow_paths | index("adapters/"))' "$public_manifest"
+  grep -q '^# Milestone 174: Adapter Registry Draft$' "$milestone"
+  grep -q '07bb4aea8d929b991d38fa07f85793dac31f144e' "$milestone"
+  grep -q 'No Atlas runtime adapter execution added.' "$milestone"
+  grep -q 'No live integration added.' "$milestone"
+  grep -q 'No credential handling added.' "$milestone"
+  grep -q 'atlas-retention-m174' "$milestone"
+  grep -q 'MILESTONE_174.md' "$milestone_index"
+  grep -q 'Adapter Registry Draft' "$milestone_index"
 
   run "$TEST_ROOT/toolkit/bin/dev-adapters"
   [ "$status" -eq 0 ]
@@ -297,40 +376,40 @@ write_test_slsa_reference() {
   jq '.adapters += [.adapters[0]]' "$registry" >"$duplicate_registry"
   run "$TEST_ROOT/toolkit/bin/dev-adapters" "$duplicate_registry"
   [ "$status" -ne 0 ]
-  [[ "$output" == *"adapters: fail duplicate id github"* ]]
+  [[ "$output" == *"adapters: fail duplicate id generic.external_event.import"* ]]
 
   mutate_registry="$TEST_ROOT/mutating-adapters.yaml"
-  jq '(.adapters[] | select(.id == "cloud") | .mode) = "mutate"' "$registry" >"$mutate_registry"
+  jq '(.adapters[] | select(.id == "cloud.change.propose") | .mode) = "mutate"' "$registry" >"$mutate_registry"
   run "$TEST_ROOT/toolkit/bin/dev-adapters" "$mutate_registry"
   [ "$status" -ne 0 ]
-  [[ "$output" == *"adapters: fail mutation requires capability policy approval evidence cloud mode mutate"* ]]
+  [[ "$output" == *"adapters: fail unsupported adapter mode cloud.change.propose mode mutate"* ]]
 
   unknown_capability_registry="$TEST_ROOT/unknown-capability-adapters.yaml"
-  jq '(.adapters[] | select(.id == "scanner") | .capabilities_used) += ["atlas.unknown.capability"]' \
+  jq '(.adapters[] | select(.id == "scanner.finding.import") | .capabilities) += ["atlas.unknown.capability"]' \
     "$registry" >"$unknown_capability_registry"
   run "$TEST_ROOT/toolkit/bin/dev-adapters" "$unknown_capability_registry"
   [ "$status" -ne 0 ]
-  [[ "$output" == *"adapters: fail unknown capability scanner atlas.unknown.capability"* ]]
+  [[ "$output" == *"adapters: fail unknown capability scanner.finding.import atlas.unknown.capability"* ]]
 
   missing_evidence_registry="$TEST_ROOT/missing-evidence-adapters.yaml"
-  jq 'del(.adapters[] | select(.id == "ticketing") | .evidence_emitted)' "$registry" >"$missing_evidence_registry"
+  jq 'del(.adapters[] | select(.id == "ticket.issue.import") | .evidence.emits)' "$registry" >"$missing_evidence_registry"
   run "$TEST_ROOT/toolkit/bin/dev-adapters" "$missing_evidence_registry"
   [ "$status" -ne 0 ]
-  [[ "$output" == *"adapters: fail missing evidence_emitted ticketing"* ]]
+  [[ "$output" == *"adapters: fail missing evidence.emits ticket.issue.import"* ]]
 
-  bad_schema_registry="$TEST_ROOT/bad-schema-adapters.yaml"
-  jq '(.adapters[] | select(.id == "github") | .input_schema) = "schemas/github-input.json"' \
-    "$registry" >"$bad_schema_registry"
-  run "$TEST_ROOT/toolkit/bin/dev-adapters" "$bad_schema_registry"
+  live_registry="$TEST_ROOT/live-adapters.yaml"
+  jq '(.adapters[] | select(.id == "github.actions.import") | .live_integration) = true' \
+    "$registry" >"$live_registry"
+  run "$TEST_ROOT/toolkit/bin/dev-adapters" "$live_registry"
   [ "$status" -ne 0 ]
-  [[ "$output" == *"adapters: fail schema path must live under adapter directory github"* ]]
+  [[ "$output" == *"adapters: fail live integration is not allowed github.actions.import"* ]]
 
-  missing_schema_registry="$TEST_ROOT/missing-schema-adapters.yaml"
-  jq '(.adapters[] | select(.id == "github") | .input_schema) = "adapters/github/missing.v1.schema.json"' \
-    "$registry" >"$missing_schema_registry"
-  run "$TEST_ROOT/toolkit/bin/dev-adapters" "$missing_schema_registry"
+  unsafe_proposal_registry="$TEST_ROOT/unsafe-proposal-adapters.yaml"
+  jq '(.adapters[] | select(.id == "ticket.transition.propose") | .approval) = "none"' \
+    "$registry" >"$unsafe_proposal_registry"
+  run "$TEST_ROOT/toolkit/bin/dev-adapters" "$unsafe_proposal_registry"
   [ "$status" -ne 0 ]
-  [[ "$output" == *"adapters: fail missing schema file github adapters/github/missing.v1.schema.json"* ]]
+  [[ "$output" == *"adapters: fail proposal adapters require approval and no live integration ticket.transition.propose"* ]]
 }
 
 @test "policy plane evaluates capability decisions read-only" {
