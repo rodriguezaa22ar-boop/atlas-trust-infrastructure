@@ -157,7 +157,8 @@
       "known_limitations": [
         "Ticket transition approval is proposal-only.",
         "No live ticket mutation is added.",
-        "Approval records do not prove the action was valid."
+        "Approval records do not prove the action was valid.",
+        "Future execution requires evidence outputs or missing-evidence explanation."
       ]
     },
     {
@@ -219,7 +220,8 @@
       "known_limitations": [
         "Cloud change workflow is proposal-only.",
         "No live cloud mutation is added.",
-        "Approval is required before any future state-changing execution."
+        "Approval is required before any future state-changing execution.",
+        "Future execution requires evidence outputs or missing-evidence explanation."
       ]
     },
     {
@@ -280,6 +282,7 @@
       "known_limitations": [
         "AI agents are requesters, not authorities.",
         "Approval records do not execute tools.",
+        "Higher-risk AI-agent requested actions require human/reviewer judgment.",
         "Raw prompts and raw model outputs must not be embedded."
       ]
     },
@@ -403,6 +406,7 @@
       "known_limitations": [
         "Private business records must not be embedded.",
         "Payment data must not be embedded.",
+        "Business-flow approval is review support, not business or legal approval by itself.",
         "Approval records do not prove complete event coverage."
       ]
     },
@@ -524,6 +528,9 @@
       "known_limitations": [
         "Break-glass workflow is documentation and review only, not execution.",
         "No break-glass execution is added.",
+        "Break-glass review requires retained evidence or missing-evidence explanation.",
+        "Break-glass review does not bypass future evidence requirements.",
+        "Break-glass review does not prove legal or production sufficiency.",
         "Approval records do not prove the action was valid."
       ]
     }

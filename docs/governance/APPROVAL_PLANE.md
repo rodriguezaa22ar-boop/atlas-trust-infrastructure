@@ -79,6 +79,9 @@ authority, a database, a server, or a web UI. Approval records do not grant
 authorization by themselves.
 
 Approval records do not grant authorization by themselves.
+M178/M179 do not add approval engine execution, approval workflow execution,
+automatic approval, automatic escalation, break-glass execution, credentials,
+API calls, webhooks, network collectors, or mutation authority.
 
 This milestone does not add a signed approval bundle, external approval-tool
 adapter, mutable cloud action, web UI, hidden database, or agent execution

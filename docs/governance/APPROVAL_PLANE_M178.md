@@ -32,6 +32,7 @@ Boundary summary:
 - M178 does not add approval engine execution.
 - M178 does not execute approval workflows.
 - M178 does not add automatic approval.
+- M178 does not add automatic escalation.
 - M178 does not add break-glass execution.
 - M178 does not add live integrations.
 - M178 does not add credentials.
@@ -40,14 +41,34 @@ Boundary summary:
 - M178 does not add network collectors.
 - M178 does not add mutation authority.
 
+M178/M179 do not add approval engine execution.
+M178/M179 do not execute approval workflows.
+M178/M179 do not add automatic approval.
+M178/M179 do not add automatic escalation.
+M178/M179 do not add break-glass execution.
+M178/M179 do not add credentials.
+M178/M179 do not add API calls.
+M178/M179 do not add webhooks.
+M178/M179 do not add network collectors.
+M178/M179 do not add mutation authority.
+
 M178 does not add credentials, API calls, webhooks, network collectors, or
 mutation authority. M178 does not add a database, server, web UI, policy engine
 execution, adapter execution, or receipt semantic changes.
 
 M178 is a draft approval-plane contract for review, testing, and governance
-alignment. Future approval enforcement must be added explicitly and must remain
-capability-named, policy-aware, evidence-emitting, human-reviewable, and
-metadata-only.
+alignment. Future approval enforcement must be added explicitly. Future
+approval enforcement must remain capability-named. Future approval enforcement
+must remain policy-aware. Future approval enforcement must remain
+evidence-emitting. Future approval enforcement must remain metadata-only.
+Approval state must remain tied to capability, policy, evidence, and scope.
+
+Future approval enforcement:
+
+- must remain capability-named
+- must remain policy-aware
+- must remain evidence-emitting
+- must remain metadata-only
 
 Existing external systems remain the source of their own operational truth.
 Atlas records approval proof metadata around them.
@@ -128,20 +149,26 @@ Approval metadata can support a reviewer decision that a named person or role
 reviewed a named request within a stated scope and time window, with referenced
 evidence and stated limitations.
 
+Approval records support review, not replace reviewer judgment.
+
 ## What Approval Does Not Prove
 
 Approval records do not grant authorization by themselves. Approval records do
 not prove the action was valid. Approval records do not prove legal compliance.
-Approval records do not prove production deployability. Approval records do
-not prove complete event coverage. Approval records do not prove actions
-outside Atlas did not happen.
+Approval records do not prove legal sufficiency. Approval records do not prove
+production deployability. Approval records do not prove enterprise deployment
+approval. Approval records do not prove complete event coverage. Approval
+records do not prove actions outside Atlas did not happen.
 
 Approval records do not prove:
 
 - Approval records do not prove the action was valid.
 - Approval records do not prove legal compliance.
+- Approval records do not prove legal sufficiency.
 - Approval records do not prove production deployability.
+- Approval records do not prove enterprise deployment approval.
 - Approval records do not prove complete event coverage.
+- Approval records do not prove actions outside Atlas did not happen.
 
 Approval records do not prove runtime safety, model correctness, artifact
 correctness, certification, external audit completion, or enterprise
@@ -154,6 +181,14 @@ review window closed. Stale approval means relevant context changed after the
 review, such as a changed commit, changed ticket state, changed cloud resource,
 changed risk tier, changed business-flow owner, changed evidence status, or
 changed public/private boundary result.
+
+Approval can expire. Approval can be revoked. Changed scope, changed evidence,
+or changed action may require reapproval.
+
+Expired approval means the review window closed.
+Stale approval means relevant context changed.
+Reapproval is required when the reviewed context changes.
+Changed scope, changed evidence, or changed action may require reapproval.
 
 ## Reapproval Triggers
 
@@ -174,7 +209,7 @@ systems.
 
 Escalation records that the reviewer path needs a higher role, more reviewers,
 or more evidence. Escalation is metadata-only. It does not page, ticket, notify,
-or execute any live workflow in M178.
+or execute any live workflow in M178. Escalation is not automatic approval.
 
 ## Break-Glass Boundary
 
@@ -182,6 +217,16 @@ The M178 break-glass workflow is documentation and review only, not execution.
 M178 does not add break-glass execution. Break-glass records can describe the
 event, owner, reviewers, evidence references, decision status, and known
 limitations, but they do not authorize or perform emergency access.
+
+Break-glass workflow is documentation/review only. Break-glass workflow does
+not execute recovery or emergency actions. Break-glass workflow requires
+retained evidence or explanation. Break-glass does not bypass future evidence
+requirements. Break-glass does not prove legal or production sufficiency.
+
+Break-glass workflow does not execute recovery or emergency actions.
+Break-glass workflow requires retained evidence or explanation.
+Break-glass does not bypass future evidence requirements.
+Break-glass does not prove legal or production sufficiency.
 
 ## Metadata-Only Approval Evidence
 
