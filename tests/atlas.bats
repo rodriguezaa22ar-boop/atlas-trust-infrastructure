@@ -541,6 +541,166 @@ write_test_slsa_reference() {
   [[ "$output" == *"adapters: ok"* ]]
 }
 
+@test "M176 policy plane draft defines metadata-only decision contract" {
+  plane="$TEST_ROOT/toolkit/policy/policy-plane.yaml"
+  policy_doc="$TEST_ROOT/toolkit/docs/governance/POLICY_PLANE.md"
+  policy_m176_doc="$TEST_ROOT/toolkit/docs/governance/POLICY_PLANE_M176.md"
+  docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
+  milestone="$TEST_ROOT/toolkit/docs/retention/milestones/MILESTONE_176.md"
+  milestone_index="$TEST_ROOT/toolkit/docs/retention/MILESTONE_INDEX.md"
+  combined_text="$TEST_ROOT/m176-policy-plane-text.txt"
+
+  [ -f "$plane" ]
+  [ -f "$policy_doc" ]
+  [ -f "$policy_m176_doc" ]
+  [ -f "$milestone" ]
+
+  jq -e '
+    .schema_version == "atlas.policy_plane.v1" and
+    .status == "draft" and
+    .default_decision == "deny" and
+    .runtime_enforcement_enabled == false and
+    .policy_engine_enabled == false and
+    .live_integrations_enabled == false and
+    .metadata_only == true and
+    (.policy_inputs | type == "array" and length >= 10) and
+    (.policy_inputs | index("actor")) and
+    (.policy_inputs | index("capability")) and
+    (.policy_inputs | index("adapter")) and
+    (.policy_inputs | index("action")) and
+    (.policy_inputs | index("resource")) and
+    (.policy_inputs | index("scope")) and
+    (.policy_inputs | index("risk_tier")) and
+    (.policy_inputs | index("approval_state")) and
+    (.policy_inputs | index("evidence_refs")) and
+    (.policy_inputs | index("request_context")) and
+    (.policy_decisions | index("allow")) and
+    (.policy_decisions | index("deny")) and
+    (.policy_decisions | index("approval_required")) and
+    (.policy_decisions | index("evidence_required")) and
+    (.policy_decisions | index("unsupported")) and
+    (.policy_decisions | index("unknown_capability")) and
+    (.policy_decisions | index("unknown_adapter")) and
+    (.policy_decisions | index("boundary_violation")) and
+    (.policy_bundles | type == "array" and length >= 10) and
+    any(.policy_bundles[]; .id == "atlas.default_deny") and
+    any(.policy_bundles[]; .id == "atlas.known_capability_required") and
+    any(.policy_bundles[]; .id == "atlas.known_adapter_required") and
+    any(.policy_bundles[]; .id == "atlas.metadata_only_boundary") and
+    any(.policy_bundles[]; .id == "atlas.import_first_adapters") and
+    any(.policy_bundles[]; .id == "atlas.propose_requires_approval_path") and
+    any(.policy_bundles[]; .id == "atlas.ai_agent_requester_not_authority") and
+    any(.policy_bundles[]; .id == "atlas.release_verify_read_only") and
+    any(.policy_bundles[]; .id == "atlas.public_export_boundary") and
+    any(.policy_bundles[]; .id == "atlas.evidence_required_for_decision") and
+    all(.policy_bundles[]; (.id // "") != "") and
+    all(.policy_bundles[]; (.title // "") != "") and
+    all(.policy_bundles[]; (.status // "") != "") and
+    all(.policy_bundles[]; (.purpose // "") != "") and
+    all(.policy_bundles[]; (.applies_to | type == "array" and length > 0)) and
+    all(.policy_bundles[]; (.inputs_required | type == "array" and length > 0)) and
+    all(.policy_bundles[]; (.decision_outputs | type == "array" and length > 0)) and
+    all(.policy_bundles[]; (.approval_behavior // "") != "") and
+    all(.policy_bundles[]; (.evidence_behavior // "") != "") and
+    all(.policy_bundles[]; has("metadata_only") and .metadata_only == true) and
+    all(.policy_bundles[]; has("runtime_enforcement") and .runtime_enforcement == false) and
+    all(.policy_bundles[]; (.known_limitations | type == "array" and length > 0)) and
+    any(.policy_bundles[]; .id == "atlas.ai_agent_requester_not_authority" and (.known_limitations[] | contains("AI agents are requesters, not authorities"))) and
+    any(.policy_bundles[]; .id == "atlas.release_verify_read_only" and (.known_limitations[] | contains("Release verify remains read-only"))) and
+    any(.policy_bundles[]; .id == "atlas.import_first_adapters" and (.known_limitations[] | contains("No active mutate adapter"))) and
+    any(.policy_bundles[]; .id == "atlas.propose_requires_approval_path" and (.decision_outputs | index("approval_required")) and (.decision_outputs | index("evidence_required"))) and
+    any(.policy_bundles[]; .id == "atlas.public_export_boundary" and (.known_limitations[] | contains("private-marker clean"))) and
+    any(.policy_bundles[]; .id == "atlas.evidence_required_for_decision" and (.evidence_behavior | contains("missing-evidence explanation")))
+  ' "$plane"
+
+  {
+    jq -r '.. | strings?' "$plane"
+    cat "$policy_doc"
+    cat "$policy_m176_doc"
+  } >"$combined_text"
+
+  grep -Eiq 'raw logs|raw_logs' "$combined_text"
+  grep -Eiq 'secrets' "$combined_text"
+  grep -Eiq 'private keys|private_keys' "$combined_text"
+  grep -Eiq 'tokens' "$combined_text"
+  grep -Eiq 'Authorization headers|authorization_headers' "$combined_text"
+  grep -Eiq 'request bodies|request_bodies' "$combined_text"
+  grep -Eiq 'response bodies|response_bodies' "$combined_text"
+  grep -Eiq 'packet captures|packet_captures' "$combined_text"
+  grep -Eiq 'raw prompts|raw_prompts' "$combined_text"
+  grep -Eiq 'raw model outputs|raw_model_outputs' "$combined_text"
+  grep -Eiq 'customer data|customer_data' "$combined_text"
+  grep -Eiq 'payment data|payment_data' "$combined_text"
+  grep -Eiq 'private business records|private_business_records' "$combined_text"
+  grep -Eiq 'unredacted evidence bodies|unredacted_evidence_bodies' "$combined_text"
+
+  grep -q '^# Policy Plane Draft M176$' "$policy_m176_doc"
+  grep -q 'governance contract, not runtime enforcement' "$policy_m176_doc"
+  grep -q 'not add runtime policy enforcement' "$policy_m176_doc"
+  grep -q 'does not add a policy engine' "$policy_m176_doc"
+  grep -q 'OPA/Rego runtime execution' "$policy_m176_doc"
+  grep -q 'Cedar runtime execution' "$policy_m176_doc"
+  grep -q 'live integrations, credentials, API calls, webhooks' "$policy_m176_doc"
+  grep -q 'network collectors' "$policy_m176_doc"
+  grep -q 'mutation' "$policy_m176_doc"
+  grep -q 'does not grant authorization by itself' "$policy_m176_doc"
+  grep -q 'default_decision: deny' "$policy_m176_doc"
+  grep -q 'capabilities.yaml' "$policy_m176_doc"
+  grep -q 'adapters/registry.yaml' "$policy_m176_doc"
+  grep -q 'Future Approval Plane' "$policy_m176_doc"
+  grep -q 'Future Evidence Envelope' "$policy_m176_doc"
+  grep -q 'AI-agent events can be request context or evidence sources' "$policy_m176_doc"
+  grep -q 'not authorization authorities' "$policy_m176_doc"
+  grep -q 'Release verification remains read-only' "$policy_m176_doc"
+  grep -q 'Public export remains metadata-only and private-marker clean' "$policy_m176_doc"
+  grep -q 'Known Limitations' "$policy_m176_doc"
+  grep -q 'No production policy enforcement is claimed' "$policy_m176_doc"
+  grep -q 'clearer review' "$policy_m176_doc"
+  grep -q 'fewer ambiguous decisions' "$policy_m176_doc"
+  grep -q 'safer future connectors' "$policy_m176_doc"
+  grep -q 'evidence reconstruction' "$policy_m176_doc"
+  grep -q 'privacy-preserving governance' "$policy_m176_doc"
+  grep -q 'stronger audit readiness' "$policy_m176_doc"
+  grep -q 'lower cost' "$policy_m176_doc"
+
+  grep -q 'M176 adds the first draft policy-plane contract' "$policy_doc"
+  grep -q 'POLICY_PLANE_M176.md' "$policy_doc"
+  grep -q 'not runtime policy enforcement' "$policy_doc"
+  grep -q 'policy engine' "$policy_doc"
+  grep -q 'does not grant authorization by itself' "$policy_doc"
+  grep -q 'governance/POLICY_PLANE_M176.md' "$docs_index"
+
+  ! grep -Eiq 'guaranteed compliance|certified compliant|legally compliant|legally sufficient|compliance guarantee|certification guarantee|external audit complete|enterprise deployment approved|production policy enforcement implemented|runtime policy enforcement implemented|policy engine execution implemented|OPA/Rego runtime execution implemented|Cedar runtime execution implemented|live integration enabled|API calls enabled|webhooks enabled|network collectors enabled|credentials configured|mutation authority added|complete event coverage: (true|ready|implemented)|runtime safety proven|model correctness proven|artifact correctness guaranteed|actions outside Atlas cannot happen|Atlas grants authorization' "$combined_text"
+  ! grep -Eiq 'Atlas (guarantees|certifies|proves|implements|delivers) (compliance|certification|legal sufficiency|external audit|enterprise deployment approval|production policy enforcement|runtime policy enforcement|policy engine execution|complete event coverage|runtime safety|model correctness|artifact correctness|authorization)' "$combined_text"
+
+  grep -q '^# Milestone 176: Policy Plane Draft$' "$milestone"
+  grep -q '576046958612b1c6bada844a60aef17b2ae33e50' "$milestone"
+  grep -q 'No Atlas runtime policy enforcement added.' "$milestone"
+  grep -q 'No policy engine execution added.' "$milestone"
+  grep -q 'No OPA/Rego runtime execution added.' "$milestone"
+  grep -q 'No Cedar runtime execution added.' "$milestone"
+  grep -q 'No adapter execution added.' "$milestone"
+  grep -q 'No live integration added.' "$milestone"
+  grep -q 'No credential handling added.' "$milestone"
+  grep -q 'No API calls added.' "$milestone"
+  grep -q 'No webhooks added.' "$milestone"
+  grep -q 'No network collectors added.' "$milestone"
+  grep -q 'Known limitations preserved.' "$milestone"
+  grep -q 'atlas-retention-m176' "$milestone"
+  grep -q 'MILESTONE_176.md' "$milestone_index"
+  grep -q 'Policy Plane Draft' "$milestone_index"
+  grep -q 'atlas-retention-m176' "$milestone_index"
+
+  run "$TEST_ROOT/toolkit/bin/dev-policy"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"policy: ok"* ]]
+
+  run "$TEST_ROOT/toolkit/bin/dev-governance"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"policy: ok"* ]]
+  [[ "$output" == *"governance: ok"* ]]
+}
+
 @test "policy plane evaluates capability decisions read-only" {
   policy_file="$TEST_ROOT/toolkit/policy/atlas.authz.rego"
   policy_cases="$TEST_ROOT/toolkit/policy/tests/decisions.v1.json"

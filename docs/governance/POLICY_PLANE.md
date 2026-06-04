@@ -3,9 +3,13 @@
 ## Purpose
 
 M126 adds the first policy decision contract for Atlas capabilities.
+M176 adds the first draft policy-plane contract for future capability, adapter,
+approval, and evidence decisions without adding runtime enforcement.
 
 `policy/atlas.authz.rego` defines the decision vocabulary and authorization
 rules that sit above `capabilities.yaml` and `adapters/registry.yaml`.
+
+Current draft detail: [POLICY_PLANE_M176.md](POLICY_PLANE_M176.md).
 
 Required decisions:
 
@@ -13,7 +17,11 @@ Required decisions:
 allow
 deny
 approval_required
+evidence_required
 unsupported
+unknown_capability
+unknown_adapter
+boundary_violation
 not_in_scope
 ```
 
@@ -64,6 +72,11 @@ policy: ok
 M127 builds on this policy contract with metadata-only approval workflow
 events for `approval_required` decisions.
 
+M176 is a governance contract, not runtime policy enforcement. It does not add
+a policy engine, OPA/Rego runtime execution, Cedar runtime execution, live
+integrations, credentials, API calls, webhooks, network collectors, mutation,
+an approval engine, a database, a server, or a web UI.
+
 This milestone does not add an evidence ledger, external API client, mutation
 wrapper, cloud action, web dashboard, hidden database, or agent execution
 runtime.
@@ -77,3 +90,7 @@ At the CLI boundary, `approval=approved` must come from a verified
 `atlas.approval_event.v1` event supplied with `--approval-event`. Internal
 policy fixtures may still exercise abstract approval states to verify the
 decision vocabulary.
+
+The policy plane does not grant authorization by itself. Existing external
+systems remain the source of their own operational truth, and Atlas records
+proof metadata around them.

@@ -1,0 +1,352 @@
+{
+  "schema_version": "atlas.policy_plane.v1",
+  "status": "draft",
+  "default_decision": "deny",
+  "runtime_enforcement_enabled": false,
+  "policy_engine_enabled": false,
+  "live_integrations_enabled": false,
+  "metadata_only": true,
+  "policy_inputs": [
+    "actor",
+    "capability",
+    "adapter",
+    "action",
+    "resource",
+    "scope",
+    "risk_tier",
+    "approval_state",
+    "evidence_refs",
+    "request_context"
+  ],
+  "policy_decisions": [
+    "allow",
+    "deny",
+    "approval_required",
+    "evidence_required",
+    "unsupported",
+    "unknown_capability",
+    "unknown_adapter",
+    "boundary_violation"
+  ],
+  "forbidden_inputs": [
+    "raw_logs",
+    "secrets",
+    "private_keys",
+    "tokens",
+    "authorization_headers",
+    "request_bodies",
+    "response_bodies",
+    "packet_captures",
+    "raw_prompts",
+    "raw_model_outputs",
+    "customer_data",
+    "payment_data",
+    "private_business_records",
+    "unredacted_evidence_bodies"
+  ],
+  "policy_bundles": [
+    {
+      "id": "atlas.default_deny",
+      "title": "Default Deny",
+      "status": "draft",
+      "purpose": "Return deny for requests that are unknown, unsupported, missing required context, or outside the modeled policy contract.",
+      "applies_to": [
+        "all_policy_requests"
+      ],
+      "inputs_required": [
+        "actor",
+        "capability",
+        "action",
+        "resource",
+        "scope"
+      ],
+      "decision_outputs": [
+        "deny",
+        "unsupported",
+        "boundary_violation"
+      ],
+      "approval_behavior": "No approval is requested for unknown or boundary-violating requests.",
+      "evidence_behavior": "Emit a metadata-only decision reference with the missing or unsupported context.",
+      "metadata_only": true,
+      "runtime_enforcement": false,
+      "known_limitations": [
+        "Draft policy modeling only.",
+        "No runtime policy enforcement is added.",
+        "The policy plane does not grant authorization by itself."
+      ]
+    },
+    {
+      "id": "atlas.known_capability_required",
+      "title": "Known Capability Required",
+      "status": "draft",
+      "purpose": "Require policy requests to reference a capability that exists in capabilities.yaml.",
+      "applies_to": [
+        "capability_bound_requests"
+      ],
+      "inputs_required": [
+        "capability",
+        "action",
+        "resource"
+      ],
+      "decision_outputs": [
+        "allow",
+        "approval_required",
+        "unknown_capability"
+      ],
+      "approval_behavior": "Approval posture follows the referenced capability class and approval field.",
+      "evidence_behavior": "Record the capability id and the metadata decision output.",
+      "metadata_only": true,
+      "runtime_enforcement": false,
+      "known_limitations": [
+        "Capability presence does not prove sufficiency.",
+        "Policy evaluation is future/later unless explicitly implemented.",
+        "Unknown capabilities remain unsupported."
+      ]
+    },
+    {
+      "id": "atlas.known_adapter_required",
+      "title": "Known Adapter Required",
+      "status": "draft",
+      "purpose": "Require adapter-bound policy requests to reference an adapter in adapters/registry.yaml.",
+      "applies_to": [
+        "adapter_bound_requests"
+      ],
+      "inputs_required": [
+        "adapter",
+        "capability",
+        "action",
+        "resource"
+      ],
+      "decision_outputs": [
+        "allow",
+        "approval_required",
+        "unknown_adapter"
+      ],
+      "approval_behavior": "Proposal adapters require an approval path before any future state-changing execution.",
+      "evidence_behavior": "Record the adapter id, capability id, decision, and known limitations.",
+      "metadata_only": true,
+      "runtime_enforcement": false,
+      "known_limitations": [
+        "Adapter presence does not make an adapter live.",
+        "The adapter registry remains default-deny and non-live.",
+        "Existing external systems remain their own operational source of truth."
+      ]
+    },
+    {
+      "id": "atlas.metadata_only_boundary",
+      "title": "Metadata-Only Boundary",
+      "status": "draft",
+      "purpose": "Reject or classify requests that attempt to include raw sensitive data outside Atlas metadata-only boundaries.",
+      "applies_to": [
+        "all_policy_requests",
+        "adapter_bound_requests",
+        "evidence_bound_requests"
+      ],
+      "inputs_required": [
+        "request_context",
+        "evidence_refs",
+        "resource"
+      ],
+      "decision_outputs": [
+        "boundary_violation",
+        "evidence_required",
+        "deny"
+      ],
+      "approval_behavior": "Approval cannot override forbidden raw-data ingestion in this draft policy model.",
+      "evidence_behavior": "Record metadata references and hashes only; explain missing or rejected evidence when required.",
+      "metadata_only": true,
+      "runtime_enforcement": false,
+      "known_limitations": [
+        "Raw logs, secrets, private keys, tokens, Authorization headers, request bodies, response bodies, packet captures, raw prompts, raw model outputs, customer data, payment data, private business records, and unredacted evidence bodies remain forbidden.",
+        "This is policy modeling, not a runtime content filter.",
+        "Reviewers still assess whether evidence references are sufficient."
+      ]
+    },
+    {
+      "id": "atlas.import_first_adapters",
+      "title": "Import-First Adapters",
+      "status": "draft",
+      "purpose": "Preserve read, import, verify, export, and propose boundaries for adapter-bound requests.",
+      "applies_to": [
+        "adapter_bound_requests"
+      ],
+      "inputs_required": [
+        "adapter",
+        "capability",
+        "action",
+        "scope"
+      ],
+      "decision_outputs": [
+        "allow",
+        "approval_required",
+        "deny",
+        "boundary_violation"
+      ],
+      "approval_behavior": "Read/import/verify/export requests may be modeled without approval; propose requests require an approval path.",
+      "evidence_behavior": "Record adapter mode, capability id, decision output, and evidence refs.",
+      "metadata_only": true,
+      "runtime_enforcement": false,
+      "known_limitations": [
+        "No active mutate adapter is modeled in M176.",
+        "Policy modeling does not execute adapters.",
+        "Live integrations remain disabled."
+      ]
+    },
+    {
+      "id": "atlas.propose_requires_approval_path",
+      "title": "Proposal Requires Approval Path",
+      "status": "draft",
+      "purpose": "Require future state-changing proposals to be approval-aware before any later execution milestone.",
+      "applies_to": [
+        "proposal_requests",
+        "future_state_changing_requests"
+      ],
+      "inputs_required": [
+        "actor",
+        "capability",
+        "adapter",
+        "action",
+        "risk_tier",
+        "approval_state",
+        "evidence_refs"
+      ],
+      "decision_outputs": [
+        "approval_required",
+        "evidence_required",
+        "deny"
+      ],
+      "approval_behavior": "Return approval_required unless verified approval metadata exists in a later implementation.",
+      "evidence_behavior": "Require proposal references, approval-required status, and known limitations.",
+      "metadata_only": true,
+      "runtime_enforcement": false,
+      "known_limitations": [
+        "Approval is not executed automatically.",
+        "The policy plane does not create mutation authority.",
+        "Future execution must be added explicitly in a later milestone."
+      ]
+    },
+    {
+      "id": "atlas.ai_agent_requester_not_authority",
+      "title": "AI Agent Requester Not Authority",
+      "status": "draft",
+      "purpose": "Treat AI-agent events as requests or evidence sources, not authorization authorities.",
+      "applies_to": [
+        "ai_agent_requests",
+        "agent_event_imports"
+      ],
+      "inputs_required": [
+        "actor",
+        "capability",
+        "action",
+        "approval_state",
+        "evidence_refs"
+      ],
+      "decision_outputs": [
+        "approval_required",
+        "evidence_required",
+        "deny"
+      ],
+      "approval_behavior": "AI agents cannot approve their own requests.",
+      "evidence_behavior": "Record agent action references without raw prompts or raw model outputs.",
+      "metadata_only": true,
+      "runtime_enforcement": false,
+      "known_limitations": [
+        "AI agents are requesters, not authorities.",
+        "Raw prompts and raw model outputs remain forbidden.",
+        "Atlas does not prove model correctness."
+      ]
+    },
+    {
+      "id": "atlas.release_verify_read_only",
+      "title": "Release Verify Read-Only",
+      "status": "draft",
+      "purpose": "Preserve release verification as a read-only policy path.",
+      "applies_to": [
+        "release_verification",
+        "release_trust"
+      ],
+      "inputs_required": [
+        "capability",
+        "action",
+        "resource",
+        "evidence_refs"
+      ],
+      "decision_outputs": [
+        "allow",
+        "evidence_required",
+        "deny"
+      ],
+      "approval_behavior": "Release verification remains read-only and does not require approval in this draft.",
+      "evidence_behavior": "Require retained release metadata references, hashes, and verification result references.",
+      "metadata_only": true,
+      "runtime_enforcement": false,
+      "known_limitations": [
+        "Release verify remains read-only.",
+        "Verification does not prove artifact correctness guarantees.",
+        "Release trust boundaries remain unchanged."
+      ]
+    },
+    {
+      "id": "atlas.public_export_boundary",
+      "title": "Public Export Boundary",
+      "status": "draft",
+      "purpose": "Preserve metadata-only and private-marker-clean public export behavior.",
+      "applies_to": [
+        "public_export",
+        "reviewer_packages"
+      ],
+      "inputs_required": [
+        "capability",
+        "action",
+        "resource",
+        "evidence_refs",
+        "request_context"
+      ],
+      "decision_outputs": [
+        "allow",
+        "boundary_violation",
+        "evidence_required"
+      ],
+      "approval_behavior": "Public export remains constrained to metadata-only public trust surfaces.",
+      "evidence_behavior": "Require public export check results and private-marker scan references.",
+      "metadata_only": true,
+      "runtime_enforcement": false,
+      "known_limitations": [
+        "Public export must remain metadata-only and private-marker clean.",
+        "Private data remains outside public proof packages.",
+        "Public export does not create external audit completion."
+      ]
+    },
+    {
+      "id": "atlas.evidence_required_for_decision",
+      "title": "Evidence Required For Decision",
+      "status": "draft",
+      "purpose": "Require policy decisions to declare evidence outputs or explain missing evidence.",
+      "applies_to": [
+        "evidence_bound_requests",
+        "reviewer_decisions"
+      ],
+      "inputs_required": [
+        "capability",
+        "action",
+        "resource",
+        "evidence_refs",
+        "request_context"
+      ],
+      "decision_outputs": [
+        "allow",
+        "evidence_required",
+        "deny"
+      ],
+      "approval_behavior": "Approval state does not replace required evidence outputs.",
+      "evidence_behavior": "Declare evidence outputs, evidence refs, or a missing-evidence explanation.",
+      "metadata_only": true,
+      "runtime_enforcement": false,
+      "known_limitations": [
+        "Evidence present does not automatically mean evidence sufficient.",
+        "Missing, stale, or unverifiable evidence must remain visible.",
+        "Reviewer judgment remains required."
+      ]
+    }
+  ]
+}
