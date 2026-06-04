@@ -30,6 +30,9 @@ repository in filesystem order.
 - [governance/ADAPTER_REGISTRY_M174.md](governance/ADAPTER_REGISTRY_M174.md):
   adapter registry draft defining metadata-only, default-deny, non-live
   external-system adapter contracts before runtime execution.
+- [governance/POLICY_PLANE_M176.md](governance/POLICY_PLANE_M176.md):
+  policy plane draft defining default-deny, metadata-only policy inputs,
+  decisions, and bundles before runtime policy enforcement.
 - [reviews/ADOPTION_FRICTION_DRY_RUN_M167.md](reviews/ADOPTION_FRICTION_DRY_RUN_M167.md):
   retained adoption dry-run for following the CI release review workflow from a
   fresh clone without live builder help.
@@ -87,6 +90,7 @@ repository in filesystem order.
 - Scale/storage reviewer: [architecture/SCALE_AND_STORAGE_STRATEGY_M170.md](architecture/SCALE_AND_STORAGE_STRATEGY_M170.md)
 - Capability governance reviewer: [governance/CAPABILITY_MANIFEST_M172.md](governance/CAPABILITY_MANIFEST_M172.md)
 - Adapter governance reviewer: [governance/ADAPTER_REGISTRY_M174.md](governance/ADAPTER_REGISTRY_M174.md)
+- Policy governance reviewer: [governance/POLICY_PLANE_M176.md](governance/POLICY_PLANE_M176.md)
 - Contributor: [../CONTRIBUTING.md](../CONTRIBUTING.md)
 - Security reporter: [../SECURITY.md](../SECURITY.md)
 
@@ -195,6 +199,9 @@ repository in filesystem order.
   adapter contracts.
 - [governance/ADAPTER_REGISTRY.md](governance/ADAPTER_REGISTRY.md): stable
   adapter registry entry point and validation gate.
+- [governance/POLICY_PLANE_M176.md](governance/POLICY_PLANE_M176.md):
+  M176 policy plane draft for capability, adapter, approval, and evidence
+  decisions without runtime policy enforcement.
 - [adapters/GENERIC_EXTERNAL_EVENT_RECEIPT_ADAPTER.md](adapters/GENERIC_EXTERNAL_EVENT_RECEIPT_ADAPTER.md):
   M143 local-file import-only adapter for converting synthetic generic external
   events into Atlas receipts.
@@ -238,8 +245,8 @@ repository in filesystem order.
 - [TRY_AI_AGENT_EVENT_RECEIPTS.md](TRY_AI_AGENT_EVENT_RECEIPTS.md): M147
   five-minute local quickstart for AI-agent event receipts and optional local
   model helper metadata.
-- [governance/POLICY_PLANE.md](governance/POLICY_PLANE.md): M126 policy
-  decision contract and validation gate.
+- [governance/POLICY_PLANE.md](governance/POLICY_PLANE.md): stable policy
+  plane entry point and validation gate.
 - [governance/APPROVAL_PLANE.md](governance/APPROVAL_PLANE.md): M127
   approval workflow contract and validation gate.
 - [../ledger/README.md](../ledger/README.md): M128 evidence envelope and

@@ -5,6 +5,7 @@ set -euo pipefail
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 POLICY="$ROOT/policy/atlas.authz.rego"
 CASES="${1:-$ROOT/policy/tests/decisions.v1.json}"
+PLANE="${2:-$ROOT/policy/policy-plane.yaml}"
 ATLAS="$ROOT/tools/atlas/bin/atlas"
 
 fail() {
@@ -29,6 +30,7 @@ require_command uniq
 
 [ -f "$POLICY" ] || fail "missing policy/atlas.authz.rego"
 [ -f "$CASES" ] || fail "missing policy tests $CASES"
+[ -f "$PLANE" ] || fail "missing policy/policy-plane.yaml"
 [ -x "$ATLAS" ] || fail "missing atlas CLI"
 
 grep -q '^package atlas\.authz$' "$POLICY" || fail "missing package atlas.authz"
@@ -70,6 +72,97 @@ bad_expected="$(
   ' "$CASES" | head -n 1
 )"
 [ -z "$bad_expected" ] || fail "unknown expected decision $bad_expected"
+
+jq -e . "$PLANE" >/dev/null 2>&1 || fail "invalid policy plane JSON-compatible YAML"
+jq -e '
+  .schema_version == "atlas.policy_plane.v1" and
+  .status == "draft" and
+  .default_decision == "deny" and
+  .runtime_enforcement_enabled == false and
+  .policy_engine_enabled == false and
+  .live_integrations_enabled == false and
+  .metadata_only == true and
+  (.policy_inputs | type == "array" and length > 0) and
+  (.policy_decisions | type == "array" and length > 0) and
+  (.policy_bundles | type == "array" and length > 0)
+' "$PLANE" >/dev/null || fail "invalid policy plane draft"
+
+for input in actor capability adapter action resource scope risk_tier approval_state evidence_refs request_context; do
+  jq -e --arg input "$input" '.policy_inputs | index($input)' "$PLANE" >/dev/null ||
+    fail "missing policy input $input"
+done
+
+for decision in allow deny approval_required evidence_required unsupported unknown_capability unknown_adapter boundary_violation; do
+  jq -e --arg decision "$decision" '.policy_decisions | index($decision)' "$PLANE" >/dev/null ||
+    fail "missing policy plane decision $decision"
+done
+
+for bundle in \
+  atlas.default_deny \
+  atlas.known_capability_required \
+  atlas.known_adapter_required \
+  atlas.metadata_only_boundary \
+  atlas.import_first_adapters \
+  atlas.propose_requires_approval_path \
+  atlas.ai_agent_requester_not_authority \
+  atlas.release_verify_read_only \
+  atlas.public_export_boundary \
+  atlas.evidence_required_for_decision; do
+  jq -e --arg bundle "$bundle" 'any(.policy_bundles[]; .id == $bundle)' "$PLANE" >/dev/null ||
+    fail "missing policy bundle $bundle"
+done
+
+duplicate_bundle="$(jq -r '.policy_bundles[].id' "$PLANE" | sort | uniq -d | head -n 1)"
+[ -z "$duplicate_bundle" ] || fail "duplicate policy bundle $duplicate_bundle"
+
+missing_bundle_field="$(
+  jq -r '
+    .policy_bundles[]
+    | select(
+        ((.id // "") == "")
+        or ((.title // "") == "")
+        or ((.status // "") == "")
+        or ((.purpose // "") == "")
+        or ((.applies_to | type) != "array" or (.applies_to | length) == 0)
+        or ((.inputs_required | type) != "array" or (.inputs_required | length) == 0)
+        or ((.decision_outputs | type) != "array" or (.decision_outputs | length) == 0)
+        or ((.approval_behavior // "") == "")
+        or ((.evidence_behavior // "") == "")
+        or (has("metadata_only") | not)
+        or (has("runtime_enforcement") | not)
+        or ((.known_limitations | type) != "array" or (.known_limitations | length) == 0)
+      )
+    | .id // "unnamed"
+  ' "$PLANE" | head -n 1
+)"
+[ -z "$missing_bundle_field" ] || fail "missing policy bundle field $missing_bundle_field"
+
+runtime_bundle="$(jq -r '.policy_bundles[] | select(.runtime_enforcement != false) | .id' "$PLANE" | head -n 1)"
+[ -z "$runtime_bundle" ] || fail "runtime enforcement is not allowed $runtime_bundle"
+
+not_metadata_only_bundle="$(jq -r '.policy_bundles[] | select(.metadata_only != true) | .id' "$PLANE" | head -n 1)"
+[ -z "$not_metadata_only_bundle" ] || fail "policy bundle must be metadata_only $not_metadata_only_bundle"
+
+bad_bundle_decision="$(
+  jq -r '
+    .policy_decisions as $known
+    | [
+        .policy_bundles[]
+        | . as $bundle
+        | .decision_outputs[]
+        | select(($known | index(.)) | not)
+        | "\($bundle.id) \(.)"
+      ][0] // empty
+  ' "$PLANE"
+)"
+[ -z "$bad_bundle_decision" ] || fail "unknown policy bundle decision $bad_bundle_decision"
+
+unsafe_plane_text="$(
+  jq -r '.. | strings?' "$PLANE" |
+    grep -Ei 'runtime policy enforcement implemented|policy engine execution implemented|OPA/Rego runtime execution implemented|Cedar runtime execution implemented|live integration enabled|API calls enabled|webhooks enabled|network collectors enabled|credentials configured|mutation authority added|guaranteed compliance|certified compliant|legally compliant|external audit complete|enterprise deployment approved|production policy enforcement implemented|complete event coverage: (true|ready|implemented)|runtime safety proven|model correctness proven|artifact correctness guaranteed|actions outside Atlas cannot happen|Atlas grants authorization' |
+    head -n 1 || true
+)"
+[ -z "$unsafe_plane_text" ] || fail "unsafe policy plane claim $unsafe_plane_text"
 
 if ! output="$("$ATLAS" policy test "$CASES" 2>&1)"; then
   output="${output#error: }"
