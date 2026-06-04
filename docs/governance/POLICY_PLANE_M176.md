@@ -24,12 +24,16 @@ trust without lowering standards.
 
 ## Governance Contract, Not Runtime Enforcement
 
-The policy plane is a governance contract, not runtime enforcement. M176 does
-not add runtime policy enforcement.
+The policy plane is a governance contract, not runtime enforcement. M176/M177
+do not add runtime policy enforcement.
 
-M176 does not add a policy engine, OPA/Rego runtime execution, Cedar runtime
-execution, live integrations, credentials, API calls, webhooks, network
-collectors, mutation, an approval engine, a database, a server, or a web UI.
+M176/M177 do not add policy engine execution, OPA/Rego runtime execution,
+Cedar runtime execution, live integrations, credentials, API calls, webhooks,
+network collectors, approval engine execution, mutation authority, a database,
+a server, or a web UI.
+
+M176 does not add a policy engine. M176/M177 do not add a policy engine. The
+current policy-plane YAML remains a draft contract for review and validation.
 
 The policy plane does not grant authorization by itself. Future runtime
 enforcement must be added explicitly in a later milestone and must remain
@@ -71,7 +75,8 @@ M176 drafts this decision vocabulary:
 - `boundary_violation`
 
 The vocabulary is for review and future policy alignment. It does not mean a
-runtime policy engine is active.
+runtime policy engine is active, and policy decisions do not grant
+authorization by themselves.
 
 ## Default-Deny Posture
 
@@ -102,6 +107,9 @@ verified approval metadata exists in a later implementation.
 
 M176 does not add approval execution. Approval metadata remains a separate
 contract.
+
+M177 preserves the same boundary: it adds safety regression coverage, not
+approval engine execution or automatic approval execution.
 
 ## Relationship To Future Evidence Envelope
 
@@ -207,6 +215,8 @@ This reduces ambiguous decisions without lowering standards.
 
 - M176 is a draft policy-plane contract for review, testing, and governance
   alignment.
+- M177 adds safety regression coverage for the M176 policy-plane draft without
+  adding runtime enforcement.
 - No runtime policy enforcement is implemented.
 - No policy engine is implemented.
 - No OPA/Rego runtime execution is added.
@@ -215,6 +225,8 @@ This reduces ambiguous decisions without lowering standards.
 - No credentials, API calls, webhooks, network collectors, or mutation are
   added.
 - No approval execution is added.
+- No approval engine execution or automatic approval execution is added.
+- No mutation authority is added.
 - No production policy enforcement is claimed.
 - The policy plane does not prove compliance, certification, external audit
   completion, enterprise deployment approval, complete event coverage, runtime

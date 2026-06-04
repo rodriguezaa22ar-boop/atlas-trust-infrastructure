@@ -72,10 +72,12 @@ policy: ok
 M127 builds on this policy contract with metadata-only approval workflow
 events for `approval_required` decisions.
 
-M176 is a governance contract, not runtime policy enforcement. It does not add
-a policy engine, OPA/Rego runtime execution, Cedar runtime execution, live
-integrations, credentials, API calls, webhooks, network collectors, mutation,
-an approval engine, a database, a server, or a web UI.
+M176 remains governance contract guidance, not runtime policy enforcement.
+M176/M177 keep the policy plane as a governance contract, not runtime policy
+enforcement. They do not add runtime policy enforcement, policy engine
+execution, OPA/Rego runtime execution, Cedar runtime execution, live
+integrations, credentials, API calls, webhooks, network collectors, approval
+engine execution, mutation authority, a database, a server, or a web UI.
 
 This milestone does not add an evidence ledger, external API client, mutation
 wrapper, cloud action, web dashboard, hidden database, or agent execution
@@ -91,6 +93,8 @@ At the CLI boundary, `approval=approved` must come from a verified
 policy fixtures may still exercise abstract approval states to verify the
 decision vocabulary.
 
-The policy plane does not grant authorization by itself. Existing external
-systems remain the source of their own operational truth, and Atlas records
-proof metadata around them.
+The policy plane does not grant authorization by itself. Policy decisions do
+not grant authorization by themselves, do not execute approvals automatically,
+and do not make policy evaluation active runtime enforcement. Existing
+external systems remain the source of their own operational truth, and Atlas
+records proof metadata around them.
