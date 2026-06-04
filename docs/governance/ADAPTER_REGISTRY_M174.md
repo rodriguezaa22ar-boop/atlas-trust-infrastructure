@@ -33,6 +33,11 @@ The registry does not grant authorization by itself. Future adapters must be
 capability-named, policy-covered, approval-aware when needed, and
 evidence-emitting before they can move beyond a draft contract.
 
+The registry does not grant mutation authority. Changing registry metadata
+alone cannot make an adapter live, authorize runtime execution, configure
+credentials, enable API calls, enable webhooks, start network collectors, or
+make a production integration ready.
+
 ## Adapter Modes
 
 Allowed M174 modes:
@@ -154,7 +159,8 @@ Atlas records proof metadata around them.
 
 Future mutating adapters must be capability-named, policy-covered,
 approval-aware, and evidence-emitting. They must have explicit operator review
-and must not be introduced by changing the registry alone.
+and must not be introduced by changing the registry alone. Proposal entries are
+review targets, not execution authority.
 
 ## Reviewer/Auditor Value
 
@@ -170,6 +176,7 @@ reconstruction work without lowering standards.
 - No live integration is implemented.
 - No credentials, API calls, webhooks, or network collectors are added.
 - No adapter mutation is implemented.
+- No production adapter readiness is claimed.
 - The registry does not prove compliance, certification, external audit
   completion, production integration, enterprise deployment approval, complete
   event coverage, runtime safety, model correctness, or artifact correctness.
