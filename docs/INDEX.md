@@ -27,6 +27,9 @@ repository in filesystem order.
 - [governance/CAPABILITY_MANIFEST_M172.md](governance/CAPABILITY_MANIFEST_M172.md):
   capability manifest draft mapping recognized Atlas actions to capability
   class, approval posture, emitted evidence, and blocked-action boundaries.
+- [governance/ADAPTER_REGISTRY_M174.md](governance/ADAPTER_REGISTRY_M174.md):
+  adapter registry draft defining metadata-only, default-deny, non-live
+  external-system adapter contracts before runtime execution.
 - [reviews/ADOPTION_FRICTION_DRY_RUN_M167.md](reviews/ADOPTION_FRICTION_DRY_RUN_M167.md):
   retained adoption dry-run for following the CI release review workflow from a
   fresh clone without live builder help.
@@ -83,6 +86,7 @@ repository in filesystem order.
 - Control reviewer: [reviews/CONTROL_OBJECTIVE_MAPPING.md](reviews/CONTROL_OBJECTIVE_MAPPING.md)
 - Scale/storage reviewer: [architecture/SCALE_AND_STORAGE_STRATEGY_M170.md](architecture/SCALE_AND_STORAGE_STRATEGY_M170.md)
 - Capability governance reviewer: [governance/CAPABILITY_MANIFEST_M172.md](governance/CAPABILITY_MANIFEST_M172.md)
+- Adapter governance reviewer: [governance/ADAPTER_REGISTRY_M174.md](governance/ADAPTER_REGISTRY_M174.md)
 - Contributor: [../CONTRIBUTING.md](../CONTRIBUTING.md)
 - Security reporter: [../SECURITY.md](../SECURITY.md)
 
@@ -186,8 +190,11 @@ repository in filesystem order.
   enforcement.
 - [governance/CAPABILITY_MODEL.md](governance/CAPABILITY_MODEL.md): M124
   capability manifest model and validation gate.
-- [governance/ADAPTER_REGISTRY.md](governance/ADAPTER_REGISTRY.md): M125
-  import-only adapter registry and validation gate.
+- [governance/ADAPTER_REGISTRY_M174.md](governance/ADAPTER_REGISTRY_M174.md):
+  M174 adapter registry draft for metadata-only, non-live external-system
+  adapter contracts.
+- [governance/ADAPTER_REGISTRY.md](governance/ADAPTER_REGISTRY.md): stable
+  adapter registry entry point and validation gate.
 - [adapters/GENERIC_EXTERNAL_EVENT_RECEIPT_ADAPTER.md](adapters/GENERIC_EXTERNAL_EVENT_RECEIPT_ADAPTER.md):
   M143 local-file import-only adapter for converting synthetic generic external
   events into Atlas receipts.

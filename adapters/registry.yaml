@@ -1,123 +1,469 @@
 {
-  "version": 1,
-  "default_mode": "import_only",
-  "mutation_requires": [
-    "capability",
-    "policy",
-    "approval",
-    "evidence"
-  ],
+  "schema_version": "atlas.adapter_registry.v1",
+  "default_mode": "deny",
+  "status": "draft",
+  "live_integrations_enabled": false,
+  "metadata_only": true,
   "adapters": [
     {
-      "id": "github",
-      "system": "github",
-      "mode": "import_only",
-      "capabilities_used": [
-        "atlas.adapter.import",
+      "id": "generic.external_event.import",
+      "title": "Generic External Event Metadata Import",
+      "status": "draft",
+      "mode": "import",
+      "systems": [
+        "generic_external_event"
+      ],
+      "resources": [
+        "local_event_file",
+        "receipt_output"
+      ],
+      "effects": [
+        "normalize_metadata",
+        "write_metadata_receipt"
+      ],
+      "capabilities": [
+        "atlas.adapter.import"
+      ],
+      "approval": "none",
+      "evidence": {
+        "emits": [
+          "decision",
+          "source_ref",
+          "artifact_hash",
+          "generated_receipt_ref",
+          "known_limitations"
+        ]
+      },
+      "metadata_only": true,
+      "live_integration": false,
+      "secrets_policy": "metadata_only_no_secrets_or_raw_payloads",
+      "forbidden_inputs": [
+        "raw_logs",
+        "secrets",
+        "private_keys",
+        "tokens",
+        "authorization_headers",
+        "request_bodies",
+        "response_bodies",
+        "packet_captures"
+      ],
+      "test_fixtures": [
+        "examples/adapters/generic-external-event/minimal-event.json"
+      ],
+      "known_limitations": [
+        "Local file import only.",
+        "No live integration or webhook listener is added.",
+        "Receipt evidence remains metadata-only."
+      ]
+    },
+    {
+      "id": "github.actions.import",
+      "title": "GitHub Actions Metadata Event Import",
+      "status": "draft",
+      "mode": "import",
+      "systems": [
+        "github_actions"
+      ],
+      "resources": [
+        "github_actions_run_metadata",
+        "github_actions_check_metadata",
+        "receipt_output"
+      ],
+      "effects": [
+        "normalize_metadata",
+        "write_metadata_receipt"
+      ],
+      "capabilities": [
+        "atlas.adapter.import"
+      ],
+      "approval": "none",
+      "evidence": {
+        "emits": [
+          "decision",
+          "source_ref",
+          "generated_receipt_ref",
+          "receipt_hash",
+          "known_limitations"
+        ]
+      },
+      "metadata_only": true,
+      "live_integration": false,
+      "secrets_policy": "metadata_only_no_github_token_or_api_response_body",
+      "forbidden_inputs": [
+        "github_api_token",
+        "authorization_headers",
+        "raw_request_body",
+        "raw_response_body",
+        "workflow_log_body",
+        "secrets"
+      ],
+      "test_fixtures": [
+        "examples/adapters/generic-external-event/github-actions-run-event.json",
+        "examples/adapters/generic-external-event/github-actions-check-event.json"
+      ],
+      "known_limitations": [
+        "No GitHub API calls are added.",
+        "No workflow logs are embedded.",
+        "Events missed outside the local proof chain remain outside Atlas."
+      ]
+    },
+    {
+      "id": "github.release.verify",
+      "title": "GitHub Release Artifact Metadata Verification",
+      "status": "draft",
+      "mode": "verify",
+      "systems": [
+        "github_release",
+        "slsa_provenance"
+      ],
+      "resources": [
+        "release_artifact_metadata",
+        "provenance_metadata",
+        "attestation_reference"
+      ],
+      "effects": [
+        "verify_metadata",
+        "emit_verification_summary"
+      ],
+      "capabilities": [
         "atlas.release.verify"
       ],
-      "input_schema": "adapters/github/input.v1.schema.json",
-      "output_schema": "adapters/github/output.v1.schema.json",
-      "evidence_emitted": [
-        "decision",
-        "source_ref",
-        "artifact_hash"
+      "approval": "none",
+      "evidence": {
+        "emits": [
+          "decision",
+          "manifest_ref",
+          "verification_result",
+          "known_limitations"
+        ]
+      },
+      "metadata_only": true,
+      "live_integration": false,
+      "secrets_policy": "metadata_only_no_artifact_download_or_token",
+      "forbidden_inputs": [
+        "github_api_token",
+        "authorization_headers",
+        "artifact_binary",
+        "raw_request_body",
+        "raw_response_body",
+        "secrets"
       ],
-      "secret_handling": "metadata_only_no_tokens",
-      "network_policy": "read_only_api_or_offline_export",
-      "owner": "atlas-governance"
+      "test_fixtures": [
+        "docs/retention/milestones/MILESTONE_140.md"
+      ],
+      "known_limitations": [
+        "No artifact download is added.",
+        "No hosted verifier is required.",
+        "Verification reports metadata status, not artifact correctness guarantees."
+      ]
     },
     {
-      "id": "generic-webhook",
-      "system": "generic_webhook",
-      "mode": "import_only",
-      "capabilities_used": [
+      "id": "scanner.finding.import",
+      "title": "Scanner Finding Metadata Import",
+      "status": "draft",
+      "mode": "import",
+      "systems": [
+        "scanner"
+      ],
+      "resources": [
+        "finding_metadata",
+        "scanner_export_reference"
+      ],
+      "effects": [
+        "normalize_metadata",
+        "emit_finding_reference"
+      ],
+      "capabilities": [
         "atlas.adapter.import"
       ],
-      "input_schema": "adapters/generic-webhook/input.v1.schema.json",
-      "output_schema": "adapters/generic-webhook/output.v1.schema.json",
-      "evidence_emitted": [
-        "decision",
-        "source_ref",
-        "artifact_hash"
+      "approval": "none",
+      "evidence": {
+        "emits": [
+          "decision",
+          "source_ref",
+          "artifact_hash",
+          "finding_ref",
+          "known_limitations"
+        ]
+      },
+      "metadata_only": true,
+      "live_integration": false,
+      "secrets_policy": "metadata_only_no_raw_scanner_logs",
+      "forbidden_inputs": [
+        "raw_scanner_logs",
+        "raw_logs",
+        "request_bodies",
+        "response_bodies",
+        "packet_captures",
+        "customer_data",
+        "secrets"
       ],
-      "secret_handling": "metadata_only_no_payload_secrets",
-      "network_policy": "receive_or_file_import_only",
-      "owner": "atlas-governance"
+      "test_fixtures": [
+        "adapters/scanner/input.v1.schema.json"
+      ],
+      "known_limitations": [
+        "Scanner raw logs are not stored.",
+        "Atlas records finding metadata references, not scanner operational truth.",
+        "False positives and false negatives remain reviewer concerns."
+      ]
     },
     {
-      "id": "scanner",
-      "system": "scanner",
-      "mode": "import_only",
-      "capabilities_used": [
+      "id": "ticket.issue.import",
+      "title": "Ticket Issue Metadata Import",
+      "status": "draft",
+      "mode": "import",
+      "systems": [
+        "ticketing"
+      ],
+      "resources": [
+        "issue_metadata",
+        "approval_reference"
+      ],
+      "effects": [
+        "normalize_metadata",
+        "emit_ticket_reference"
+      ],
+      "capabilities": [
         "atlas.adapter.import"
       ],
-      "input_schema": "adapters/scanner/input.v1.schema.json",
-      "output_schema": "adapters/scanner/output.v1.schema.json",
-      "evidence_emitted": [
-        "decision",
-        "source_ref",
-        "artifact_hash"
+      "approval": "none",
+      "evidence": {
+        "emits": [
+          "decision",
+          "source_ref",
+          "artifact_hash",
+          "ticket_ref",
+          "known_limitations"
+        ]
+      },
+      "metadata_only": true,
+      "live_integration": false,
+      "secrets_policy": "metadata_only_no_ticket_body_dump",
+      "forbidden_inputs": [
+        "ticket_body_dump",
+        "private_business_records",
+        "customer_data",
+        "payment_data",
+        "secrets",
+        "tokens",
+        "authorization_headers"
       ],
-      "secret_handling": "metadata_only_no_raw_findings",
-      "network_policy": "offline_export_or_read_only_api",
-      "owner": "atlas-governance"
+      "test_fixtures": [
+        "adapters/ticketing/input.v1.schema.json"
+      ],
+      "known_limitations": [
+        "Ticket bodies are not dumped by default.",
+        "Atlas records issue metadata references, not business approval truth.",
+        "Legal sufficiency remains outside Atlas."
+      ]
     },
     {
-      "id": "ticketing",
-      "system": "ticketing",
-      "mode": "import_only",
-      "capabilities_used": [
+      "id": "ticket.transition.propose",
+      "title": "Ticket Transition Proposal",
+      "status": "future",
+      "mode": "propose",
+      "systems": [
+        "ticketing"
+      ],
+      "resources": [
+        "ticket_transition_request",
+        "approval_reference"
+      ],
+      "effects": [
+        "propose_metadata_only_change"
+      ],
+      "capabilities": [
+        "atlas.policy.evaluate",
+        "atlas.approval.request"
+      ],
+      "approval": {
+        "type": "policy_threshold",
+        "threshold": "medium"
+      },
+      "evidence": {
+        "emits": [
+          "decision",
+          "proposal_ref",
+          "approval_required",
+          "known_limitations"
+        ]
+      },
+      "metadata_only": true,
+      "live_integration": false,
+      "secrets_policy": "metadata_only_no_ticket_mutation_credentials",
+      "forbidden_inputs": [
+        "ticket_mutation_token",
+        "authorization_headers",
+        "request_bodies",
+        "response_bodies",
+        "private_business_records",
+        "customer_data",
+        "secrets"
+      ],
+      "test_fixtures": [
+        "adapters/ticketing/output.v1.schema.json"
+      ],
+      "known_limitations": [
+        "Proposal-only; no ticket mutation is implemented.",
+        "Future mutation would require capability, policy, approval, evidence, and operator review.",
+        "Business approval is not guaranteed by a proposal."
+      ]
+    },
+    {
+      "id": "ai_agent.action.import",
+      "title": "AI-Agent Action Metadata Import",
+      "status": "draft",
+      "mode": "import",
+      "systems": [
+        "ai_agent_runtime"
+      ],
+      "resources": [
+        "agent_action_metadata",
+        "agent_result_metadata"
+      ],
+      "effects": [
+        "normalize_metadata",
+        "emit_agent_action_reference"
+      ],
+      "capabilities": [
         "atlas.adapter.import"
       ],
-      "input_schema": "adapters/ticketing/input.v1.schema.json",
-      "output_schema": "adapters/ticketing/output.v1.schema.json",
-      "evidence_emitted": [
-        "decision",
-        "source_ref",
-        "artifact_hash"
+      "approval": "none",
+      "evidence": {
+        "emits": [
+          "decision",
+          "source_ref",
+          "artifact_hash",
+          "agent_action_ref",
+          "known_limitations"
+        ]
+      },
+      "metadata_only": true,
+      "live_integration": false,
+      "secrets_policy": "metadata_only_no_raw_prompts_or_model_outputs",
+      "forbidden_inputs": [
+        "raw_prompts",
+        "raw_model_outputs",
+        "tool_output_body",
+        "secrets",
+        "tokens",
+        "customer_data",
+        "request_bodies",
+        "response_bodies"
       ],
-      "secret_handling": "metadata_only_no_customer_records",
-      "network_policy": "read_only_api_or_offline_export",
-      "owner": "atlas-governance"
+      "test_fixtures": [
+        "examples/adapters/generic-external-event/ai-agent-action-event.json",
+        "examples/adapters/generic-external-event/ai-agent-result-event.json"
+      ],
+      "known_limitations": [
+        "Agents are event sources, not authorities.",
+        "Raw prompts and raw model outputs are not stored.",
+        "Atlas does not prove model correctness."
+      ]
     },
     {
-      "id": "cloud",
-      "system": "cloud",
-      "mode": "import_only",
-      "capabilities_used": [
+      "id": "cloud.change.propose",
+      "title": "Cloud Change Request Proposal",
+      "status": "future",
+      "mode": "propose",
+      "systems": [
+        "cloud_control_plane"
+      ],
+      "resources": [
+        "cloud_change_request",
+        "approval_reference"
+      ],
+      "effects": [
+        "propose_metadata_only_change"
+      ],
+      "capabilities": [
+        "atlas.policy.evaluate",
+        "atlas.approval.request"
+      ],
+      "approval": {
+        "type": "policy_threshold",
+        "threshold": "high"
+      },
+      "evidence": {
+        "emits": [
+          "decision",
+          "proposal_ref",
+          "approval_required",
+          "known_limitations"
+        ]
+      },
+      "metadata_only": true,
+      "live_integration": false,
+      "secrets_policy": "metadata_only_no_cloud_credentials",
+      "forbidden_inputs": [
+        "cloud_credentials",
+        "private_keys",
+        "tokens",
+        "authorization_headers",
+        "request_bodies",
+        "response_bodies",
+        "customer_data",
+        "secrets"
+      ],
+      "test_fixtures": [
+        "adapters/cloud/output.v1.schema.json"
+      ],
+      "known_limitations": [
+        "Proposal-only; no cloud API call or cloud mutation is implemented.",
+        "Future execution would require explicit capability, policy, approval, and evidence contracts.",
+        "Atlas does not prove runtime safety for cloud changes."
+      ]
+    },
+    {
+      "id": "business_flow.event.import",
+      "title": "Business Workflow Event Metadata Import",
+      "status": "draft",
+      "mode": "import",
+      "systems": [
+        "business_workflow"
+      ],
+      "resources": [
+        "business_event_metadata",
+        "control_objective_reference"
+      ],
+      "effects": [
+        "normalize_metadata",
+        "emit_business_flow_reference"
+      ],
+      "capabilities": [
         "atlas.adapter.import"
       ],
-      "input_schema": "adapters/cloud/input.v1.schema.json",
-      "output_schema": "adapters/cloud/output.v1.schema.json",
-      "evidence_emitted": [
-        "decision",
-        "source_ref",
-        "artifact_hash"
+      "approval": "none",
+      "evidence": {
+        "emits": [
+          "decision",
+          "source_ref",
+          "artifact_hash",
+          "business_flow_ref",
+          "known_limitations"
+        ]
+      },
+      "metadata_only": true,
+      "live_integration": false,
+      "secrets_policy": "metadata_only_no_private_business_or_payment_records",
+      "forbidden_inputs": [
+        "private_business_records",
+        "payment_data",
+        "customer_data",
+        "secrets",
+        "tokens",
+        "authorization_headers",
+        "request_bodies",
+        "response_bodies"
       ],
-      "secret_handling": "metadata_only_no_cloud_secrets",
-      "network_policy": "read_only_api_or_offline_export",
-      "owner": "atlas-governance"
-    },
-    {
-      "id": "agent-runtime",
-      "system": "agent_runtime",
-      "mode": "import_only",
-      "capabilities_used": [
-        "atlas.adapter.import",
-        "atlas.agent.tool.exec"
+      "test_fixtures": [
+        "docs/atlas/BUSINESS_FLOW_EVIDENCE.md"
       ],
-      "input_schema": "adapters/agent-runtime/input.v1.schema.json",
-      "output_schema": "adapters/agent-runtime/output.v1.schema.json",
-      "evidence_emitted": [
-        "decision",
-        "source_ref",
-        "artifact_hash",
-        "tool_ref"
-      ],
-      "secret_handling": "metadata_only_no_prompt_secrets",
-      "network_policy": "import_metadata_only",
-      "owner": "atlas-governance"
+      "known_limitations": [
+        "Business workflow evidence is referential.",
+        "Private business records and payment data are not stored.",
+        "Atlas does not prove legal sufficiency or business approval."
+      ]
     }
   ]
 }

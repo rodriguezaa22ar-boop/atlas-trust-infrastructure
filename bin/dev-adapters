@@ -29,11 +29,12 @@ require_command uniq
 jq -e . "$REGISTRY" >/dev/null 2>&1 || fail "invalid registry JSON-compatible YAML"
 jq -e . "$CAPABILITIES" >/dev/null 2>&1 || fail "invalid capabilities.yaml JSON-compatible YAML"
 
-jq -e '.version == 1' "$REGISTRY" >/dev/null || fail "missing version"
-jq -e '.default_mode == "import_only"' "$REGISTRY" >/dev/null || fail "default_mode must be import_only"
+jq -e '.schema_version == "atlas.adapter_registry.v1"' "$REGISTRY" >/dev/null || fail "missing schema_version"
+jq -e '.default_mode == "deny"' "$REGISTRY" >/dev/null || fail "default_mode must be deny"
+jq -e '.status == "draft"' "$REGISTRY" >/dev/null || fail "status must be draft"
+jq -e '.live_integrations_enabled == false' "$REGISTRY" >/dev/null || fail "live integrations must be disabled"
+jq -e '.metadata_only == true' "$REGISTRY" >/dev/null || fail "registry must be metadata_only"
 jq -e '.adapters | type == "array" and length > 0' "$REGISTRY" >/dev/null || fail "missing adapters"
-jq -e '.mutation_requires == ["capability", "policy", "approval", "evidence"]' "$REGISTRY" >/dev/null ||
-  fail "mutation_requires must include capability policy approval evidence"
 
 missing_id="$(first_jq '.adapters[] | select((.id // "") == "") | "missing adapter id"')"
 [ -z "$missing_id" ] || fail "$missing_id"
@@ -41,27 +42,43 @@ missing_id="$(first_jq '.adapters[] | select((.id // "") == "") | "missing adapt
 duplicate_id="$(jq -r '.adapters[].id' "$REGISTRY" | sort | uniq -d | head -n 1)"
 [ -z "$duplicate_id" ] || fail "duplicate id $duplicate_id"
 
-bad_mode="$(first_jq '.adapters[] | select(.mode != "import_only") | "\(.id) mode \(.mode // "missing")"')"
-[ -z "$bad_mode" ] || fail "mutation requires capability policy approval evidence $bad_mode"
+bad_mode="$(
+  # shellcheck disable=SC2016 # jq program uses jq variables, not shell expansion.
+  first_jq '
+    .adapters[]
+    | . as $adapter
+    | select((["read", "import", "verify", "export", "propose"] | index($adapter.mode)) | not)
+    | "\(.id) mode \(.mode // "missing")"
+  '
+)"
+[ -z "$bad_mode" ] || fail "unsupported adapter mode $bad_mode"
+
+mutating_mode="$(first_jq '.adapters[] | select(.mode == "mutate") | .id')"
+[ -z "$mutating_mode" ] || fail "mutate mode is not allowed $mutating_mode"
 
 missing_field="$(
   first_jq '
     .adapters[]
     | select(
-        ((.system // "") == "")
-        or ((.input_schema // "") == "")
-        or ((.output_schema // "") == "")
-        or ((.secret_handling // "") == "")
-        or ((.network_policy // "") == "")
-        or ((.owner // "") == "")
+        ((.title // "") == "")
+        or ((.status // "") == "")
+        or ((.mode // "") == "")
+        or ((.systems | type) != "array" or (.systems | length) == 0)
+        or ((.resources | type) != "array" or (.resources | length) == 0)
+        or ((.effects | type) != "array" or (.effects | length) == 0)
+        or (has("approval") | not)
+        or ((.secrets_policy // "") == "")
+        or ((.forbidden_inputs | type) != "array")
+        or ((.test_fixtures | type) != "array" or (.test_fixtures | length) == 0)
+        or ((.known_limitations | type) != "array" or (.known_limitations | length) == 0)
       )
     | .id
   '
 )"
 [ -z "$missing_field" ] || fail "missing required field $missing_field"
 
-missing_capabilities="$(first_jq '.adapters[] | select((.capabilities_used | type) != "array" or (.capabilities_used | length) == 0) | .id')"
-[ -z "$missing_capabilities" ] || fail "missing capabilities_used $missing_capabilities"
+missing_capabilities="$(first_jq '.adapters[] | select((.capabilities | type) != "array" or (.capabilities | length) == 0) | .id')"
+[ -z "$missing_capabilities" ] || fail "missing capabilities $missing_capabilities"
 
 unknown_capability="$(
   jq -n -r \
@@ -71,7 +88,7 @@ unknown_capability="$(
       | [
           $registry[0].adapters[]
           | . as $adapter
-          | .capabilities_used[] as $capability
+          | .capabilities[] as $capability
           | select(($known | index($capability)) | not)
           | "\($adapter.id) \($capability)"
         ][0] // empty
@@ -79,54 +96,40 @@ unknown_capability="$(
 )"
 [ -z "$unknown_capability" ] || fail "unknown capability $unknown_capability"
 
-missing_evidence="$(first_jq '.adapters[] | select((.evidence_emitted | type) != "array" or (.evidence_emitted | length) == 0) | .id')"
-[ -z "$missing_evidence" ] || fail "missing evidence_emitted $missing_evidence"
+missing_evidence="$(first_jq '.adapters[] | select((.evidence.emits | type) != "array" or (.evidence.emits | length) == 0) | .id')"
+[ -z "$missing_evidence" ] || fail "missing evidence.emits $missing_evidence"
 
-missing_schema_path="$(
-  # shellcheck disable=SC2016 # jq program must receive $adapter, not shell-expanded text.
+not_metadata_only="$(first_jq '.adapters[] | select(.metadata_only != true) | .id')"
+[ -z "$not_metadata_only" ] || fail "adapter must be metadata_only $not_metadata_only"
+
+live_adapter="$(first_jq '.adapters[] | select(.live_integration != false) | .id')"
+[ -z "$live_adapter" ] || fail "live integration is not allowed $live_adapter"
+
+unsafe_proposal="$(
   first_jq '
     .adapters[]
-    | . as $adapter
-    | select(
-        ($adapter.input_schema | startswith("adapters/" + $adapter.id + "/") | not)
-        or ($adapter.output_schema | startswith("adapters/" + $adapter.id + "/") | not)
-      )
+    | select(.mode == "propose" and (.approval == "none" or (.live_integration != false)))
     | .id
   '
 )"
-[ -z "$missing_schema_path" ] || fail "schema path must live under adapter directory $missing_schema_path"
+[ -z "$unsafe_proposal" ] || fail "proposal adapters require approval and no live integration $unsafe_proposal"
 
-missing_schema_file="$(
-  while IFS=$'\t' read -r adapter_id input_schema output_schema; do
-    for schema_path in "$input_schema" "$output_schema"; do
-      if [ ! -f "$ROOT/$schema_path" ]; then
-        printf '%s %s\n' "$adapter_id" "$schema_path"
-        exit 0
-      fi
-    done
-  done < <(jq -r '.adapters[] | [.id, .input_schema, .output_schema] | @tsv' "$REGISTRY")
+unsafe_output="$(
+  # shellcheck disable=SC2016 # jq program uses jq variables, not shell expansion.
+  first_jq '
+    .adapters[]
+    | . as $adapter
+    | .evidence.emits[]
+    | select(test("raw_log|secret|private_key|token|authorization_header|request_body|response_body|packet_capture|raw_prompt|raw_model_output|customer_data|payment_data|private_business_record"; "i"))
+    | $adapter.id
+  '
 )"
-[ -z "$missing_schema_file" ] || fail "missing schema file $missing_schema_file"
+[ -z "$unsafe_output" ] || fail "unsafe evidence output $unsafe_output"
 
-invalid_schema_file="$(
-  while IFS=$'\t' read -r adapter_id input_schema output_schema; do
-    for schema_path in "$input_schema" "$output_schema"; do
-      if ! jq -e '
-        .["$schema"] == "https://json-schema.org/draft/2020-12/schema" and
-        (.title // "" | length > 0) and
-        .type == "object" and
-        .additionalProperties == false and
-        (.required | index("schema_version")) and
-        (.required | index("adapter_id")) and
-        (.required | index("metadata_only")) and
-        .properties.metadata_only.const == true
-      ' "$ROOT/$schema_path" >/dev/null 2>&1; then
-        printf '%s %s\n' "$adapter_id" "$schema_path"
-        exit 0
-      fi
-    done
-  done < <(jq -r '.adapters[] | [.id, .input_schema, .output_schema] | @tsv' "$REGISTRY")
+absolute_fixture="$(
+  # shellcheck disable=SC2016 # jq program uses jq variables, not shell expansion.
+  first_jq '.adapters[] | . as $adapter | .test_fixtures[] | select(startswith("/") or contains("..")) | $adapter.id'
 )"
-[ -z "$invalid_schema_file" ] || fail "invalid adapter schema $invalid_schema_file"
+[ -z "$absolute_fixture" ] || fail "test fixture path must be relative $absolute_fixture"
 
 printf 'adapters: ok\n'
