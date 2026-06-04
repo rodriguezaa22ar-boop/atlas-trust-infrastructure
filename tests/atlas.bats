@@ -701,6 +701,171 @@ write_test_slsa_reference() {
   [[ "$output" == *"governance: ok"* ]]
 }
 
+@test "M177 policy plane safety regression keeps policy plane non-enforcing and bounded" {
+  plane="$TEST_ROOT/toolkit/policy/policy-plane.yaml"
+  policy_doc="$TEST_ROOT/toolkit/docs/governance/POLICY_PLANE.md"
+  policy_m176_doc="$TEST_ROOT/toolkit/docs/governance/POLICY_PLANE_M176.md"
+  milestone="$TEST_ROOT/toolkit/docs/retention/milestones/MILESTONE_177.md"
+  milestone_index="$TEST_ROOT/toolkit/docs/retention/MILESTONE_INDEX.md"
+  combined_text="$TEST_ROOT/m177-policy-plane-text.txt"
+
+  [ -f "$plane" ]
+  [ -f "$policy_doc" ]
+  [ -f "$policy_m176_doc" ]
+  [ -f "$milestone" ]
+
+  jq -e '
+    .schema_version == "atlas.policy_plane.v1" and
+    .status == "draft" and
+    .default_decision == "deny" and
+    .runtime_enforcement_enabled == false and
+    .policy_engine_enabled == false and
+    .live_integrations_enabled == false and
+    .metadata_only == true and
+    (.policy_inputs | type == "array" and length >= 10) and
+    (.policy_decisions | index("allow")) and
+    (.policy_decisions | index("deny")) and
+    (.policy_decisions | index("approval_required")) and
+    (.policy_decisions | index("evidence_required")) and
+    (.policy_decisions | index("unsupported")) and
+    (.policy_decisions | index("unknown_capability")) and
+    (.policy_decisions | index("unknown_adapter")) and
+    (.policy_decisions | index("boundary_violation")) and
+    (.policy_bundles | type == "array" and length >= 10) and
+    any(.policy_bundles[]; .id == "atlas.default_deny") and
+    any(.policy_bundles[]; .id == "atlas.known_capability_required") and
+    any(.policy_bundles[]; .id == "atlas.known_adapter_required") and
+    any(.policy_bundles[]; .id == "atlas.metadata_only_boundary") and
+    any(.policy_bundles[]; .id == "atlas.import_first_adapters") and
+    any(.policy_bundles[]; .id == "atlas.propose_requires_approval_path") and
+    any(.policy_bundles[]; .id == "atlas.ai_agent_requester_not_authority") and
+    any(.policy_bundles[]; .id == "atlas.release_verify_read_only") and
+    any(.policy_bundles[]; .id == "atlas.public_export_boundary") and
+    any(.policy_bundles[]; .id == "atlas.evidence_required_for_decision") and
+    all(.policy_bundles[]; (.id // "") != "") and
+    all(.policy_bundles[]; (.title // "") != "") and
+    all(.policy_bundles[]; (.status // "") != "") and
+    all(.policy_bundles[]; (.purpose // "") != "") and
+    all(.policy_bundles[]; (.applies_to | type == "array" and length > 0)) and
+    all(.policy_bundles[]; (.inputs_required | type == "array" and length > 0)) and
+    all(.policy_bundles[]; (.decision_outputs | type == "array" and length > 0)) and
+    all(.policy_bundles[]; (.approval_behavior // "") != "") and
+    all(.policy_bundles[]; (.evidence_behavior // "") != "") and
+    all(.policy_bundles[]; .metadata_only == true) and
+    all(.policy_bundles[]; .runtime_enforcement == false) and
+    all(.policy_bundles[]; (.known_limitations | type == "array" and length > 0)) and
+    any(.policy_bundles[]; .id == "atlas.ai_agent_requester_not_authority" and (.known_limitations[] | contains("AI agents are requesters, not authorities"))) and
+    any(.policy_bundles[]; .id == "atlas.release_verify_read_only" and (.known_limitations[] | contains("Release verify remains read-only"))) and
+    any(.policy_bundles[]; .id == "atlas.import_first_adapters" and (.known_limitations[] | contains("No active mutate adapter"))) and
+    any(.policy_bundles[]; .id == "atlas.propose_requires_approval_path" and (.known_limitations[] | contains("does not create mutation authority"))) and
+    any(.policy_bundles[]; .id == "atlas.public_export_boundary" and (.known_limitations[] | contains("private-marker clean"))) and
+    any(.policy_bundles[]; .id == "atlas.evidence_required_for_decision" and (.known_limitations[] | contains("Evidence present does not automatically mean evidence sufficient")))
+  ' "$plane"
+
+  {
+    jq -r '.. | strings?' "$plane"
+    cat "$policy_doc"
+    cat "$policy_m176_doc"
+  } >"$combined_text"
+
+  grep -q 'M176/M177' "$policy_m176_doc"
+  grep -q 'do not add runtime policy enforcement' "$policy_m176_doc"
+  grep -q 'M176/M177 do not add policy engine execution' "$policy_m176_doc"
+  grep -q 'OPA/Rego runtime execution' "$policy_m176_doc"
+  grep -q 'Cedar runtime execution' "$policy_m176_doc"
+  grep -q 'live integrations' "$policy_m176_doc"
+  grep -q 'credentials' "$policy_m176_doc"
+  grep -q 'API calls' "$policy_m176_doc"
+  grep -q 'webhooks' "$policy_m176_doc"
+  grep -q 'network collectors' "$policy_m176_doc"
+  grep -q 'approval engine execution' "$policy_m176_doc"
+  grep -q 'mutation authority' "$policy_m176_doc"
+  grep -q 'governance contract, not runtime enforcement' "$policy_m176_doc"
+  grep -q 'policy decisions do not grant' "$policy_m176_doc"
+  grep -q 'authorization by themselves' "$policy_m176_doc"
+  grep -q 'does not mean a' "$policy_m176_doc"
+  grep -q 'runtime policy engine is active' "$policy_m176_doc"
+  grep -q 'M177 adds safety regression coverage' "$policy_m176_doc"
+  grep -q 'No approval engine execution or automatic approval execution is added' "$policy_m176_doc"
+
+  grep -q 'M176/M177 keep the policy plane as a governance contract' "$policy_doc"
+  grep -q 'do not add runtime policy enforcement' "$policy_doc"
+  grep -q 'do not add runtime policy enforcement, policy engine' "$policy_doc"
+  grep -q 'do not grant authorization by themselves' "$policy_doc" || {
+    grep -q 'Policy decisions do' "$policy_doc"
+    grep -q 'not grant authorization by themselves' "$policy_doc"
+  }
+  grep -q 'do not execute approvals automatically' "$policy_doc"
+  grep -q 'do not make policy evaluation active runtime enforcement' "$policy_doc"
+
+  grep -Eiq 'raw logs|raw_logs' "$combined_text"
+  grep -Eiq 'secrets' "$combined_text"
+  grep -Eiq 'private keys|private_keys' "$combined_text"
+  grep -Eiq 'tokens' "$combined_text"
+  grep -Eiq 'Authorization headers|authorization_headers' "$combined_text"
+  grep -Eiq 'request bodies|request_bodies' "$combined_text"
+  grep -Eiq 'response bodies|response_bodies' "$combined_text"
+  grep -Eiq 'packet captures|packet_captures' "$combined_text"
+  grep -Eiq 'raw prompts|raw_prompts' "$combined_text"
+  grep -Eiq 'raw model outputs|raw_model_outputs' "$combined_text"
+  grep -Eiq 'customer data|customer_data' "$combined_text"
+  grep -Eiq 'payment data|payment_data' "$combined_text"
+  grep -Eiq 'private business records|private_business_records' "$combined_text"
+  grep -Eiq 'unredacted evidence bodies|unredacted_evidence_bodies' "$combined_text"
+
+  grep -q 'AI agents are requesters, not authorities' "$combined_text"
+  grep -q 'Release verification remains read-only' "$policy_m176_doc"
+  grep -q 'read/import/verify/export/propose adapter separation' "$policy_m176_doc"
+  grep -q 'Require approval path before future state-changing execution' "$policy_m176_doc"
+  grep -q 'Public export remains metadata-only and private-marker clean' "$policy_m176_doc"
+  grep -q 'evidence outputs or explain missing evidence' "$policy_m176_doc"
+  grep -q 'unknown_capability' "$policy_m176_doc"
+  grep -q 'unknown_adapter' "$policy_m176_doc"
+  grep -q 'boundary_violation' "$policy_m176_doc"
+  grep -q 'Policy Inputs' "$policy_m176_doc"
+  grep -q 'Policy Decision Vocabulary' "$policy_m176_doc"
+  grep -q 'capabilities.yaml' "$policy_m176_doc"
+  grep -q 'adapters/registry.yaml' "$policy_m176_doc"
+  grep -q 'Future Approval Plane' "$policy_m176_doc"
+  grep -q 'Future Evidence Envelope' "$policy_m176_doc"
+  grep -q 'Known Limitations' "$policy_m176_doc"
+  grep -q 'clearer review' "$policy_m176_doc"
+  grep -q 'fewer ambiguous decisions' "$policy_m176_doc"
+  grep -q 'safer future connectors' "$policy_m176_doc"
+  grep -q 'evidence reconstruction' "$policy_m176_doc"
+  grep -q 'privacy-preserving governance' "$policy_m176_doc"
+  grep -q 'stronger audit readiness' "$policy_m176_doc"
+  grep -q 'lower cost of' "$policy_m176_doc"
+  grep -q 'trust without lowering standards' "$policy_m176_doc"
+
+  ! grep -Eiq 'guaranteed compliance|certified compliant|legally compliant|legally sufficient|compliance guarantee|certification guarantee|external audit complete|enterprise deployment approved|production policy enforcement implemented|production policy enforcement active|runtime policy enforcement implemented|runtime policy enforcement active|policy engine execution implemented|policy engine execution active|OPA/Rego runtime execution implemented|Cedar runtime execution implemented|live integration enabled|API calls enabled|webhooks enabled|network collectors enabled|credentials configured|automatic approval execution implemented|complete event coverage: (true|ready|implemented)|runtime safety proven|model correctness proven|artifact correctness guaranteed|actions outside Atlas cannot happen|Atlas grants authorization|policy evaluation is active runtime enforcement' "$combined_text"
+  ! grep -Eiq 'Atlas (guarantees|certifies|proves|implements|delivers) (compliance|certification|legal sufficiency|external audit|enterprise deployment approval|production policy enforcement|runtime policy enforcement|policy engine execution|complete event coverage|runtime safety|model correctness|artifact correctness|authorization|automatic approval execution)' "$combined_text"
+
+  grep -q '^# Milestone 177: Policy Plane Safety Regression$' "$milestone"
+  grep -q 'b0131308b0e2b33597674f21d0662ce48b3f073a' "$milestone"
+  grep -q 'No Atlas runtime policy enforcement added.' "$milestone"
+  grep -q 'No policy engine execution added.' "$milestone"
+  grep -q 'No OPA/Rego runtime execution added.' "$milestone"
+  grep -q 'No Cedar runtime execution added.' "$milestone"
+  grep -q 'No live integration added.' "$milestone"
+  grep -q 'No credential handling added.' "$milestone"
+  grep -q 'No API calls added.' "$milestone"
+  grep -q 'No webhooks added.' "$milestone"
+  grep -q 'No network collectors added.' "$milestone"
+  grep -q 'No approval engine added.' "$milestone"
+  grep -q 'No automatic approval execution added.' "$milestone"
+  grep -q 'No mutation authority added.' "$milestone"
+  grep -q 'Known limitations preserved.' "$milestone"
+  grep -q 'atlas-retention-m177' "$milestone"
+  grep -q 'MILESTONE_177.md' "$milestone_index"
+  grep -q 'Policy Plane Safety Regression' "$milestone_index"
+  grep -q 'atlas-retention-m177' "$milestone_index"
+
+  run "$TEST_ROOT/toolkit/bin/dev-policy"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"policy: ok"* ]]
+}
+
 @test "policy plane evaluates capability decisions read-only" {
   policy_file="$TEST_ROOT/toolkit/policy/atlas.authz.rego"
   policy_cases="$TEST_ROOT/toolkit/policy/tests/decisions.v1.json"
