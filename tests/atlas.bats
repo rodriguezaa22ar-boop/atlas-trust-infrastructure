@@ -412,6 +412,135 @@ write_test_slsa_reference() {
   [[ "$output" == *"adapters: fail proposal adapters require approval and no live integration ticket.transition.propose"* ]]
 }
 
+@test "M175 adapter registry safety regression keeps adapter plane non-live and bounded" {
+  registry="$TEST_ROOT/toolkit/adapters/registry.yaml"
+  adapter_doc="$TEST_ROOT/toolkit/docs/governance/ADAPTER_REGISTRY.md"
+  adapter_m174_doc="$TEST_ROOT/toolkit/docs/governance/ADAPTER_REGISTRY_M174.md"
+  milestone="$TEST_ROOT/toolkit/docs/retention/milestones/MILESTONE_175.md"
+  milestone_index="$TEST_ROOT/toolkit/docs/retention/MILESTONE_INDEX.md"
+  combined_text="$TEST_ROOT/m175-adapter-registry-text.txt"
+
+  [ -f "$registry" ]
+  [ -f "$adapter_doc" ]
+  [ -f "$adapter_m174_doc" ]
+  [ -f "$milestone" ]
+
+  jq -e '
+    .schema_version == "atlas.adapter_registry.v1" and
+    .default_mode == "deny" and
+    .status == "draft" and
+    .live_integrations_enabled == false and
+    .metadata_only == true and
+    (.adapters | type == "array" and length > 0) and
+    all(.adapters[]; (.id // "") != "") and
+    all(.adapters[]; (.title // "") != "") and
+    all(.adapters[]; (.status // "") != "") and
+    all(.adapters[]; (.mode // "") != "") and
+    all(.adapters[]; (.systems | type == "array" and length > 0)) and
+    all(.adapters[]; (.resources | type == "array" and length > 0)) and
+    all(.adapters[]; (.effects | type == "array" and length > 0)) and
+    all(.adapters[]; (.capabilities | type == "array" and length > 0)) and
+    all(.adapters[]; has("approval")) and
+    all(.adapters[]; has("evidence")) and
+    all(.adapters[]; (.evidence.emits | type == "array" and length > 0)) and
+    all(.adapters[]; has("metadata_only") and .metadata_only == true) and
+    all(.adapters[]; has("live_integration") and .live_integration == false) and
+    all(.adapters[]; (.secrets_policy // "") != "") and
+    all(.adapters[]; (.forbidden_inputs | type == "array")) and
+    all(.adapters[]; (.known_limitations | type == "array" and length > 0)) and
+    all(.adapters[]; .mode as $mode | (["read", "import", "verify", "export", "propose"] | index($mode)) != null) and
+    all(.adapters[]; .mode != "mutate") and
+    all(.adapters[]; if .mode == "propose" then (.approval != "none" and (.evidence.emits | length > 0) and .live_integration == false) else true end) and
+    any(.adapters[]; .id == "generic.external_event.import") and
+    any(.adapters[]; .id == "github.actions.import") and
+    any(.adapters[]; .id == "github.release.verify") and
+    any(.adapters[]; .id == "scanner.finding.import") and
+    any(.adapters[]; .id == "ticket.issue.import") and
+    any(.adapters[]; .id == "ticket.transition.propose") and
+    any(.adapters[]; .id == "ai_agent.action.import") and
+    any(.adapters[]; .id == "cloud.change.propose") and
+    any(.adapters[]; .id == "business_flow.event.import") and
+    any(.adapters[]; .id == "ticket.transition.propose" and .mode == "propose" and .approval.type == "policy_threshold" and .live_integration == false and (.evidence.emits | index("approval_required"))) and
+    any(.adapters[]; .id == "cloud.change.propose" and .mode == "propose" and .approval.type == "policy_threshold" and .approval.threshold == "high" and .live_integration == false and (.evidence.emits | index("approval_required"))) and
+    any(.adapters[]; .id == "ai_agent.action.import" and (.forbidden_inputs | index("raw_prompts")) and (.forbidden_inputs | index("raw_model_outputs"))) and
+    any(.adapters[]; .id == "ticket.issue.import" and (.forbidden_inputs | index("ticket_body_dump"))) and
+    any(.adapters[]; .id == "scanner.finding.import" and (.forbidden_inputs | index("raw_scanner_logs"))) and
+    any(.adapters[]; .id == "business_flow.event.import" and (.forbidden_inputs | index("private_business_records")) and (.forbidden_inputs | index("payment_data")))
+  ' "$registry"
+
+  {
+    jq -r '.. | strings?' "$registry"
+    cat "$adapter_doc"
+    cat "$adapter_m174_doc"
+  } >"$combined_text"
+
+  grep -Eiq 'raw logs|raw_logs|raw_scanner_logs' "$combined_text"
+  grep -Eiq 'secrets' "$combined_text"
+  grep -Eiq 'private keys|private_keys' "$combined_text"
+  grep -Eiq 'tokens' "$combined_text"
+  grep -Eiq 'Authorization headers|authorization_headers' "$combined_text"
+  grep -Eiq 'request bodies|request_bodies|raw_request_body' "$combined_text"
+  grep -Eiq 'response bodies|response_bodies|raw_response_body' "$combined_text"
+  grep -Eiq 'packet captures|packet_captures' "$combined_text"
+  grep -Eiq 'raw prompts|raw_prompts' "$combined_text"
+  grep -Eiq 'raw model outputs|raw_model_outputs' "$combined_text"
+  grep -Eiq 'customer data|customer_data' "$combined_text"
+  grep -Eiq 'payment data|payment_data' "$combined_text"
+  grep -Eiq 'private business records|private_business_records' "$combined_text"
+  grep -Eiq 'unredacted evidence bodies' "$combined_text"
+
+  ! grep -Eiq 'live_integration[[:space:]]*:[[:space:]]*true|"live_integration"[[:space:]]*:[[:space:]]*true' "$registry"
+  ! grep -Eiq '"mode"[[:space:]]*:[[:space:]]*"mutate"|mode:[[:space:]]*mutate' "$registry"
+  ! grep -Eiq 'active execution|credentials are configured|credentials configured|API calls are enabled|webhooks are enabled|network collectors are enabled|production integration is implemented|production adapter readiness is implemented' "$combined_text"
+
+  grep -q 'governance contract, not runtime execution' "$adapter_m174_doc"
+  grep -q 'not add runtime adapter execution' "$adapter_m174_doc"
+  grep -q 'does not add live integrations' "$adapter_m174_doc"
+  grep -q 'credentials, API calls, webhooks' "$adapter_m174_doc"
+  grep -q 'network collectors' "$adapter_m174_doc"
+  grep -q 'does not grant mutation authority' "$adapter_m174_doc"
+  grep -q 'default_mode: deny' "$adapter_m174_doc"
+  grep -q 'import-first' "$adapter_m174_doc"
+  grep -q 'metadata-only' "$adapter_m174_doc"
+  grep -q 'capabilities.yaml' "$adapter_m174_doc"
+  grep -q 'Future Policy Plane' "$adapter_m174_doc"
+  grep -q 'Future Approval Plane' "$adapter_m174_doc"
+  grep -q 'Future Evidence Envelope' "$adapter_m174_doc"
+  grep -q 'Known Limitations' "$adapter_m174_doc"
+  grep -q 'No production adapter readiness is claimed' "$adapter_m174_doc"
+  grep -q 'registry does not grant authorization by itself' "$adapter_m174_doc"
+  grep -q 'Existing external systems remain the source of their own operational truth' "$adapter_m174_doc"
+  grep -q 'clearer review' "$adapter_m174_doc"
+  grep -q 'safer future connectors' "$adapter_m174_doc"
+  grep -q 'evidence reconstruction' "$adapter_m174_doc"
+  grep -q 'privacy-preserving integration design' "$adapter_m174_doc"
+  grep -q 'stronger audit readiness' "$adapter_m174_doc"
+  grep -q 'lower cost of trust without lowering standards' "$adapter_m174_doc"
+
+  ! grep -Eiq 'guaranteed compliance|certified compliant|legally compliant|legally sufficient|compliance guarantee|certification guarantee|external audit complete|external audit completion is complete|enterprise deployment approved|production integration implemented|production adapter readiness implemented|live adapter execution implemented|complete event coverage: (true|ready|implemented)|runtime safety proven|model correctness proven|artifact correctness guaranteed|actions outside Atlas cannot happen|Atlas grants authorization' "$combined_text"
+  ! grep -Eiq 'Atlas (guarantees|certifies|proves|implements|delivers) (compliance|certification|legal sufficiency|external audit|enterprise deployment approval|production integration|live adapter execution|complete event coverage|runtime safety|model correctness|artifact correctness|authorization)' "$combined_text"
+
+  grep -q '^# Milestone 175: Adapter Registry Safety Regression$' "$milestone"
+  grep -q '9f2aed0c428f62c350f68f425d0c3a285f684675' "$milestone"
+  grep -q 'No Atlas runtime adapter execution added.' "$milestone"
+  grep -q 'No live integration added.' "$milestone"
+  grep -q 'No credential handling added.' "$milestone"
+  grep -q 'No API calls added.' "$milestone"
+  grep -q 'No webhooks added.' "$milestone"
+  grep -q 'No network collectors added.' "$milestone"
+  grep -q 'No mutation authority added.' "$milestone"
+  grep -q 'No production adapter readiness claimed.' "$milestone"
+  grep -q 'Known limitations preserved.' "$milestone"
+  grep -q 'atlas-retention-m175' "$milestone"
+  grep -q 'MILESTONE_175.md' "$milestone_index"
+  grep -q 'Adapter Registry Safety Regression' "$milestone_index"
+  grep -q 'atlas-retention-m175' "$milestone_index"
+
+  run "$TEST_ROOT/toolkit/bin/dev-adapters"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"adapters: ok"* ]]
+}
+
 @test "policy plane evaluates capability decisions read-only" {
   policy_file="$TEST_ROOT/toolkit/policy/atlas.authz.rego"
   policy_cases="$TEST_ROOT/toolkit/policy/tests/decisions.v1.json"
