@@ -1,0 +1,531 @@
+{
+  "schema_version": "atlas.approval_plane.v1",
+  "status": "draft",
+  "approval_engine_enabled": false,
+  "live_workflows_enabled": false,
+  "automatic_approval_enabled": false,
+  "break_glass_execution_enabled": false,
+  "metadata_only": true,
+  "default_state": "approval_required_when_policy_requires",
+  "approval_states": [
+    "not_required",
+    "required",
+    "requested",
+    "approved",
+    "rejected",
+    "expired",
+    "revoked",
+    "stale",
+    "escalated",
+    "unsupported",
+    "boundary_violation"
+  ],
+  "forbidden_inputs": [
+    "raw logs",
+    "secrets",
+    "private keys",
+    "tokens",
+    "Authorization headers",
+    "request bodies",
+    "response bodies",
+    "packet captures",
+    "raw prompts",
+    "raw model outputs",
+    "customer data",
+    "payment data",
+    "private business records",
+    "unredacted evidence bodies"
+  ],
+  "approval_workflows": [
+    {
+      "id": "atlas.release_exception_review",
+      "title": "Release Exception Review",
+      "status": "draft",
+      "purpose": "Model human review for release or production-readiness exceptions without granting release approval automatically.",
+      "triggering_capabilities": [
+        "atlas.release.verify",
+        "atlas.production.status"
+      ],
+      "triggering_adapters": [
+        "github.release.verify"
+      ],
+      "applies_to": [
+        "release-trust exception",
+        "production-readiness exception"
+      ],
+      "approval_required": true,
+      "minimum_reviewers": 1,
+      "approver_roles": [
+        "release reviewer",
+        "security reviewer"
+      ],
+      "expiration": {
+        "required": true,
+        "default_max_age": "7d"
+      },
+      "reapproval_triggers": [
+        "release commit changed",
+        "release trust packet changed",
+        "production-readiness evidence changed",
+        "exception rationale changed"
+      ],
+      "decision_outputs": [
+        "approved",
+        "rejected",
+        "expired",
+        "stale",
+        "unsupported",
+        "boundary_violation"
+      ],
+      "evidence_required": [
+        "reviewer identity reference",
+        "review timestamp",
+        "review objective reference",
+        "decision status",
+        "reason reference",
+        "evidence_refs",
+        "known_limitations"
+      ],
+      "metadata_only": true,
+      "live_execution": false,
+      "automatic_execution": false,
+      "break_glass": {
+        "allowed": false,
+        "execution_enabled": false,
+        "boundary": "not applicable"
+      },
+      "known_limitations": [
+        "Approval records do not grant authorization by themselves.",
+        "Approval records do not prove production deployability.",
+        "No automatic release approval is added."
+      ]
+    },
+    {
+      "id": "atlas.ticket_transition_proposal_review",
+      "title": "Ticket Transition Proposal Review",
+      "status": "draft",
+      "purpose": "Model review for a future ticket transition proposal without live ticket mutation.",
+      "triggering_capabilities": [
+        "atlas.ticket.transition.propose"
+      ],
+      "triggering_adapters": [
+        "ticket.transition.propose"
+      ],
+      "applies_to": [
+        "ticket transition proposal"
+      ],
+      "approval_required": true,
+      "minimum_reviewers": 1,
+      "approver_roles": [
+        "issue owner",
+        "release reviewer"
+      ],
+      "expiration": {
+        "required": true,
+        "default_max_age": "3d"
+      },
+      "reapproval_triggers": [
+        "ticket state changed",
+        "ticket target changed",
+        "proposal rationale changed",
+        "approval expired"
+      ],
+      "decision_outputs": [
+        "approved",
+        "rejected",
+        "expired",
+        "stale",
+        "unsupported",
+        "boundary_violation"
+      ],
+      "evidence_required": [
+        "ticket reference",
+        "proposed transition",
+        "reviewer identity reference",
+        "decision status",
+        "evidence_refs",
+        "known_limitations"
+      ],
+      "metadata_only": true,
+      "live_execution": false,
+      "automatic_execution": false,
+      "break_glass": {
+        "allowed": false,
+        "execution_enabled": false,
+        "boundary": "not applicable"
+      },
+      "known_limitations": [
+        "Ticket transition approval is proposal-only.",
+        "No live ticket mutation is added.",
+        "Approval records do not prove the action was valid."
+      ]
+    },
+    {
+      "id": "atlas.cloud_change_proposal_review",
+      "title": "Cloud Change Proposal Review",
+      "status": "draft",
+      "purpose": "Model review for future cloud change requests without live cloud mutation.",
+      "triggering_capabilities": [
+        "atlas.cloud.change.propose"
+      ],
+      "triggering_adapters": [
+        "cloud.change.propose"
+      ],
+      "applies_to": [
+        "cloud change proposal"
+      ],
+      "approval_required": true,
+      "minimum_reviewers": 2,
+      "approver_roles": [
+        "service owner",
+        "security reviewer"
+      ],
+      "expiration": {
+        "required": true,
+        "default_max_age": "24h"
+      },
+      "reapproval_triggers": [
+        "cloud resource reference changed",
+        "risk tier changed",
+        "scope changed",
+        "approval expired"
+      ],
+      "decision_outputs": [
+        "approved",
+        "rejected",
+        "expired",
+        "stale",
+        "escalated",
+        "unsupported",
+        "boundary_violation"
+      ],
+      "evidence_required": [
+        "cloud resource reference",
+        "change proposal reference",
+        "reviewer identity reference",
+        "risk tier",
+        "decision status",
+        "evidence_refs",
+        "known_limitations"
+      ],
+      "metadata_only": true,
+      "live_execution": false,
+      "automatic_execution": false,
+      "break_glass": {
+        "allowed": false,
+        "execution_enabled": false,
+        "boundary": "not applicable"
+      },
+      "known_limitations": [
+        "Cloud change workflow is proposal-only.",
+        "No live cloud mutation is added.",
+        "Approval is required before any future state-changing execution."
+      ]
+    },
+    {
+      "id": "atlas.ai_agent_tool_execution_review",
+      "title": "AI Agent Tool Execution Review",
+      "status": "draft",
+      "purpose": "Model review for AI-agent requested tool execution while keeping agents as requesters, not authorities.",
+      "triggering_capabilities": [
+        "atlas.agent.tool.exec"
+      ],
+      "triggering_adapters": [
+        "ai_agent.action.import"
+      ],
+      "applies_to": [
+        "AI-agent requested bounded execution"
+      ],
+      "approval_required": true,
+      "minimum_reviewers": 1,
+      "approver_roles": [
+        "operator",
+        "security reviewer"
+      ],
+      "expiration": {
+        "required": true,
+        "default_max_age": "8h"
+      },
+      "reapproval_triggers": [
+        "requested tool changed",
+        "scope changed",
+        "risk tier changed",
+        "approval expired"
+      ],
+      "decision_outputs": [
+        "approved",
+        "rejected",
+        "expired",
+        "stale",
+        "unsupported",
+        "boundary_violation"
+      ],
+      "evidence_required": [
+        "agent action reference",
+        "requester reference",
+        "scope reference",
+        "reviewer identity reference",
+        "decision status",
+        "evidence_refs",
+        "known_limitations"
+      ],
+      "metadata_only": true,
+      "live_execution": false,
+      "automatic_execution": false,
+      "break_glass": {
+        "allowed": false,
+        "execution_enabled": false,
+        "boundary": "not applicable"
+      },
+      "known_limitations": [
+        "AI agents are requesters, not authorities.",
+        "Approval records do not execute tools.",
+        "Raw prompts and raw model outputs must not be embedded."
+      ]
+    },
+    {
+      "id": "atlas.production_readiness_exception_review",
+      "title": "Production Readiness Exception Review",
+      "status": "draft",
+      "purpose": "Model review for production-readiness exceptions without granting production approval by itself.",
+      "triggering_capabilities": [
+        "atlas.production.status"
+      ],
+      "triggering_adapters": [
+        "github.release.verify"
+      ],
+      "applies_to": [
+        "production-readiness exception"
+      ],
+      "approval_required": true,
+      "minimum_reviewers": 2,
+      "approver_roles": [
+        "engineering leader",
+        "security reviewer"
+      ],
+      "expiration": {
+        "required": true,
+        "default_max_age": "7d"
+      },
+      "reapproval_triggers": [
+        "production-readiness gate changed",
+        "exception scope changed",
+        "evidence status changed",
+        "approval expired"
+      ],
+      "decision_outputs": [
+        "approved",
+        "rejected",
+        "expired",
+        "stale",
+        "escalated",
+        "unsupported",
+        "boundary_violation"
+      ],
+      "evidence_required": [
+        "production-readiness objective reference",
+        "exception rationale reference",
+        "reviewer identity references",
+        "decision status",
+        "evidence_refs",
+        "known_limitations"
+      ],
+      "metadata_only": true,
+      "live_execution": false,
+      "automatic_execution": false,
+      "break_glass": {
+        "allowed": false,
+        "execution_enabled": false,
+        "boundary": "not applicable"
+      },
+      "known_limitations": [
+        "Approval records do not prove production deployability.",
+        "No production approval is granted by the approval plane itself.",
+        "Approval records do not prove legal compliance."
+      ]
+    },
+    {
+      "id": "atlas.business_flow_sensitive_change_review",
+      "title": "Business Flow Sensitive Change Review",
+      "status": "draft",
+      "purpose": "Model review for sensitive business-flow changes without embedding private business data.",
+      "triggering_capabilities": [
+        "atlas.business_flow.event.import",
+        "atlas.business_flow.change.propose"
+      ],
+      "triggering_adapters": [
+        "business_flow.event.import"
+      ],
+      "applies_to": [
+        "sensitive business-flow change"
+      ],
+      "approval_required": true,
+      "minimum_reviewers": 1,
+      "approver_roles": [
+        "business owner",
+        "security reviewer"
+      ],
+      "expiration": {
+        "required": true,
+        "default_max_age": "14d"
+      },
+      "reapproval_triggers": [
+        "business-flow owner changed",
+        "data class changed",
+        "control objective changed",
+        "approval expired"
+      ],
+      "decision_outputs": [
+        "approved",
+        "rejected",
+        "expired",
+        "stale",
+        "unsupported",
+        "boundary_violation"
+      ],
+      "evidence_required": [
+        "business-flow id",
+        "business owner label",
+        "data class label",
+        "control objective label",
+        "decision status",
+        "evidence_refs",
+        "known_limitations"
+      ],
+      "metadata_only": true,
+      "live_execution": false,
+      "automatic_execution": false,
+      "break_glass": {
+        "allowed": false,
+        "execution_enabled": false,
+        "boundary": "not applicable"
+      },
+      "known_limitations": [
+        "Private business records must not be embedded.",
+        "Payment data must not be embedded.",
+        "Approval records do not prove complete event coverage."
+      ]
+    },
+    {
+      "id": "atlas.public_export_boundary_review",
+      "title": "Public Export Boundary Review",
+      "status": "draft",
+      "purpose": "Model review for public export and private-marker boundary decisions.",
+      "triggering_capabilities": [
+        "atlas.public.export"
+      ],
+      "triggering_adapters": [
+        "generic.external_event.import"
+      ],
+      "applies_to": [
+        "public export boundary"
+      ],
+      "approval_required": true,
+      "minimum_reviewers": 1,
+      "approver_roles": [
+        "release reviewer",
+        "security reviewer"
+      ],
+      "expiration": {
+        "required": true,
+        "default_max_age": "3d"
+      },
+      "reapproval_triggers": [
+        "export manifest changed",
+        "private marker result changed",
+        "public/private boundary changed",
+        "approval expired"
+      ],
+      "decision_outputs": [
+        "approved",
+        "rejected",
+        "expired",
+        "stale",
+        "unsupported",
+        "boundary_violation"
+      ],
+      "evidence_required": [
+        "public export manifest reference",
+        "private marker result reference",
+        "reviewer identity reference",
+        "decision status",
+        "evidence_refs",
+        "known_limitations"
+      ],
+      "metadata_only": true,
+      "live_execution": false,
+      "automatic_execution": false,
+      "break_glass": {
+        "allowed": false,
+        "execution_enabled": false,
+        "boundary": "not applicable"
+      },
+      "known_limitations": [
+        "Public export review preserves private-marker and metadata-only boundaries.",
+        "Approval records do not replace public export verification.",
+        "No raw sensitive content is permitted."
+      ]
+    },
+    {
+      "id": "atlas.break_glass_documentation_review",
+      "title": "Break-Glass Documentation Review",
+      "status": "draft",
+      "purpose": "Model break-glass documentation and evidence review without break-glass execution.",
+      "triggering_capabilities": [
+        "atlas.break_glass.document"
+      ],
+      "triggering_adapters": [
+        "generic.external_event.import"
+      ],
+      "applies_to": [
+        "break-glass documentation"
+      ],
+      "approval_required": true,
+      "minimum_reviewers": 2,
+      "approver_roles": [
+        "incident owner",
+        "security reviewer"
+      ],
+      "expiration": {
+        "required": true,
+        "default_max_age": "24h"
+      },
+      "reapproval_triggers": [
+        "break-glass scope changed",
+        "incident owner changed",
+        "evidence status changed",
+        "approval expired"
+      ],
+      "decision_outputs": [
+        "approved",
+        "rejected",
+        "expired",
+        "stale",
+        "escalated",
+        "unsupported",
+        "boundary_violation"
+      ],
+      "evidence_required": [
+        "break-glass event reference",
+        "incident owner reference",
+        "reviewer identity references",
+        "decision status",
+        "evidence_refs",
+        "known_limitations"
+      ],
+      "metadata_only": true,
+      "live_execution": false,
+      "automatic_execution": false,
+      "break_glass": {
+        "allowed": true,
+        "execution_enabled": false,
+        "boundary": "documentation_review_only"
+      },
+      "known_limitations": [
+        "Break-glass workflow is documentation and review only, not execution.",
+        "No break-glass execution is added.",
+        "Approval records do not prove the action was valid."
+      ]
+    }
+  ]
+}

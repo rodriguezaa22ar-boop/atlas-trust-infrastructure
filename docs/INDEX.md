@@ -33,6 +33,10 @@ repository in filesystem order.
 - [governance/POLICY_PLANE_M176.md](governance/POLICY_PLANE_M176.md):
   policy plane draft defining default-deny, metadata-only policy inputs,
   decisions, and bundles before runtime policy enforcement.
+- [governance/APPROVAL_PLANE_M178.md](governance/APPROVAL_PLANE_M178.md):
+  approval plane draft defining metadata-only approval states, reviewer
+  workflows, expiration, rejection, escalation, and break-glass documentation
+  before approval engine execution.
 - [reviews/ADOPTION_FRICTION_DRY_RUN_M167.md](reviews/ADOPTION_FRICTION_DRY_RUN_M167.md):
   retained adoption dry-run for following the CI release review workflow from a
   fresh clone without live builder help.
@@ -91,6 +95,7 @@ repository in filesystem order.
 - Capability governance reviewer: [governance/CAPABILITY_MANIFEST_M172.md](governance/CAPABILITY_MANIFEST_M172.md)
 - Adapter governance reviewer: [governance/ADAPTER_REGISTRY_M174.md](governance/ADAPTER_REGISTRY_M174.md)
 - Policy governance reviewer: [governance/POLICY_PLANE_M176.md](governance/POLICY_PLANE_M176.md)
+- Approval governance reviewer: [governance/APPROVAL_PLANE_M178.md](governance/APPROVAL_PLANE_M178.md)
 - Contributor: [../CONTRIBUTING.md](../CONTRIBUTING.md)
 - Security reporter: [../SECURITY.md](../SECURITY.md)
 
@@ -202,6 +207,10 @@ repository in filesystem order.
 - [governance/POLICY_PLANE_M176.md](governance/POLICY_PLANE_M176.md):
   M176 policy plane draft for capability, adapter, approval, and evidence
   decisions without runtime policy enforcement.
+- [governance/APPROVAL_PLANE_M178.md](governance/APPROVAL_PLANE_M178.md):
+  M178 approval plane draft for approval states, reviewer workflows,
+  expiration, rejection, escalation, break-glass documentation, and
+  metadata-only approval evidence before workflow execution.
 - [adapters/GENERIC_EXTERNAL_EVENT_RECEIPT_ADAPTER.md](adapters/GENERIC_EXTERNAL_EVENT_RECEIPT_ADAPTER.md):
   M143 local-file import-only adapter for converting synthetic generic external
   events into Atlas receipts.
@@ -247,8 +256,8 @@ repository in filesystem order.
   model helper metadata.
 - [governance/POLICY_PLANE.md](governance/POLICY_PLANE.md): stable policy
   plane entry point and validation gate.
-- [governance/APPROVAL_PLANE.md](governance/APPROVAL_PLANE.md): M127
-  approval workflow contract and validation gate.
+- [governance/APPROVAL_PLANE.md](governance/APPROVAL_PLANE.md): stable
+  approval plane entry point and validation gate.
 - [../ledger/README.md](../ledger/README.md): M128 evidence envelope and
   hash-ledger contract.
 
