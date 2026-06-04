@@ -7,17 +7,24 @@ into a governance model by naming the actions Atlas recognizes, the capability
 class they belong to, the approval posture they require, the metadata evidence
 they should emit, and the actions that must remain blocked.
 
-This milestone is a manifest and documentation draft. It does not add runtime
-enforcement, adapter execution, live integrations, a policy engine change, a
-server, a database, or a new authority claim.
+This milestone is a manifest and documentation draft. M172 and the paired M173
+safety regression do not add runtime enforcement, adapter execution, live
+integrations, a policy engine change, an approval engine change, a server, a
+database, or a new authority claim.
 
 No runtime enforcement is added in M172.
+No runtime enforcement is added by M173.
+The manifest does not grant authorization by itself.
 
 ## Relationship To Existing Governance
 
 `capabilities.yaml` remains the machine-readable governance root. The existing
 M124 capability model, M126 policy plane, M127 approval plane, M128 evidence
-envelope, and M170 storage strategy remain in force.
+envelope, and M170 storage strategy remain in force. The manifest can describe
+policy-aware and approval-aware behavior, but the manifest does not execute
+policy or approval decisions by itself. Any broader runtime policy enforcement,
+adapter execution, or live integration must be added explicitly in a later
+milestone.
 
 M172 refines the vocabulary around actions that already matter to reviewers:
 
@@ -85,6 +92,9 @@ The manifest can say that approval is required. It does not by itself prove
 that approval was granted. Approval evidence must be represented by
 metadata-only approval events and evaluated through the policy plane.
 
+No mutating action should exist unless it is named, policy-covered,
+approval-aware, and evidence-emitting.
+
 ## Evidence Requirements
 
 Every recognized action must emit metadata evidence. The evidence should answer:
@@ -98,9 +108,22 @@ Every recognized action must emit metadata evidence. The evidence should answer:
 - what limitations remain
 
 Evidence remains metadata-only. It may include references, hashes, timestamps,
-commit IDs, status values, and known limitations. It must not include raw logs,
-secrets, private keys, tokens, packet captures, raw prompts, raw model outputs,
-request bodies, response bodies, customer data, or unredacted evidence bodies.
+commit IDs, status values, and known limitations. It must not include:
+
+- raw logs
+- secrets
+- private keys
+- credentials
+- tokens
+- Authorization headers
+- packet captures
+- raw prompts
+- raw model outputs
+- request bodies
+- response bodies
+- customer data
+- private business records
+- unredacted evidence bodies
 
 ## Blocked Actions
 
@@ -135,6 +158,10 @@ The manifest does not prove that an action happened outside Atlas. It does not
 prove complete event coverage, legal sufficiency, certification, external audit
 completion, production deployability, runtime safety, model correctness, or
 tamper-proof infrastructure.
+
+The business and trust value is clearer review, fewer ambiguous actions, better
+audit readiness, and lower evidence reconstruction work without lowering
+standards.
 
 ## Future Work
 
