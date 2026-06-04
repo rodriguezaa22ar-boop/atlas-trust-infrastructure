@@ -4818,6 +4818,90 @@ write_test_slsa_reference() {
   [[ "$output" == *"capabilities: ok"* ]]
 }
 
+@test "M173 capability manifest safety regression keeps governance draft bounded" {
+  manifest="$TEST_ROOT/toolkit/capabilities.yaml"
+  capability_doc="$TEST_ROOT/toolkit/docs/governance/CAPABILITY_MANIFEST_M172.md"
+  milestone="$TEST_ROOT/toolkit/docs/retention/milestones/MILESTONE_173.md"
+  milestone_index="$TEST_ROOT/toolkit/docs/retention/MILESTONE_INDEX.md"
+
+  [ -f "$manifest" ]
+  [ -f "$capability_doc" ]
+  [ -f "$milestone" ]
+
+  jq -e '
+    (.version | type == "number") and
+    .default_mode == "deny" and
+    (.capabilities | type == "array" and length > 0) and
+    all(.capabilities[]; (.id // "") != "") and
+    all(.capabilities[]; (.class // "") != "") and
+    all(.capabilities[]; (.system // "") != "") and
+    all(.capabilities[]; (.resources | type == "array" and length > 0)) and
+    all(.capabilities[]; (.effects | type == "array" and length > 0)) and
+    all(.capabilities[]; has("approval")) and
+    all(.capabilities[]; (.evidence.emits | type == "array" and length > 0)) and
+    all(.capabilities[]; if (.class == "mutate" or .class == "bounded_exec" or .class == "admin") then .approval != "none" else true end) and
+    all(.capabilities[]; if (.class == "mutate" or .class == "bounded_exec") then (.evidence.emits | length > 0) else true end) and
+    any(.capabilities[]; .id == "atlas.agent.tool.exec" and .class == "bounded_exec" and .constraints.approved_tools_only == true and .constraints.network_egress == "deny_by_default" and .approval != "none") and
+    any(.capabilities[]; .class == "read" and .approval == "none") and
+    any(.capabilities[]; .class == "import" and .approval == "none") and
+    any(.capabilities[]; .class == "verify" and .approval == "none") and
+    any(.capabilities[]; .class == "export" and .approval == "none") and
+    any(.capabilities[]; .class == "mutate" and .approval != "none") and
+    all(.capabilities[].evidence.emits[]; test("raw_log|secret|private_key|token|authorization_header|request_body|response_body|packet_capture|raw_prompt|raw_model_output|customer_data|private_business_record") | not)
+  ' "$manifest"
+
+  grep -q 'M172 and the paired M173' "$capability_doc"
+  grep -q 'No runtime enforcement is added in M172' "$capability_doc"
+  grep -q 'No runtime enforcement is added by M173' "$capability_doc"
+  grep -q 'The manifest does not grant authorization by itself' "$capability_doc"
+  grep -q 'policy or approval decisions by itself' "$capability_doc"
+  grep -q 'adapter execution, or live integration must be added explicitly in a later' "$capability_doc"
+  grep -q 'default_mode: deny' "$capability_doc"
+  grep -q 'No mutating action should exist unless it is named, policy-covered' "$capability_doc"
+  grep -q 'approval-aware, and evidence-emitting' "$capability_doc"
+  grep -q 'bounded agent tool execution as a governance contract only' "$capability_doc"
+  grep -q 'Evidence remains metadata-only' "$capability_doc"
+  grep -q 'references, hashes, timestamps' "$capability_doc"
+  grep -q 'raw logs' "$capability_doc"
+  grep -q 'secrets' "$capability_doc"
+  grep -q 'private keys' "$capability_doc"
+  grep -q 'credentials' "$capability_doc"
+  grep -q 'tokens' "$capability_doc"
+  grep -q 'Authorization headers' "$capability_doc"
+  grep -q 'request bodies' "$capability_doc"
+  grep -q 'response bodies' "$capability_doc"
+  grep -q 'packet captures' "$capability_doc"
+  grep -q 'raw prompts' "$capability_doc"
+  grep -q 'raw model outputs' "$capability_doc"
+  grep -q 'customer data' "$capability_doc"
+  grep -q 'private business records' "$capability_doc"
+  grep -q 'clearer review' "$capability_doc"
+  grep -q 'fewer ambiguous actions' "$capability_doc"
+  grep -q 'audit readiness' "$capability_doc"
+  grep -q 'evidence reconstruction work' "$capability_doc"
+  grep -q 'Future Work' "$capability_doc"
+  grep -q 'adapter permission registry refinement' "$capability_doc"
+  grep -q 'policy fixture coverage' "$capability_doc"
+  grep -q 'approval workflow expansion' "$capability_doc"
+  grep -q 'receipt evidence linking for capability decisions' "$capability_doc"
+
+  ! grep -Eiq 'guaranteed compliance|certified compliant|legally compliant|legally sufficient|guaranteed safe|tamper-proof|immutable storage|externally audited|external audit complete|external SLSA certified|production deployable outside the local Atlas contract|enterprise deployment approved|runtime safety proven|model correctness proven|artifact correctness guaranteed|adapter execution authorized|policy enforcement implemented|live integration enabled' "$capability_doc"
+  ! grep -Eiq 'Atlas (guarantees|certifies|proves|implements|delivers) (compliance|certification|legal sufficiency|guaranteed safety|tamper-proof infrastructure|immutable storage|external audit|external SLSA certification|production deployability|enterprise deployment approval|runtime safety|model correctness|artifact correctness|complete event coverage|adapter execution|policy enforcement|live integration)' "$capability_doc"
+  ! grep -Eiq 'complete event coverage: (true|ready|implemented)|detects all missing events|proves no action happened outside Atlas' "$capability_doc"
+
+  grep -q '^# Milestone 173: Capability Manifest Safety Regression$' "$milestone"
+  grep -q '2fd717405a42efae7d7775cfc1ae204c9a50d4fa' "$milestone"
+  grep -q 'No Atlas runtime behavior changed.' "$milestone"
+  grep -q 'No adapter execution added.' "$milestone"
+  grep -q 'No policy engine added.' "$milestone"
+  grep -q 'No live integration added.' "$milestone"
+  grep -q 'Known limitations preserved.' "$milestone"
+  grep -q 'atlas-retention-m173' "$milestone"
+  grep -q 'MILESTONE_173.md' "$milestone_index"
+  grep -q 'Capability Manifest Safety Regression' "$milestone_index"
+  grep -q 'atlas-retention-m173' "$milestone_index"
+}
+
 @test "capability manifest defines machine-readable governance root" {
   manifest="$TEST_ROOT/toolkit/capabilities.yaml"
   schema="$TEST_ROOT/toolkit/schemas/capability.v1.schema.json"
