@@ -1,0 +1,134 @@
+{
+  "schema_version": "atlas.evidence_envelope.v1",
+  "envelope_id": "env-ai-agent-action-001",
+  "envelope_type": "ai_agent_action",
+  "created_at": "2026-06-04T00:04:00Z",
+  "producer": {
+    "name": "atlas-ai-advisor-interface",
+    "version": "draft",
+    "source_ref": "docs/governance/EVIDENCE_ENVELOPE_SCHEMA_M180.md"
+  },
+  "actor": {
+    "id": "agent:advisor",
+    "type": "agent",
+    "display": "AI Advisor Interface"
+  },
+  "subject": {
+    "type": "tool_request",
+    "ref": "ai-agent:tool-request-metadata",
+    "summary": "AI-agent requested action metadata without prompt or model-output bodies"
+  },
+  "action": {
+    "id": "atlas.ai_agent.tool_execution_review",
+    "class": "propose",
+    "mode": "propose",
+    "requested_effect": "Request human review of a bounded tool action.",
+    "actual_effect": "Metadata-only request record; no tool execution occurred."
+  },
+  "capability": {
+    "id": "atlas.ai.agent.action.import",
+    "class": "propose",
+    "known": true,
+    "status": "known"
+  },
+  "adapter": {
+    "id": "ai_agent.action.import",
+    "mode": "import",
+    "known": true,
+    "live_integration": false,
+    "source_system": "AI Advisor Interface metadata"
+  },
+  "policy": {
+    "decision": "approval_required",
+    "bundle_refs": [
+      "atlas.ai_agent_requester_not_authority",
+      "atlas.propose_requires_approval_path",
+      "atlas.metadata_only_boundary"
+    ],
+    "reason_refs": [
+      "AI agents may request review but are not authorization authorities."
+    ],
+    "boundary_violations": [],
+    "runtime_enforcement": false
+  },
+  "approval": {
+    "state": "required",
+    "workflow_id": "atlas.ai_agent_tool_execution_review",
+    "required": true,
+    "approver_refs": [
+      "role:human-reviewer"
+    ],
+    "decision_ref": "approval-required:ai-agent-tool-request",
+    "expires_at": null,
+    "reapproval_required": true
+  },
+  "evidence": {
+    "refs": [
+      "agent-request:metadata-ref",
+      "scope-review:metadata-ref"
+    ],
+    "sufficiency_status": "present",
+    "missing": [],
+    "stale": [],
+    "unverifiable": [],
+    "outside_atlas": []
+  },
+  "artifacts": {
+    "refs": [
+      "advisor/metadata-only-request.json"
+    ],
+    "hashes": [
+      "sha256:example-ai-agent-request-metadata-hash"
+    ],
+    "source_refs": [
+      "docs/governance/EVIDENCE_ENVELOPE_SCHEMA_M180.md"
+    ]
+  },
+  "hashes": {
+    "event_hash": null,
+    "prev_hash": null,
+    "receipt_hash": null,
+    "content_hash": null,
+    "chain_head": null
+  },
+  "review": {
+    "summary": "AI agent is requester, not authority; raw prompt and raw model output are excluded.",
+    "supported_decision": "Reviewer can inspect metadata refs and required human review state.",
+    "unsupported_decisions": [
+      "This envelope does not authorize or execute the requested tool action.",
+      "This envelope does not prove model correctness."
+    ],
+    "human_judgment_required": true,
+    "replay_hint": "Inspect metadata refs, approval workflow, and policy bundle refs before any future action."
+  },
+  "privacy": {
+    "metadata_only": true,
+    "raw_artifacts_embedded": false,
+    "forbidden_content_excluded": true,
+    "redaction_required": true,
+    "sensitive_data_classes_excluded": [
+      "raw logs",
+      "secrets",
+      "private keys",
+      "tokens",
+      "Authorization headers",
+      "request bodies",
+      "response bodies",
+      "packet captures",
+      "raw prompts",
+      "raw model outputs",
+      "customer data",
+      "payment data",
+      "private business records",
+      "unredacted evidence bodies",
+      "raw artifacts"
+    ]
+  },
+  "known_limitations": [
+    "This AI-agent action envelope is metadata-only.",
+    "The agent is requester, not authority.",
+    "Raw prompt and raw model output bodies are not embedded.",
+    "It does not add automatic tool execution, policy enforcement, approval execution, or model correctness proof.",
+    "It does not replace human judgment."
+  ]
+}

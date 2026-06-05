@@ -1,0 +1,131 @@
+{
+  "schema_version": "atlas.evidence_envelope.v1",
+  "envelope_id": "env-adapter-event-001",
+  "envelope_type": "adapter_event",
+  "created_at": "2026-06-04T00:02:00Z",
+  "producer": {
+    "name": "atlas-adapter-registry",
+    "version": "draft",
+    "source_ref": "adapters/registry.yaml"
+  },
+  "actor": {
+    "id": "workflow:ci",
+    "type": "workflow",
+    "display": "CI workflow"
+  },
+  "subject": {
+    "type": "external_event",
+    "ref": "github-actions:run-metadata",
+    "summary": "Metadata-only GitHub Actions event import"
+  },
+  "action": {
+    "id": "github.actions.import",
+    "class": "import",
+    "mode": "import",
+    "requested_effect": "Import external workflow metadata references.",
+    "actual_effect": "Adapter event example only; no API call or webhook occurred."
+  },
+  "capability": {
+    "id": "atlas.adapter.import",
+    "class": "import",
+    "known": true,
+    "status": "known"
+  },
+  "adapter": {
+    "id": "github.actions.import",
+    "mode": "import",
+    "known": true,
+    "live_integration": false,
+    "source_system": "GitHub Actions metadata"
+  },
+  "policy": {
+    "decision": "allow",
+    "bundle_refs": [
+      "atlas.known_adapter_required",
+      "atlas.import_first_adapters",
+      "atlas.metadata_only_boundary"
+    ],
+    "reason_refs": [
+      "Import-first adapter example with live integration disabled."
+    ],
+    "boundary_violations": [],
+    "runtime_enforcement": false
+  },
+  "approval": {
+    "state": "not_required",
+    "workflow_id": null,
+    "required": false,
+    "approver_refs": [],
+    "decision_ref": "policy-decision:github.actions.import",
+    "expires_at": null,
+    "reapproval_required": false
+  },
+  "evidence": {
+    "refs": [
+      "github-actions:metadata-ref",
+      "workflow:status-ref"
+    ],
+    "sufficiency_status": "present",
+    "missing": [],
+    "stale": [],
+    "unverifiable": [],
+    "outside_atlas": []
+  },
+  "artifacts": {
+    "refs": [
+      "ci/run-metadata.json"
+    ],
+    "hashes": [
+      "sha256:example-ci-run-metadata-hash"
+    ],
+    "source_refs": [
+      "git:HEAD"
+    ]
+  },
+  "hashes": {
+    "event_hash": null,
+    "prev_hash": null,
+    "receipt_hash": null,
+    "content_hash": null,
+    "chain_head": null
+  },
+  "review": {
+    "summary": "Adapter event metadata names the adapter and source without enabling live integration.",
+    "supported_decision": "Reviewer can inspect adapter identity, mode, and referenced evidence metadata.",
+    "unsupported_decisions": [
+      "The envelope does not prove complete external workflow history.",
+      "The envelope does not prove actions outside Atlas did not happen."
+    ],
+    "human_judgment_required": true,
+    "replay_hint": "Inspect adapters/registry.yaml and the referenced metadata hashes."
+  },
+  "privacy": {
+    "metadata_only": true,
+    "raw_artifacts_embedded": false,
+    "forbidden_content_excluded": true,
+    "redaction_required": false,
+    "sensitive_data_classes_excluded": [
+      "raw logs",
+      "secrets",
+      "private keys",
+      "tokens",
+      "Authorization headers",
+      "request bodies",
+      "response bodies",
+      "packet captures",
+      "raw prompts",
+      "raw model outputs",
+      "customer data",
+      "payment data",
+      "private business records",
+      "unredacted evidence bodies",
+      "raw artifacts"
+    ]
+  },
+  "known_limitations": [
+    "This adapter event envelope is metadata-only.",
+    "It does not add live integration, credentials, API calls, webhooks, network collectors, or adapter execution.",
+    "It references metadata and hashes only; raw logs and raw artifacts are not embedded.",
+    "It does not prove external truth, complete event coverage, or production integration readiness."
+  ]
+}

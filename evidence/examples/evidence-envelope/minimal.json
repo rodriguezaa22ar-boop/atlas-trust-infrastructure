@@ -1,0 +1,119 @@
+{
+  "schema_version": "atlas.evidence_envelope.v1",
+  "envelope_id": "env-minimal-001",
+  "envelope_type": "checkpoint",
+  "created_at": "2026-06-04T00:00:00Z",
+  "producer": {
+    "name": "atlas",
+    "version": "draft",
+    "source_ref": "docs/governance/EVIDENCE_ENVELOPE_SCHEMA_M180.md"
+  },
+  "actor": {
+    "id": "local:user:reviewer",
+    "type": "human",
+    "display": "Local reviewer"
+  },
+  "subject": {
+    "type": "checkpoint",
+    "ref": "local:checkpoint:minimal",
+    "summary": "Minimal metadata-only evidence envelope example"
+  },
+  "action": {
+    "id": "atlas.evidence.envelope.example",
+    "class": "read",
+    "mode": "read",
+    "requested_effect": "Describe a metadata-only checkpoint envelope.",
+    "actual_effect": "Metadata example only; no runtime collection occurred."
+  },
+  "capability": {
+    "id": "atlas.evidence.envelope.draft",
+    "class": "read",
+    "known": false,
+    "status": "draft"
+  },
+  "adapter": {
+    "id": "none",
+    "mode": "read",
+    "known": false,
+    "live_integration": false,
+    "source_system": "local example"
+  },
+  "policy": {
+    "decision": "unsupported",
+    "bundle_refs": [
+      "atlas.default_deny"
+    ],
+    "reason_refs": [
+      "M180 example only"
+    ],
+    "boundary_violations": [],
+    "runtime_enforcement": false
+  },
+  "approval": {
+    "state": "not_required",
+    "workflow_id": null,
+    "required": false,
+    "approver_refs": [],
+    "decision_ref": null,
+    "expires_at": null,
+    "reapproval_required": false
+  },
+  "evidence": {
+    "refs": [],
+    "sufficiency_status": "not_evaluated",
+    "missing": [],
+    "stale": [],
+    "unverifiable": [],
+    "outside_atlas": []
+  },
+  "artifacts": {
+    "refs": [],
+    "hashes": [],
+    "source_refs": []
+  },
+  "hashes": {
+    "event_hash": null,
+    "prev_hash": null,
+    "receipt_hash": null,
+    "content_hash": null,
+    "chain_head": null
+  },
+  "review": {
+    "summary": "Minimal envelope shape for reviewer inspection.",
+    "supported_decision": "Schema shape can be inspected.",
+    "unsupported_decisions": [
+      "No runtime fact is proven by this example."
+    ],
+    "human_judgment_required": true,
+    "replay_hint": "Inspect this JSON and the M180 schema; no command replay is implied."
+  },
+  "privacy": {
+    "metadata_only": true,
+    "raw_artifacts_embedded": false,
+    "forbidden_content_excluded": true,
+    "redaction_required": false,
+    "sensitive_data_classes_excluded": [
+      "raw logs",
+      "secrets",
+      "private keys",
+      "tokens",
+      "Authorization headers",
+      "request bodies",
+      "response bodies",
+      "packet captures",
+      "raw prompts",
+      "raw model outputs",
+      "customer data",
+      "payment data",
+      "private business records",
+      "unredacted evidence bodies",
+      "raw artifacts"
+    ]
+  },
+  "known_limitations": [
+    "This example is metadata-only.",
+    "It does not prove external truth or complete event coverage.",
+    "It does not prove legal compliance, production deployability, or action validity.",
+    "It does not replace human judgment."
+  ]
+}

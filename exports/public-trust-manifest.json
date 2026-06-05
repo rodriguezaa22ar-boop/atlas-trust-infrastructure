@@ -27,6 +27,7 @@
     "capabilities.yaml",
     "containers/",
     "docs/",
+    "evidence/",
     "etc/",
     "examples/",
     "exports/public-trust-manifest.json",
