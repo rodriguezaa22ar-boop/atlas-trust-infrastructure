@@ -41,6 +41,10 @@ repository in filesystem order.
   evidence-envelope schema draft defining the shared metadata-only record shape
   for future capability, adapter, policy, approval, workflow, receipt, and
   reviewer evidence records before runtime evidence collection.
+- [governance/GOVERNANCE_PLANE_INTEGRATION_MAP_M182.md](governance/GOVERNANCE_PLANE_INTEGRATION_MAP_M182.md):
+  governance plane integration map connecting the Capability Manifest, Adapter
+  Registry, Policy Plane, Approval Plane, and Evidence Envelope without adding
+  runtime orchestration.
 - [reviews/ADOPTION_FRICTION_DRY_RUN_M167.md](reviews/ADOPTION_FRICTION_DRY_RUN_M167.md):
   retained adoption dry-run for following the CI release review workflow from a
   fresh clone without live builder help.
@@ -101,6 +105,7 @@ repository in filesystem order.
 - Policy governance reviewer: [governance/POLICY_PLANE_M176.md](governance/POLICY_PLANE_M176.md)
 - Approval governance reviewer: [governance/APPROVAL_PLANE_M178.md](governance/APPROVAL_PLANE_M178.md)
 - Evidence governance reviewer: [governance/EVIDENCE_ENVELOPE_SCHEMA_M180.md](governance/EVIDENCE_ENVELOPE_SCHEMA_M180.md)
+- Governance integration reviewer: [governance/GOVERNANCE_PLANE_INTEGRATION_MAP_M182.md](governance/GOVERNANCE_PLANE_INTEGRATION_MAP_M182.md)
 - Contributor: [../CONTRIBUTING.md](../CONTRIBUTING.md)
 - Security reporter: [../SECURITY.md](../SECURITY.md)
 
@@ -222,6 +227,11 @@ repository in filesystem order.
   checkpoint evidence records before runtime collection.
 - [governance/EVIDENCE_PLANE.md](governance/EVIDENCE_PLANE.md): stable
   evidence plane entry point and validation gate.
+- [governance/GOVERNANCE_PLANE_INTEGRATION_MAP_M182.md](governance/GOVERNANCE_PLANE_INTEGRATION_MAP_M182.md):
+  M182 integration map showing how the Capability Manifest, Adapter Registry,
+  Policy Plane, Approval Plane, and Evidence Envelope connect from action or
+  imported event to reviewer output and replay without adding runtime
+  orchestration.
 - [adapters/GENERIC_EXTERNAL_EVENT_RECEIPT_ADAPTER.md](adapters/GENERIC_EXTERNAL_EVENT_RECEIPT_ADAPTER.md):
   M143 local-file import-only adapter for converting synthetic generic external
   events into Atlas receipts.
