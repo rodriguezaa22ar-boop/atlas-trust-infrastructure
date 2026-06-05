@@ -120,13 +120,17 @@
       "payment data",
       "private business records",
       "unredacted evidence bodies",
-      "raw artifacts"
+      "raw artifacts",
+      "full tool output bodies",
+      "browser session material",
+      "session cookies"
     ]
   },
   "known_limitations": [
     "This approval event envelope is metadata-only.",
     "It does not add approval engine execution, automatic approval, automatic escalation, or break-glass execution.",
-    "Approval metadata does not grant authorization by itself or prove action validity.",
+    "Approval metadata does not grant authorization by itself.",
+    "Approval metadata does not prove action validity.",
     "It does not prove legal compliance, legal sufficiency, production approval, or complete event coverage."
   ]
 }

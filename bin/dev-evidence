@@ -105,6 +105,9 @@ require_governance_schema() {
     "private business records"
     "unredacted evidence bodies"
     "raw artifacts"
+    "full tool output bodies"
+    "browser session material"
+    "session cookies"
   )
 
   require_json "$GOVERNANCE_SCHEMA"
@@ -144,6 +147,7 @@ require_governance_schema() {
 require_governance_example() {
   local path="$1"
   local field
+  local forbidden_class
   local envelope_type
   local required_fields=(
     schema_version
@@ -187,6 +191,13 @@ require_governance_example() {
     (.known_limitations | type == "array" and length > 0)
   ' "$path" >/dev/null ||
     fail "M180 example privacy or limitation boundary invalid $path"
+
+  for forbidden_class in "full tool output bodies" "browser session material" "session cookies"; do
+    jq -e --arg forbidden_class "$forbidden_class" \
+      '.privacy.sensitive_data_classes_excluded | index($forbidden_class)' \
+      "$path" >/dev/null ||
+      fail "M180 example missing forbidden class $forbidden_class in $path"
+  done
 }
 
 require_governance_examples() {

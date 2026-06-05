@@ -1680,6 +1680,256 @@ write_test_slsa_reference() {
   ! grep -Eiq 'Atlas (guarantees|certifies|proves|implements|delivers) (compliance|certification|legal sufficiency|external audit|enterprise deployment approval|production evidence system|production deployability|complete event coverage|runtime safety|model correctness|artifact correctness|tamper-proof infrastructure|immutable storage)' "$combined_text"
 }
 
+@test "M181 evidence envelope safety regression keeps envelopes metadata-only and non-runtime" {
+  schema="$TEST_ROOT/toolkit/evidence/schemas/evidence-envelope.v1.schema.json"
+  examples_dir="$TEST_ROOT/toolkit/evidence/examples/evidence-envelope"
+  evidence_doc="$TEST_ROOT/toolkit/docs/governance/EVIDENCE_ENVELOPE_SCHEMA_M180.md"
+  evidence_plane_doc="$TEST_ROOT/toolkit/docs/governance/EVIDENCE_PLANE.md"
+  milestone="$TEST_ROOT/toolkit/docs/retention/milestones/MILESTONE_181.md"
+  milestone_index="$TEST_ROOT/toolkit/docs/retention/MILESTONE_INDEX.md"
+  combined_text="$TEST_ROOT/m181-evidence-envelope-text.txt"
+
+  [ -f "$schema" ]
+  [ -d "$examples_dir" ]
+  [ -f "$evidence_doc" ]
+  [ -f "$evidence_plane_doc" ]
+  [ -f "$milestone" ]
+
+  jq -e '
+    .properties.schema_version.const == "atlas.evidence_envelope.v1" and
+    (.required | index("schema_version")) and
+    (.required | index("envelope_id")) and
+    (.required | index("envelope_type")) and
+    (.required | index("created_at")) and
+    (.required | index("producer")) and
+    (.required | index("actor")) and
+    (.required | index("subject")) and
+    (.required | index("action")) and
+    (.required | index("capability")) and
+    (.required | index("adapter")) and
+    (.required | index("policy")) and
+    (.required | index("approval")) and
+    (.required | index("evidence")) and
+    (.required | index("artifacts")) and
+    (.required | index("hashes")) and
+    (.required | index("review")) and
+    (.required | index("privacy")) and
+    (.required | index("known_limitations"))
+  ' "$schema"
+
+  jq -e '
+    (.properties.envelope_type.enum | index("decision")) and
+    (.properties.envelope_type.enum | index("adapter_event")) and
+    (.properties.envelope_type.enum | index("approval_event")) and
+    (.properties.envelope_type.enum | index("run_event")) and
+    (.properties.envelope_type.enum | index("receipt_event")) and
+    (.properties.envelope_type.enum | index("release_verify")) and
+    (.properties.envelope_type.enum | index("business_flow_event")) and
+    (.properties.envelope_type.enum | index("ai_agent_action")) and
+    (.properties.envelope_type.enum | index("checkpoint")) and
+    .properties.privacy.properties.metadata_only.const == true and
+    .properties.privacy.properties.raw_artifacts_embedded.const == false and
+    .properties.privacy.properties.forbidden_content_excluded.const == true
+  ' "$schema"
+
+  for forbidden in \
+    "raw logs" \
+    "secrets" \
+    "private keys" \
+    "tokens" \
+    "Authorization headers" \
+    "request bodies" \
+    "response bodies" \
+    "packet captures" \
+    "raw prompts" \
+    "raw model outputs" \
+    "customer data" \
+    "payment data" \
+    "private business records" \
+    "unredacted evidence bodies" \
+    "raw artifacts" \
+    "full tool output bodies" \
+    "browser session material" \
+    "session cookies"; do
+    jq -e --arg forbidden "$forbidden" \
+      '.properties.privacy.properties.sensitive_data_classes_excluded.items.enum | index($forbidden)' \
+      "$schema"
+  done
+
+  for example in \
+    minimal.json \
+    policy-decision.json \
+    adapter-event.json \
+    approval-event.json \
+    ai-agent-action.json \
+    release-verify.json; do
+    [ -f "$examples_dir/$example" ]
+    jq -e . "$examples_dir/$example"
+    jq -e '
+      .schema_version == "atlas.evidence_envelope.v1" and
+      (.known_limitations | type == "array" and length > 0) and
+      (.privacy | type == "object") and
+      (.review | type == "object") and
+      .privacy.metadata_only == true and
+      .privacy.raw_artifacts_embedded == false and
+      .privacy.forbidden_content_excluded == true and
+      (.privacy.sensitive_data_classes_excluded | index("raw artifacts")) and
+      (.privacy.sensitive_data_classes_excluded | index("full tool output bodies")) and
+      (.privacy.sensitive_data_classes_excluded | index("browser session material")) and
+      (.privacy.sensitive_data_classes_excluded | index("session cookies"))
+    ' "$examples_dir/$example"
+  done
+
+  jq -e '
+    .actor.type == "agent" and
+    ((.known_limitations + [.review.summary]) | any(contains("requester, not authority"))) and
+    (.known_limitations | any(contains("Full tool output bodies are not embedded"))) and
+    (.known_limitations | any(contains("does not imply autonomous execution"))) and
+    (.known_limitations | any(contains("does not add automatic tool execution")))
+  ' "$examples_dir/ai-agent-action.json"
+  ! jq -e '[paths(scalars) as $p | $p[]? | strings | select(test("raw_prompt|raw_model_output|tool_output_body|tool_output"))] | length > 0' "$examples_dir/ai-agent-action.json"
+
+  jq -e '.policy.runtime_enforcement == false and any(.review.unsupported_decisions[]; contains("does not enforce the policy at runtime"))' "$examples_dir/policy-decision.json"
+  jq -e '
+    .approval.required == true and
+    (.known_limitations | any(contains("does not add approval engine execution"))) and
+    (.known_limitations | any(contains("does not grant authorization by itself"))) and
+    (.known_limitations | any(contains("does not prove action validity")))
+  ' "$examples_dir/approval-event.json"
+  jq -e '
+    .adapter.live_integration == false and
+    (.action.actual_effect | contains("no API call or webhook occurred")) and
+    (.known_limitations | any(contains("does not add live integration"))) and
+    (.known_limitations | any(contains("network collectors")))
+  ' "$examples_dir/adapter-event.json"
+  jq -e '.action.mode == "verify" and (.review.summary | contains("read-only")) and (.artifacts.refs | length > 0) and (.artifacts.hashes | length > 0)' "$examples_dir/release-verify.json"
+  jq -e '.privacy.metadata_only == true and .privacy.raw_artifacts_embedded == false' "$examples_dir/minimal.json"
+
+  {
+    jq -r '.. | strings?' "$schema"
+    for example in "$examples_dir"/*.json; do
+      jq -r '.. | strings?' "$example"
+    done
+    cat "$evidence_doc"
+    cat "$evidence_plane_doc"
+  } >"$combined_text"
+
+  grep -q 'raw logs' "$combined_text"
+  grep -q 'secrets' "$combined_text"
+  grep -q 'private keys' "$combined_text"
+  grep -q 'tokens' "$combined_text"
+  grep -q 'Authorization headers' "$combined_text"
+  grep -q 'request bodies' "$combined_text"
+  grep -q 'response bodies' "$combined_text"
+  grep -q 'packet captures' "$combined_text"
+  grep -q 'raw prompts' "$combined_text"
+  grep -q 'raw model outputs' "$combined_text"
+  grep -q 'customer data' "$combined_text"
+  grep -q 'payment data' "$combined_text"
+  grep -q 'private business records' "$combined_text"
+  grep -q 'unredacted evidence bodies' "$combined_text"
+  grep -q 'raw artifacts' "$combined_text"
+  grep -q 'full tool output bodies' "$combined_text"
+  grep -q 'browser session material' "$combined_text"
+  grep -q 'session cookies' "$combined_text"
+
+  grep -q 'capabilities.yaml' "$evidence_doc"
+  grep -q 'adapters/registry.yaml' "$evidence_doc"
+  grep -q 'policy/policy-plane.yaml' "$evidence_doc"
+  grep -q 'approval/approval-plane.yaml' "$evidence_doc"
+  grep -q 'Evidence envelopes do not grant authorization' "$evidence_doc"
+  grep -q 'Evidence envelopes do not prove the action was valid' "$evidence_doc"
+  grep -q 'Evidence envelopes do not prove legal compliance' "$evidence_doc"
+  grep -q 'Evidence envelopes do not prove legal sufficiency' "$evidence_doc"
+  grep -q 'Evidence envelopes do not prove production deployability' "$evidence_doc"
+  grep -q 'Evidence envelopes do not prove enterprise deployment approval' "$evidence_doc"
+  grep -q 'Evidence envelopes do not prove complete event coverage' "$evidence_doc"
+  grep -q 'Evidence envelopes do not prove actions outside Atlas did not happen' "$evidence_doc"
+  grep -q 'Evidence envelopes do not replace human judgment' "$evidence_doc"
+  grep -q 'Existing external systems remain the source of their own operational truth' "$evidence_doc"
+
+  grep -q 'M180/M181 do not add runtime evidence collection' "$evidence_doc"
+  grep -q 'M180/M181 do not add automatic evidence capture' "$evidence_doc"
+  grep -q 'M180/M181 do not add an evidence collector' "$evidence_doc"
+  grep -q 'M180/M181 do not add database/server/web UI' "$evidence_doc"
+  grep -q 'M180/M181 do not add an evidence lake implementation' "$evidence_doc"
+  grep -q 'M180/M181 do not add live integrations' "$evidence_doc"
+  grep -q 'M180/M181 do not add credentials' "$evidence_doc"
+  grep -q 'M180/M181 do not add API calls' "$evidence_doc"
+  grep -q 'M180/M181 do not add webhooks' "$evidence_doc"
+  grep -q 'M180/M181 do not add network collectors' "$evidence_doc"
+  grep -q 'M180/M181 do not add adapter execution' "$evidence_doc"
+  grep -q 'M180/M181 do not add policy enforcement' "$evidence_doc"
+  grep -q 'M180/M181 do not add approval execution' "$evidence_doc"
+  grep -q 'M180/M181 do not change receipt semantics' "$evidence_doc"
+  grep -q 'M180/M181 do not change hashing behavior' "$evidence_doc"
+  grep -q 'M180/M181 do not change canonicalization behavior' "$evidence_doc"
+  grep -q 'M180/M181 do not change replay behavior' "$evidence_doc"
+  grep -q '`bin/dev-evidence` is validation tooling only' "$evidence_doc"
+
+  grep -q 'Hash fields are metadata fields in the draft schema' "$evidence_doc"
+  grep -q 'M180/M181 do not implement hashing' "$evidence_doc"
+  grep -q 'M180/M181 do not implement signing' "$evidence_doc"
+  grep -q 'M180/M181 do not implement immutable storage' "$evidence_doc"
+  grep -q 'M180/M181 do not implement tamper-proof infrastructure' "$evidence_doc"
+  grep -q 'tamper-evidence from tamper-proof claims' "$evidence_doc"
+  grep -q 'Content hashes do not prove external truth by themselves' "$evidence_doc"
+  grep -q 'Chain hints do not prove complete event coverage' "$evidence_doc"
+
+  grep -q 'Evidence Sufficiency States' "$evidence_doc"
+  grep -q '`missing`' "$evidence_doc"
+  grep -q '`stale`' "$evidence_doc"
+  grep -q '`unverifiable`' "$evidence_doc"
+  grep -q '`outside_atlas`' "$evidence_doc"
+  grep -q 'Evidence present does not automatically mean evidence sufficient' "$evidence_doc"
+  grep -q 'Review hints are guidance for reviewers' "$evidence_doc"
+  grep -q 'Replay hints are not proof by themselves' "$evidence_doc"
+  grep -q 'Reviewer summaries must preserve known limitations' "$evidence_doc"
+  grep -q 'Supported decisions and unsupported decisions must both be represented' "$evidence_doc"
+  grep -q 'Unsupported decisions should remain explicit' "$evidence_doc"
+  grep -q 'Human judgment required language must remain visible' "$evidence_doc"
+
+  grep -q '^# Evidence Envelope Schema Draft M180$' "$evidence_doc"
+  grep -q '^# Atlas Evidence Plane$' "$evidence_plane_doc"
+  grep -q 'Why Atlas Needs An Evidence Envelope' "$evidence_doc"
+  grep -q 'Envelope Types' "$evidence_doc"
+  grep -q 'Required Top-Level Fields' "$evidence_doc"
+  grep -q 'Metadata-Only Evidence References' "$evidence_doc"
+  grep -q 'Artifact References And Hash Fields' "$evidence_doc"
+  grep -q 'Review And Replay Hints' "$evidence_doc"
+  grep -q 'Privacy Boundary' "$evidence_doc"
+  grep -q 'What Evidence Envelopes May Store' "$evidence_doc"
+  grep -q 'What Evidence Envelopes Must Not Store' "$evidence_doc"
+  grep -q 'Known Limitations' "$evidence_doc"
+  grep -q '^# Milestone 181: Evidence Envelope Safety Regression$' "$milestone"
+  grep -q 'MILESTONE_181.md' "$milestone_index"
+  grep -q 'Evidence Envelope Safety Regression' "$milestone_index"
+
+  grep -q 'clearer review' "$evidence_doc"
+  grep -q 'fewer ambiguous evidence records' "$evidence_doc"
+  grep -q 'lower evidence reconstruction work' "$evidence_doc"
+  grep -q 'privacy-preserving proof' "$evidence_doc"
+  grep -q 'stronger audit readiness' "$evidence_doc"
+  grep -q 'lower cost of trust without lowering standards' "$evidence_doc"
+  grep -q 'proof without exposure' "$evidence_doc"
+  grep -q 'capability-named' "$evidence_doc"
+  grep -q 'adapter-aware' "$evidence_doc"
+  grep -q 'policy-aware' "$evidence_doc"
+  grep -q 'approval-aware' "$evidence_doc"
+
+  run "$TEST_ROOT/toolkit/bin/dev-evidence"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"evidence: ok"* ]]
+
+  run "$TEST_ROOT/toolkit/bin/dev-governance"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"evidence: ok"* ]]
+  [[ "$output" == *"governance: ok"* ]]
+
+  ! grep -Eiq 'guaranteed compliance|certified compliant|legally compliant|legal sufficiency guaranteed|compliance guarantee|certification guarantee|external audit complete|automated audit complete|enterprise deployment approved by Atlas|production evidence system implemented|production deployability proven|complete event coverage: (true|ready|implemented)|runtime safety proven|model correctness proven|artifact correctness guaranteed|actions outside Atlas cannot happen|tamper-proof infrastructure implemented|immutable storage implemented|raw artifact preservation implemented|evidence sufficiency is automatic' "$combined_text"
+  ! grep -Eiq 'Atlas (guarantees|certifies|proves|implements|delivers) (compliance|certification|legal sufficiency|legal compliance|external audit|automated audit|enterprise deployment approval|production evidence system|production deployability|complete event coverage|runtime safety|model correctness|artifact correctness|tamper-proof infrastructure|immutable storage|raw artifact preservation|automatic evidence sufficiency)' "$combined_text"
+}
+
 @test "evidence envelope and hash ledger validate replayable proof chain read-only" {
   ledger_doc="$TEST_ROOT/toolkit/ledger/README.md"
   decision_schema="$TEST_ROOT/toolkit/schemas/decision.v1.schema.json"

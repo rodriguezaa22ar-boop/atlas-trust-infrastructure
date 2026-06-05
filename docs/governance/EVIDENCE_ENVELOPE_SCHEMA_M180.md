@@ -34,6 +34,25 @@ not add runtime evidence collection. M180 does not add automatic evidence
 capture. M180 does not add a database, evidence lake, server, web UI, live
 integration, adapter execution, policy enforcement, or approval execution.
 
+M180/M181 do not add runtime evidence collection.
+M180/M181 do not add automatic evidence capture.
+M180/M181 do not add an evidence collector.
+M180/M181 do not add database/server/web UI.
+M180/M181 do not add an evidence lake implementation.
+M180/M181 do not add live integrations.
+M180/M181 do not add credentials.
+M180/M181 do not add API calls.
+M180/M181 do not add webhooks.
+M180/M181 do not add network collectors.
+M180/M181 do not add adapter execution.
+M180/M181 do not add policy enforcement.
+M180/M181 do not add approval execution.
+M180/M181 do not change receipt semantics.
+M180/M181 do not change hashing behavior.
+M180/M181 do not change canonicalization behavior.
+M180/M181 do not change replay behavior.
+`bin/dev-evidence` is validation tooling only.
+
 M180 does not change receipt semantics, hashing, canonicalization, or replay behavior.
 M180 defines a draft metadata-only envelope schema for future evidence records.
 
@@ -41,6 +60,8 @@ Future evidence emission must remain capability-named, adapter-aware,
 policy-aware, approval-aware when needed, metadata-only, and reviewer-readable.
 Existing external systems remain the source of their own operational truth.
 Atlas records proof metadata around them.
+The envelope preserves metadata-only integration with capability, adapter,
+policy, approval, workflow, and receipt proof records.
 
 ## Relationship To `capabilities.yaml`
 
@@ -125,12 +146,29 @@ refs. It must not embed raw artifacts. The `hashes` section can record
 M180 defines these fields only; it does not implement hashing or
 canonicalization changes.
 
+Hash fields are metadata fields in the draft schema.
+M180/M181 do not implement hashing.
+M180/M181 do not implement signing.
+M180/M181 do not implement immutable storage.
+M180/M181 do not implement tamper-proof infrastructure.
+Atlas distinguishes tamper-evidence from tamper-proof claims.
+Content hashes do not prove external truth by themselves.
+Chain hints do not prove complete event coverage.
+
 ## Review And Replay Hints
 
 The `review` section records a reviewer summary, supported decision,
 unsupported decisions, whether human judgment is required, and a replay hint.
 Replay hints are reviewer instructions or verifier references. They do not
 prove external truth by themselves.
+
+Review hints are guidance for reviewers.
+Replay hints are not proof by themselves.
+Reviewer summaries must preserve known limitations.
+Supported decisions and unsupported decisions must both be represented.
+Unsupported decisions should remain explicit.
+Human judgment required language must remain visible when the envelope cannot
+support a decision by itself.
 
 ## Privacy Boundary
 
@@ -160,7 +198,8 @@ Evidence envelopes may store:
 Evidence envelopes must not store raw logs, secrets, private keys, tokens,
 Authorization headers, request bodies, response bodies, packet captures, raw
 prompts, raw model outputs, customer data, payment data, private business
-records, unredacted evidence bodies, or raw artifacts by default.
+records, unredacted evidence bodies, raw artifacts, full tool output bodies,
+browser session material, or session cookies by default.
 
 ## Evidence Sufficiency States
 
@@ -202,8 +241,11 @@ payment data, customer data, or unredacted business records.
 
 Evidence envelopes do not grant authorization.
 Evidence envelopes do not prove the action was valid.
+Evidence envelopes do not prove action validity.
 Evidence envelopes do not prove legal compliance.
+Evidence envelopes do not prove legal sufficiency.
 Evidence envelopes do not prove production deployability.
+Evidence envelopes do not prove enterprise deployment approval.
 Evidence envelopes do not prove complete event coverage.
 Evidence envelopes do not prove actions outside Atlas did not happen.
 Evidence envelopes do not replace human judgment.
