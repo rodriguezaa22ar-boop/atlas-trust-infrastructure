@@ -107,13 +107,17 @@
       "payment data",
       "private business records",
       "unredacted evidence bodies",
-      "raw artifacts"
+      "raw artifacts",
+      "full tool output bodies",
+      "browser session material",
+      "session cookies"
     ]
   },
   "known_limitations": [
     "This example is metadata-only.",
     "It does not prove external truth or complete event coverage.",
     "It does not prove legal compliance, production deployability, or action validity.",
+    "It does not preserve raw artifacts or full tool output bodies.",
     "It does not replace human judgment."
   ]
 }

@@ -121,13 +121,18 @@
       "payment data",
       "private business records",
       "unredacted evidence bodies",
-      "raw artifacts"
+      "raw artifacts",
+      "full tool output bodies",
+      "browser session material",
+      "session cookies"
     ]
   },
   "known_limitations": [
     "This AI-agent action envelope is metadata-only.",
     "The agent is requester, not authority.",
     "Raw prompt and raw model output bodies are not embedded.",
+    "Full tool output bodies are not embedded.",
+    "It does not imply autonomous execution.",
     "It does not add automatic tool execution, policy enforcement, approval execution, or model correctness proof.",
     "It does not replace human judgment."
   ]

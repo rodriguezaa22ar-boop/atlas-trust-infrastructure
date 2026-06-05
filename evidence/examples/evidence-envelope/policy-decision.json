@@ -118,7 +118,10 @@
       "payment data",
       "private business records",
       "unredacted evidence bodies",
-      "raw artifacts"
+      "raw artifacts",
+      "full tool output bodies",
+      "browser session material",
+      "session cookies"
     ]
   },
   "known_limitations": [
