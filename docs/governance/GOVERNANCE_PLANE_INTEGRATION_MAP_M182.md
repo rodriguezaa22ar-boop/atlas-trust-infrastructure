@@ -12,8 +12,10 @@ M182 maps how the drafted Atlas governance planes relate to each other:
 
 This is architecture documentation, not runtime orchestration. M182 does not
 add an action router, runtime policy enforcement, approval workflow execution,
-runtime evidence collection, adapter execution, live integrations, credentials,
-API calls, webhooks, network collectors, database, server, or web UI.
+automatic approval, automatic escalation, break-glass execution, runtime
+evidence collection, automatic evidence capture, evidence collector, evidence
+lake implementation, adapter execution, live integrations, credentials, API
+calls, webhooks, network collectors, database, server, or web UI.
 
 ## One-Sentence Model
 
@@ -46,9 +48,7 @@ the flow at runtime.
 
 ## Current Modeled State
 
-M172-M181 define contracts, schemas, examples, validation checks, and safety
-regressions. They model how governance metadata should be shaped before Atlas
-adds runtime governance.
+M172-M181 define contracts, schemas, examples, docs, and safety regressions. They model how governance metadata should be shaped before Atlas adds runtime governance.
 
 The current modeled state is useful because it makes the future runtime safer
 by making boundaries explicit first. Contributors can see which plane owns a
@@ -90,6 +90,9 @@ is evidence for review, not a runtime authority grant.
 Evidence envelopes do not replace reviewer judgment. They record what Atlas
 observed, referenced, and limited so another reviewer can inspect and replay the
 proof chain later.
+
+Supported decisions and unsupported decisions should both be visible. Atlas
+should not hide an unsupported path behind positive reviewer language.
 
 ## Metadata-Only Boundary
 
@@ -141,7 +144,7 @@ hashes, privacy exclusions, and known limitations. A reviewer sees what
 happened, what was requested, what remains unknown, and what still requires
 human judgment.
 
-The agent is requester, not authority. The scenario does not store raw prompts, raw model outputs, or tool output bodies.
+The agent is requester, not authority. The scenario does not store raw prompts, raw model outputs, or tool output bodies. The scenario does not imply autonomous execution.
 
 ## Example Scenario: Release Verification
 
@@ -238,9 +241,19 @@ M182 adds no runtime policy enforcement.
 
 M182 adds no approval workflow execution.
 
+M182 adds no automatic approval.
+
+M182 adds no automatic escalation.
+
+M182 adds no break-glass execution.
+
 M182 adds no runtime evidence collection.
 
 M182 adds no automatic evidence capture.
+
+M182 adds no evidence collector.
+
+M182 adds no evidence lake implementation.
 
 M182 adds no adapter execution.
 
@@ -249,6 +262,10 @@ M182 adds no live integrations.
 M182 adds no credentials/API calls/webhooks/network collectors.
 
 M182 adds no database/server/web UI.
+
+M182 changes no receipt semantics.
+
+M182 changes no hashing/canonicalization/replay behavior.
 
 M182 changes no receipt semantics/hashing/canonicalization/replay behavior.
 
