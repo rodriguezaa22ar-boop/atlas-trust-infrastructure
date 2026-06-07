@@ -7,6 +7,7 @@ VOCABULARY="${1:-$ROOT/governance/decision-vocabulary.yaml}"
 DOC="$ROOT/docs/governance/GOVERNANCE_DECISION_VOCABULARY_M184.md"
 INDEX="$ROOT/docs/INDEX.md"
 MILESTONE="$ROOT/docs/retention/milestones/MILESTONE_184.md"
+MILESTONE_185="$ROOT/docs/retention/milestones/MILESTONE_185.md"
 MILESTONE_INDEX="$ROOT/docs/retention/MILESTONE_INDEX.md"
 
 fail() {
@@ -164,19 +165,22 @@ jq -e '
   (term("allow") | ((.known_limitations + .not_proof_of) | any(test("authorization by itself"))) and ((.known_limitations + .not_proof_of) | any(test("runtime enforcement")))) and
   (term("deny") | ((.known_limitations + [.meaning]) | any(test("default-deny")))) and
   (term("approval_required") | ((.known_limitations + .not_proof_of + [.approval_expectation]) | any(test("does not execute approval|does not request, execute, or grant approval")))) and
-  (term("approval_approved") | ((.known_limitations + .not_proof_of) | any(test("action was valid"))) and ((.known_limitations + .not_proof_of) | any(test("legal sufficiency")))) and
+  (term("allow") | ((.known_limitations + .not_proof_of) | any(test("execution authority")))) and
+  (term("approval_approved") | ((.known_limitations + .not_proof_of) | any(test("action was valid|action validity"))) and ((.known_limitations + .not_proof_of) | any(test("legal sufficiency"))) and ((.known_limitations + .not_proof_of) | any(test("compliance"))) and ((.known_limitations + .not_proof_of) | any(test("production approval")))) and
   (term("evidence_required") | ((.known_limitations + .not_proof_of) | any(test("does not mean evidence exists|evidence existence")))) and
+  (term("evidence_present") | ((.known_limitations + .not_proof_of) | any(test("does not automatically mean evidence is sufficient|sufficiency")))) and
   (term("evidence_sufficient_for_stated_objective") | ((.known_limitations + .not_proof_of) | any(test("stated objective"))) and ((.known_limitations + .not_proof_of) | any(test("global sufficiency|complete coverage")))) and
-  (term("receipt_verified") | ((.known_limitations + .not_proof_of) | any(test("external truth")))) and
-  (term("replay_verified") | ((.known_limitations + .not_proof_of) | any(test("no events occurred outside Atlas|complete event coverage")))) and
-  (term("ready") | ((.known_limitations + .not_proof_of) | any(test("production certification")))) and
+  (term("evidence_sufficient_for_stated_objective") | ((.known_limitations + .not_proof_of) | any(test("automatic")))) and
+  (term("receipt_verified") | ((.known_limitations + .not_proof_of) | any(test("external truth"))) and ((.known_limitations + .not_proof_of) | any(test("action validity"))) and ((.known_limitations + .not_proof_of) | any(test("complete event coverage")))) and
+  (term("replay_verified") | ((.known_limitations + .not_proof_of) | any(test("no events occurred outside Atlas|complete event coverage"))) and ((.known_limitations + .not_proof_of) | any(test("supplied inputs")))) and
+  (term("ready") | ((.known_limitations + .not_proof_of) | any(test("production certification"))) and ((.known_limitations + .not_proof_of) | any(test("external audit"))) and ((.known_limitations + .not_proof_of) | any(test("enterprise deployment readiness"))) and ((.known_limitations + .not_proof_of) | any(test("legal compliance")))) and
   (term("unknown_capability") | ((.known_limitations + .not_proof_of) | any(test("allowed|permission")))) and
   (term("unknown_adapter") | ((.known_limitations + .not_proof_of) | any(test("live or allowed|live integration")))) and
   (term("boundary_violation") | ((.known_limitations + .not_proof_of) | any(test("non-approval/non-support|authorization")))) and
-  (term("human_judgment_required") | ((.known_limitations + [.when_to_use]) | any(test("high-risk|ambiguous|unsupported|stale|externally dependent"))))
+  (term("human_judgment_required") | ((.known_limitations + [.when_to_use]) | any(test("high-risk|ambiguous|unsupported|stale|externally dependent"))) and ((.known_limitations + [.when_to_use]) | any(test("business/legal"))))
 ' "$VOCABULARY" >/dev/null || fail "missing specific decision safety semantics"
 
-for path in "$DOC" "$INDEX" "$MILESTONE" "$MILESTONE_INDEX"; do
+for path in "$DOC" "$INDEX" "$MILESTONE" "$MILESTONE_185" "$MILESTONE_INDEX"; do
   [ -f "$path" ] || fail "missing $path"
 done
 
@@ -188,16 +192,32 @@ require_grep 'approval/approval-plane.yaml' "$DOC"
 require_grep 'evidence/schemas/evidence-envelope.v1.schema.json' "$DOC"
 require_grep 'docs/governance/GOVERNANCE_PLANE_INTEGRATION_MAP_M182.md' "$DOC"
 require_grep 'M184 does not add a runtime decision engine' "$DOC"
+require_grep 'M184/M185 do not add a runtime decision engine' "$DOC"
 require_grep 'M184 does not add runtime orchestration' "$DOC"
+require_grep 'M184/M185 do not add runtime orchestration' "$DOC"
 require_grep 'M184 does not add action routing' "$DOC"
+require_grep 'M184/M185 do not add an action router' "$DOC"
 require_grep 'M184 does not add policy enforcement' "$DOC"
+require_grep 'M184/M185 do not add runtime policy enforcement' "$DOC"
 require_grep 'M184 does not add approval workflow execution' "$DOC"
+require_grep 'M184/M185 do not add approval workflow execution' "$DOC"
+require_grep 'M184/M185 do not add automatic approval' "$DOC"
+require_grep 'M184/M185 do not add automatic escalation' "$DOC"
+require_grep 'M184/M185 do not add break-glass execution' "$DOC"
 require_grep 'M184 does not add evidence collection' "$DOC"
+require_grep 'M184/M185 do not add evidence collection' "$DOC"
 require_grep 'M184 does not add adapter execution' "$DOC"
+require_grep 'M184/M185 do not add adapter execution' "$DOC"
 require_grep 'M184 does not add live integrations' "$DOC"
+require_grep 'M184/M185 do not add live integrations' "$DOC"
 require_grep 'M184 does not add credentials, API calls, webhooks, network collectors, database/server/web UI, or receipt semantic changes' "$DOC"
+require_grep 'M184/M185 do not add credentials/API calls/webhooks/network collectors' "$DOC"
+require_grep 'M184/M185 do not add database/server/web UI' "$DOC"
+require_grep 'M184/M185 do not change receipt semantics' "$DOC"
 require_grep 'M184 changes no hashing/canonicalization/replay behavior' "$DOC"
+require_grep 'M184/M185 do not change hashing/canonicalization/replay behavior' "$DOC"
 require_grep 'Decision terms do not grant authorization by themselves' "$DOC"
+require_grep 'Decision terms do not execute anything' "$DOC"
 
 for forbidden in \
   'raw logs' \
@@ -226,13 +246,15 @@ unsafe_text="$(
     printf '\n'
     grep -h -v '^#' "$DOC"
   } |
-    grep -Ei 'guaranteed compliance|certified compliant|legally compliant|external audit complete|enterprise deployment approved|production approved|production deployable|complete event coverage: (true|ready|implemented)|runtime safety proven|model correctness proven|artifact correctness guaranteed|actions outside Atlas cannot happen|tamper-proof infrastructure implemented|immutable storage implemented|automated audit complete|evidence sufficiency is automatic|decision terms grant authorization by themselves' |
+    grep -Ei 'guaranteed compliance|certified compliant|legally compliant|external audit complete|enterprise deployment approved|production approved|production deployable|complete event coverage: (true|ready|implemented)|runtime safety proven|model correctness proven|artifact correctness guaranteed|actions outside Atlas cannot happen|tamper-proof infrastructure implemented|immutable storage implemented|automated audit complete|evidence sufficiency is automatic|decision terms grant authorization by themselves|vocabulary is runtime enforcement|vocabulary is an approval engine' |
     head -n 1 || true
 )"
 [ -z "$unsafe_text" ] || fail "unsafe decision vocabulary claim $unsafe_text"
 
 require_grep 'governance/GOVERNANCE_DECISION_VOCABULARY_M184.md' "$INDEX"
 require_grep 'MILESTONE_184.md' "$MILESTONE_INDEX"
+require_grep 'MILESTONE_185.md' "$MILESTONE_INDEX"
 require_grep 'Governance Decision Vocabulary' "$MILESTONE_INDEX"
+require_grep 'Governance Decision Vocabulary Safety Regression' "$MILESTONE_INDEX"
 
 printf 'decisions: ok\n'
