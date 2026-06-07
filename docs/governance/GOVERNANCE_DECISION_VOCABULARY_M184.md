@@ -32,29 +32,60 @@ The bounded value is clearer review, fewer ambiguous decisions, lower evidence r
 
 M184 does not add a runtime decision engine.
 
+M184/M185 do not add a runtime decision engine.
+
 M184 does not add runtime orchestration.
+
+M184/M185 do not add runtime orchestration.
 
 M184 does not add action routing.
 
+M184/M185 do not add an action router.
+
 M184 does not add policy enforcement.
+
+M184/M185 do not add runtime policy enforcement.
 
 M184 does not add approval workflow execution.
 
+M184/M185 do not add approval workflow execution.
+
+M184/M185 do not add automatic approval.
+
+M184/M185 do not add automatic escalation.
+
+M184/M185 do not add break-glass execution.
+
 M184 does not add evidence collection.
+
+M184/M185 do not add evidence collection.
 
 M184 does not add adapter execution.
 
+M184/M185 do not add adapter execution.
+
 M184 does not add live integrations.
+
+M184/M185 do not add live integrations.
 
 M184 does not add credentials, API calls, webhooks, network collectors,
 database/server/web UI, or receipt semantic changes.
 
 M184 does not add credentials, API calls, webhooks, network collectors, database/server/web UI, or receipt semantic changes.
 
+M184/M185 do not add credentials/API calls/webhooks/network collectors.
+
+M184/M185 do not add database/server/web UI.
+
+M184/M185 do not change receipt semantics.
+
 M184 changes no hashing/canonicalization/replay behavior.
+
+M184/M185 do not change hashing/canonicalization/replay behavior.
 
 Decision terms are controlled vocabulary for future records and reviewer
 clarity. Decision terms do not grant authorization by themselves.
+Decision terms do not execute anything.
 
 ## Relationship To Capability Manifest
 
@@ -102,7 +133,7 @@ decision outputs before runtime enforcement. M184 aligns policy terms such as:
 
 `allow` is a policy modeling term only. It does not grant authorization by
 itself, does not imply runtime enforcement, and does not imply legal or
-compliance approval.
+compliance approval. It does not imply execution authority.
 
 `deny` preserves default-deny. Unknown, unsupported, or boundary-violating
 paths should resolve to safe negative or unsupported states.
@@ -126,7 +157,8 @@ review workflows before workflow execution. M184 defines shared approval terms:
 `approval_required` does not execute approval and does not approve anything.
 `approval_approved` means an approval state was recorded. It does not prove the
 action was valid, does not prove legal sufficiency, does not replace evidence
-requirements, and does not execute anything.
+requirements, and does not execute anything. It does not prove compliance or
+production approval.
 
 ## Relationship To Evidence Envelope
 
@@ -147,7 +179,8 @@ It does not mean evidence exists.
 
 `evidence_sufficient_for_stated_objective` means enough evidence is present for
 the stated review objective only. It must not imply global sufficiency,
-compliance, certification, or complete coverage.
+compliance, certification, or complete coverage. It does not make evidence
+sufficiency automatic.
 
 ## Relationship To Reviewer Output
 
@@ -161,8 +194,8 @@ Reviewer-facing records should use the same bounded words:
 - `reject_claim`
 
 Human judgment remains explicit for high-risk, ambiguous, unsupported, stale,
-or externally dependent decisions. A reviewer decision can be supported by
-metadata, but it does not replace reviewer judgment.
+externally dependent, or business/legal decisions. A reviewer decision can be
+supported by metadata, but it does not replace reviewer judgment.
 
 ## Relationship To Future Receipt/Open-Core Work
 
@@ -177,10 +210,12 @@ and replay states:
 - `hash_mismatch`
 
 `receipt_verified` means receipt structure and hash checks pass under current
-verifier rules. It does not prove external truth or complete event coverage.
+verifier rules. It does not prove external truth, action validity, or complete
+event coverage.
 
 `replay_verified` means replay checks pass for the supplied chain and order. It
-does not prove no events occurred outside Atlas.
+does not prove no events occurred outside Atlas. It does not prove chain
+completeness beyond supplied inputs.
 
 ## Decision Categories
 
@@ -270,6 +305,10 @@ System state terms:
 - `stale`
 - `unknown`
 
+`ready` is an internal readiness/status term only. It does not imply production
+certification, external audit, enterprise deployment readiness, or legal
+compliance.
+
 ## Decision Lifecycle
 
 The intended future lifecycle is:
@@ -307,9 +346,9 @@ enforcement.
 
 ## Human Judgment Boundary
 
-Human judgment remains required where risk, ambiguity, stale state,
-unsupported behavior, outside-Atlas evidence, or legal/business interpretation
-matters.
+Human judgment remains required where high-risk actions, ambiguity, stale
+state, unsupported behavior, stale/unverifiable/outside-Atlas evidence, or
+business/legal interpretation matters.
 
 Policy decisions do not grant authorization by themselves. Approval records do
 not prove action validity. Evidence envelopes do not replace reviewer
@@ -472,6 +511,8 @@ Failure and boundary states must remain explicit:
 These states keep Atlas from turning absence, ambiguity, stale state, or
 boundary violations into positive claims.
 
+Unsupported decisions must remain reviewer-visible. Unknown capability and unknown adapter decisions must remain reviewer-visible. Boundary violations must remain reviewer-visible. Supported and unsupported decisions should both be represented.
+
 ## Reviewer/Auditor Value
 
 The shared vocabulary makes reviewer output easier to compare across
@@ -484,11 +525,14 @@ metadata supports.
 
 ## Known Limitations
 
-- M184 is a draft/value milestone only.
-- M184 defines controlled vocabulary; it does not add runtime behavior.
+- M184/M185 are draft governance milestones only.
+- M184/M185 define controlled vocabulary; they do not add runtime behavior.
 - The vocabulary does not prove external truth or complete event coverage.
+- The vocabulary does not prove actions outside Atlas did not happen.
 - The vocabulary does not decide legal, compliance, business, or production
   sufficiency.
+- The vocabulary does not grant authorization, approve production, or make
+  evidence sufficiency automatic.
 - Existing external systems remain their own operational source of truth.
 - Future runtime work must remain capability-named, adapter-aware,
   policy-aware, approval-aware when needed, evidence-emitting, metadata-only,

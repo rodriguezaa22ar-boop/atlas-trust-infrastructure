@@ -25,9 +25,10 @@
     "raw artifacts"
   ],
   "known_limitations": [
-    "M184 defines controlled vocabulary only.",
-    "M184 adds no runtime decision engine, runtime orchestration, action router, runtime policy enforcement, approval workflow execution, evidence collection, adapter execution, live integrations, credentials, API calls, webhooks, network collectors, database, server, web UI, receipt semantic changes, or hashing/canonicalization/replay behavior changes.",
+    "M184/M185 define controlled vocabulary only.",
+    "M184/M185 add no runtime decision engine, runtime orchestration, action router, runtime policy enforcement, approval workflow execution, automatic approval, automatic escalation, break-glass execution, evidence collection, runtime evidence collection, automatic evidence capture, evidence collector, evidence lake implementation, adapter execution, live integrations, credentials, API calls, webhooks, network collectors, database, server, web UI, receipt semantic changes, or hashing/canonicalization/replay behavior changes.",
     "Decision terms do not grant authorization by themselves.",
+    "Decision terms do not execute anything.",
     "Decision terms do not prove legal compliance, legal sufficiency, production deployability, complete event coverage, external audit completion, runtime safety, model correctness, artifact correctness, immutable storage, or tamper-proof infrastructure."
   ],
   "decision_terms": [
@@ -45,8 +46,8 @@
       "terminal": false,
       "human_judgment_required": true,
       "metadata_only": true,
-      "not_proof_of": ["authorization by itself", "runtime enforcement", "legal compliance", "legal sufficiency", "production deployability", "complete event coverage"],
-      "known_limitations": ["Allow does not grant authorization by itself.", "Allow does not imply runtime enforcement.", "Allow does not imply legal or compliance approval."]
+      "not_proof_of": ["authorization by itself", "runtime enforcement", "legal compliance", "legal sufficiency", "production deployability", "complete event coverage", "execution authority"],
+      "known_limitations": ["Allow does not grant authorization by itself.", "Allow does not imply runtime enforcement.", "Allow does not imply legal or compliance approval.", "Allow does not imply execution authority."]
     },
     {
       "id": "deny",
@@ -283,8 +284,8 @@
       "terminal": false,
       "human_judgment_required": true,
       "metadata_only": true,
-      "not_proof_of": ["action validity", "legal sufficiency", "evidence replacement", "execution", "authorization by itself"],
-      "known_limitations": ["Approval_approved means approval state was recorded.", "Approval_approved does not prove the action was valid.", "Approval_approved does not prove legal sufficiency.", "Approval_approved does not replace evidence requirements.", "Approval_approved does not execute anything."]
+      "not_proof_of": ["action validity", "legal sufficiency", "compliance", "production approval", "evidence replacement", "execution", "authorization by itself"],
+      "known_limitations": ["Approval_approved means approval state was recorded.", "Approval_approved does not prove the action was valid.", "Approval_approved does not prove legal sufficiency.", "Approval_approved does not prove compliance.", "Approval_approved does not prove production approval.", "Approval_approved does not replace evidence requirements.", "Approval_approved does not execute anything."]
     },
     {
       "id": "approval_rejected",
@@ -505,7 +506,7 @@
       "human_judgment_required": true,
       "metadata_only": true,
       "not_proof_of": ["global sufficiency", "compliance", "certification", "complete event coverage", "legal sufficiency"],
-      "known_limitations": ["Evidence_sufficient_for_stated_objective is limited to the stated objective.", "It must not imply global sufficiency, compliance, certification, or complete coverage."]
+      "known_limitations": ["Evidence_sufficient_for_stated_objective is limited to the stated objective.", "It must not imply global sufficiency, compliance, certification, or complete coverage.", "Evidence_sufficient_for_stated_objective does not make evidence sufficiency automatic."]
     },
     {
       "id": "review_supported",
@@ -556,7 +557,7 @@
       "human_judgment_required": true,
       "metadata_only": true,
       "not_proof_of": ["approval", "authorization", "correctness"],
-      "known_limitations": ["Human_judgment_required remains explicit for high-risk, ambiguous, unsupported, stale, or externally dependent decisions."]
+      "known_limitations": ["Human_judgment_required remains explicit for high-risk, ambiguous, unsupported, stale, or externally dependent decisions.", "Human_judgment_required remains explicit for business/legal decisions."]
     },
     {
       "id": "request_more_evidence",
@@ -623,8 +624,8 @@
       "terminal": false,
       "human_judgment_required": true,
       "metadata_only": true,
-      "not_proof_of": ["external truth", "complete event coverage", "legal compliance"],
-      "known_limitations": ["Receipt_verified does not prove external truth or complete event coverage."]
+      "not_proof_of": ["external truth", "action validity", "complete event coverage", "legal compliance"],
+      "known_limitations": ["Receipt_verified does not prove external truth, action validity, or complete event coverage."]
     },
     {
       "id": "receipt_not_verified",
@@ -658,7 +659,7 @@
       "human_judgment_required": true,
       "metadata_only": true,
       "not_proof_of": ["events outside Atlas did not happen", "complete event coverage", "external truth"],
-      "known_limitations": ["Replay_verified does not prove no events occurred outside Atlas.", "Replay_verified does not prove complete event coverage."]
+      "known_limitations": ["Replay_verified does not prove no events occurred outside Atlas.", "Replay_verified does not prove complete event coverage.", "Replay_verified does not prove chain completeness beyond supplied inputs."]
     },
     {
       "id": "replay_not_verified",
@@ -725,8 +726,8 @@
       "terminal": false,
       "human_judgment_required": true,
       "metadata_only": true,
-      "not_proof_of": ["production certification", "compliance", "enterprise readiness", "external audit"],
-      "known_limitations": ["Ready is an internal readiness/status term only.", "Ready must not imply production certification, compliance, enterprise readiness, or external audit."]
+      "not_proof_of": ["production certification", "legal compliance", "compliance", "enterprise readiness", "enterprise deployment readiness", "external audit"],
+      "known_limitations": ["Ready is an internal readiness/status term only.", "Ready must not imply production certification, legal compliance, enterprise deployment readiness, enterprise readiness, or external audit."]
     },
     {
       "id": "warning",

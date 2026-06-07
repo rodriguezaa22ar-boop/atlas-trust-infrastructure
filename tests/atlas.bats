@@ -2382,6 +2382,228 @@ write_test_slsa_reference() {
   [ "$status" -eq 0 ]
 }
 
+@test "M185 governance decision vocabulary safety regression keeps terms non-runtime and bounded" {
+  vocabulary="$TEST_ROOT/toolkit/governance/decision-vocabulary.yaml"
+  decision_doc="$TEST_ROOT/toolkit/docs/governance/GOVERNANCE_DECISION_VOCABULARY_M184.md"
+  milestone="$TEST_ROOT/toolkit/docs/retention/milestones/MILESTONE_185.md"
+  milestone_index="$TEST_ROOT/toolkit/docs/retention/MILESTONE_INDEX.md"
+
+  [ -f "$vocabulary" ]
+  [ -f "$decision_doc" ]
+  [ -f "$milestone" ]
+  grep -q 'MILESTONE_185.md' "$milestone_index"
+  grep -q 'Governance Decision Vocabulary Safety Regression' "$milestone_index"
+
+  jq -e '
+    .schema_version == "atlas.governance_decision_vocabulary.v1" and
+    .status == "draft" and
+    .runtime_decision_engine_enabled == false and
+    .runtime_orchestration_enabled == false and
+    .metadata_only == true and
+    .default_decision == "deny" and
+    (.decision_terms | type == "array" and length > 0)
+  ' "$vocabulary"
+
+  for category in \
+    authorization_model \
+    capability_resolution \
+    adapter_resolution \
+    policy_decision \
+    approval_state \
+    evidence_sufficiency \
+    boundary_state \
+    reviewer_outcome \
+    replay_state \
+    system_state; do
+    jq -e --arg category "$category" 'any(.decision_terms[]; .category == $category)' "$vocabulary"
+  done
+
+  for term in \
+    allow \
+    deny \
+    approval_required \
+    evidence_required \
+    unsupported \
+    boundary_violation \
+    known_capability \
+    unknown_capability \
+    known_adapter \
+    unknown_adapter \
+    adapter_not_live \
+    adapter_import_only \
+    approval_not_required \
+    approval_requested \
+    approval_approved \
+    approval_rejected \
+    approval_expired \
+    approval_revoked \
+    approval_stale \
+    approval_escalated \
+    approval_unsupported \
+    evidence_present \
+    evidence_missing \
+    evidence_stale \
+    evidence_unverifiable \
+    evidence_outside_atlas \
+    evidence_insufficient \
+    evidence_sufficient_for_stated_objective \
+    review_supported \
+    review_not_supported \
+    human_judgment_required \
+    request_more_evidence \
+    escalate_review \
+    reject_claim \
+    receipt_verified \
+    receipt_not_verified \
+    replay_verified \
+    replay_not_verified \
+    chain_order_unknown \
+    hash_mismatch \
+    ready \
+    warning \
+    blocked \
+    not_ready \
+    stale \
+    unknown; do
+    jq -e --arg term "$term" 'any(.decision_terms[]; .id == $term)' "$vocabulary"
+  done
+
+  missing_term_field="$(
+    jq -r '
+      .decision_terms[]
+      | select(
+          ((.id // "") == "")
+          or ((.category // "") == "")
+          or ((.status // "") == "")
+          or ((.meaning // "") == "")
+          or ((.planes | type) != "array" or (.planes | length) == 0)
+          or ((.when_to_use // "") == "")
+          or ((.required_context | type) != "array" or (.required_context | length) == 0)
+          or ((.evidence_expectation // "") == "")
+          or ((.approval_expectation // "") == "")
+          or ((.reviewer_visibility // "") == "")
+          or (has("terminal") | not)
+          or (has("human_judgment_required") | not)
+          or (.metadata_only != true)
+          or ((.not_proof_of | type) != "array" or (.not_proof_of | length) == 0)
+          or ((.known_limitations | type) != "array" or (.known_limitations | length) == 0)
+        )
+      | .id // "unnamed"
+    ' "$vocabulary" | head -n 1
+  )"
+  [ -z "$missing_term_field" ]
+
+  grep -q 'M184/M185 do not add a runtime decision engine' "$decision_doc"
+  grep -q 'M184/M185 do not add runtime orchestration' "$decision_doc"
+  grep -q 'M184/M185 do not add an action router' "$decision_doc"
+  grep -q 'M184/M185 do not add runtime policy enforcement' "$decision_doc"
+  grep -q 'M184/M185 do not add approval workflow execution' "$decision_doc"
+  grep -q 'M184/M185 do not add automatic approval' "$decision_doc"
+  grep -q 'M184/M185 do not add automatic escalation' "$decision_doc"
+  grep -q 'M184/M185 do not add break-glass execution' "$decision_doc"
+  grep -q 'M184/M185 do not add evidence collection' "$decision_doc"
+  grep -q 'M184/M185 do not add adapter execution' "$decision_doc"
+  grep -q 'M184/M185 do not add live integrations' "$decision_doc"
+  grep -q 'M184/M185 do not add credentials/API calls/webhooks/network collectors' "$decision_doc"
+  grep -q 'M184/M185 do not add database/server/web UI' "$decision_doc"
+  grep -q 'M184/M185 do not change receipt semantics' "$decision_doc"
+  grep -q 'M184/M185 do not change hashing/canonicalization/replay behavior' "$decision_doc"
+  grep -q 'Decision terms do not grant authorization by themselves' "$decision_doc"
+  grep -q 'Decision terms do not execute anything' "$decision_doc"
+
+  jq -e '
+    def term($id): .decision_terms[] | select(.id == $id);
+    (term("allow") | ((.known_limitations + .not_proof_of) | any(test("authorization by itself"))) and ((.known_limitations + .not_proof_of) | any(test("runtime enforcement"))) and ((.known_limitations + .not_proof_of) | any(test("legal|compliance"))) and ((.known_limitations + .not_proof_of) | any(test("execution authority")))) and
+    (term("deny") | ((.known_limitations + [.meaning]) | any(test("default-deny")))) and
+    (term("approval_required") | ((.known_limitations + .not_proof_of + [.approval_expectation]) | any(test("does not execute approval|does not request, execute, or grant approval")))) and
+    (term("approval_approved") | ((.known_limitations + .not_proof_of) | any(test("action was valid|action validity"))) and ((.known_limitations + .not_proof_of) | any(test("legal sufficiency"))) and ((.known_limitations + .not_proof_of) | any(test("compliance"))) and ((.known_limitations + .not_proof_of) | any(test("production approval"))) and ((.known_limitations + .not_proof_of) | any(test("evidence replacement"))) and ((.known_limitations + .not_proof_of) | any(test("execute|execution")))) and
+    (term("evidence_required") | ((.known_limitations + .not_proof_of) | any(test("does not mean evidence exists|evidence existence")))) and
+    (term("evidence_present") | ((.known_limitations + .not_proof_of) | any(test("does not automatically mean evidence is sufficient|sufficiency")))) and
+    (term("evidence_sufficient_for_stated_objective") | ((.known_limitations + .not_proof_of) | any(test("stated objective"))) and ((.known_limitations + .not_proof_of) | any(test("global sufficiency"))) and ((.known_limitations + .not_proof_of) | any(test("compliance|certification"))) and ((.known_limitations + .not_proof_of) | any(test("complete event coverage|complete coverage"))) and ((.known_limitations + .not_proof_of) | any(test("automatic")))) and
+    (term("receipt_verified") | ((.known_limitations + .not_proof_of) | any(test("external truth"))) and ((.known_limitations + .not_proof_of) | any(test("action validity"))) and ((.known_limitations + .not_proof_of) | any(test("complete event coverage")))) and
+    (term("replay_verified") | ((.known_limitations + .not_proof_of) | any(test("no events occurred outside Atlas|complete event coverage"))) and ((.known_limitations + .not_proof_of) | any(test("supplied inputs")))) and
+    (term("ready") | ((.known_limitations + .not_proof_of) | any(test("production certification"))) and ((.known_limitations + .not_proof_of) | any(test("external audit"))) and ((.known_limitations + .not_proof_of) | any(test("enterprise deployment readiness"))) and ((.known_limitations + .not_proof_of) | any(test("legal compliance")))) and
+    (term("unknown_capability") | ((.known_limitations + .not_proof_of) | any(test("allowed|permission")))) and
+    (term("unknown_adapter") | ((.known_limitations + .not_proof_of) | any(test("live or allowed|live integration")))) and
+    (term("boundary_violation") | ((.known_limitations + .not_proof_of) | any(test("non-approval/non-support|authorization")))) and
+    (term("unsupported") | ((.known_limitations + [.reviewer_visibility]) | any(test("visible")))) and
+    (term("human_judgment_required") | ((.known_limitations + [.when_to_use]) | any(test("high-risk|ambiguous|unsupported|stale|externally dependent"))) and ((.known_limitations + [.when_to_use]) | any(test("business/legal"))))
+  ' "$vocabulary"
+
+  grep -q 'Unsupported decisions must remain reviewer-visible' "$decision_doc"
+  grep -q 'Unknown capability and unknown adapter decisions must remain reviewer-visible' "$decision_doc"
+  grep -q 'Boundary violations must remain reviewer-visible' "$decision_doc"
+  grep -q 'Supported and unsupported decisions should both be represented' "$decision_doc"
+  grep -q 'high-risk actions' "$decision_doc"
+  grep -q 'ambiguous decisions' "$decision_doc"
+  grep -q 'stale/unverifiable/outside-Atlas evidence' "$decision_doc"
+  grep -q 'business/legal interpretation' "$decision_doc"
+  grep -q 'does not replace reviewer judgment' "$decision_doc"
+  grep -q 'metadata-only' "$decision_doc"
+
+  for forbidden in \
+    'raw logs' \
+    'secrets' \
+    'private keys' \
+    'tokens' \
+    'Authorization headers' \
+    'request bodies' \
+    'response bodies' \
+    'packet captures' \
+    'raw prompts' \
+    'raw model outputs' \
+    'tool output bodies' \
+    'browser/session/cookie material' \
+    'customer data' \
+    'payment data' \
+    'private business records' \
+    'unredacted evidence bodies' \
+    'raw artifacts'; do
+    grep -q "$forbidden" "$decision_doc"
+    jq -e --arg forbidden "$forbidden" '.forbidden_content | index($forbidden)' "$vocabulary"
+  done
+
+  grep -q 'Why Atlas Needs A Shared Decision Vocabulary' "$decision_doc"
+  grep -q 'Decision Categories' "$decision_doc"
+  grep -q 'Required Decision Terms' "$decision_doc"
+  grep -q 'Decision Lifecycle' "$decision_doc"
+  grep -q 'Terminal Vs Non-Terminal Decisions' "$decision_doc"
+  grep -q 'Human Judgment Boundary' "$decision_doc"
+  grep -q 'Metadata-Only Boundary' "$decision_doc"
+  grep -q 'What Decision Terms May Record' "$decision_doc"
+  grep -q 'What Decision Terms Must Not Store' "$decision_doc"
+  grep -q 'What Decision Terms Do Not Prove' "$decision_doc"
+  grep -q 'Example: AI-Agent Action Decision Path' "$decision_doc"
+  grep -q 'Example: Release Verification Decision Path' "$decision_doc"
+  grep -q 'Example: Business-Flow Sensitive Change Decision Path' "$decision_doc"
+  grep -q 'Failure And Boundary States' "$decision_doc"
+  grep -q 'Known Limitations' "$decision_doc"
+  grep -q 'capabilities.yaml' "$decision_doc"
+  grep -q 'adapters/registry.yaml' "$decision_doc"
+  grep -q 'policy/policy-plane.yaml' "$decision_doc"
+  grep -q 'approval/approval-plane.yaml' "$decision_doc"
+  grep -q 'evidence/schemas/evidence-envelope.v1.schema.json' "$decision_doc"
+  grep -q 'docs/governance/GOVERNANCE_PLANE_INTEGRATION_MAP_M182.md' "$decision_doc"
+
+  ! grep -Eiq 'guaranteed compliance|certified compliant|legally compliant|external audit complete|enterprise deployment approved|production approval granted|production deployability proven|complete event coverage: (true|ready|implemented)|runtime safety proven|model correctness proven|artifact correctness guaranteed|actions outside Atlas cannot happen|tamper-proof infrastructure implemented|immutable storage implemented|automated audit complete|evidence sufficiency is automatic|decision terms grant authorization by themselves|vocabulary is runtime enforcement|vocabulary is an approval engine' "$decision_doc" "$vocabulary"
+
+  grep -q 'clearer review' "$decision_doc"
+  grep -q 'fewer ambiguous decisions' "$decision_doc"
+  grep -q 'lower evidence reconstruction work' "$decision_doc"
+  grep -q 'privacy-preserving governance' "$decision_doc"
+  grep -q 'stronger audit readiness' "$decision_doc"
+  grep -q 'safer future connectors and workflows' "$decision_doc"
+  grep -q 'lower cost of trust without lowering standards' "$decision_doc"
+  grep -q 'proof without exposure' "$decision_doc"
+
+  run "$TEST_ROOT/toolkit/bin/dev-decisions"
+  [ "$status" -eq 0 ]
+  [ "$output" = "decisions: ok" ]
+
+  run "$TEST_ROOT/toolkit/bin/dev-governance"
+  [ "$status" -eq 0 ]
+}
+
 @test "evidence envelope and hash ledger validate replayable proof chain read-only" {
   ledger_doc="$TEST_ROOT/toolkit/ledger/README.md"
   decision_schema="$TEST_ROOT/toolkit/schemas/decision.v1.schema.json"
