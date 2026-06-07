@@ -20,6 +20,7 @@ nix-shell
 ./bin/dev-policy
 ./bin/dev-approval
 ./bin/dev-evidence
+./bin/dev-decisions
 ./bin/dev-qa
 nix-shell --run './bin/dev-qa'
 ```

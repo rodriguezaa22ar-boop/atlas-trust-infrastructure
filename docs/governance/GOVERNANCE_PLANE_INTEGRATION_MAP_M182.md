@@ -58,6 +58,10 @@ claims remain outside Atlas.
 M172-M181 do not yet execute runtime governance. They do not route actions,
 enforce policy, execute approvals, collect evidence, or call external systems.
 
+M184 adds `governance/decision-vocabulary.yaml` as the shared controlled
+vocabulary for decision words used across these planes. It is a vocabulary
+contract only; it does not add a runtime decision engine or action routing.
+
 ## Future Runtime State
 
 Future work may add runtime components only after the contracts remain stable

@@ -1,0 +1,238 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+VOCABULARY="${1:-$ROOT/governance/decision-vocabulary.yaml}"
+DOC="$ROOT/docs/governance/GOVERNANCE_DECISION_VOCABULARY_M184.md"
+INDEX="$ROOT/docs/INDEX.md"
+MILESTONE="$ROOT/docs/retention/milestones/MILESTONE_184.md"
+MILESTONE_INDEX="$ROOT/docs/retention/MILESTONE_INDEX.md"
+
+fail() {
+  printf 'decisions: fail %s\n' "$*" >&2
+  exit 1
+}
+
+require_command() {
+  command -v "$1" >/dev/null 2>&1 || fail "missing required command $1"
+}
+
+require_grep() {
+  local pattern="$1"
+  local path="$2"
+
+  grep -q "$pattern" "$path" || fail "missing '$pattern' in $path"
+}
+
+require_command jq
+require_command grep
+require_command sort
+require_command uniq
+
+[ -f "$VOCABULARY" ] || fail "missing $VOCABULARY"
+jq -e . "$VOCABULARY" >/dev/null 2>&1 || fail "invalid JSON-compatible vocabulary $VOCABULARY"
+
+jq -e '
+  .schema_version == "atlas.governance_decision_vocabulary.v1" and
+  .status == "draft" and
+  .runtime_decision_engine_enabled == false and
+  .runtime_orchestration_enabled == false and
+  .metadata_only == true and
+  .default_decision == "deny" and
+  (.decision_terms | type == "array" and length > 0)
+' "$VOCABULARY" >/dev/null || fail "invalid decision vocabulary header"
+
+for category in \
+  authorization_model \
+  capability_resolution \
+  adapter_resolution \
+  policy_decision \
+  approval_state \
+  evidence_sufficiency \
+  boundary_state \
+  reviewer_outcome \
+  replay_state \
+  system_state; do
+  jq -e --arg category "$category" 'any(.decision_terms[]; .category == $category)' "$VOCABULARY" >/dev/null ||
+    fail "missing decision category $category"
+done
+
+for term in \
+  allow \
+  deny \
+  approval_required \
+  evidence_required \
+  unsupported \
+  boundary_violation \
+  known_capability \
+  unknown_capability \
+  known_adapter \
+  unknown_adapter \
+  adapter_not_live \
+  adapter_import_only \
+  approval_not_required \
+  approval_requested \
+  approval_approved \
+  approval_rejected \
+  approval_expired \
+  approval_revoked \
+  approval_stale \
+  approval_escalated \
+  approval_unsupported \
+  evidence_present \
+  evidence_missing \
+  evidence_stale \
+  evidence_unverifiable \
+  evidence_outside_atlas \
+  evidence_insufficient \
+  evidence_sufficient_for_stated_objective \
+  review_supported \
+  review_not_supported \
+  human_judgment_required \
+  request_more_evidence \
+  escalate_review \
+  reject_claim \
+  receipt_verified \
+  receipt_not_verified \
+  replay_verified \
+  replay_not_verified \
+  chain_order_unknown \
+  hash_mismatch \
+  ready \
+  warning \
+  blocked \
+  not_ready \
+  stale \
+  unknown; do
+  jq -e --arg term "$term" 'any(.decision_terms[]; .id == $term)' "$VOCABULARY" >/dev/null ||
+    fail "missing decision term $term"
+done
+
+duplicate_term="$(jq -r '.decision_terms[].id' "$VOCABULARY" | sort | uniq -d | head -n 1)"
+[ -z "$duplicate_term" ] || fail "duplicate decision term $duplicate_term"
+
+missing_term_field="$(
+  jq -r '
+    .decision_terms[]
+    | select(
+        ((.id // "") == "")
+        or ((.category // "") == "")
+        or ((.status // "") == "")
+        or ((.meaning // "") == "")
+        or ((.planes | type) != "array" or (.planes | length) == 0)
+        or ((.when_to_use // "") == "")
+        or ((.required_context | type) != "array" or (.required_context | length) == 0)
+        or ((.evidence_expectation // "") == "")
+        or ((.approval_expectation // "") == "")
+        or ((.reviewer_visibility // "") == "")
+        or (has("terminal") | not)
+        or (has("human_judgment_required") | not)
+        or (.metadata_only != true)
+        or ((.not_proof_of | type) != "array" or (.not_proof_of | length) == 0)
+        or ((.known_limitations | type) != "array" or (.known_limitations | length) == 0)
+      )
+    | .id // "unnamed"
+  ' "$VOCABULARY" | head -n 1
+)"
+[ -z "$missing_term_field" ] || fail "missing decision term field $missing_term_field"
+
+for forbidden in \
+  "raw logs" \
+  "secrets" \
+  "private keys" \
+  "tokens" \
+  "Authorization headers" \
+  "request bodies" \
+  "response bodies" \
+  "packet captures" \
+  "raw prompts" \
+  "raw model outputs" \
+  "tool output bodies" \
+  "browser/session/cookie material" \
+  "customer data" \
+  "payment data" \
+  "private business records" \
+  "unredacted evidence bodies" \
+  "raw artifacts"; do
+  jq -e --arg forbidden "$forbidden" '.forbidden_content | index($forbidden)' "$VOCABULARY" >/dev/null ||
+    fail "missing forbidden content class $forbidden"
+done
+
+jq -e '
+  def term($id): .decision_terms[] | select(.id == $id);
+  (term("allow") | ((.known_limitations + .not_proof_of) | any(test("authorization by itself"))) and ((.known_limitations + .not_proof_of) | any(test("runtime enforcement")))) and
+  (term("deny") | ((.known_limitations + [.meaning]) | any(test("default-deny")))) and
+  (term("approval_required") | ((.known_limitations + .not_proof_of + [.approval_expectation]) | any(test("does not execute approval|does not request, execute, or grant approval")))) and
+  (term("approval_approved") | ((.known_limitations + .not_proof_of) | any(test("action was valid"))) and ((.known_limitations + .not_proof_of) | any(test("legal sufficiency")))) and
+  (term("evidence_required") | ((.known_limitations + .not_proof_of) | any(test("does not mean evidence exists|evidence existence")))) and
+  (term("evidence_sufficient_for_stated_objective") | ((.known_limitations + .not_proof_of) | any(test("stated objective"))) and ((.known_limitations + .not_proof_of) | any(test("global sufficiency|complete coverage")))) and
+  (term("receipt_verified") | ((.known_limitations + .not_proof_of) | any(test("external truth")))) and
+  (term("replay_verified") | ((.known_limitations + .not_proof_of) | any(test("no events occurred outside Atlas|complete event coverage")))) and
+  (term("ready") | ((.known_limitations + .not_proof_of) | any(test("production certification")))) and
+  (term("unknown_capability") | ((.known_limitations + .not_proof_of) | any(test("allowed|permission")))) and
+  (term("unknown_adapter") | ((.known_limitations + .not_proof_of) | any(test("live or allowed|live integration")))) and
+  (term("boundary_violation") | ((.known_limitations + .not_proof_of) | any(test("non-approval/non-support|authorization")))) and
+  (term("human_judgment_required") | ((.known_limitations + [.when_to_use]) | any(test("high-risk|ambiguous|unsupported|stale|externally dependent"))))
+' "$VOCABULARY" >/dev/null || fail "missing specific decision safety semantics"
+
+for path in "$DOC" "$INDEX" "$MILESTONE" "$MILESTONE_INDEX"; do
+  [ -f "$path" ] || fail "missing $path"
+done
+
+require_grep 'governance/decision-vocabulary.yaml' "$DOC"
+require_grep 'capabilities.yaml' "$DOC"
+require_grep 'adapters/registry.yaml' "$DOC"
+require_grep 'policy/policy-plane.yaml' "$DOC"
+require_grep 'approval/approval-plane.yaml' "$DOC"
+require_grep 'evidence/schemas/evidence-envelope.v1.schema.json' "$DOC"
+require_grep 'docs/governance/GOVERNANCE_PLANE_INTEGRATION_MAP_M182.md' "$DOC"
+require_grep 'M184 does not add a runtime decision engine' "$DOC"
+require_grep 'M184 does not add runtime orchestration' "$DOC"
+require_grep 'M184 does not add action routing' "$DOC"
+require_grep 'M184 does not add policy enforcement' "$DOC"
+require_grep 'M184 does not add approval workflow execution' "$DOC"
+require_grep 'M184 does not add evidence collection' "$DOC"
+require_grep 'M184 does not add adapter execution' "$DOC"
+require_grep 'M184 does not add live integrations' "$DOC"
+require_grep 'M184 does not add credentials, API calls, webhooks, network collectors, database/server/web UI, or receipt semantic changes' "$DOC"
+require_grep 'M184 changes no hashing/canonicalization/replay behavior' "$DOC"
+require_grep 'Decision terms do not grant authorization by themselves' "$DOC"
+
+for forbidden in \
+  'raw logs' \
+  'secrets' \
+  'private keys' \
+  'tokens' \
+  'Authorization headers' \
+  'request bodies' \
+  'response bodies' \
+  'packet captures' \
+  'raw prompts' \
+  'raw model outputs' \
+  'tool output bodies' \
+  'browser/session/cookie material' \
+  'customer data' \
+  'payment data' \
+  'private business records' \
+  'unredacted evidence bodies' \
+  'raw artifacts'; do
+  require_grep "$forbidden" "$DOC"
+done
+
+unsafe_text="$(
+  {
+    jq -r '.. | strings?' "$VOCABULARY"
+    printf '\n'
+    grep -h -v '^#' "$DOC"
+  } |
+    grep -Ei 'guaranteed compliance|certified compliant|legally compliant|external audit complete|enterprise deployment approved|production approved|production deployable|complete event coverage: (true|ready|implemented)|runtime safety proven|model correctness proven|artifact correctness guaranteed|actions outside Atlas cannot happen|tamper-proof infrastructure implemented|immutable storage implemented|automated audit complete|evidence sufficiency is automatic|decision terms grant authorization by themselves' |
+    head -n 1 || true
+)"
+[ -z "$unsafe_text" ] || fail "unsafe decision vocabulary claim $unsafe_text"
+
+require_grep 'governance/GOVERNANCE_DECISION_VOCABULARY_M184.md' "$INDEX"
+require_grep 'MILESTONE_184.md' "$MILESTONE_INDEX"
+require_grep 'Governance Decision Vocabulary' "$MILESTONE_INDEX"
+
+printf 'decisions: ok\n'

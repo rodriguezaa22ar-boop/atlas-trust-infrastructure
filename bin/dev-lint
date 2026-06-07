@@ -18,6 +18,7 @@ shellcheck -x \
 	"$ROOT/bin/dev-adapters" \
 	"$ROOT/bin/dev-approval" \
 	"$ROOT/bin/dev-capabilities" \
+	"$ROOT/bin/dev-decisions" \
 	"$ROOT/bin/dev-evidence" \
 	"$ROOT/bin/dev-policy" \
 	"$ROOT/bin/dev-governance" \
