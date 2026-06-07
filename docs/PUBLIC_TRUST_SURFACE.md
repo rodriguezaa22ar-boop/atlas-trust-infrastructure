@@ -24,6 +24,29 @@ Atlas helps reviewers inspect critical actions as bounded proof envelopes:
 - reviewer decision packets that connect objective, evidence status,
   verification commands, known limitations, and outside-Atlas determinations.
 
+## Governance Stack
+
+The public trust surface now includes the completed governance stack:
+
+- Capability Manifest: names recognized action classes and evidence
+  expectations.
+- Adapter Registry: documents metadata-only source/system boundaries before
+  live integrations.
+- Policy Plane: models decision inputs and outputs before runtime policy
+  enforcement.
+- Approval Plane: models approval states and reviewer workflows before approval
+  workflow execution.
+- Evidence Envelope Schema: defines metadata-only proof records before runtime
+  evidence collection.
+- Governance Plane Integration Map: explains how the planes connect without
+  runtime orchestration.
+- Governance Decision Vocabulary: keeps decision words consistent without
+  granting authorization by vocabulary.
+
+These materials support reviewer clarity. They do not add runtime enforcement,
+live integrations, production readiness, certification, complete event
+coverage, or external audit completion.
+
 ## Proof Receipts
 
 Atlas proof receipts are metadata-only records for critical digital actions.
@@ -43,6 +66,13 @@ Atlas verifies receipt structure, deterministic hashes, metadata-only
 boundaries, and provided replay order. This makes the action record reviewable
 without embedding raw logs, secrets, prompt bodies, packet captures, or
 request/response bodies.
+
+Atlas proof records must not embed raw logs, secrets, private keys, tokens,
+Authorization headers, request bodies, response bodies, packet captures, raw
+prompts, raw model outputs, tool output bodies, browser/session/cookie
+material, customer data, payment data, private business records, unredacted
+evidence bodies, or raw artifacts.
+This includes raw prompts, browser/session/cookie material, and unredacted evidence bodies.
 
 ## Reviewer Outcomes
 
@@ -110,6 +140,12 @@ completion, tamper-proof infrastructure, guaranteed safety, external SLSA
 certification, production deployability outside the local Atlas contract,
 enterprise deployment approval, runtime safety proof, model correctness proof,
 or artifact correctness guarantee.
+
+Atlas records and verifies metadata-only proof chains. It does not grant
+permission, replace approval authorities, certify compliance, prove legal
+sufficiency, guarantee action validity, prove complete event coverage, or
+replace human judgment.
+Atlas does not grant permission by itself.
 
 Known limitations remain part of the public trust surface because they tell a
 reviewer exactly where Atlas evidence ends and outside determination begins.

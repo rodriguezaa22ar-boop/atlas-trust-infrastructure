@@ -5,6 +5,19 @@
 Use this index when you want to understand Atlas quickly without reading the
 repository in filesystem order.
 
+Atlas records and verifies metadata-only proof chains. It does not grant
+permission, replace approval authorities, certify compliance, prove legal
+sufficiency, guarantee action validity, prove complete event coverage, or
+replace human judgment.
+Atlas does not grant permission by itself.
+
+Atlas proof records must not embed raw logs, secrets, private keys, tokens,
+Authorization headers, request bodies, response bodies, packet captures, raw
+prompts, raw model outputs, tool output bodies, browser/session/cookie
+material, customer data, payment data, private business records, unredacted
+evidence bodies, or raw artifacts.
+This includes raw prompts, browser/session/cookie material, and unredacted evidence bodies.
+
 ## Start here
 
 - [ATLAS_ONE_PAGE.md](ATLAS_ONE_PAGE.md): one-page explanation of what Atlas is,
@@ -24,6 +37,10 @@ repository in filesystem order.
   scale and storage strategy for larger metadata-only receipt volumes,
   indexing, batch verification, batch replay, archive rotation, and future
   collector/verifier boundaries without adding storage runtime.
+- Open Proof / billion-dollar direction:
+  [ROADMAP.md](ROADMAP.md) and
+  [atlas/TRUST_INFRASTRUCTURE_DIRECTION.md](atlas/TRUST_INFRASTRUCTURE_DIRECTION.md)
+  describe the metadata-first proof direction without adding runtime engines.
 - [governance/CAPABILITY_MANIFEST_M172.md](governance/CAPABILITY_MANIFEST_M172.md):
   capability manifest draft mapping recognized Atlas actions to capability
   class, approval posture, emitted evidence, and blocked-action boundaries.
@@ -237,6 +254,10 @@ repository in filesystem order.
   Policy Plane, Approval Plane, and Evidence Envelope connect from action or
   imported event to reviewer output and replay without adding runtime
   orchestration.
+- [governance/GOVERNANCE_DECISION_VOCABULARY_M184.md](governance/GOVERNANCE_DECISION_VOCABULARY_M184.md):
+  M184 shared decision vocabulary for capability, adapter, policy, approval,
+  evidence, reviewer, replay, and system-state terms without adding runtime
+  decision execution.
 - [adapters/GENERIC_EXTERNAL_EVENT_RECEIPT_ADAPTER.md](adapters/GENERIC_EXTERNAL_EVENT_RECEIPT_ADAPTER.md):
   M143 local-file import-only adapter for converting synthetic generic external
   events into Atlas receipts.
