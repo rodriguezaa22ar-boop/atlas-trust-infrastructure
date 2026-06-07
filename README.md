@@ -1,6 +1,6 @@
 # Atlas Trust Infrastructure
 
-Atlas is metadata-first integrity infrastructure for operational proof. It supports audit-ready evidence, release governance, CI integrity review, AI-agent action review, approval integrity, evidence sufficiency, and reviewer decision support. It acts as a trust overlay for authorized work around GitHub, Nix, SSH, tmux, scanners, approval tools, and business systems. It records and verifies the proof chain around them.
+Atlas is metadata-first integrity infrastructure for operational proof. It supports audit-ready evidence, release governance, CI integrity review, AI-agent action review, approval integrity, evidence sufficiency, and reviewer decision support. It acts as a trust overlay for authorized work around GitHub, Nix, SSH, tmux, scanners, approval tools, and business systems. It does not replace GitHub, Nix, SSH, tmux, scanners, approval tools, or business systems. It records and verifies the proof chain around them.
 
 The chain records who requested an action, what capability and policy applied,
 whether approval was required, which evidence and artifact references were
