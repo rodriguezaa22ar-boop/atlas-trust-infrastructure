@@ -45,12 +45,25 @@ When the project says a pillar is `ready`, interpret that as:
 It does not mean:
 
 - production-ready
-- externally audited
+- external audit complete
 - enterprise-ready
 - deployment-certified
 - autonomous
 - cryptographically immutable
 - tamper-proof
+
+Atlas records and verifies metadata-only proof chains. It does not grant
+permission, replace approval authorities, certify compliance, prove legal
+sufficiency, guarantee action validity, prove complete event coverage, or
+replace human judgment.
+Atlas does not grant permission by itself.
+
+Atlas proof records must not embed raw logs, secrets, private keys, tokens,
+Authorization headers, request bodies, response bodies, packet captures, raw
+prompts, raw model outputs, tool output bodies, browser/session/cookie
+material, customer data, payment data, private business records, unredacted
+evidence bodies, or raw artifacts.
+This includes raw prompts, browser/session/cookie material, and unredacted evidence bodies.
 
 Use precise language such as:
 
@@ -84,6 +97,39 @@ Every meaningful feature should support at least one of these:
 - known limitations
 
 If a change does not support one of those goals, question whether it belongs.
+
+---
+
+## Current Strategic Priority
+
+The current strategic priority is governance-plane alignment, public source
+alignment, Open Core receipt alignment, and release trust as a critical pillar.
+Release trust remains essential, but it is no longer the only current priority.
+
+The completed public governance stack is:
+
+- Capability Manifest
+- Adapter Registry
+- Policy Plane
+- Approval Plane
+- Evidence Envelope
+- Governance Plane Integration Map
+- Governance Decision Vocabulary
+
+These are governance contracts, draft schemas, documentation, examples, and
+validation surfaces unless runtime behavior is explicitly implemented in a
+later milestone.
+
+Governance contracts do not imply runtime enforcement. Decision vocabulary
+terms do not grant authorization by themselves. Evidence envelopes are
+metadata-only schema contracts unless runtime emission is explicitly
+implemented later. Policy plane docs do not create a policy engine. Approval
+plane docs do not create approval workflow execution. Adapter registry docs do
+not create live integrations.
+
+Decision vocabulary terms do not grant authorization by themselves.
+Evidence envelopes are metadata-only schema contracts unless runtime emission is explicitly implemented later.
+Adapter registry docs do not create live integrations.
 
 ---
 
@@ -304,6 +350,7 @@ Metadata-only packets may include:
 
 Metadata-only packets must not include:
 
+- raw logs
 - raw runtime artifacts
 - target secrets
 - session contents
@@ -311,7 +358,18 @@ Metadata-only packets must not include:
 - credential material
 - private keys
 - tokens
+- Authorization headers
+- request bodies
+- response bodies
+- raw prompts
+- raw model outputs
+- tool output bodies
+- browser/session/cookie material
+- customer data
+- payment data
+- private business records
 - unredacted evidence bodies
+- raw artifacts
 - exploit payloads
 - sensitive operator notes
 
@@ -375,7 +433,8 @@ If any required production gate is missing, Atlas is `not-ready` for production 
 
 ## Release Trust
 
-The current strategic priority is release trust consolidation.
+Release trust is a critical pillar in the broader governance-plane alignment
+and Open Core receipt alignment priority.
 
 Release trust work should focus on:
 
@@ -607,8 +666,8 @@ Avoid:
 - autonomous pentest
 - exploit automation
 - AI hacker
-- production certified
-- enterprise ready
+- externally certified for production
+- externally approved for organization-scale deployment
 
 ---
 

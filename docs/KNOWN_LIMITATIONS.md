@@ -17,6 +17,19 @@ AI-agent action review, approval integrity, evidence sufficiency review, and
 reviewer decision support through replayable metadata-only proof receipts. The
 boundaries below keep those support claims tied to evidence.
 
+Atlas records and verifies metadata-only proof chains. It does not grant
+permission, replace approval authorities, certify compliance, prove legal
+sufficiency, guarantee action validity, prove complete event coverage, or
+replace human judgment.
+Atlas does not grant permission by itself.
+
+Atlas proof records must not embed raw logs, secrets, private keys, tokens,
+Authorization headers, request bodies, response bodies, packet captures, raw
+prompts, raw model outputs, tool output bodies, browser/session/cookie
+material, customer data, payment data, private business records, unredacted
+evidence bodies, or raw artifacts.
+This includes raw prompts, browser/session/cookie material, and unredacted evidence bodies.
+
 - Release trust packets are hash-bound by release provenance; packet files are
   not individually signed.
 - Release provenance currently uses local signed Git tags for Atlas production
@@ -57,6 +70,30 @@ boundaries below keep those support claims tied to evidence.
   required-field changes, enum meaning changes, or verification semantic
   changes require a version bump.
 
+## Governance Stack Limitations
+
+- Governance contracts are not runtime engines.
+- The Capability Manifest names and classifies actions; it does not grant
+  permission by itself.
+- The Adapter Registry documents source/system boundaries; it does not create
+  live integrations, API calls, webhooks, network collectors, or adapter
+  execution.
+- The Policy Plane models decisions; policy decisions do not prove legal or
+  compliance approval and do not create runtime policy enforcement.
+- The Approval Plane models approval state; approval records do not prove
+  action validity, production approval, legal sufficiency, or execution.
+- The Evidence Envelope is a draft schema contract unless runtime evidence
+  emission is explicitly implemented later.
+- evidence emission is explicitly implemented later only in a future runtime
+  milestone, not by the current schema contract.
+- The Governance Decision Vocabulary standardizes words; decision vocabulary
+  terms do not grant authorization by themselves.
+- decision vocabulary terms do not grant authorization by themselves.
+- Replay does not prove complete event coverage.
+- Atlas does not prove actions outside Atlas did not happen.
+- Atlas does not replace human judgment.
+- Atlas does not prove model correctness or artifact correctness.
+
 ## Runtime Limitations
 
 - Atlas is shell-native and local-first.
@@ -76,7 +113,8 @@ boundaries below keep those support claims tied to evidence.
 ## Language Boundary
 
 Avoid describing Atlas as autonomous, unbreakable, fully secure,
-enterprise-ready, externally audited, or deployment-certified unless future
-evidence actually supports those claims. If `atlas production status` reports
-`production-ready`, describe that as the local Atlas production contract
-passing for retained release evidence.
+organization-scale approved, externally reviewed as complete, or certified for
+deployment unless future evidence actually supports those claims. If
+`atlas production status` reports readiness under the local Atlas contract,
+describe that as the local Atlas production contract passing for retained
+release evidence.

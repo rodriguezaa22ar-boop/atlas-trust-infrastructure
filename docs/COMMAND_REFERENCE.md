@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This is the detailed command reference for Native Lab Toolkit. The root
+This is the detailed command reference for Atlas. The root
 `README.md` is intentionally short; use this file when you need the broader
 command surface.
 
@@ -17,6 +17,9 @@ nix-shell
 ./bin/dev-lint
 ./bin/dev-test
 ./bin/dev-stress
+./bin/dev-governance
+./bin/dev-capabilities
+./bin/dev-adapters
 ./bin/dev-policy
 ./bin/dev-approval
 ./bin/dev-evidence
@@ -24,6 +27,25 @@ nix-shell
 ./bin/dev-qa
 nix-shell --run './bin/dev-qa'
 ```
+
+The governance helpers validate public contracts only. They do not add runtime
+policy enforcement, approval workflow execution, adapter execution, evidence
+collection, decision execution, live integrations, credentials, API calls,
+webhooks, network collectors, database/server/web UI, receipt semantic
+changes, or hashing/canonicalization/replay behavior changes.
+
+Atlas records and verifies metadata-only proof chains. It does not grant
+permission, replace approval authorities, certify compliance, prove legal
+sufficiency, guarantee action validity, prove complete event coverage, or
+replace human judgment.
+Atlas does not grant permission by itself.
+
+Atlas proof records must not embed raw logs, secrets, private keys, tokens,
+Authorization headers, request bodies, response bodies, packet captures, raw
+prompts, raw model outputs, tool output bodies, browser/session/cookie
+material, customer data, payment data, private business records, unredacted
+evidence bodies, or raw artifacts.
+This includes raw prompts, browser/session/cookie material, and unredacted evidence bodies.
 
 ## Lab Administration
 

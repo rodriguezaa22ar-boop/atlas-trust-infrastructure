@@ -2,107 +2,89 @@
 
 ## What Is Atlas?
 
-Atlas is a shell-native, metadata-first trust control plane for authorized
-security assessment workflows and optional business-flow evidence. It
-coordinates scope, targets, recon, evidence, findings, validation, reports,
-retention, and release trust while keeping the underlying domain tools
-separate.
+Atlas is metadata-first proof infrastructure for critical digital actions. It
+sits above existing systems such as GitHub, Nix, SSH, tmux, scanners, approval
+tools, and business systems, and records reviewer-readable proof chains around
+what those systems did.
 
-Atlas is the operator-facing layer. `wiremap` owns reconnaissance and packet
-evidence, `vector` owns ranked action lanes and bounded validation, `intelctl`
-owns direct shared-intel inspection, and `labctl` owns build and administration
-workflows.
+Atlas does not replace those systems. It records who requested an action, what
+capability and policy applied, whether approval was required, what evidence and
+artifact references were emitted, which commit or packet contains the result,
+and how another reviewer can verify or replay the proof.
 
-## Who Is It For?
+## Current Governance Stack
 
-Atlas is for operators who need a local-first assessment workflow with clear
-scope, retained evidence, auditability, and release trust. It is designed for
-authorized lab, internal, training, and controlled assessment work where the
-operator wants a verifiable record instead of scattered terminal output.
+The current public governance stack is:
 
-## What Problem Does It Solve?
+```text
+capability -> adapter -> policy -> approval -> evidence -> decision vocabulary
+```
 
-Atlas gives one consistent workflow for:
+These layers are governance contracts, draft schemas, examples, and validation
+surfaces unless future runtime implementation is explicitly added later.
 
-- registering targets and scope
-- starting operations
-- collecting and hashing evidence
-- recording findings and accepted-risk ownership
-- planning and approving validation
-- generating reports and handoff packets
-- closing, auditing, and archiving operations
-- checking readiness and release trust
-- retaining signed release provenance
-- retaining SLSA-verifiable release artifact candidate metadata
+## What Atlas Helps With
 
-The goal is not to make assessment work flashy. The goal is to make it
-bounded, reviewable, and hard to misunderstand later.
+Atlas helps reviewers and operators:
 
-The longer-term direction is trust infrastructure: evidence-backed,
-metadata-only, verifiable operational proof for security operations, business
-flows, releases, audits, retention, and replay.
+- create, verify, and replay metadata-only proof receipts and proof chains;
+- lower evidence reconstruction work without lowering standards;
+- preserve privacy by avoiding raw sensitive data in public proof records;
+- make decisions and limitations visible to reviewers;
+- keep existing tools as their own operational source of truth.
+
+The bounded value is clearer review, fewer ambiguous records, stronger audit
+readiness, privacy-preserving proof, lower cost of trust without lowering
+standards, and proof without exposure.
 
 ## What Does It Not Do?
 
-Atlas does not provide or encourage:
-
-- autonomous exploitation
-- persistence
-- destructive testing
-- credential spraying
-- denial-of-service workflows
-- stealth/evasion behavior
-- out-of-scope target expansion
-- malware-like behavior
-- unauthorized access
-
-Atlas does not infer authorization. Scope must be recorded accurately by the
-operator.
+Atlas does not provide autonomous exploitation, persistence, destructive
+testing, credential spraying, denial-of-service workflows, stealth/evasion,
+out-of-scope expansion, malware-like behavior, or authorization inference.
 
 ## What Is Ready-To-Refine?
 
-`atlas v1 status` reports internal pillar readiness. In Atlas language,
-`ready` means ready for internal testing, refinement, and trust hardening. It
-does not mean externally audited, enterprise-ready, deployment-certified, or
-tamper-proof.
-
-## What Is Production-Ready?
-
-`atlas production status --strict` reports whether Atlas passes its stricter
-local production contract. That contract currently requires clean and synced
-repository state, v1 readiness, a verified release packet, a documented
-production contract, signed release provenance, and retained dry-run evidence.
-
-When Atlas reports `production-ready`, that means the local Atlas production
-contract passes for retained release evidence. It is not an external audit,
-SLSA certification, enterprise certification, runtime safety proof, or
-deployment certification.
-
-Atlas also has a SLSA-verifiable release artifact candidate path for
-GitHub-built source artifacts. The retained M117 artifact has passed GitHub
-artifact attestation verification, official SLSA generic provenance verification
-with `slsa-verifier`, and `atlas release slsa-verify` against retained Atlas
-metadata. That evidence remains a verifier path, not external SLSA
-certification.
-
-Atlas maintains v1 trust schema contracts under `docs/schemas/`. The M120
-schema freeze candidate classifies each contract as stable, optional,
-retained-only, experimental, or future, and requires version bumps for field
-renames, removals, type changes, required-field changes, enum meaning changes,
-or verification semantic changes after the freeze candidate.
+`atlas v1 status` reports internal readiness for testing, refinement, and trust
+hardening. Ready-to-refine does not mean external audit completion,
+certification, legal sufficiency, deployment approval, or runtime safety proof.
 
 ## What Is The Trust Chain?
 
-The trust chain is the proof path from scope to release:
+The trust chain is the metadata-only proof path from scope to evidence,
+findings, validation, report, handoff, closeout, audit, archive, release
+packet, provenance, receipt verification, and replay. The longer-term
+direction is trust infrastructure for verifiable, replayable proof without
+exposure.
 
-```text
-scope -> evidence -> findings -> validation -> report -> handoff -> closeout
--> audit -> archive -> operation trust-chain -> release packet -> provenance
-```
+The M120 schema freeze candidate classifies each contract and remains an
+internal v1 review boundary for trust contracts. Atlas also has a
+SLSA-verifiable release artifact candidate path for retained GitHub-built
+artifacts. The retained M117 artifact has passed GitHub artifact attestation verification and official SLSA generic provenance verification with `atlas release slsa-verify`. These are verifier paths, not external certification or compliance claims.
+This is not external SLSA certification.
 
-Each step records metadata, paths, hashes, counts, status, verification output,
-or known limitations. Trust packets are metadata-only; they do not embed raw
-secrets, private keys, packet captures, tokens, credential material, or
-unredacted evidence bodies.
+## What Atlas Does Not Prove
+
+Atlas records and verifies metadata-only proof chains. It does not grant
+permission, replace approval authorities, certify compliance, prove legal
+sufficiency, guarantee action validity, prove complete event coverage, or
+replace human judgment.
+Atlas does not grant permission by itself.
+
+Atlas does not prove actions outside Atlas did not happen. It does not prove
+runtime safety, model correctness, artifact correctness, external audit
+completion, tamper-proof infrastructure, immutable storage, or deployment
+approval.
+
+Atlas does not replace human judgment.
+
+## Metadata-Only Boundary
+
+Atlas proof records must not embed raw logs, secrets, private keys, tokens,
+Authorization headers, request bodies, response bodies, packet captures, raw
+prompts, raw model outputs, tool output bodies, browser/session/cookie
+material, customer data, payment data, private business records, unredacted
+evidence bodies, or raw artifacts.
+This includes raw prompts, browser/session/cookie material, and unredacted evidence bodies.
 
 Start with [INDEX.md](INDEX.md) for the full documentation map.
