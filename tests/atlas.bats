@@ -2768,6 +2768,207 @@ write_test_slsa_reference() {
   grep -q 'Public Source Alignment' "$milestone_index"
 }
 
+@test "M187 public source alignment safety regression keeps roadmap bounded" {
+  readme="$TEST_ROOT/toolkit/README.md"
+  agents="$TEST_ROOT/toolkit/AGENTS.md"
+  contributing="$TEST_ROOT/toolkit/CONTRIBUTING.md"
+  docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
+  one_page="$TEST_ROOT/toolkit/docs/ATLAS_ONE_PAGE.md"
+  public_surface="$TEST_ROOT/toolkit/docs/PUBLIC_TRUST_SURFACE.md"
+  limitations="$TEST_ROOT/toolkit/docs/KNOWN_LIMITATIONS.md"
+  command_ref="$TEST_ROOT/toolkit/docs/COMMAND_REFERENCE.md"
+  milestone="$TEST_ROOT/toolkit/docs/retention/milestones/MILESTONE_187.md"
+  milestone_index="$TEST_ROOT/toolkit/docs/retention/MILESTONE_INDEX.md"
+
+  public_docs="$readme $agents $contributing $docs_index $one_page $public_surface $limitations $command_ref"
+
+  for doc in $public_docs; do
+    [ -f "$doc" ]
+  done
+
+  grep -q 'metadata-first' "$readme"
+  grep -q 'trust overlay' "$readme"
+  grep -q 'does not replace GitHub, Nix, SSH, tmux, scanners, approval tools, or business systems' "$readme"
+  grep -q 'open proof infrastructure' "$readme"
+  grep -q 'capability -> adapter -> policy -> approval -> evidence -> decision vocabulary' "$readme"
+  grep -q 'Atlas records and verifies metadata-only proof chains' "$readme"
+  grep -q 'Atlas proof records must not embed raw logs' "$readme"
+  grep -q 'Product directions remain future direction unless listed as implemented elsewhere' "$readme"
+  grep -q 'does not claim compliance, certification' "$readme"
+  grep -q 'does not claim external audit' "$readme"
+  grep -q 'does not claim .*tamper-proof infrastructure' "$readme"
+  grep -q 'does not claim .*immutable storage' "$readme"
+  grep -q 'does not claim .*complete event coverage' "$readme"
+  grep -q 'proof that actions outside Atlas did not happen' "$readme"
+  grep -q 'model correctness' "$readme"
+  grep -q 'artifact correctness' "$readme"
+  grep -q 'replacement of human judgment' "$readme"
+  grep -q 'lower cost of trust without lowering standards' "$readme"
+  grep -q 'proof without exposure' "$readme"
+
+  for path in \
+    'docs/governance/CAPABILITY_MANIFEST_M172.md' \
+    'docs/governance/ADAPTER_REGISTRY_M174.md' \
+    'docs/governance/POLICY_PLANE_M176.md' \
+    'docs/governance/APPROVAL_PLANE_M178.md' \
+    'docs/governance/EVIDENCE_ENVELOPE_SCHEMA_M180.md' \
+    'docs/governance/GOVERNANCE_PLANE_INTEGRATION_MAP_M182.md' \
+    'docs/governance/GOVERNANCE_DECISION_VOCABULARY_M184.md'; do
+    grep -q "$path" "$readme"
+  done
+
+  ! grep -q 'The current strategic priority is release trust consolidation' "$agents"
+  grep -q 'governance-plane alignment' "$agents"
+  grep -q 'Open Core receipt alignment' "$agents"
+  grep -q 'release trust as a critical pillar' "$agents"
+  for phrase in \
+    'Capability Manifest' \
+    'Adapter Registry' \
+    'Policy Plane' \
+    'Approval Plane' \
+    'Evidence Envelope' \
+    'Governance Plane Integration Map' \
+    'Governance Decision Vocabulary'; do
+    grep -q "$phrase" "$agents"
+  done
+  grep -q 'Governance contracts do not imply runtime enforcement' "$agents"
+  grep -q 'Decision vocabulary terms do not grant authorization by themselves' "$agents"
+  grep -q 'Evidence envelopes are metadata-only schema contracts unless runtime emission is explicitly implemented later' "$agents"
+  grep -q 'Policy plane docs do not create a policy engine' "$agents"
+  grep -q 'approval workflow execution' "$agents"
+  grep -q 'Adapter registry docs do not create live integrations' "$agents"
+  grep -q 'Atlas is for authorized assessment orchestration only' "$agents"
+  grep -q 'Metadata-Only Packet Rule' "$agents"
+  grep -q 'Do not make Atlas more impressive by making it less trustworthy' "$agents"
+
+  grep -q './bin/dev-governance' "$contributing"
+  grep -q "nix-shell --run './bin/dev-qa'" "$contributing"
+  grep -q 'metadata-only checks' "$contributing"
+  grep -q 'no-overclaim checks' "$contributing"
+  grep -q 'known limitations' "$contributing"
+  grep -q 'public export' "$contributing"
+  grep -q 'implemented behavior' "$contributing"
+  grep -q 'draft contract' "$contributing"
+  grep -q 'validation tooling' "$contributing"
+  grep -q 'future runtime' "$contributing"
+  grep -q 'not implemented' "$contributing"
+  grep -q 'Do not commit or attach' "$contributing"
+
+  for helper in \
+    './bin/dev-decisions' \
+    './bin/dev-evidence' \
+    './bin/dev-approval' \
+    './bin/dev-policy' \
+    './bin/dev-adapters' \
+    './bin/dev-capabilities'; do
+    helper_path="${helper#./}"
+    [ -x "$TEST_ROOT/toolkit/$helper_path" ]
+    grep -q "$helper" "$contributing"
+    grep -q "$helper" "$command_ref"
+  done
+
+  for path in \
+    'governance/CAPABILITY_MANIFEST_M172.md' \
+    'governance/ADAPTER_REGISTRY_M174.md' \
+    'governance/POLICY_PLANE_M176.md' \
+    'governance/APPROVAL_PLANE_M178.md' \
+    'governance/EVIDENCE_ENVELOPE_SCHEMA_M180.md' \
+    'governance/GOVERNANCE_PLANE_INTEGRATION_MAP_M182.md' \
+    'governance/GOVERNANCE_DECISION_VOCABULARY_M184.md'; do
+    grep -q "$path" "$docs_index"
+  done
+  grep -q 'without adding runtime engines' "$docs_index"
+  grep -q 'before runtime policy enforcement' "$docs_index"
+  grep -q 'before approval engine execution' "$docs_index"
+  grep -q 'before runtime evidence collection' "$docs_index"
+  grep -q 'runtime orchestration' "$docs_index"
+  grep -q 'runtime decision engine' "$docs_index"
+  ! grep -Eiq 'governance docs make Atlas production ready|governance stack makes Atlas production ready|governance stack certifies production' "$docs_index"
+
+  grep -q 'metadata-first proof infrastructure' "$one_page"
+  grep -q 'sits above existing systems' "$one_page"
+  grep -q 'metadata-only proof receipts and proof chains' "$one_page"
+  grep -q 'certify compliance' "$one_page"
+  grep -q 'does not replace human judgment' "$one_page"
+  grep -q 'does not prove' "$one_page"
+  grep -q 'complete event coverage' "$one_page"
+
+  grep -q 'Capability Manifest' "$public_surface"
+  grep -q 'Adapter Registry' "$public_surface"
+  grep -q 'Policy Plane' "$public_surface"
+  grep -q 'Approval Plane' "$public_surface"
+  grep -q 'Evidence Envelope Schema' "$public_surface"
+  grep -q 'Governance Plane Integration Map' "$public_surface"
+  grep -q 'Governance Decision Vocabulary' "$public_surface"
+  grep -q 'They do not add runtime enforcement' "$public_surface"
+  grep -q 'production readiness, certification, complete event' "$public_surface"
+  grep -q 'metadata-only records' "$public_surface"
+
+  grep -q 'Governance contracts are not runtime engines' "$limitations"
+  grep -q 'decision vocabulary terms do not grant authorization by themselves' "$limitations"
+  grep -q 'evidence emission is explicitly implemented later' "$limitations"
+  grep -q 'approval records do not prove' "$limitations"
+  grep -q 'policy decisions do not prove legal or' "$limitations"
+  grep -q 'Replay does not prove complete event coverage' "$limitations"
+  grep -q 'Atlas does not prove actions outside Atlas did not happen' "$limitations"
+  grep -q 'Atlas does not replace human judgment' "$limitations"
+  grep -q 'Atlas does not prove model correctness or artifact correctness' "$limitations"
+
+  grep -q 'The governance helpers validate public contracts only' "$command_ref"
+  grep -q 'They do not add runtime' "$command_ref"
+  grep -q 'policy enforcement' "$command_ref"
+  grep -q 'decision execution' "$command_ref"
+  grep -q 'live integrations' "$command_ref"
+  grep -q 'database/server/web UI' "$command_ref"
+
+  for term in \
+    'raw logs' \
+    'secrets' \
+    'private keys' \
+    'tokens' \
+    'Authorization headers' \
+    'request bodies' \
+    'response bodies' \
+    'packet captures' \
+    'raw prompts' \
+    'raw model outputs' \
+    'tool output bodies' \
+    'browser/session/cookie material' \
+    'customer data' \
+    'payment data' \
+    'private business records' \
+    'unredacted evidence bodies' \
+    'raw artifacts'; do
+    for doc in $public_docs; do
+      grep -q "$term" "$doc"
+    done
+  done
+
+  overclaim_pattern='guaranteed compliance|certified compliant|legally sufficient|Atlas is externally audited|compliance certified|SLSA certified|production certified|production-certified|enterprise ready|enterprise readiness is implemented|Atlas is tamper-proof|tamper-proof infrastructure implemented|immutable storage implemented|proves all events|detects all missing events|prevents all unsafe AI actions|model correctness proven|artifact correctness guaranteed|autonomous enforcement|automatic approval is implemented|runtime policy engine is implemented|runtime approval engine is implemented|runtime evidence collection is implemented|live adapter integrations are implemented|database-backed truth|Atlas Evidence Lake is implemented|evidence lake is implemented'
+  allowed_context='does not|do not|not |not-|no |without|future|unless|avoid|must not|is not|are not|does not claim|not an|not external|not production|not legal|not runtime|before runtime|before approval|before live|before .*execution|does not create|do not create|does not prove|not externally|not implemented|future/private index direction|not production-certified|not certification'
+  for doc in $public_docs; do
+    matches="$(grep -Ein "$overclaim_pattern" "$doc" || true)"
+    if [ -n "$matches" ]; then
+      disallowed="$(printf '%s\n' "$matches" | grep -Eiv "$allowed_context" || true)"
+      [ -z "$disallowed" ]
+    fi
+  done
+
+  grep -q 'lower cost of trust without lowering standards' "$readme" "$one_page" "$public_surface"
+  grep -q 'proof without exposure' "$readme" "$one_page"
+  grep -q 'open proof infrastructure' "$readme"
+  grep -q 'metadata-first trust overlay' "$milestone"
+  grep -q 'their own operational source of truth' "$one_page"
+  grep -q 'reviewer-readable proof chains' "$one_page"
+  grep -q 'privacy-preserving' "$readme" "$one_page"
+  grep -q 'stronger audit readiness' "$readme"
+
+  [ -f "$milestone" ]
+  grep -q 'Public Source Alignment Safety Regression' "$milestone"
+  grep -q 'MILESTONE_187.md' "$milestone_index"
+  grep -q 'Public Source Alignment Safety Regression' "$milestone_index"
+}
+
 @test "evidence envelope and hash ledger validate replayable proof chain read-only" {
   ledger_doc="$TEST_ROOT/toolkit/ledger/README.md"
   decision_schema="$TEST_ROOT/toolkit/schemas/decision.v1.schema.json"
