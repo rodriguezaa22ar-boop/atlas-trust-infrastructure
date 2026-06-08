@@ -2969,6 +2969,92 @@ write_test_slsa_reference() {
   grep -q 'Public Source Alignment Safety Regression' "$milestone_index"
 }
 
+@test "M188 Atlas Master Bible orients Atlas without overclaiming" {
+  bible="$TEST_ROOT/toolkit/docs/ATLAS_MASTER_BIBLE.md"
+  docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
+  milestone="$TEST_ROOT/toolkit/docs/retention/milestones/MILESTONE_188.md"
+  milestone_index="$TEST_ROOT/toolkit/docs/retention/MILESTONE_INDEX.md"
+
+  [ -f "$bible" ]
+  grep -q 'ATLAS_MASTER_BIBLE.md' "$docs_index"
+  [ -f "$milestone" ]
+  grep -q 'MILESTONE_188.md' "$milestone_index"
+  grep -q 'Atlas Master Bible' "$milestone_index"
+
+  grep -q '^# Atlas Master Bible$' "$bible"
+  grep -q 'metadata-first proof infrastructure for critical digital actions' "$bible"
+  grep -q 'trust overlay' "$bible"
+  grep -q 'GitHub, Nix, SSH, tmux, scanners' "$bible"
+  grep -q 'approval tools' "$bible"
+  grep -q 'business systems' "$bible"
+  grep -q 'Proof-Chain Model' "$bible"
+  grep -q 'Metadata-Only Boundary' "$bible"
+  grep -q 'No-Overclaim Boundary' "$bible"
+
+  for term in \
+    'raw logs' \
+    'secrets' \
+    'private keys' \
+    'tokens' \
+    'Authorization headers' \
+    'request bodies' \
+    'response bodies' \
+    'packet captures' \
+    'raw prompts' \
+    'raw model outputs' \
+    'tool output bodies' \
+    'browser/session/cookie material' \
+    'customer data' \
+    'payment data' \
+    'private business records' \
+    'unredacted evidence bodies' \
+    'raw artifacts'; do
+    grep -q "$term" "$bible"
+  done
+
+  grep -q 'Atlas records and verifies metadata-only proof chains' "$bible"
+  grep -q 'certify compliance' "$bible"
+  grep -q 'legal' "$bible"
+  grep -q 'sufficiency' "$bible"
+  grep -q 'complete event coverage' "$bible"
+  grep -q 'tamper-proof' "$bible"
+  grep -q 'immutable storage' "$bible"
+  grep -q 'replace human judgment' "$bible"
+  grep -q 'Public/Private Repository Boundary' "$bible"
+
+  grep -q 'capability -> adapter -> policy -> approval -> evidence -> integration map -> decision vocabulary' "$bible"
+  grep -q 'capabilities.yaml' "$bible"
+  grep -q 'adapters/registry.yaml' "$bible"
+  grep -q 'policy/policy-plane.yaml' "$bible"
+  grep -q 'approval/approval-plane.yaml' "$bible"
+  grep -q 'evidence/schemas/evidence-envelope.v1.schema.json' "$bible"
+  grep -q 'docs/governance/GOVERNANCE_PLANE_INTEGRATION_MAP_M182.md' "$bible"
+  grep -q 'governance/decision-vocabulary.yaml' "$bible"
+  grep -q 'Governance contracts do not imply runtime enforcement' "$bible"
+  grep -q 'Decision vocabulary terms do not grant authorization' "$bible"
+  grep -q 'Evidence envelopes are schema contracts unless runtime emission is' "$bible"
+  grep -q 'implemented later' "$bible"
+
+  grep -q 'Business Value' "$bible"
+  grep -q 'lower cost of trust without lowering standards' "$bible"
+  grep -q 'proof without exposure' "$bible"
+  grep -q 'Billion-Dollar Direction, Bounded' "$bible"
+  grep -q 'future product shape is direction, not current implementation' "$bible"
+  grep -q 'Atlas Open Core' "$bible"
+  grep -q 'Atlas Enterprise' "$bible"
+  grep -q 'Atlas Verify' "$bible"
+  grep -q 'Atlas Connectors' "$bible"
+  grep -q 'Atlas Review' "$bible"
+  grep -q 'Atlas Policy' "$bible"
+  grep -q 'Atlas Evidence Lake' "$bible"
+  grep -q 'Evidence Lake is not source of truth' "$bible"
+  grep -q 'AI agents should be requesters, not authorities' "$bible"
+  grep -q 'Milestone Rhythm' "$bible"
+  grep -q 'M189 Atlas Master Bible Safety Regression' "$bible"
+
+  ! grep -Eiq 'Atlas is production certified|production certification is granted|external audit complete|Atlas is externally audited|model correctness proven|artifact correctness guaranteed|Atlas proves all events|Atlas detects all missing events|Atlas is tamper-proof|Atlas provides immutable storage|Atlas replaces human judgment|Atlas grants authorization|Atlas executes approvals|Atlas runs a policy engine|Atlas collects runtime evidence|Atlas Evidence Lake is implemented' "$bible"
+}
+
 @test "evidence envelope and hash ledger validate replayable proof chain read-only" {
   ledger_doc="$TEST_ROOT/toolkit/ledger/README.md"
   decision_schema="$TEST_ROOT/toolkit/schemas/decision.v1.schema.json"

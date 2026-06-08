@@ -20,6 +20,9 @@ This includes raw prompts, browser/session/cookie material, and unredacted evide
 
 ## Start here
 
+- [ATLAS_MASTER_BIBLE.md](ATLAS_MASTER_BIBLE.md): high-level orientation for
+  Atlas' mission, proof model, governance stack, operating doctrine, business
+  value, bounded roadmap direction, and known limitations.
 - [ATLAS_ONE_PAGE.md](ATLAS_ONE_PAGE.md): one-page explanation of what Atlas is,
   who it is for, what it does, and what it does not do.
 - [PUBLIC_TRUST_SURFACE.md](PUBLIC_TRUST_SURFACE.md): proof-to-value public
@@ -103,7 +106,8 @@ This includes raw prompts, browser/session/cookie material, and unredacted evide
 
 ## Start here by role
 
-- New reader: [ATLAS_ONE_PAGE.md](ATLAS_ONE_PAGE.md)
+- New reader: [ATLAS_MASTER_BIBLE.md](ATLAS_MASTER_BIBLE.md)
+- Fast overview: [ATLAS_ONE_PAGE.md](ATLAS_ONE_PAGE.md)
 - Public trust reviewer: [PUBLIC_TRUST_SURFACE.md](PUBLIC_TRUST_SURFACE.md)
 - First-time reviewer: [REVIEWER_QUICKSTART.md](REVIEWER_QUICKSTART.md)
 - Organization CI release reviewer: [workflows/ORG_CI_RELEASE_REVIEW_WORKFLOW_M164.md](workflows/ORG_CI_RELEASE_REVIEW_WORKFLOW_M164.md)
