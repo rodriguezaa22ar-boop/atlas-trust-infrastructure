@@ -278,9 +278,23 @@ cheaper by making the process provable.
 The bounded business value is lower cost of trust without lowering standards
 and proof without exposure.
 
-## Billion-Dollar Direction, Bounded
+## Enterprise Direction, Bounded
 
-Atlas' future product shape is direction, not current implementation.
+Atlas can grow into open proof infrastructure for organizations that need
+reviewable, replayable, metadata-only proof of critical digital actions. This
+is a product direction, not a current runtime, compliance, certification, or
+enterprise-readiness claim.
+
+Future product directions include Atlas Open Core, Atlas Enterprise, Atlas
+Verify, Atlas Connectors, Atlas Review, Atlas Policy, and Atlas Evidence Lake.
+These remain future directions unless listed as implemented elsewhere in the
+repository.
+
+This direction does not claim compliance, certification, external audit
+completion, production approval, tamper-proof infrastructure, immutable
+storage, complete event coverage, proof that actions outside Atlas did not
+happen, runtime safety, model correctness, artifact correctness, or replacement
+of human judgment.
 
 - Atlas Open Core: local verifier, receipt schemas, replay, examples, and known
   limitations that preserve local verification.
@@ -341,8 +355,8 @@ The current governance sequence is:
 Recommended future milestones:
 
 - M189 Atlas Master Bible Safety Regression;
-- M190 Billion-Dollar Roadmap Doc;
-- M191 Billion-Dollar Roadmap Safety Regression;
+- M190 Enterprise Direction Roadmap Doc;
+- M191 Enterprise Direction Roadmap Safety Regression;
 - M192 Receipt/Open-Core Schema Alignment;
 - M193 Receipt/Open-Core Schema Alignment Safety Regression;
 - M194 Governance Demo Packet;

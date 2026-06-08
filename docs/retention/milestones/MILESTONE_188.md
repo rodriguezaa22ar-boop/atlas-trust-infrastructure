@@ -4,7 +4,7 @@
 
 M188 adds the Atlas Master Bible: a single high-level orientation document for
 Atlas' mission, proof model, governance stack, operating doctrine, business
-value, billion-dollar direction, and known limitations.
+value, enterprise direction, and known limitations.
 
 The document positions Atlas as metadata-first proof infrastructure for
 critical digital actions and a trust overlay above existing systems, while
