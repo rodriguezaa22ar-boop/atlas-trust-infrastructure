@@ -3061,6 +3061,300 @@ write_test_slsa_reference() {
   ! grep -Eiq 'Atlas is production certified|production certification is granted|external audit complete|Atlas is externally audited|model correctness proven|artifact correctness guaranteed|Atlas proves all events|Atlas detects all missing events|Atlas is tamper-proof|Atlas provides immutable storage|Atlas replaces human judgment|Atlas grants authorization|Atlas executes approvals|Atlas runs a policy engine|Atlas collects runtime evidence|Atlas Evidence Lake is implemented' "$bible"
 }
 
+@test "M189 Atlas Master Bible safety regression keeps orientation bounded" {
+  bible="$TEST_ROOT/toolkit/docs/ATLAS_MASTER_BIBLE.md"
+  docs_index="$TEST_ROOT/toolkit/docs/INDEX.md"
+  milestone="$TEST_ROOT/toolkit/docs/retention/milestones/MILESTONE_189.md"
+  milestone_index="$TEST_ROOT/toolkit/docs/retention/MILESTONE_INDEX.md"
+  readme="$TEST_ROOT/toolkit/README.md"
+  agents="$TEST_ROOT/toolkit/AGENTS.md"
+  contributing="$TEST_ROOT/toolkit/CONTRIBUTING.md"
+  one_page="$TEST_ROOT/toolkit/docs/ATLAS_ONE_PAGE.md"
+  public_surface="$TEST_ROOT/toolkit/docs/PUBLIC_TRUST_SURFACE.md"
+  limitations="$TEST_ROOT/toolkit/docs/KNOWN_LIMITATIONS.md"
+  command_ref="$TEST_ROOT/toolkit/docs/COMMAND_REFERENCE.md"
+  public_docs=(
+    "$readme"
+    "$agents"
+    "$contributing"
+    "$docs_index"
+    "$bible"
+    "$one_page"
+    "$public_surface"
+    "$limitations"
+    "$command_ref"
+  )
+
+  [ -f "$bible" ]
+  grep -q 'ATLAS_MASTER_BIBLE.md' "$docs_index"
+  [ -f "$milestone" ]
+  grep -q 'MILESTONE_189.md' "$milestone_index"
+  grep -q 'Atlas Master Bible Safety Regression' "$milestone_index"
+
+  grep -q '^# Atlas Master Bible$' "$bible"
+  grep -q 'high-level orientation document' "$bible"
+  grep -q 'source of truth' "$bible"
+  grep -q 'compliance claim' "$bible"
+  grep -q 'certification' "$bible"
+  grep -q 'legal opinion' "$bible"
+  grep -q 'production approval' "$bible"
+  grep -q 'external audit' "$bible"
+
+  grep -q 'metadata-first proof infrastructure' "$bible"
+  grep -q 'proof infrastructure for critical digital actions' "$bible"
+  grep -q 'trust overlay' "$bible"
+  grep -q 'above existing tools' "$bible"
+  grep -q 'around existing systems' "$bible"
+  grep -q 'records and verifies proof chains' "$bible"
+  grep -q 'not a replacement for GitHub, Nix, SSH, tmux, scanners, approval tools' "$bible"
+  grep -q 'business systems' "$bible"
+  grep -q 'CI/CD' "$bible"
+  grep -q 'cloud APIs' "$bible"
+  grep -q 'AI runtimes' "$bible"
+  grep -q 'human reviewers' "$bible"
+  grep -q 'Trust should come with a receipt' "$bible"
+  grep -q 'Privacy is priceless' "$bible"
+  grep -q 'lowers the cost of trust without lowering the standard' "$bible"
+  grep -q 'proof without exposure' "$bible"
+
+  for phrase in \
+    'who requested the action' \
+    'what capability and policy applied' \
+    'whether approval was required' \
+    'what evidence and artifact refs were emitted' \
+    'what commit, packet, or receipt contains the result' \
+    'verify or replay the proof' \
+    'what the proof does not show'; do
+    grep -q "$phrase" "$bible"
+  done
+
+  grep -q 'Metadata-Only Boundary' "$bible"
+  for term in \
+    'raw logs' \
+    'secrets' \
+    'private keys' \
+    'tokens' \
+    'Authorization headers' \
+    'request bodies' \
+    'response bodies' \
+    'packet captures' \
+    'raw prompts' \
+    'raw model outputs' \
+    'tool output bodies' \
+    'browser/session/cookie material' \
+    'customer data' \
+    'payment data' \
+    'private business records' \
+    'unredacted evidence bodies' \
+    'raw artifacts' \
+    'refs' \
+    'hashes' \
+    'IDs' \
+    'statuses' \
+    'summaries' \
+    'known limitations' \
+    'replay hints' \
+    'reviewer-readable metadata'; do
+    grep -q "$term" "$bible"
+  done
+
+  grep -q 'No-Overclaim Boundary' "$bible"
+  grep -q 'permission' "$bible"
+  grep -q 'approval authorities' "$bible"
+  grep -q 'certify compliance' "$bible"
+  grep -q 'prove legal' "$bible"
+  grep -q 'guarantee action validity' "$bible"
+  grep -q 'prove complete event coverage' "$bible"
+  grep -q 'replace human judgment' "$bible"
+  grep -q 'no external audit claim' "$bible"
+  grep -q 'no enterprise deployment approval claim' "$bible"
+  grep -q 'no production certification claim' "$bible"
+  grep -q 'no model correctness proof' "$bible"
+  grep -q 'no artifact correctness guarantee' "$bible"
+  grep -q 'no proof that actions outside Atlas did not happen' "$bible"
+  grep -q 'no runtime safety guarantee' "$bible"
+  grep -q 'no tamper-proof or immutable storage claim' "$bible"
+
+  grep -q 'atlas-trust-infrastructure.*public reviewer-facing trust surface' "$bible"
+  grep -q 'atlas-lab-toolkit.*private implementation and operator runtime' "$bible"
+  grep -q 'must not contain private runtime state' "$bible"
+  grep -q 'target records' "$bible"
+  grep -q 'raw evidence' "$bible"
+  grep -q 'secrets' "$bible"
+  grep -q 'credentials' "$bible"
+  grep -q 'host-specific lab details' "$bible"
+  grep -q 'vault contents' "$bible"
+
+  grep -q 'capability -> adapter -> policy -> approval -> evidence -> integration map -> decision vocabulary' "$bible"
+  for path in \
+    'capabilities.yaml' \
+    'adapters/registry.yaml' \
+    'policy/policy-plane.yaml' \
+    'approval/approval-plane.yaml' \
+    'evidence/schemas/evidence-envelope.v1.schema.json' \
+    'docs/governance/GOVERNANCE_PLANE_INTEGRATION_MAP_M182.md' \
+    'governance/decision-vocabulary.yaml'; do
+    grep -q "$path" "$bible"
+  done
+  grep -q 'Governance contracts do not imply runtime enforcement' "$bible"
+  grep -q 'Adapter registry entries' "$bible"
+  grep -q 'do not imply live integrations' "$bible"
+  grep -q 'Policy plane docs do not create a policy' "$bible"
+  grep -q 'engine. Approval plane docs do not create approval workflow execution' "$bible"
+  grep -q 'Evidence envelopes are schema contracts unless runtime emission is' "$bible"
+  grep -q 'Decision vocabulary terms do not grant authorization' "$bible"
+
+  for phrase in \
+    'Action request or imported event' \
+    'capability lookup' \
+    'adapter/source classification' \
+    'policy decision model' \
+    'approval requirement/state' \
+    'evidence envelope' \
+    'reviewer output / replay later' \
+    'architecture and modeling flow unless runtime execution is'; do
+    grep -q "$phrase" "$bible"
+  done
+
+  for term in \
+    'allow' \
+    'deny' \
+    'approval_required' \
+    'evidence_required' \
+    'unsupported' \
+    'unknown_capability' \
+    'unknown_adapter' \
+    'boundary_violation' \
+    'evidence_missing' \
+    'evidence_stale' \
+    'evidence_unverifiable' \
+    'evidence_outside_atlas' \
+    'human_judgment_required' \
+    'receipt_verified' \
+    'replay_verified' \
+    'ready' \
+    'blocked'; do
+    grep -q "$term" "$bible"
+  done
+  grep -q 'allow' "$bible"
+  grep -q 'does not grant authorization by itself' "$bible"
+  grep -q 'approval_approved' "$bible"
+  grep -q 'prove action validity' "$bible"
+  grep -q 'evidence_sufficient_for_stated_objective' "$bible"
+  grep -q 'limited to' "$bible"
+  grep -q 'receipt_verified' "$bible"
+  grep -q 'does not prove external truth' "$bible"
+  grep -q 'replay_verified' "$bible"
+  grep -q 'does not prove complete event coverage' "$bible"
+  grep -q 'ready' "$bible"
+  grep -q 'does not mean' "$bible"
+  grep -q 'production certification' "$bible"
+
+  grep -q 'supported and unsupported decisions' "$bible"
+  grep -q 'Evidence present does not' "$bible"
+  grep -q 'automatically mean evidence sufficient' "$bible"
+  grep -q 'Human judgment remains required' "$bible"
+  grep -q 'Reviewer decision packets' "$bible"
+  grep -q 'evidence sufficiency' "$bible"
+  grep -q 'reviewer quickstart' "$bible"
+  grep -q 'replay/verify paths' "$bible"
+
+  grep -q 'Release trust remains a critical pillar' "$bible"
+  grep -q 'Release packets' "$bible"
+  grep -q 'retained evidence' "$bible"
+  grep -q 'signed tags' "$bible"
+  grep -q 'provenance' "$bible"
+  grep -q 'QA, release verification' "$bible"
+  grep -q 'Release trust does not equal external certification' "$bible"
+
+  grep -q 'reduce hours spent chasing evidence' "$bible"
+  grep -q 'lower manual reconstruction' "$bible"
+  grep -q 'make reviews clearer' "$bible"
+  grep -q 'reduce audit friction' "$bible"
+  grep -q 'reduce sensitive-data' "$bible"
+  grep -q 'does not make trust cheaper by weakening the process' "$bible"
+  grep -q 'making the process provable' "$bible"
+
+  grep -q 'Enterprise Direction, Bounded' "$bible"
+  for phrase in \
+    'Atlas Open Core' \
+    'Atlas Enterprise' \
+    'Atlas Verify' \
+    'Atlas Connectors' \
+    'Atlas Review' \
+    'Atlas Policy' \
+    'Atlas Evidence Lake' \
+    'product direction, not a current runtime' \
+    'These remain future directions unless listed as implemented elsewhere' \
+    'optional hosted verification convenience' \
+    'local verification' \
+    'should not require hosted verification' \
+    'import-first, least-privilege integrations' \
+    'future private metadata index' \
+    'Evidence Lake is not source of truth' \
+    'external systems remain their own operational source of truth'; do
+    grep -q "$phrase" "$bible"
+  done
+
+  grep -q 'AI agents should be requesters, not authorities' "$bible"
+  grep -q 'capability-named' "$bible"
+  grep -q 'policy-aware' "$bible"
+  grep -q 'approval-aware' "$bible"
+  grep -q 'evidence-emitting' "$bible"
+  grep -q 'Raw prompts and raw model outputs must not be embedded by default' "$bible"
+  grep -q 'model correctness or output correctness' "$bible"
+
+  grep -q 'local-first' "$bible"
+  grep -q 'Retained manifests' "$bible"
+  grep -q 'vault/recovery' "$bible"
+  grep -q 'public-safe' "$bible"
+  grep -q 'private vault contents' "$bible"
+
+  grep -q 'value -> safety regression -> value -> safety regression' "$bible"
+  for milestone_pair in \
+    'M172/M173' \
+    'M174/M175' \
+    'M176/M177' \
+    'M178/M179' \
+    'M180/M181' \
+    'M182/M183' \
+    'M184/M185' \
+    'M186/M187' \
+    'M189'; do
+    grep -q "$milestone_pair" "$bible"
+  done
+
+  for limitation in \
+    'Metadata-only records do not prove external truth' \
+    'Receipts do not prove complete event coverage' \
+    'Replay verifies supplied chain/order only' \
+    'Governance contracts are not runtime engines' \
+    'Validation helpers are not runtime enforcement' \
+    'Approval records do not prove action validity' \
+    'Policy decisions do not prove legal or compliance approval' \
+    'Decision vocabulary does not grant authorization' \
+    'Evidence envelopes are schema contracts unless runtime emission is' \
+    'Atlas does not replace human judgment'; do
+    grep -q "$limitation" "$bible"
+  done
+
+  valuation_pattern='[Bb]illion-[Dd]ollar Direction, Bounded|[Bb]illion-[Dd]ollar|world''wide version|global[[:space:]]+proof[[:space:]]+(layer|infrastructure)'
+  ! grep -Eiq "$valuation_pattern" "${public_docs[@]}"
+  grep -q 'Enterprise Direction, Bounded' "$bible"
+  grep -q 'open proof infrastructure' "$bible"
+  grep -q 'Enterprise Direction, Bounded' "$milestone"
+
+  overclaim_pattern='guaranteed compliance|certified compliant|legally sufficient|production certified|enterprise ready|externally audited|tamper-proof|immutable storage|proves all events|detects all missing events|prevents all unsafe AI actions|model correctness proven|artifact correctness guaranteed|autonomous enforcement|automatic approval|runtime policy engine|runtime approval engine|runtime evidence collection|live adapter integrations|database-backed truth'
+  allowed_context='does not|do not|not |not-|no |without|future|unless|avoid|must not|is not|are not|does not claim|not a|not an|not external|not production|not legal|not runtime|before runtime|before approval|before live|before .*execution|does not create|do not create|does not prove|not externally|not implemented|future private metadata index|future/private index direction|not production-certified|not certification|no tamper-proof|no .*immutable storage|does not mean production certification|certification, immutable storage|:- tamper-proof|:- immutable storage|completion, tamper-proof infrastructure|completion, production approval, tamper-proof infrastructure|guaranteed safety, external SLSA'
+  for doc in "${public_docs[@]}"; do
+    matches="$(grep -Ein "$overclaim_pattern" "$doc" || true)"
+    if [ -n "$matches" ]; then
+      disallowed="$(printf '%s\n' "$matches" | grep -Eiv "$allowed_context" || true)"
+      [ -z "$disallowed" ]
+    fi
+  done
+}
+
 @test "evidence envelope and hash ledger validate replayable proof chain read-only" {
   ledger_doc="$TEST_ROOT/toolkit/ledger/README.md"
   decision_schema="$TEST_ROOT/toolkit/schemas/decision.v1.schema.json"
