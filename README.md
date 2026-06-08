@@ -37,9 +37,13 @@ The bounded value is clearer review, fewer ambiguous decisions, lower evidence
 reconstruction work, privacy-preserving governance, stronger audit readiness,
 lower cost of trust without lowering standards, and proof without exposure.
 
-## Billion-Dollar Direction, Bounded
+## Enterprise Direction, Bounded
 
-Atlas can grow into global proof infrastructure without becoming the raw-data warehouse or replacing the systems it reviews. Product directions remain future direction unless listed as implemented elsewhere: Atlas Open Core, Atlas Enterprise, Atlas Verify, Atlas Connectors, Atlas Review, Atlas Policy, and Atlas Evidence Lake. This direction does not claim compliance, certification, external audit completion, tamper-proof infrastructure, immutable storage, complete event coverage, proof that actions outside Atlas did not happen, runtime safety, model correctness, artifact correctness, or replacement of human judgment.
+Atlas can grow into open proof infrastructure for organizations that need reviewable, replayable, metadata-only proof of critical digital actions. This is a product direction, not a current runtime, compliance, certification, or enterprise-readiness claim.
+
+Future product directions include Atlas Open Core, Atlas Enterprise, Atlas Verify, Atlas Connectors, Atlas Review, Atlas Policy, and Atlas Evidence Lake. These remain future directions unless listed as implemented elsewhere in the repository.
+
+This direction does not claim compliance, certification, external audit completion, production approval, tamper-proof infrastructure, immutable storage, complete event coverage, proof that actions outside Atlas did not happen, runtime safety, model correctness, artifact correctness, or replacement of human judgment.
 
 ## Start Here
 

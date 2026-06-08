@@ -40,7 +40,7 @@ This includes raw prompts, browser/session/cookie material, and unredacted evide
   scale and storage strategy for larger metadata-only receipt volumes,
   indexing, batch verification, batch replay, archive rotation, and future
   collector/verifier boundaries without adding storage runtime.
-- Open Proof / billion-dollar direction:
+- Open proof and enterprise direction:
   [ROADMAP.md](ROADMAP.md) and
   [atlas/TRUST_INFRASTRUCTURE_DIRECTION.md](atlas/TRUST_INFRASTRUCTURE_DIRECTION.md)
   describe the metadata-first proof direction without adding runtime engines.

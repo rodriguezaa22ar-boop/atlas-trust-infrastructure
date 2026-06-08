@@ -4,7 +4,7 @@
 
 M187 protects the M186 public source alignment from overclaiming Atlas'
 current maturity, weakening metadata-only boundaries, implying runtime
-governance exists, or treating billion-dollar roadmap language as implemented
+governance exists, or treating enterprise roadmap language as implemented
 functionality.
 
 M187 preserves Atlas as open proof infrastructure direction and a

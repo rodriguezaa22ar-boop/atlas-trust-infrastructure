@@ -2650,7 +2650,9 @@ write_test_slsa_reference() {
 
   grep -q 'open proof infrastructure' "$readme"
   grep -q 'capability -> adapter -> policy -> approval -> evidence -> decision vocabulary' "$readme"
-  grep -q 'Billion-Dollar Direction, Bounded' "$readme"
+  grep -q 'Enterprise Direction, Bounded' "$readme"
+  grep -q 'open proof infrastructure for organizations' "$readme"
+  grep -q 'enterprise-readiness claim' "$readme"
   grep -q 'Atlas Open Core' "$readme"
   grep -q 'Atlas Enterprise' "$readme"
   grep -q 'Atlas Verify' "$readme"
@@ -2711,7 +2713,7 @@ write_test_slsa_reference() {
     'governance/GOVERNANCE_DECISION_VOCABULARY_M184.md'; do
     grep -q "$path" "$docs_index"
   done
-  grep -q 'Open Proof / billion-dollar direction' "$docs_index"
+  grep -q 'Open proof and enterprise direction' "$docs_index"
   grep -q 'ROADMAP.md' "$docs_index"
   [ -f "$TEST_ROOT/toolkit/docs/ROADMAP.md" ]
 
@@ -2753,7 +2755,9 @@ write_test_slsa_reference() {
     grep -q "$helper" "$command_ref"
   done
 
-  ! grep -Eiq 'guaranteed compliance|certified compliant|legally sufficient|production certified|enterprise ready|externally audited|tamper-proof infrastructure implemented|immutable storage implemented|proves all events|detects all missing events|prevents all unsafe AI actions|model correctness proven|artifact correctness guaranteed|autonomous enforcement|automatic approval is implemented|runtime policy engine is implemented|complete event coverage: (true|ready|implemented)|actions outside Atlas cannot happen' \
+  valuation_pattern='[Bb]illion-[Dd]ollar|world''wide version|global[[:space:]]+proof (layer|infrastructure)'
+  overclaim_pattern="$valuation_pattern|guaranteed compliance|certified compliant|legally sufficient|production certified|enterprise ready|externally audited|tamper-proof infrastructure implemented|immutable storage implemented|proves all events|detects all missing events|prevents all unsafe AI actions|model correctness proven|artifact correctness guaranteed|autonomous enforcement|automatic approval is implemented|runtime policy engine is implemented|complete event coverage: (true|ready|implemented)|actions outside Atlas cannot happen"
+  ! grep -Eiq "$overclaim_pattern" \
     "$readme" \
     "$agents" \
     "$contributing" \
@@ -2793,7 +2797,7 @@ write_test_slsa_reference() {
   grep -q 'capability -> adapter -> policy -> approval -> evidence -> decision vocabulary' "$readme"
   grep -q 'Atlas records and verifies metadata-only proof chains' "$readme"
   grep -q 'Atlas proof records must not embed raw logs' "$readme"
-  grep -q 'Product directions remain future direction unless listed as implemented elsewhere' "$readme"
+  grep -q 'These remain future directions unless listed as implemented elsewhere in the repository' "$readme"
   grep -q 'does not claim compliance, certification' "$readme"
   grep -q 'does not claim external audit' "$readme"
   grep -q 'does not claim .*tamper-proof infrastructure' "$readme"
@@ -3038,8 +3042,10 @@ write_test_slsa_reference() {
   grep -q 'Business Value' "$bible"
   grep -q 'lower cost of trust without lowering standards' "$bible"
   grep -q 'proof without exposure' "$bible"
-  grep -q 'Billion-Dollar Direction, Bounded' "$bible"
-  grep -q 'future product shape is direction, not current implementation' "$bible"
+  grep -q 'Enterprise Direction, Bounded' "$bible"
+  grep -q 'open proof infrastructure for organizations' "$bible"
+  grep -q 'enterprise-readiness claim' "$bible"
+  grep -q 'product direction, not a current runtime' "$bible"
   grep -q 'Atlas Open Core' "$bible"
   grep -q 'Atlas Enterprise' "$bible"
   grep -q 'Atlas Verify' "$bible"
