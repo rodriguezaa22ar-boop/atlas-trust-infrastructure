@@ -238,7 +238,7 @@ different words in different layers. Important terms include:
 prove action validity. `evidence_sufficient_for_stated_objective` is limited to
 the stated objective. `receipt_verified` does not prove external truth.
 `replay_verified` does not prove complete event coverage. `ready` does not mean
-production certified.
+production certification.
 
 ## Reviewer Model
 
