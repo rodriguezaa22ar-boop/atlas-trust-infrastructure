@@ -15635,3 +15635,72 @@ EOF
   [[ "$output" == *"Operation: cycle-op"* ]]
   [[ "$output" == *"Validation Plans: planned=1, approved=0, executed=0"* ]]
 }
+
+@test "M191 external project receipt safety regression explains fail-closed review" {
+  examples_dir="$TEST_ROOT/toolkit/examples/receipt/external-project"
+  atlas_bin="$TEST_ROOT/toolkit/tools/atlas/bin/atlas"
+  event="$examples_dir/minimal-event.json"
+  receipt="$examples_dir/minimal-receipt.json"
+  failure_doc="$TEST_ROOT/toolkit/docs/receipts/EXTERNAL_PROJECT_RECEIPT_FAILURES.md"
+  milestone="$TEST_ROOT/toolkit/docs/retention/milestones/MILESTONE_191.md"
+  index="$TEST_ROOT/toolkit/docs/retention/MILESTONE_INDEX.md"
+  bad_metadata="$examples_dir/negative-metadata-only-false.json"
+  bad_embedded="$examples_dir/negative-raw-artifacts-embedded.json"
+  bad_missing_schema="$examples_dir/negative-missing-schema-version.json"
+
+  [ -f "$failure_doc" ]
+  [ -f "$milestone" ]
+  [ -f "$bad_metadata" ]
+  [ -f "$bad_embedded" ]
+  [ -f "$bad_missing_schema" ]
+
+  jq -e . "$bad_metadata" >/dev/null
+  jq -e . "$bad_embedded" >/dev/null
+  jq -e . "$bad_missing_schema" >/dev/null
+
+  run "$atlas_bin" receipt import-generic-event "$bad_metadata" --out "$TEST_ROOT/m191-bad-metadata-receipt.json"
+  [ "$status" -ne 0 ]
+
+  run "$atlas_bin" receipt import-generic-event "$bad_embedded" --out "$TEST_ROOT/m191-bad-embedded-receipt.json"
+  [ "$status" -ne 0 ]
+
+  run "$atlas_bin" receipt import-generic-event "$bad_missing_schema" --out "$TEST_ROOT/m191-bad-missing-schema-receipt.json"
+  [ "$status" -ne 0 ]
+
+  raw_marker_event="$TEST_ROOT/m191-raw-marker-event.json"
+  jq '. + {raw_prompt: "synthetic prompt body"}' "$event" >"$raw_marker_event"
+  run "$atlas_bin" receipt import-generic-event "$raw_marker_event" --out "$TEST_ROOT/m191-raw-marker-receipt.json"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"generic external event contains forbidden raw-content marker"* ]]
+
+  tampered_receipt="$TEST_ROOT/m191-tampered-receipt.json"
+  jq '.receipt_hash = "0000000000000000000000000000000000000000000000000000000000000000"' "$receipt" >"$tampered_receipt"
+  run "$atlas_bin" receipt verify "$tampered_receipt"
+  [ "$status" -ne 0 ]
+
+  first_event_hash="$(jq -r '.event_hash' "$receipt")"
+  second_event="$TEST_ROOT/m191-second-event.json"
+  second_receipt="$TEST_ROOT/m191-second-receipt.json"
+  jq '.event_id = "m191-external-project-followup" |
+      .observed_at = "2026-06-16T18:30:00Z" |
+      .known_limitations += ["Second synthetic M191 event used only to test replay ordering failure explanations."]' \
+    "$event" >"$second_event"
+  "$atlas_bin" receipt import-generic-event "$second_event" --prev-hash "$first_event_hash" --out "$second_receipt"
+
+  run "$atlas_bin" receipt replay "$second_receipt" "$receipt"
+  [ "$status" -ne 0 ]
+
+  run "$atlas_bin" receipt replay "$receipt" "$second_receipt"
+  [ "$status" -eq 0 ]
+
+  grep -q 'M191 is a safety regression milestone' "$failure_doc"
+  grep -q 'without changing receipt semantics' "$failure_doc"
+  grep -q 'metadata_only=false' "$failure_doc"
+  grep -q 'raw_artifacts_embedded=true' "$failure_doc"
+  grep -q 'Chain order broken' "$failure_doc"
+  grep -q 'A passing receipt does not prove source-system truth' "$failure_doc"
+  grep -q 'does not change receipt semantics' "$milestone"
+  grep -q 'hashing, canonicalization, replay behavior' "$milestone"
+  grep -q 'M191 is docs/examples/tests only' "$milestone"
+  grep -q 'External Receipt Safety Regression' "$index"
+}
