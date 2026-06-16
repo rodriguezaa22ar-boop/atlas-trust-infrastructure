@@ -64,3 +64,13 @@ boundary.
 
 For reviewer-facing failure interpretation, see
 `docs/receipts/EXTERNAL_PROJECT_RECEIPT_FAILURES.md`.
+
+## Reviewer Output Example
+
+M192 adds `reviewer-output.md`, a synthetic plain-English explanation of what
+the external-project receipt verifies, what it does not verify, which metadata
+references are visible, and which decision remains outside Atlas.
+
+The reviewer-output fixture is metadata-only and does not change receipt
+semantics, hashing, canonicalization, replay behavior, runtime execution, UI, or
+server state.

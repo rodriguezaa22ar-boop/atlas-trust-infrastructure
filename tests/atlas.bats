@@ -15704,3 +15704,59 @@ EOF
   grep -q 'M191 is docs/examples/tests only' "$milestone"
   grep -q 'External Receipt Safety Regression' "$index"
 }
+
+@test "M192 external project receipt reviewer output explains receipt boundaries" {
+  examples_dir="$TEST_ROOT/toolkit/examples/receipt/external-project"
+  atlas_bin="$TEST_ROOT/toolkit/tools/atlas/bin/atlas"
+  receipt="$examples_dir/minimal-receipt.json"
+  reviewer_output="$examples_dir/reviewer-output.md"
+  reviewer_doc="$TEST_ROOT/toolkit/docs/receipts/EXTERNAL_PROJECT_RECEIPT_REVIEWER_OUTPUT.md"
+  milestone="$TEST_ROOT/toolkit/docs/retention/milestones/MILESTONE_192.md"
+  index="$TEST_ROOT/toolkit/docs/retention/MILESTONE_INDEX.md"
+
+  [ -f "$reviewer_output" ]
+  [ -f "$reviewer_doc" ]
+  [ -f "$milestone" ]
+
+  run "$atlas_bin" receipt verify "$receipt" --json
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" | jq -e '
+    .status == "ok" and
+    .receipt_id == "receipt_generic_external_event_v1_m190-external-project-minimal-event" and
+    .metadata_only == true and
+    .raw_artifacts_embedded == false and
+    .evidence_ref_count == 12 and
+    .artifact_ref_count == 1 and
+    .approval_ref_count == 1
+  '
+
+  grep -q '^# External Project Receipt Reviewer Output$' "$reviewer_doc"
+  grep -q 'what Atlas verified' "$reviewer_doc"
+  grep -q 'What Atlas Does Not Verify' "$reviewer_doc"
+  grep -q 'still remains outside Atlas' "$reviewer_doc"
+  grep -q 'does not change receipt' "$reviewer_doc"
+  grep -q 'hashing, canonicalization, replay behavior' "$reviewer_doc"
+  grep -q 'not a new Atlas' "$reviewer_doc"
+  grep -q 'command output contract' "$reviewer_doc"
+
+  grep -q '^# External Project Receipt Reviewer Output Example$' "$reviewer_output"
+  grep -q 'Verification status: `ok`' "$reviewer_output"
+  grep -q 'metadata_only=true' "$reviewer_output"
+  grep -q 'raw_artifacts_embedded=false' "$reviewer_output"
+  grep -q 'evidence references: 12' "$reviewer_output"
+  grep -q 'artifact references: 1' "$reviewer_output"
+  grep -q 'approval references: 1' "$reviewer_output"
+  grep -q 'external_project://project/synthetic-payments-demo' "$reviewer_output"
+  grep -q 'external_project://policy/change-policy-demo-v1' "$reviewer_output"
+  grep -q 'approval:synthetic-change-001' "$reviewer_output"
+  grep -q 'Atlas did not verify source-system truth' "$reviewer_output"
+  grep -q 'The reviewer must decide' "$reviewer_output"
+  grep -q 'not the approval authority' "$reviewer_output"
+
+  grep -q 'M192 adds reviewer-facing plain-English output' "$milestone"
+  grep -q 'M192 does not change receipt semantics' "$milestone"
+  grep -q 'M192 is docs/examples/tests only' "$milestone"
+  grep -q 'External Receipt Reviewer Output' "$index"
+
+  ! grep -Eiq 'compliance certification|production certification|external audit completed|tamper-proof infrastructure|complete event coverage guaranteed|Atlas is the approval authority' "$reviewer_doc" "$reviewer_output" "$milestone"
+}
