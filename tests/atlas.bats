@@ -4789,6 +4789,184 @@ write_test_slsa_reference() {
   [ "$before_dirs" = "$after_dirs" ]
 }
 
+@test "M190 external project receipt pilot hardens metadata-only external receipts" {
+  doc="$TEST_ROOT/toolkit/docs/receipts/EXTERNAL_PROJECT_RECEIPTS.md"
+  readme="$TEST_ROOT/toolkit/examples/receipt/external-project/README.md"
+  event="$TEST_ROOT/toolkit/examples/receipt/external-project/minimal-event.json"
+  receipt="$TEST_ROOT/toolkit/examples/receipt/external-project/minimal-receipt.json"
+  milestone="$TEST_ROOT/toolkit/docs/retention/milestones/MILESTONE_190.md"
+  milestone_index="$TEST_ROOT/toolkit/docs/retention/MILESTONE_INDEX.md"
+
+  [ -f "$doc" ]
+  [ -f "$readme" ]
+  [ -f "$event" ]
+  [ -f "$receipt" ]
+  [ -f "$milestone" ]
+
+  jq -e . "$event"
+  jq -e . "$receipt"
+
+  jq -e '
+    .schema_version == "generic.external_event.v1" and
+    .adapter_id == "generic.external_event.v1" and
+    .event_type == "external_project.action.reviewed" and
+    .actor == "operator:external-project-reviewer" and
+    .subject.type == "external-project-action" and
+    .metadata_only == true and
+    .raw_artifacts_embedded == false and
+    (.approval_refs | index("approval:synthetic-change-001")) and
+    (.evidence_refs | index("docs/receipts/EXTERNAL_PROJECT_RECEIPTS.md")) and
+    (.evidence_refs | index("external_project://project/synthetic-payments-demo")) and
+    (.evidence_refs | index("external_project://system/change-management-demo")) and
+    (.evidence_refs | index("external_project://capability/external.change.review")) and
+    (.evidence_refs | index("external_project://policy/change-policy-demo-v1")) and
+    (.evidence_refs | index("external_project://approval_required/true")) and
+    any(.evidence_refs[]; startswith("sha256:input:")) and
+    any(.evidence_refs[]; startswith("sha256:output:")) and
+    (.known_limitations | type == "array" and length > 0)
+  ' "$event"
+
+  jq -e '
+    .schema_version == "atlas.receipt.v1" and
+    .receipt_id == "receipt_generic_external_event_v1_m190-external-project-minimal-event" and
+    .timestamp == "2026-06-16T06:20:00Z" and
+    .action == "external_project.action.reviewed" and
+    .actor == "operator:external-project-reviewer" and
+    .subject.type == "external-project-action" and
+    .metadata_only == true and
+    .raw_artifacts_embedded == false and
+    .prev_hash == null and
+    (.evidence_refs | index("examples/receipt/external-project/minimal-event.json")) and
+    (.evidence_refs | index("external_project://project/synthetic-payments-demo")) and
+    (.approval_refs | index("approval:synthetic-change-001")) and
+    (.artifact_refs | length == 1) and
+    (.known_limitations | any(test("Imported from a local generic.external_event.v1 file")))
+  ' "$receipt"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt verify "$receipt" --json
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" | jq -e '
+    .schema_version == "atlas.receipt_verify.v1" and
+    .status == "ok" and
+    .metadata_only == true and
+    .raw_artifacts_embedded == false and
+    .evidence_ref_count >= 12 and
+    .artifact_ref_count == 1 and
+    .approval_ref_count == 1
+  '
+
+  generated="$TEST_ROOT/m190-external-project-generated.json"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt import-generic-event "$event" --out "$generated"
+  [ "$status" -eq 0 ]
+  [ -f "$generated" ]
+  cmp "$receipt" "$generated"
+
+  result_event="$TEST_ROOT/m190-external-project-result-event.json"
+  jq '
+    .event_id = "m190-external-project-result-event" |
+    .observed_at = "2026-06-16T06:21:00Z" |
+    .event_type = "external_project.result.recorded" |
+    .subject.ref = "project:synthetic-payments-demo/change:config-change-result" |
+    .evidence_refs += ["external_project://result/review-recorded"] |
+    .known_limitations += ["Second synthetic M190 event used only to test supplied receipt chain order."]
+  ' "$event" >"$result_event"
+
+  prev_hash="$(jq -r '.event_hash' "$receipt")"
+  second_receipt="$TEST_ROOT/m190-external-project-result.json"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt import-generic-event \
+    "$result_event" \
+    --prev-hash "$prev_hash" \
+    --out "$second_receipt"
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt replay "$receipt" "$second_receipt" --json
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" | jq -e \
+    --arg prev_hash "$prev_hash" \
+    '.schema_version == "atlas.receipt_replay.v1" and
+    .status == "ok" and
+    .metadata_only == true and
+    .raw_artifacts_embedded == false and
+    .receipt_count == 2 and
+    .chain[1].prev_hash == $prev_hash and
+    .ledger_binding.status == "ok"'
+
+  wrong_second="$TEST_ROOT/m190-external-project-wrong-chain.json"
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt import-generic-event \
+    "$result_event" \
+    --prev-hash "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc" \
+    --out "$wrong_second"
+  [ "$status" -eq 0 ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt replay "$receipt" "$wrong_second"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"receipt replay receipt 2 prev_hash mismatch"* ]]
+
+  assert_import_rejected() {
+    local event_file="$1"
+    local expected="$2"
+    local out_file="$TEST_ROOT/rejected-$(basename "$event_file").receipt.json"
+
+    rm -f "$out_file"
+    run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt import-generic-event "$event_file" --out "$out_file"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"$expected"* ]]
+    [ ! -e "$out_file" ]
+  }
+
+  bad_metadata="$TEST_ROOT/m190-bad-metadata-event.json"
+  jq '.metadata_only = false' "$event" >"$bad_metadata"
+  assert_import_rejected "$bad_metadata" "invalid generic external event fields"
+
+  bad_embedded="$TEST_ROOT/m190-bad-embedded-event.json"
+  jq '.raw_artifacts_embedded = true' "$event" >"$bad_embedded"
+  assert_import_rejected "$bad_embedded" "invalid generic external event fields"
+
+  missing_required="$TEST_ROOT/m190-missing-required-event.json"
+  jq 'del(.event_type)' "$event" >"$missing_required"
+  assert_import_rejected "$missing_required" "invalid generic external event fields"
+
+  raw_prompt="$TEST_ROOT/m190-raw-prompt-event.json"
+  jq '. + {raw_prompt: "synthetic prompt body"}' "$event" >"$raw_prompt"
+  assert_import_rejected "$raw_prompt" "generic external event contains forbidden raw-content marker"
+
+  request_body="$TEST_ROOT/m190-request-body-event.json"
+  jq '. + {request_body: "POST /demo"}' "$event" >"$request_body"
+  assert_import_rejected "$request_body" "generic external event contains forbidden raw-content marker"
+
+  raw_logs="$TEST_ROOT/m190-raw-logs-event.json"
+  jq '. + {raw_logs: "synthetic terminal log"}' "$event" >"$raw_logs"
+  assert_import_rejected "$raw_logs" "generic external event contains forbidden raw-content marker"
+
+  token_marker="$TEST_ROOT/m190-token-marker-event.json"
+  jq '.evidence_refs += ["token=abc123"]' "$event" >"$token_marker"
+  assert_import_rejected "$token_marker" "generic external event contains forbidden raw-content marker"
+
+  private_key_marker="$TEST_ROOT/m190-private-key-event.json"
+  jq '. + {private_key: "BEGIN OPENSSH PRIVATE KEY"}' "$event" >"$private_key_marker"
+  assert_import_rejected "$private_key_marker" "generic external event contains forbidden raw-content marker"
+
+  grep -q '^# External Project Receipts$' "$doc"
+  grep -q 'source-system truth' "$doc"
+  grep -q 'Human judgment remains required' "$doc"
+  grep -q 'M190 does not change the `atlas.receipt.v1` schema' "$doc"
+  grep -q 'M190 does not add a database, server, web UI' "$doc"
+  grep -q 'raw prompts' "$doc"
+  grep -q 'tokens' "$doc"
+  grep -q 'private keys' "$doc"
+  grep -q 'request-body' "$doc"
+  grep -q 'response-body' "$doc"
+
+  grep -q 'M190 adds a small external-project receipt pilot' "$milestone"
+  grep -q 'docs/examples/tests only' "$milestone"
+  grep -q 'receipt semantic changes' "$milestone"
+  grep -q 'raw prompts' "$milestone"
+  grep -q 'MILESTONE_190.md' "$milestone_index"
+  grep -q 'External Project Receipt Pilot' "$milestone_index"
+
+  ! grep -Eiq 'guaranteed compliance|certified compliant|legally compliant|legally sufficient|external audit complete|external certification complete|production approval granted|enterprise deployment approved|tamper-proof infrastructure implemented|immutable storage implemented|complete event coverage: (true|ready|implemented)|Atlas (guarantees|certifies|proves|delivers) (compliance|certification|legal sufficiency|external audit|production approval|complete event coverage|tamper-proof infrastructure|immutable storage)' "$doc" "$readme" "$milestone"
+}
+
 @test "M146 AI agent event profile imports event-source receipts without execution authority" {
   profile_doc="$TEST_ROOT/toolkit/docs/adapters/AI_AGENT_EVENT_RECEIPT_PROFILE.md"
   generic_doc="$TEST_ROOT/toolkit/docs/adapters/GENERIC_EXTERNAL_EVENT_RECEIPT_ADAPTER.md"

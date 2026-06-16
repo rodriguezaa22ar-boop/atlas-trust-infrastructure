@@ -1,0 +1,49 @@
+{
+  "action": "external_project.action.reviewed",
+  "actor": "operator:external-project-reviewer",
+  "approval_refs": [
+    "approval:synthetic-change-001"
+  ],
+  "artifact_refs": [
+    {
+      "path": "external-project://synthetic-payments-demo/artifacts/change-summary.md",
+      "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    }
+  ],
+  "event_hash": "0c3a8f3ec6e2e8a029e4fd9e0f7a3a694ab5d725025c58203cc048afabee3f11",
+  "evidence_refs": [
+    "examples/receipt/external-project/minimal-event.json",
+    "docs/receipts/EXTERNAL_PROJECT_RECEIPTS.md",
+    "external_project://actor/operator:external-project-reviewer",
+    "external_project://project/synthetic-payments-demo",
+    "external_project://system/change-management-demo",
+    "external_project://action/config-change-reviewed",
+    "external_project://capability/external.change.review",
+    "external_project://policy/change-policy-demo-v1",
+    "external_project://approval_required/true",
+    "external_project://approval_ref/approval:synthetic-change-001",
+    "sha256:input:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "sha256:output:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  ],
+  "known_limitations": [
+    "Synthetic M190 example only; it does not prove source-system truth, action correctness, or external artifact availability.",
+    "The event records metadata references and hashes only; raw logs, request bodies, response bodies, prompts, model outputs, credentials, tokens, private keys, and evidence bodies are not embedded.",
+    "A receipt can verify local metadata shape, deterministic hashes, and supplied chain order only; human judgment remains required.",
+    "Imported from a local generic.external_event.v1 file; Atlas does not call, control, or verify the source system."
+  ],
+  "metadata_only": true,
+  "prev_hash": null,
+  "raw_artifacts_embedded": false,
+  "receipt_hash": "cd619c4954af802b66a76e0dd379a01973e19458003dd163019d867cdc3797d3",
+  "receipt_id": "receipt_generic_external_event_v1_m190-external-project-minimal-event",
+  "schema_version": "atlas.receipt.v1",
+  "subject": {
+    "ref": "project:synthetic-payments-demo/change:config-change-reviewed",
+    "type": "external-project-action"
+  },
+  "timestamp": "2026-06-16T06:20:00Z",
+  "verifier": {
+    "name": "atlas receipt verify",
+    "schema": "schemas/atlas.receipt.v1.schema.json"
+  }
+}
