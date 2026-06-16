@@ -46,3 +46,21 @@ compliance, production approval, external audit completion, certification,
 complete event coverage, tamper-proof storage, action correctness, artifact
 correctness, or replacement of human judgment.
 
+
+## Negative Fixtures
+
+M191 adds synthetic negative fixtures for reviewer education and safety
+regression coverage:
+
+| File | Expected result |
+| --- | --- |
+| `negative-metadata-only-false.json` | Import must fail because `metadata_only` is not true. |
+| `negative-raw-artifacts-embedded.json` | Import must fail because `raw_artifacts_embedded` is not false. |
+| `negative-missing-schema-version.json` | Import must fail because required schema metadata is missing. |
+
+These fixtures are not runtime evidence. They are synthetic examples that help a
+reviewer understand fail-closed behavior while preserving the metadata-only
+boundary.
+
+For reviewer-facing failure interpretation, see
+`docs/receipts/EXTERNAL_PROJECT_RECEIPT_FAILURES.md`.

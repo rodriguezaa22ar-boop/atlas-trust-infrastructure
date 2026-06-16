@@ -189,3 +189,4 @@ changes, verification output, repo state, and boundaries for that milestone.
 When a milestone is retained, update this index in the same retention closeout
 or in the immediately following retention note commit. The test suite checks
 that every retained milestone note is represented here with its retention tag.
+| [191](milestones/MILESTONE_191.md) | pending | External Receipt Safety Regression | receipt-safety | no | Hardens external-project receipt review with negative fixtures and failure explanations while preserving metadata-only receipt semantics. | pending | `atlas-retention-m191` |
