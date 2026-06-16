@@ -1,0 +1,175 @@
+name: Atlas Metadata Receipts
+
+on:
+  workflow_dispatch:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  atlas-metadata-receipts:
+    name: Atlas metadata receipts
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout subject repository
+        uses: actions/checkout@v4
+        with:
+          path: subject
+
+      - name: Checkout Atlas trust infrastructure
+        uses: actions/checkout@v4
+        with:
+          repository: rodriguezaa22ar-boop/atlas-trust-infrastructure
+          ref: main
+          path: atlas
+
+      - name: Check receipt dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v jq >/dev/null
+          command -v sha256sum >/dev/null
+
+      - name: Create metadata-only Atlas receipts
+        shell: bash
+        env:
+          ATLAS_ROOT: ${{ github.workspace }}/atlas
+          SUBJECT_ROOT: ${{ github.workspace }}/subject
+          ATLAS_RECEIPT_CONCLUSION: success
+        run: |
+          set -euo pipefail
+          umask 077
+
+          event_dir="$SUBJECT_ROOT/.atlas/events"
+          receipt_dir="$SUBJECT_ROOT/.atlas/receipts"
+          mkdir -p "$event_dir" "$receipt_dir"
+
+          observed_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          run_id="${GITHUB_RUN_ID:-unknown-run}"
+          run_attempt="${GITHUB_RUN_ATTEMPT:-1}"
+          workflow_name="${GITHUB_WORKFLOW:-unknown-workflow}"
+          repo="${GITHUB_REPOSITORY:-unknown/repository}"
+          actor="${GITHUB_ACTOR:-github-actions[bot]}"
+          sha="${GITHUB_SHA:-unknown-sha}"
+          conclusion="${ATLAS_RECEIPT_CONCLUSION:-success}"
+          check_id="local-${run_id}-${run_attempt}-atlas-metadata-receipts"
+
+          run_event="$event_dir/github-actions-run-event.json"
+          check_event="$event_dir/github-actions-check-event.json"
+          run_receipt="$receipt_dir/github-actions-run.receipt.json"
+          check_receipt="$receipt_dir/github-actions-check.receipt.json"
+          replay_summary="$receipt_dir/github-actions-replay.summary.json"
+
+          jq -n \
+            --arg event_id "github-actions-run-${run_id}-${run_attempt}" \
+            --arg observed_at "$observed_at" \
+            --arg actor "$actor" \
+            --arg source_ref ".atlas/events/github-actions-run-event.json" \
+            --arg subject_ref "${repo}/actions/runs/${run_id}" \
+            --arg repo "$repo" \
+            --arg workflow "$workflow_name" \
+            --arg run_id "$run_id" \
+            --arg sha "$sha" \
+            --arg conclusion "$conclusion" \
+            '{
+              schema_version: "generic.external_event.v1",
+              adapter_id: "generic.external_event.v1",
+              event_id: $event_id,
+              observed_at: $observed_at,
+              event_type: "github.actions.workflow_run.completed",
+              actor: $actor,
+              source_ref: $source_ref,
+              subject: {
+                type: "github-actions-workflow-run",
+                ref: $subject_ref
+              },
+              evidence_refs: [
+                "docs/reviews/GITHUB_ACTIONS_RUN_RECEIPT_CANDIDATE_M151.md",
+                "schemas/generic-external-event.v1.schema.json",
+                ("github-actions://repository/" + $repo),
+                ("github-actions://workflow/" + $workflow),
+                ("github-actions://run/" + $run_id),
+                ("github-actions://head_sha/" + $sha),
+                ("github-actions://conclusion/" + $conclusion)
+              ],
+              artifact_refs: [],
+              approval_refs: [],
+              metadata_only: true,
+              raw_artifacts_embedded: false,
+              known_limitations: [
+                "Generated from GitHub Actions environment metadata only; Atlas does not call the GitHub API or verify source-system truth.",
+                "This event does not embed workflow logs, check annotations, artifacts, webhook payloads, credentials, tokens, or secrets.",
+                "The receipt proves local metadata shape, deterministic hashing, and replay linkage only; it does not prove run correctness, authorization, compliance, or production approval."
+              ]
+            }' >"$run_event"
+
+          jq -n \
+            --arg event_id "github-actions-check-${check_id}" \
+            --arg observed_at "$observed_at" \
+            --arg actor "$actor" \
+            --arg source_ref ".atlas/events/github-actions-check-event.json" \
+            --arg subject_ref "${repo}/check-runs/${check_id}" \
+            --arg repo "$repo" \
+            --arg run_id "$run_id" \
+            --arg check_id "$check_id" \
+            --arg conclusion "$conclusion" \
+            '{
+              schema_version: "generic.external_event.v1",
+              adapter_id: "generic.external_event.v1",
+              event_id: $event_id,
+              observed_at: $observed_at,
+              event_type: "github.actions.check_run.completed",
+              actor: $actor,
+              source_ref: $source_ref,
+              subject: {
+                type: "github-actions-check-run",
+                ref: $subject_ref
+              },
+              evidence_refs: [
+                "docs/reviews/GITHUB_ACTIONS_RUN_RECEIPT_CANDIDATE_M151.md",
+                "schemas/generic-external-event.v1.schema.json",
+                ("github-actions://repository/" + $repo),
+                ("github-actions://run/" + $run_id),
+                ("github-actions://check_run/" + $check_id),
+                "github-actions://check_name/atlas-metadata-receipts",
+                ("github-actions://conclusion/" + $conclusion)
+              ],
+              artifact_refs: [],
+              approval_refs: [],
+              metadata_only: true,
+              raw_artifacts_embedded: false,
+              known_limitations: [
+                "Generated from GitHub Actions environment metadata only; Atlas does not call the GitHub API or verify source-system truth.",
+                "This event does not embed check logs, annotations, artifacts, webhook payloads, credentials, tokens, or secrets.",
+                "The receipt proves local metadata shape, deterministic hashing, and replay linkage only; it does not prove check correctness, authorization, compliance, or production approval."
+              ]
+            }' >"$check_event"
+
+          "$ATLAS_ROOT/tools/atlas/bin/atlas" receipt import-generic-event \
+            "$run_event" \
+            --out "$run_receipt"
+          "$ATLAS_ROOT/tools/atlas/bin/atlas" receipt verify "$run_receipt"
+
+          prev_hash="$(jq -r '.event_hash' "$run_receipt")"
+
+          "$ATLAS_ROOT/tools/atlas/bin/atlas" receipt import-generic-event \
+            "$check_event" \
+            --prev-hash "$prev_hash" \
+            --out "$check_receipt"
+          "$ATLAS_ROOT/tools/atlas/bin/atlas" receipt verify "$check_receipt"
+          "$ATLAS_ROOT/tools/atlas/bin/atlas" receipt replay \
+            "$run_receipt" \
+            "$check_receipt" >"$replay_summary"
+
+      - name: Upload Atlas metadata receipts
+        uses: actions/upload-artifact@v4
+        with:
+          name: atlas-metadata-receipts
+          if-no-files-found: error
+          path: |
+            subject/.atlas/events/*.json
+            subject/.atlas/receipts/*.json

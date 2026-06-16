@@ -33,6 +33,9 @@ This includes raw prompts, browser/session/cookie material, and unredacted evide
   one-day organization-facing CI release review workflow using local
   GitHub Actions metadata receipts, evidence sufficiency, and reviewer decision
   support.
+- [workflows/GITHUB_REPO_TRUST_SURFACE.md](workflows/GITHUB_REPO_TRUST_SURFACE.md):
+  copyable `.atlas/` and GitHub Actions trust surface for using Atlas receipts
+  from another GitHub repository without a live GitHub integration.
 - [REVIEWER_QUICKSTART.md](REVIEWER_QUICKSTART.md): simplified path from fresh
   clone to first verify, first replay, GitHub Actions metadata import,
   evidence sufficiency review, and reviewer decision summary.
@@ -111,6 +114,7 @@ This includes raw prompts, browser/session/cookie material, and unredacted evide
 - Public trust reviewer: [PUBLIC_TRUST_SURFACE.md](PUBLIC_TRUST_SURFACE.md)
 - First-time reviewer: [REVIEWER_QUICKSTART.md](REVIEWER_QUICKSTART.md)
 - Organization CI release reviewer: [workflows/ORG_CI_RELEASE_REVIEW_WORKFLOW_M164.md](workflows/ORG_CI_RELEASE_REVIEW_WORKFLOW_M164.md)
+- GitHub repo maintainer: [workflows/GITHUB_REPO_TRUST_SURFACE.md](workflows/GITHUB_REPO_TRUST_SURFACE.md)
 - Adoption dry-run reviewer: [reviews/ADOPTION_FRICTION_DRY_RUN_M167.md](reviews/ADOPTION_FRICTION_DRY_RUN_M167.md)
 - Security operator: [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md)
 - Lab operator: [ops/DUAL_NODE_COCKPIT.md](ops/DUAL_NODE_COCKPIT.md)
@@ -162,6 +166,9 @@ This includes raw prompts, browser/session/cookie material, and unredacted evide
 - [REVIEWER_QUICKSTART.md](REVIEWER_QUICKSTART.md): simplified reviewer path
   for first verify, first replay, GitHub Actions metadata import, evidence
   sufficiency review, and decision summary.
+- [workflows/GITHUB_REPO_TRUST_SURFACE.md](workflows/GITHUB_REPO_TRUST_SURFACE.md):
+  copyable `.atlas/` trust surface, GitHub Actions receipt workflow, and local
+  reviewer commands for using Atlas from another GitHub repository.
 - [TRY_GENERIC_EVENT_ADAPTER.md](TRY_GENERIC_EVENT_ADAPTER.md): copy-paste
   generic external event adapter import path with expected verify and replay
   output.
@@ -199,6 +206,9 @@ This includes raw prompts, browser/session/cookie material, and unredacted evide
 - [workflows/ORG_CI_RELEASE_REVIEW_WORKFLOW_M164.md](workflows/ORG_CI_RELEASE_REVIEW_WORKFLOW_M164.md):
   organization-facing CI release review workflow that connects proof receipts,
   evidence sufficiency, and reviewer decision support.
+- [workflows/GITHUB_REPO_TRUST_SURFACE.md](workflows/GITHUB_REPO_TRUST_SURFACE.md):
+  target-repository trust surface for generating metadata-only GitHub Actions
+  receipts and replay summaries.
 - [reviews/ADOPTION_FRICTION_DRY_RUN_M167.md](reviews/ADOPTION_FRICTION_DRY_RUN_M167.md):
   internal adoption friction dry-run for the one-day CI release review path.
 - [demo/DEMO_OPERATION.md](demo/DEMO_OPERATION.md): repeatable synthetic demo

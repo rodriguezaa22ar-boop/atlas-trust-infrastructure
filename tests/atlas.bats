@@ -112,6 +112,75 @@ write_test_slsa_reference() {
     }' >"$slsa_ref"
 }
 
+@test "github repo trust surface kit imports metadata-only GitHub receipts" {
+  kit="$TEST_ROOT/toolkit/examples/github-repo-trust-surface"
+  guide="$TEST_ROOT/toolkit/docs/workflows/GITHUB_REPO_TRUST_SURFACE.md"
+  workflow="$kit/.github/workflows/atlas-receipts.yml"
+  run_event="$kit/.atlas/events/github-actions-run-event.json"
+  check_event="$kit/.atlas/events/github-actions-check-event.json"
+  helper="$kit/scripts/import-github-actions-events.sh"
+  out_dir="$TEST_ROOT/github-repo-trust-surface"
+
+  [ -f "$guide" ]
+  [ -f "$workflow" ]
+  [ -f "$run_event" ]
+  [ -f "$check_event" ]
+  [ -x "$helper" ]
+
+  grep -q 'metadata-only trust overlay' "$guide"
+  grep -q 'raw prompts' "$guide"
+  grep -q 'ATLAS_ROOT' "$helper"
+  grep -q 'actions/checkout@v4' "$workflow"
+  ! grep -Eq 'secrets\.|GITHUB_TOKEN|github_token' "$workflow"
+
+  jq -e '
+    .schema_version == "generic.external_event.v1" and
+    .adapter_id == "generic.external_event.v1" and
+    .event_type == "github.actions.workflow_run.completed" and
+    .metadata_only == true and
+    .raw_artifacts_embedded == false and
+    (.evidence_refs | index("docs/reviews/GITHUB_ACTIONS_RUN_RECEIPT_CANDIDATE_M151.md")) and
+    any(.evidence_refs[]; startswith("github-actions://repository/")) and
+    any(.evidence_refs[]; startswith("github-actions://workflow/")) and
+    any(.evidence_refs[]; startswith("github-actions://run/")) and
+    any(.evidence_refs[]; startswith("github-actions://head_sha/")) and
+    any(.evidence_refs[]; startswith("github-actions://conclusion/"))
+  ' "$run_event"
+
+  jq -e '
+    .schema_version == "generic.external_event.v1" and
+    .adapter_id == "generic.external_event.v1" and
+    .event_type == "github.actions.check_run.completed" and
+    .metadata_only == true and
+    .raw_artifacts_embedded == false and
+    (.evidence_refs | index("docs/reviews/GITHUB_ACTIONS_RUN_RECEIPT_CANDIDATE_M151.md")) and
+    any(.evidence_refs[]; startswith("github-actions://repository/")) and
+    any(.evidence_refs[]; startswith("github-actions://run/")) and
+    any(.evidence_refs[]; startswith("github-actions://check_run/")) and
+    any(.evidence_refs[]; startswith("github-actions://check_name/")) and
+    any(.evidence_refs[]; startswith("github-actions://conclusion/"))
+  ' "$check_event"
+
+  run env ATLAS_ROOT="$TEST_ROOT/toolkit" "$helper" "$run_event" "$check_event" "$out_dir"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"atlas github repo trust surface: ok"* ]]
+
+  [ -f "$out_dir/github-actions-run.receipt.json" ]
+  [ -f "$out_dir/github-actions-check.receipt.json" ]
+  [ -f "$out_dir/github-actions-replay.summary.json" ]
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt verify "$out_dir/github-actions-run.receipt.json"
+  [ "$status" -eq 0 ]
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt verify "$out_dir/github-actions-check.receipt.json"
+  [ "$status" -eq 0 ]
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" receipt replay \
+    "$out_dir/github-actions-run.receipt.json" \
+    "$out_dir/github-actions-check.receipt.json"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"receipt replay: ok"* ]]
+  [[ "$output" == *"metadata-only boundary: ok"* ]]
+}
+
 @test "repository boundary and public manifest define export contract" {
   boundary_doc="$TEST_ROOT/toolkit/docs/REPOSITORY_BOUNDARY.md"
   manifest="$TEST_ROOT/toolkit/exports/public-trust-manifest.json"
