@@ -29,7 +29,7 @@ jobs:
     steps:
       - name: Checkout
         # actions/checkout v6 pinned to immutable commit.
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -154,6 +154,6 @@ jobs:
 
       - name: Generate SLSA build provenance attestation
         # actions/attest v4 pinned to immutable commit.
-        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26
+        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763
         with:
           subject-path: ${{ env.artifact }}
