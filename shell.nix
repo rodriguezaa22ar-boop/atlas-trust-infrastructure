@@ -8,6 +8,7 @@ pkgs.mkShell {
     git
     gnupg
     jq
+    open-policy-agent
     ripgrep
     rsync
     shellcheck

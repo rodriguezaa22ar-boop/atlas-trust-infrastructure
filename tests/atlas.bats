@@ -925,11 +925,24 @@ write_test_slsa_reference() {
 
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" policy evaluate atlas.status.read --json
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.decision == "allow" and .class == "read" and .policy_ref == "policy/atlas.authz.rego"'
+  echo "$output" | jq -e '
+    .decision == "allow" and
+    .class == "read" and
+    .policy_engine == "shell-jq" and
+    .policy_evaluator_ref == "tools/atlas/lib/policy.sh" and
+    .policy_contract_ref == "policy/atlas.authz.rego" and
+    .policy_ref == "tools/atlas/lib/policy.sh"
+  '
 
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" policy evaluate atlas.agent.tool.exec --json
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.decision == "approval_required" and .approval_required == true'
+  echo "$output" | jq -e '
+    .decision == "approval_required" and
+    .approval_required == true and
+    .policy_engine == "shell-jq" and
+    .policy_evaluator_ref == "tools/atlas/lib/policy.sh" and
+    .policy_contract_ref == "policy/atlas.authz.rego"
+  '
 
   run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" policy evaluate atlas.agent.tool.exec --approval approved --json
   [ "$status" -ne 0 ]
@@ -961,7 +974,8 @@ write_test_slsa_reference() {
   jq '(.cases[] | select(.name == "read allowed") | .expect) = "deny"' "$policy_cases" >"$bad_cases"
   run "$TEST_ROOT/toolkit/bin/dev-policy" "$bad_cases"
   [ "$status" -ne 0 ]
-  [[ "$output" == *"policy: fail policy case 'read allowed' expected deny got allow"* ]]
+  [[ "$output" == *"policy: fail rego contract case 'read allowed' expected deny got allow"* ||
+    "$output" == *"policy: fail policy case 'read allowed' expected deny got allow"* ]]
 }
 
 @test "approval plane emits verifies and expires metadata-only approval events" {
@@ -1068,7 +1082,11 @@ write_test_slsa_reference() {
     .rollback_plan == "remove generated sandbox output" and
     (.evidence_refs | index("policy/tests/decisions.v1.json")) and
     .status == "requested" and
-    .policy_decision.decision == "approval_required"
+    .policy_decision.decision == "approval_required" and
+    .policy_decision.policy_engine == "shell-jq" and
+    .policy_decision.policy_evaluator_ref == "tools/atlas/lib/policy.sh" and
+    .policy_decision.policy_contract_ref == "policy/atlas.authz.rego" and
+    .policy_decision.policy_ref == "tools/atlas/lib/policy.sh"
   '
 
   event_id="$(echo "$event" | jq -r '.event_id')"
@@ -1092,7 +1110,10 @@ write_test_slsa_reference() {
     .status == "approved" and
     .original_event_id == $event_id and
     .approved_by == "reviewer" and
-    .policy_decision.decision == "allow"
+    .policy_decision.decision == "allow" and
+    .policy_decision.policy_engine == "shell-jq" and
+    .policy_decision.policy_evaluator_ref == "tools/atlas/lib/policy.sh" and
+    .policy_decision.policy_contract_ref == "policy/atlas.authz.rego"
   '
 
   approved_file="$TEST_ROOT/approval-approved-event.json"

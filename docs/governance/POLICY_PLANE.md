@@ -6,8 +6,12 @@ M126 adds the first policy decision contract for Atlas capabilities.
 M176 adds the first draft policy-plane contract for future capability, adapter,
 approval, and evidence decisions without adding runtime enforcement.
 
-`policy/atlas.authz.rego` defines the decision vocabulary and authorization
-rules that sit above `capabilities.yaml` and `adapters/registry.yaml`.
+`tools/atlas/lib/policy.sh` is the current shell/JQ runtime evaluator for
+local Atlas policy decisions.
+
+`policy/atlas.authz.rego` is the current Rego policy contract/reference for
+the same decision vocabulary. The development policy gate validates this
+contract with OPA, but M193 does not migrate runtime decisions to OPA.
 
 Current draft detail: [POLICY_PLANE_M176.md](POLICY_PLANE_M176.md).
 
@@ -36,6 +40,21 @@ Policy evaluation is capability-first:
    already present.
 5. The decision emits a metadata-only decision object.
 
+Current source-of-truth fields:
+
+```json
+{
+  "policy_engine": "shell-jq",
+  "policy_evaluator_ref": "tools/atlas/lib/policy.sh",
+  "policy_contract_ref": "policy/atlas.authz.rego",
+  "policy_ref": "tools/atlas/lib/policy.sh"
+}
+```
+
+`policy_ref` remains as a compatibility field and points to the evaluated
+implementation. `policy_contract_ref` points to the Rego contract checked by
+OPA.
+
 Current default posture:
 
 - `read`, `import`, and `verify`: `allow`
@@ -61,6 +80,10 @@ Run the policy fixture suite:
 ./bin/dev-policy
 ```
 
+`./bin/dev-policy` runs the shell/JQ policy fixture suite, checks source
+reporting fields, runs `opa check policy/`, and evaluates the Rego contract
+against policy fixtures to detect evaluator/contract drift.
+
 Expected validator output:
 
 ```text
@@ -84,9 +107,10 @@ wrapper, cloud action, web dashboard, hidden database, or agent execution
 runtime.
 
 The Rego file is the policy contract. The shell/JQ evaluator is the current
-host-runtime implementation so Atlas stays portable outside Nix. A future OPA
-or signed-policy-bundle runtime must preserve the same decision vocabulary and
-metadata-only evidence boundary.
+host-runtime implementation so Atlas stays portable outside Nix. OPA validates
+the Rego contract in QA, but Rego is not the M193 runtime evaluator. A future
+OPA or signed-policy-bundle runtime must preserve the same decision vocabulary
+and metadata-only evidence boundary.
 
 At the CLI boundary, `approval=approved` must come from a verified
 `atlas.approval_event.v1` event supplied with `--approval-event`. Internal

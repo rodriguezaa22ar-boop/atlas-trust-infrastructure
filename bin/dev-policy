@@ -25,6 +25,7 @@ require_decision_term() {
 
 require_command jq
 require_command grep
+require_command opa
 require_command sort
 require_command uniq
 
@@ -35,6 +36,7 @@ require_command uniq
 
 grep -q '^package atlas\.authz$' "$POLICY" || fail "missing package atlas.authz"
 grep -q '^default decision = "unsupported"$' "$POLICY" || fail "missing default unsupported decision"
+opa check "$ROOT/policy" >/dev/null || fail "rego policy contract failed opa check"
 
 for decision in allow deny approval_required unsupported not_in_scope; do
   require_decision_term "$decision"
@@ -163,6 +165,68 @@ unsafe_plane_text="$(
     head -n 1 || true
 )"
 [ -z "$unsafe_plane_text" ] || fail "unsafe policy plane claim $unsafe_plane_text"
+
+while IFS=$'\t' read -r name capability scope approval expected; do
+  capability_json="$(
+    jq -c --arg id "$capability" '
+      .capabilities[]
+      | select(.id == $id)
+    ' "$ROOT/capabilities.yaml" | head -n 1
+  )"
+
+  if [ -n "$capability_json" ]; then
+    input_json="$(
+      jq -cn \
+        --argjson capability "$capability_json" \
+        --arg scope "$scope" \
+        --arg approval "$approval" \
+        '{
+          capability: $capability,
+          scope: {status: $scope, name: $scope},
+          approval: {status: $approval}
+        }'
+    )"
+  else
+    input_json="$(
+      jq -cn \
+        --arg scope "$scope" \
+        --arg approval "$approval" \
+        '{
+          capability: {},
+          scope: {status: $scope, name: $scope},
+          approval: {status: $approval}
+        }'
+    )"
+  fi
+
+  rego_decision="$(
+    printf '%s\n' "$input_json" |
+      opa eval --stdin-input --data "$POLICY" --format raw 'data.atlas.authz.decision'
+  )" || fail "rego contract evaluation failed for $name"
+
+  [ "$rego_decision" = "$expected" ] ||
+    fail "rego contract case '$name' expected $expected got $rego_decision"
+done < <(
+  jq -r '
+    .cases[]
+    | [
+        .name,
+        .capability,
+        (.scope // "in_scope"),
+        (.approval // "none"),
+        .expect
+      ]
+    | @tsv
+  ' "$CASES"
+)
+
+policy_output="$("$ATLAS" policy evaluate atlas.status.read --json)"
+printf '%s\n' "$policy_output" | jq -e '
+  .policy_engine == "shell-jq" and
+  .policy_evaluator_ref == "tools/atlas/lib/policy.sh" and
+  .policy_contract_ref == "policy/atlas.authz.rego" and
+  .policy_ref == "tools/atlas/lib/policy.sh"
+' >/dev/null || fail "policy output source-of-truth fields are inaccurate"
 
 if ! output="$("$ATLAS" policy test "$CASES" 2>&1)"; then
   output="${output#error: }"

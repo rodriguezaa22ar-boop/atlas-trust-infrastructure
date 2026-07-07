@@ -324,7 +324,7 @@ cmd_approval_request() {
   evidence_json="$(atlas_approval_evidence_json "${evidence_refs[@]}")"
   ts="$(timestamp)"
   event_id="approval:$(slugify "$capability"):$ts"
-  policy_decision_json="$(printf '%s\n' "$decision_json" | jq -c '{decision, policy_ref, reason}')"
+  policy_decision_json="$(printf '%s\n' "$decision_json" | jq -c '{decision, policy_engine, policy_evaluator_ref, policy_contract_ref, policy_ref, reason}')"
 
   event_json="$(
     jq -cn \
@@ -471,7 +471,7 @@ cmd_approval_approve() {
   capability="$(printf '%s\n' "$event_json" | jq -r '.capability')"
   scope="$(printf '%s\n' "$event_json" | jq -r '.scope.value')"
   decision_json="$(atlas_policy_decision_json "$capability" "$scope" "approved" "$actor")"
-  policy_decision_json="$(printf '%s\n' "$decision_json" | jq -c '{decision, policy_ref, reason}')"
+  policy_decision_json="$(printf '%s\n' "$decision_json" | jq -c '{decision, policy_engine, policy_evaluator_ref, policy_contract_ref, policy_ref, reason}')"
   ts="$(timestamp)"
   event_id="approval-approved:$(slugify "$capability"):$ts"
 
@@ -560,7 +560,7 @@ cmd_approval_expire() {
   capability="$(printf '%s\n' "$event_json" | jq -r '.capability')"
   scope="$(printf '%s\n' "$event_json" | jq -r '.scope.value')"
   decision_json="$(atlas_policy_decision_json "$capability" "$scope" "none" "$actor")"
-  policy_decision_json="$(printf '%s\n' "$decision_json" | jq -c '{decision, policy_ref, reason}')"
+  policy_decision_json="$(printf '%s\n' "$decision_json" | jq -c '{decision, policy_engine, policy_evaluator_ref, policy_contract_ref, policy_ref, reason}')"
   ts="$(timestamp)"
   event_id="approval-expired:$(slugify "$capability"):$ts"
 

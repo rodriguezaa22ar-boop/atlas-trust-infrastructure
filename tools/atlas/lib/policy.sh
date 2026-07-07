@@ -67,7 +67,10 @@ atlas_policy_decision_json() {
   local approval="${3:-none}"
   local actor="${4:-${ATLAS_OPERATOR:-${USER:-unknown}}}"
   local resource="${5:-}"
-  local policy_ref="policy/atlas.authz.rego"
+  local policy_engine="shell-jq"
+  local policy_evaluator_ref="tools/atlas/lib/policy.sh"
+  local policy_contract_ref="policy/atlas.authz.rego"
+  local policy_ref="$policy_evaluator_ref"
   local capability_json
   local class="unknown"
   local decision="unsupported"
@@ -122,6 +125,9 @@ atlas_policy_decision_json() {
     --arg scope "$scope" \
     --arg approval "$approval" \
     --arg resource "$resource" \
+    --arg policy_engine "$policy_engine" \
+    --arg policy_evaluator_ref "$policy_evaluator_ref" \
+    --arg policy_contract_ref "$policy_contract_ref" \
     --arg policy_ref "$policy_ref" \
     --arg reason "$reason" \
     --argjson approval_required "$approval_required" \
@@ -136,6 +142,9 @@ atlas_policy_decision_json() {
       scope: $scope,
       approval: $approval,
       resource: $resource,
+      policy_engine: $policy_engine,
+      policy_evaluator_ref: $policy_evaluator_ref,
+      policy_contract_ref: $policy_contract_ref,
       policy_ref: $policy_ref,
       reason: $reason,
       evidence: {
