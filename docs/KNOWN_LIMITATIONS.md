@@ -80,6 +80,9 @@ This includes raw prompts, browser/session/cookie material, and unredacted evide
   execution.
 - The Policy Plane models decisions; policy decisions do not prove legal or
   compliance approval and do not create runtime policy enforcement.
+- The current policy runtime evaluator is shell/JQ in
+  `tools/atlas/lib/policy.sh`. `policy/atlas.authz.rego` is validated by OPA as
+  a policy contract/reference, but Rego is not the runtime evaluator in M193.
 - The Approval Plane models approval state; approval records do not prove
   action validity, production approval, legal sufficiency, or execution.
 - The Evidence Envelope is a draft schema contract unless runtime evidence

@@ -44,6 +44,27 @@
       "expect": "allow"
     },
     {
+      "name": "mutating release packet requires approval",
+      "capability": "atlas.release.packet",
+      "scope": "in_scope",
+      "approval": "none",
+      "expect": "approval_required"
+    },
+    {
+      "name": "mutating release packet approved",
+      "capability": "atlas.release.packet",
+      "scope": "in_scope",
+      "approval": "approved",
+      "expect": "allow"
+    },
+    {
+      "name": "non-public export denied",
+      "capability": "atlas.reviewer.package",
+      "scope": "in_scope",
+      "approval": "none",
+      "expect": "deny"
+    },
+    {
       "name": "out of scope blocks known capability",
       "capability": "atlas.status.read",
       "scope": "out_of_scope",
