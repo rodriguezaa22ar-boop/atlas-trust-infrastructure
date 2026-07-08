@@ -172,6 +172,10 @@ contract.
 This is not an external audit, SLSA certification, legal compliance claim, or
 deployment certification.
 
+If the latest manifest is stale, production status must remain blocked. The
+safe refresh procedure is documented at
+[../retention/RELEASE_EVIDENCE_REFRESH.md](../retention/RELEASE_EVIDENCE_REFRESH.md).
+
 ## Relationship To Replay
 
 Release replay verifies a release packet from the commit recorded inside that

@@ -246,3 +246,16 @@ When it reports `production-ready`, that means the local Atlas production
 contract passes for retained release evidence. It is not external audit,
 enterprise certification, SLSA certification, deployment certification, or a
 claim of tamper-proof infrastructure.
+
+## Retained Evidence Refresh
+
+When `main` advances beyond the latest retained production-candidate evidence,
+`atlas production status --strict --explain` must remain `not-ready` until real
+fresh evidence exists for the current release commit.
+
+The refresh path is documented in
+[retention/RELEASE_EVIDENCE_REFRESH.md](retention/RELEASE_EVIDENCE_REFRESH.md).
+It distinguishes v1 readiness, release trust, retained evidence freshness,
+production status, and reviewer judgment. It also forbids fake provenance, fake
+signatures, fake production dry-runs, forced production-ready claims, and raw
+sensitive evidence in retained release artifacts.

@@ -15793,3 +15793,88 @@ EOF
   grep -q 'M191 is docs/examples/tests only' "$milestone"
   grep -q 'External Receipt Safety Regression' "$index"
 }
+
+@test "M197 retained release evidence refresh path stays docs-only and bounded" {
+  runbook="$TEST_ROOT/toolkit/docs/retention/RELEASE_EVIDENCE_REFRESH.md"
+  milestone="$TEST_ROOT/toolkit/docs/retention/milestones/MILESTONE_197.md"
+  index="$TEST_ROOT/toolkit/docs/retention/MILESTONE_INDEX.md"
+  production_doc="$TEST_ROOT/toolkit/docs/atlas/PRODUCTION_READINESS.md"
+  release_doc="$TEST_ROOT/toolkit/docs/RELEASE_TRUST.md"
+  manifest_doc="$TEST_ROOT/toolkit/docs/atlas/RELEASE_ARTIFACT_MANIFEST.md"
+  m140_packet="$TEST_ROOT/toolkit/docs/retention/releases/atlas-m140-refresh-release-reviewer-evidence.json"
+  m140_manifest="$TEST_ROOT/toolkit/docs/retention/releases/atlas-m140-refresh-release-reviewer-evidence.manifest.json"
+  m140_provenance="$TEST_ROOT/toolkit/docs/retention/releases/atlas-m140-refresh-release-reviewer-evidence.provenance.json"
+  m140_dry_run="$TEST_ROOT/toolkit/docs/retention/production/PRODUCTION_DRY_RUN_2026-05-22_M140.md"
+
+  [ -f "$runbook" ]
+  [ -f "$milestone" ]
+  [ -f "$index" ]
+  [ -f "$production_doc" ]
+  [ -f "$release_doc" ]
+  [ -f "$manifest_doc" ]
+  [ -f "$m140_packet" ]
+  [ -f "$m140_manifest" ]
+  [ -f "$m140_provenance" ]
+  [ -f "$m140_dry_run" ]
+
+  grep -q '^# Retained Release Evidence Refresh$' "$runbook"
+  grep -q 'V1 readiness' "$runbook"
+  grep -q 'Release trust' "$runbook"
+  grep -q 'Retained evidence freshness' "$runbook"
+  grep -q 'Production status' "$runbook"
+  grep -q 'Reviewer judgment' "$runbook"
+  grep -q 'Reviewer judgment is not replaced by passing commands' "$runbook"
+
+  grep -q 'stale retained evidence must keep production blocked' "$runbook"
+  grep -q 'Do not force production-ready' "$runbook"
+  grep -q 'Do not fake provenance' "$runbook"
+  grep -q 'Do not fake signatures' "$runbook"
+  grep -q 'Do not fake production dry-runs' "$runbook"
+  grep -q 'Do not create a forced production-ready claim' "$runbook"
+  grep -q 'M197 defines and tests this refresh path. It does not execute it.' "$runbook"
+  grep -q 'M198 or a later approved milestone may perform the real retained release' "$runbook"
+
+  grep -q 'raw evidence' "$runbook"
+  grep -q 'raw logs' "$runbook"
+  grep -q 'prompts' "$runbook"
+  grep -q 'model outputs' "$runbook"
+  grep -q 'tokens' "$runbook"
+  grep -q 'secrets' "$runbook"
+  grep -q 'packet captures' "$runbook"
+  grep -q 'request bodies' "$runbook"
+  grep -q 'response bodies' "$runbook"
+  grep -q 'private target data' "$runbook"
+  grep -q 'customer data' "$runbook"
+
+  grep -q 'M197 is documentation and regression coverage only' "$runbook"
+  grep -q 'does not generate a new release packet' "$runbook"
+  grep -q 'signed tag' "$runbook"
+  grep -q 'provenance packet' "$runbook"
+  grep -q 'production dry-run note' "$runbook"
+  grep -q 'release artifact manifest' "$runbook"
+
+  grep -q 'docs/tests/runbook only' "$milestone"
+  grep -q 'No production-ready claim is made' "$milestone"
+  grep -q 'No new signed tag is created' "$milestone"
+  grep -q 'No fake provenance is created' "$milestone"
+  grep -q 'No fake production dry-run is created' "$milestone"
+  grep -q 'No release packet or release artifact manifest is generated' "$milestone"
+  grep -q 'M140 retained evidence is not rewritten' "$milestone"
+  grep -q 'production status.*expected `not-ready`' "$milestone"
+
+  grep -q 'MILESTONE_197.md' "$index"
+  grep -q 'atlas-retention-m197' "$index"
+  grep -q 'Retained Release Evidence Refresh Path' "$index"
+  grep -q 'docs/tests-only runbook' "$index"
+
+  grep -q 'RELEASE_EVIDENCE_REFRESH.md' "$production_doc"
+  grep -q 'RELEASE_EVIDENCE_REFRESH.md' "$release_doc"
+  grep -q 'RELEASE_EVIDENCE_REFRESH.md' "$manifest_doc"
+  grep -q 'fake provenance' "$release_doc"
+  grep -q 'forced production-ready claims' "$release_doc"
+
+  jq -e '.release.commit == "18430ce9b00191d536096779d88398b2df01e320"' "$m140_manifest"
+  jq -e '.commit == "18430ce9b00191d536096779d88398b2df01e320"' "$m140_provenance"
+  grep -q '^Commit: 18430ce9b00191d536096779d88398b2df01e320$' "$m140_dry_run"
+  jq -e '.packet == "atlas-m140-refresh-release-reviewer-evidence"' "$m140_packet"
+}
