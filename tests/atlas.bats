@@ -25,6 +25,7 @@ setup() {
     "$TEST_ROOT/toolkit/bin/dev-host-check" \
     "$TEST_ROOT/toolkit/bin/dev-policy" \
     "$TEST_ROOT/toolkit/bin/dev-portability" \
+    "$TEST_ROOT/toolkit/bin/dev-schema" \
     "$TEST_ROOT/toolkit/bin/export-public-trust" \
     "$TEST_ROOT/toolkit/lib/common.sh" \
     "$TEST_ROOT/toolkit/lib/intel.sh" \
@@ -3813,6 +3814,40 @@ write_test_slsa_reference() {
   [ ! -e "$TEST_ROOT/toolkit/state" ]
   [ ! -e "$TEST_ROOT/toolkit/sessions" ]
   [ ! -e "$TEST_ROOT/toolkit/reports" ]
+}
+
+@test "M194 JSON schema gate validates mapped examples and rejects drift" {
+  schema_map="$TEST_ROOT/toolkit/schemas/schema-map.v1.json"
+  bad_map="$TEST_ROOT/m194-bad-schema-map.json"
+
+  [ -f "$schema_map" ]
+  jq -e '
+    .schema_version == "atlas.schema_map.v1" and
+    .metadata_only == true and
+    (.validations | type == "array" and length > 0)
+  ' "$schema_map"
+
+  run "$TEST_ROOT/toolkit/bin/dev-schema"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"schema: ok"* ]]
+
+  jq -n '{
+    schema_version: "atlas.schema_map.v1",
+    metadata_only: true,
+    validations: [
+      {
+        schema: "schemas/generic-external-event.v1.schema.json",
+        valid: [
+          "examples/receipt/external-project/negative-metadata-only-false.json"
+        ],
+        invalid: []
+      }
+    ]
+  }' >"$bad_map"
+
+  run "$TEST_ROOT/toolkit/bin/dev-schema" "$bad_map"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"schema: fail expected valid example failed"* ]]
 }
 
 @test "atlas receipt replay validates chain failures and stays read-only" {

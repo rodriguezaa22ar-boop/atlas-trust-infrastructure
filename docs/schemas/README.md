@@ -91,14 +91,27 @@ governance, evidence, hash-ledger, and receipt contracts:
 Validate the runnable contract with:
 
 ```bash
+./bin/dev-schema
 ./bin/dev-evidence
 ```
+
+`./bin/dev-schema` performs mechanical JSON Schema validation. It validates
+all `*.schema.json` files as JSON Schema documents and validates only the
+positive and negative examples listed in
+[../../schemas/schema-map.v1.json](../../schemas/schema-map.v1.json).
+Atlas intentionally uses an explicit map instead of scanning every JSON file,
+because some JSON files are retained evidence, documentation packets, or
+intentional negative fixtures. M194 coverage is high-confidence, not
+exhaustive; broaden the map incrementally only when examples are stable and
+intended for mechanical validation.
 
 ## Rules
 
 - Every schema-versioned Atlas JSON output must be documented here.
 - Every documented schema must name required fields and verification rules.
 - Packet-oriented schemas must remain metadata-only.
+- JSON Schema examples that are intended to be mechanically validated must be
+  listed in `schemas/schema-map.v1.json`.
 - Hash canonicalization contracts must name included fields, excluded fields,
   deterministic byte-stream rules, and non-guarantees.
 - Design contracts must clearly distinguish implemented Markdown behavior from

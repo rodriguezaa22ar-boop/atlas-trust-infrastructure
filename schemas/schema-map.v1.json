@@ -1,0 +1,50 @@
+{
+  "schema_version": "atlas.schema_map.v1",
+  "metadata_only": true,
+  "validations": [
+    {
+      "schema": "schemas/atlas.receipt.v1.schema.json",
+      "valid": [
+        "examples/receipt/minimal.json",
+        "examples/receipt/agent-action.json",
+        "examples/receipt/approval-workflow.json",
+        "examples/receipt/software-action.json",
+        "examples/receipt/external-project/minimal-receipt.json",
+        "examples/receipt/demo-site/demo-site-boundary.json",
+        "examples/receipt/demo-site/demo-site-packet.json",
+        "examples/receipt/demo-site/demo-site-replay.json"
+      ],
+      "invalid": []
+    },
+    {
+      "schema": "schemas/generic-external-event.v1.schema.json",
+      "valid": [
+        "examples/adapters/generic-external-event/minimal-event.json",
+        "examples/adapters/generic-external-event/ai-agent-action-event.json",
+        "examples/adapters/generic-external-event/ai-agent-result-event.json",
+        "examples/adapters/generic-external-event/approval-event.json",
+        "examples/adapters/generic-external-event/github-actions-check-event.json",
+        "examples/adapters/generic-external-event/github-actions-run-event.json",
+        "examples/adapters/generic-external-event/local-model-used-event.json",
+        "examples/receipt/external-project/minimal-event.json"
+      ],
+      "invalid": [
+        "examples/receipt/external-project/negative-metadata-only-false.json",
+        "examples/receipt/external-project/negative-missing-schema-version.json",
+        "examples/receipt/external-project/negative-raw-artifacts-embedded.json"
+      ]
+    },
+    {
+      "schema": "evidence/schemas/evidence-envelope.v1.schema.json",
+      "valid": [
+        "evidence/examples/evidence-envelope/minimal.json",
+        "evidence/examples/evidence-envelope/policy-decision.json",
+        "evidence/examples/evidence-envelope/adapter-event.json",
+        "evidence/examples/evidence-envelope/approval-event.json",
+        "evidence/examples/evidence-envelope/ai-agent-action.json",
+        "evidence/examples/evidence-envelope/release-verify.json"
+      ],
+      "invalid": []
+    }
+  ]
+}

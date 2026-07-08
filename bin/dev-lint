@@ -21,6 +21,7 @@ shellcheck -x \
 	"$ROOT/bin/dev-decisions" \
 	"$ROOT/bin/dev-evidence" \
 	"$ROOT/bin/dev-policy" \
+	"$ROOT/bin/dev-schema" \
 	"$ROOT/bin/dev-governance" \
 	"$ROOT/bin/dev-host-check" \
 	"$ROOT/bin/dev-portability" \

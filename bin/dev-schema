@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+MAP_PATH="${1:-$ROOT/schemas/schema-map.v1.json}"
+
+fail() {
+  printf 'schema: fail %s\n' "$*" >&2
+  exit 1
+}
+
+require_command() {
+  command -v "$1" >/dev/null 2>&1 || fail "missing required command $1"
+}
+
+repo_path() {
+  local path="$1"
+
+  case "$path" in
+    /*) printf '%s\n' "$path" ;;
+    *) printf '%s/%s\n' "$ROOT" "$path" ;;
+  esac
+}
+
+validate_schema_json() {
+  local schema="$1"
+
+  [ -f "$schema" ] || fail "missing schema $schema"
+  jq -e . "$schema" >/dev/null 2>&1 || fail "invalid schema JSON $schema"
+}
+
+validate_positive_example() {
+  local schema="$1"
+  local example="$2"
+
+  [ -f "$example" ] || fail "missing mapped example $example"
+  jq -e . "$example" >/dev/null 2>&1 || fail "invalid example JSON $example"
+  check-jsonschema --schemafile "$schema" "$example" >/dev/null 2>&1 ||
+    fail "expected valid example failed: $example against $schema"
+}
+
+validate_negative_example() {
+  local schema="$1"
+  local example="$2"
+
+  [ -f "$example" ] || fail "missing mapped negative example $example"
+  jq -e . "$example" >/dev/null 2>&1 || fail "invalid negative example JSON $example"
+  if check-jsonschema --schemafile "$schema" "$example" >/dev/null 2>&1; then
+    fail "expected invalid example passed: $example against $schema"
+  fi
+}
+
+require_command jq
+require_command check-jsonschema
+
+[ -f "$MAP_PATH" ] || fail "missing schema map $MAP_PATH"
+jq -e '
+  .schema_version == "atlas.schema_map.v1" and
+  .metadata_only == true and
+  (.validations | type == "array")
+' "$MAP_PATH" >/dev/null || fail "invalid schema map header $MAP_PATH"
+
+mapfile -t schema_files < <(
+  find "$ROOT/schemas" "$ROOT/evidence/schemas" "$ROOT/adapters" \
+    -type f -name '*.schema.json' | sort
+)
+
+[ "${#schema_files[@]}" -gt 0 ] || fail "no JSON Schema files found"
+
+for schema in "${schema_files[@]}"; do
+  validate_schema_json "$schema"
+done
+
+check-jsonschema --check-metaschema "${schema_files[@]}" >/dev/null 2>&1 ||
+  fail "schema metaschema validation failed"
+
+validation_count="$(jq '.validations | length' "$MAP_PATH")"
+[ "$validation_count" -gt 0 ] || fail "schema map has no validations"
+
+for index in $(seq 0 $((validation_count - 1))); do
+  schema_ref="$(jq -r --argjson index "$index" '.validations[$index].schema // empty' "$MAP_PATH")"
+  [ -n "$schema_ref" ] || fail "schema map validation $index missing schema"
+  schema="$(repo_path "$schema_ref")"
+  validate_schema_json "$schema"
+
+  jq -e --argjson index "$index" '
+    (.validations[$index].valid | type == "array") and
+    (.validations[$index].invalid | type == "array")
+  ' "$MAP_PATH" >/dev/null || fail "schema map validation $index missing valid/invalid arrays"
+
+  while IFS= read -r example_ref; do
+    [ -n "$example_ref" ] || continue
+    validate_positive_example "$schema" "$(repo_path "$example_ref")"
+  done < <(jq -r --argjson index "$index" '.validations[$index].valid[]' "$MAP_PATH")
+
+  while IFS= read -r example_ref; do
+    [ -n "$example_ref" ] || continue
+    validate_negative_example "$schema" "$(repo_path "$example_ref")"
+  done < <(jq -r --argjson index "$index" '.validations[$index].invalid[]' "$MAP_PATH")
+done
+
+printf 'schema: ok\n'
