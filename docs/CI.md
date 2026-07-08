@@ -59,6 +59,7 @@ It checks:
 
 - Bats tests
 - shell lint
+- JSON Schema metaschema and mapped example validation
 - synthetic workflow stress
 
 ## Local Parity
@@ -78,6 +79,7 @@ For focused checks:
 
 ```bash
 git diff --check
+nix-shell --run './bin/dev-schema'
 nix-shell --run 'bats --filter "<test name>" tests/atlas.bats'
 ```
 

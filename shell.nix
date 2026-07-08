@@ -4,6 +4,7 @@ pkgs.mkShell {
   packages = with pkgs; [
     bashInteractive
     bats
+    check-jsonschema
     fd
     git
     gnupg
