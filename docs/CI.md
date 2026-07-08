@@ -49,6 +49,9 @@ It checks:
 - `cachix/install-nix-action` v31 pinned to an immutable commit for Nix setup
 - nixpkgs is pinned by `nix/nixpkgs.nix`, not by
   `nix_path: nixpkgs=channel:nixos-unstable`
+- current-source workflows set `NIX_BUILD_SHELL=bash` to quiet Nix's
+  shell-selection lookup; package resolution still comes from
+  `shell.nix` and the repository pin
 - pull request branch context that tracks `origin/main`, so Atlas release-gate
   tests have the same upstream comparison contract they expect in local
   development
@@ -75,6 +78,11 @@ nix-shell --run './bin/dev-qa'
 The local and CI Nix shells use the repository pin in `nix/nixpkgs.nix`.
 Update the pin intentionally by changing the recorded nixpkgs revision and
 SHA-256 together, then rerunning the full local QA gate.
+
+Current-source CI sets `NIX_BUILD_SHELL=bash` before `nix-shell --run` so Nix
+does not try its default `(import <nixpkgs> {}).bashInteractive` shell lookup
+when `NIX_PATH` is absent. This is log cleanup only; it does not change the
+repo-pinned package set.
 
 Retained historical worktrees may predate M195 and may still contain
 `shell.nix` files that import ambient `<nixpkgs>`. The release-trust workflow

@@ -20,6 +20,10 @@ jobs:
   build:
     name: Build release artifact for official SLSA generator
     runs-on: ubuntu-latest
+    # Quiet nix-shell's default shell-selection lookup. Packages still come
+    # from shell.nix -> nix/nixpkgs.nix.
+    env:
+      NIX_BUILD_SHELL: bash
     permissions:
       contents: read
     outputs:

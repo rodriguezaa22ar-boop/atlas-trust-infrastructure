@@ -25,6 +25,10 @@ jobs:
   build-attest:
     name: Build and attest release artifact
     runs-on: ubuntu-latest
+    # Quiet nix-shell's default shell-selection lookup. Packages still come
+    # from shell.nix -> nix/nixpkgs.nix.
+    env:
+      NIX_BUILD_SHELL: bash
 
     steps:
       - name: Checkout

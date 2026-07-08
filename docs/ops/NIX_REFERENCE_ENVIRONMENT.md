@@ -10,6 +10,11 @@ The reference toolchain is pinned by [../../nix/nixpkgs.nix](../../nix/nixpkgs.n
 Atlas does not rely on the caller's ambient `<nixpkgs>` or a moving
 `nixos-unstable` channel for the default `nix-shell` path.
 
+GitHub current-source workflows set `NIX_BUILD_SHELL=bash` for
+`nix-shell --run` commands. That avoids Nix's fallback shell lookup through
+`(import <nixpkgs> {}).bashInteractive` when `NIX_PATH` is empty. The package
+set still comes from `shell.nix`, which imports the repository pin.
+
 Retained release-trust replays are a special compatibility case. Historical
 retained commits can contain older `shell.nix` files that still import
 `<nixpkgs>`. CI points those old worktrees at the current source checkout's
