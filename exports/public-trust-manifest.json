@@ -34,6 +34,7 @@
     "governance/",
     "index.html",
     "lib/",
+    "nix/",
     "ledger/",
     "policy/",
     "schemas/",
