@@ -10622,21 +10622,34 @@ EOF
   codeql_workflow="$TEST_ROOT/toolkit/.github/workflows/codeql.yml"
   release_trust_workflow="$TEST_ROOT/toolkit/.github/workflows/release-trust.yml"
   slsa_workflow="$TEST_ROOT/toolkit/.github/workflows/release-slsa.yml"
+  official_workflow="$TEST_ROOT/toolkit/.github/workflows/release-slsa-generic.yml"
   ci_doc="$TEST_ROOT/toolkit/docs/CI.md"
   production_doc="$TEST_ROOT/toolkit/docs/atlas/PRODUCTION_READINESS.md"
   slsa_doc="$TEST_ROOT/toolkit/docs/atlas/SLSA_PROVENANCE.md"
   readme="$TEST_ROOT/toolkit/README.md"
   security_policy="$TEST_ROOT/toolkit/SECURITY.md"
+  shell_nix="$TEST_ROOT/toolkit/shell.nix"
+  nixpkgs_pin="$TEST_ROOT/toolkit/nix/nixpkgs.nix"
 
   [ -f "$workflow" ]
   [ -f "$codeql_workflow" ]
   [ -f "$release_trust_workflow" ]
   [ -f "$slsa_workflow" ]
+  [ -f "$official_workflow" ]
   [ -f "$ci_doc" ]
   [ -f "$production_doc" ]
   [ -f "$slsa_doc" ]
   [ -f "$readme" ]
   [ -f "$security_policy" ]
+  [ -f "$shell_nix" ]
+  [ -f "$nixpkgs_pin" ]
+
+  grep -q 'import ./nix/nixpkgs.nix' "$shell_nix"
+  grep -q 'rev = "34268251cf55"' "$nixpkgs_pin"
+  grep -q 'sha256 = "0fyhfg417schp15y0prf57q0dnrpdvw6dabb8f47ws76hpy70yqv"' "$nixpkgs_pin"
+  grep -q 'builtins.fetchTarball' "$nixpkgs_pin"
+  grep -q 'nix-prefetch-url --unpack' "$nixpkgs_pin"
+  jq -e '(.allow_paths | index("nix/"))' "$TEST_ROOT/toolkit/exports/public-trust-manifest.json"
 
   grep -q '^name: QA$' "$workflow"
   grep -q 'pull_request:' "$workflow"
@@ -10652,7 +10665,10 @@ EOF
   grep -q 'git branch --set-upstream-to=origin/main "${GITHUB_HEAD_REF:-pull-request}"' "$workflow"
   grep -q 'cachix/install-nix-action v31 pinned to immutable commit' "$workflow"
   grep -q 'cachix/install-nix-action@8aa03977d8d733052d78f4e008a241fd1dbf36b3' "$workflow"
-  grep -q 'nix_path: nixpkgs=channel:nixos-unstable' "$workflow"
+  ! grep -q 'nix_path: nixpkgs=channel:nixos-unstable' "$workflow"
+  ! grep -q 'nix_path: nixpkgs=channel:nixos-unstable' "$release_trust_workflow"
+  ! grep -q 'nix_path: nixpkgs=channel:nixos-unstable' "$slsa_workflow"
+  ! grep -q 'nix_path: nixpkgs=channel:nixos-unstable' "$official_workflow"
   grep -q 'git diff --check' "$workflow"
   grep -q "nix-shell --run './bin/dev-qa'" "$workflow"
   grep -q "nix-shell --run './tools/atlas/bin/atlas v1 status --strict'" "$workflow"
@@ -10664,6 +10680,8 @@ EOF
   grep -q 'including tags' "$ci_doc"
   grep -q '`actions/checkout` v6 pinned to an immutable commit' "$ci_doc"
   grep -q '`cachix/install-nix-action` v31 pinned to an immutable commit' "$ci_doc"
+  grep -q 'nixpkgs is pinned by `nix/nixpkgs.nix`' "$ci_doc"
+  grep -q '`nix_path: nixpkgs=channel:nixos-unstable`' "$ci_doc"
   grep -q 'pull request branch context that tracks `origin/main`' "$ci_doc"
   grep -q 'For `pull_request` events' "$ci_doc"
   grep -q "nix-shell --run './bin/dev-qa'" "$ci_doc"

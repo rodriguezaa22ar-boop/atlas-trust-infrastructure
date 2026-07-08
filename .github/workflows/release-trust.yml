@@ -32,8 +32,6 @@ jobs:
       - name: Install Nix
         # cachix/install-nix-action v31 pinned to immutable commit.
         uses: cachix/install-nix-action@8aa03977d8d733052d78f4e008a241fd1dbf36b3
-        with:
-          nix_path: nixpkgs=channel:nixos-unstable
 
       - name: Verify latest retained release trust chain
         shell: bash

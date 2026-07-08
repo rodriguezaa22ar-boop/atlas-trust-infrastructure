@@ -47,6 +47,8 @@ It checks:
 - `actions/checkout` v6 pinned to an immutable commit to avoid mutable action
   refs while retaining current GitHub-hosted checkout plumbing
 - `cachix/install-nix-action` v31 pinned to an immutable commit for Nix setup
+- nixpkgs is pinned by `nix/nixpkgs.nix`, not by
+  `nix_path: nixpkgs=channel:nixos-unstable`
 - pull request branch context that tracks `origin/main`, so Atlas release-gate
   tests have the same upstream comparison contract they expect in local
   development
@@ -69,6 +71,10 @@ Before pushing, run:
 ```bash
 nix-shell --run './bin/dev-qa'
 ```
+
+The local and CI Nix shells use the repository pin in `nix/nixpkgs.nix`.
+Update the pin intentionally by changing the recorded nixpkgs revision and
+SHA-256 together, then rerunning the full local QA gate.
 
 For `pull_request` events, GitHub checks out a merge ref. The QA workflow
 creates a local branch at that checked-out commit and sets it to track
