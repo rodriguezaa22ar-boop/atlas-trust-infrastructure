@@ -47,6 +47,11 @@ jobs:
           retention_commit="$(git rev-list -n 1 "$latest_retention_tag")"
           release_worktree=".tmp/release-trust-check"
           release_output_dir="$(mktemp -d)"
+          retained_nix_path="nixpkgs=$GITHUB_WORKSPACE/nix/nixpkgs.nix"
+          if [ ! -f "$GITHUB_WORKSPACE/nix/nixpkgs.nix" ]; then
+            printf 'Current-source pinned nixpkgs file is missing\n' >&2
+            exit 1
+          fi
           rm -rf "$release_worktree"
           git worktree add --detach "$release_worktree" "$retention_commit"
           trap 'git worktree remove --force "$release_worktree" >/dev/null 2>&1 || true; rm -rf "$release_output_dir"' EXIT
@@ -122,10 +127,15 @@ jobs:
 
             gpg --batch --no-autostart --import "$public_key"
 
-            nix-shell --run "./tools/atlas/bin/atlas release verify $release_packet --commit $release_commit"
-            nix-shell --run "./tools/atlas/bin/atlas release manifest-verify $latest_manifest --commit $release_commit"
+            # Current source uses shell.nix -> nix/nixpkgs.nix directly. Retained
+            # historical commits may predate M195 and still import <nixpkgs>, so
+            # this compatibility NIX_PATH points those old worktrees at the
+            # active checkout's pinned source. It does not restore a moving
+            # nixos-unstable channel.
+            NIX_PATH="$retained_nix_path" nix-shell --run "./tools/atlas/bin/atlas release verify $release_packet --commit $release_commit"
+            NIX_PATH="$retained_nix_path" nix-shell --run "./tools/atlas/bin/atlas release manifest-verify $latest_manifest --commit $release_commit"
 
-            nix-shell --run "./tools/atlas/bin/atlas release replay $release_packet --json" |
+            NIX_PATH="$retained_nix_path" nix-shell --run "./tools/atlas/bin/atlas release replay $release_packet --json" |
               awk 'BEGIN { json = 0 } /^\{/ { json = 1 } json { print }' |
               tee "$release_output_dir/release-replay.json"
             jq -e '
@@ -142,7 +152,7 @@ jobs:
             printf 'Release Trust: production explainability runs where retained evidence exists: %s (%s)\n' "$evidence_retention_tag" "$evidence_retention_commit"
             printf 'This does not certify the active PR/source commit as production-ready.\n'
 
-            nix-shell --run './tools/atlas/bin/atlas production status --strict --explain' |
+            NIX_PATH="$retained_nix_path" nix-shell --run './tools/atlas/bin/atlas production status --strict --explain' |
               tee "$release_output_dir/production-explain.txt"
             grep -q 'production-ready under the local Atlas contract' "$release_output_dir/production-explain.txt"
             if grep -Fxq 'Overall: production-ready' "$release_output_dir/production-explain.txt"; then

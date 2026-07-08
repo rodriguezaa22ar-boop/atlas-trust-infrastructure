@@ -76,6 +76,13 @@ The local and CI Nix shells use the repository pin in `nix/nixpkgs.nix`.
 Update the pin intentionally by changing the recorded nixpkgs revision and
 SHA-256 together, then rerunning the full local QA gate.
 
+Retained historical worktrees may predate M195 and may still contain
+`shell.nix` files that import ambient `<nixpkgs>`. The release-trust workflow
+therefore sets a narrow compatibility `NIX_PATH` that points to the active
+checkout's pinned `nix/nixpkgs.nix` only while replaying old retained evidence.
+This preserves current-source pinning and does not restore a moving
+`nix_path: nixpkgs=channel:nixos-unstable` channel.
+
 For `pull_request` events, GitHub checks out a merge ref. The QA workflow
 creates a local branch at that checked-out commit and sets it to track
 `origin/main` before running Atlas gates. That keeps release trust tests that

@@ -10,6 +10,12 @@ The reference toolchain is pinned by [../../nix/nixpkgs.nix](../../nix/nixpkgs.n
 Atlas does not rely on the caller's ambient `<nixpkgs>` or a moving
 `nixos-unstable` channel for the default `nix-shell` path.
 
+Retained release-trust replays are a special compatibility case. Historical
+retained commits can contain older `shell.nix` files that still import
+`<nixpkgs>`. CI points those old worktrees at the current source checkout's
+pinned `nix/nixpkgs.nix` with a scoped `NIX_PATH` only for retained replay.
+Current-source validation remains repo-pinned through `shell.nix`.
+
 Enter the shell with:
 
 ```bash
