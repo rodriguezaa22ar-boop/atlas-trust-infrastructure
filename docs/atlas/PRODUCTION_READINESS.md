@@ -231,6 +231,12 @@ failures include missing release packets, missing release artifact manifests,
 missing signed provenance, missing production dry-run notes, v1 readiness gaps,
 repository drift, upstream sync drift, and verification failures.
 
+When the only blockers are stale retained release evidence, do not force a
+ready result. Follow the retained refresh runbook at
+[../retention/RELEASE_EVIDENCE_REFRESH.md](../retention/RELEASE_EVIDENCE_REFRESH.md)
+to create real new packet, manifest, signed-tag, provenance, and dry-run
+evidence in a later approved milestone.
+
 Explain output is metadata-only. It must not include raw runtime artifacts,
 secrets, credentials, tokens, packet captures, request or response bodies,
 customer data, payment data, raw business records, or unredacted evidence
