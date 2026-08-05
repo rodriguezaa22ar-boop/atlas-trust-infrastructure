@@ -68,37 +68,53 @@ atlas_release_tags_at_head() {
   fi
 }
 
-atlas_release_retention_notes() {
+atlas_release_retention_note_relative_paths() {
+  local expected_commit="${1:-}"
   local notes_dir="$LAB_DOCS_DIR/retention/milestones"
+  local path
 
-  if [ -f "$LAB_DOCS_DIR/retention/MILESTONE_30.md" ]; then
-    printf '%s\n' "$LAB_DOCS_DIR/retention/MILESTONE_30.md"
-  fi
-
-  if [ -d "$notes_dir" ]; then
-    find "$notes_dir" -maxdepth 1 -type f -name 'MILESTONE_*.md' 2>/dev/null | sort
-  fi
+  {
+    if [ -n "$expected_commit" ] &&
+      atlas_release_git_available &&
+      git -C "$LAB_ROOT" rev-parse --verify "$expected_commit^{commit}" >/dev/null 2>&1; then
+      git -C "$LAB_ROOT" ls-tree -r --name-only "$expected_commit" -- \
+        docs/retention/MILESTONE_30.md \
+        docs/retention/milestones 2>/dev/null
+    elif atlas_release_git_available; then
+      git -C "$LAB_ROOT" ls-files --cached -- \
+        docs/retention/MILESTONE_30.md \
+        docs/retention/milestones
+    else
+      if [ -f "$LAB_DOCS_DIR/retention/MILESTONE_30.md" ]; then
+        printf 'docs/retention/MILESTONE_30.md\n'
+      fi
+      if [ -d "$notes_dir" ]; then
+        while IFS= read -r path; do
+          [ -n "$path" ] || continue
+          printf 'docs/retention/milestones/%s\n' "${path##*/}"
+        done < <(find "$notes_dir" -maxdepth 1 -type f -name '*.md' 2>/dev/null)
+      fi
+    fi
+  } |
+    awk '
+      $0 == "docs/retention/MILESTONE_30.md" ||
+      $0 ~ /^docs\/retention\/milestones\/[^/]+[.]md$/
+    ' |
+    LC_ALL=C sort -u
 }
 
 atlas_release_retention_notes_for_commit() {
-  local expected_commit="$1"
+  local expected_commit="${1:-}"
   local path
 
-  if [ -n "$expected_commit" ] &&
-    atlas_release_git_available &&
-    git -C "$LAB_ROOT" rev-parse --verify "$expected_commit^{commit}" >/dev/null 2>&1; then
-    git -C "$LAB_ROOT" ls-tree -r --name-only "$expected_commit" -- \
-      docs/retention/MILESTONE_30.md \
-      docs/retention/milestones 2>/dev/null |
-      sort |
-      while IFS= read -r path; do
-        [ -n "$path" ] || continue
-        printf '%s/%s\n' "$LAB_ROOT" "$path"
-      done
-    return 0
-  fi
+  while IFS= read -r path; do
+    [ -n "$path" ] || continue
+    printf '%s/%s\n' "$LAB_ROOT" "$path"
+  done < <(atlas_release_retention_note_relative_paths "$expected_commit")
+}
 
-  atlas_release_retention_notes
+atlas_release_retention_notes() {
+  atlas_release_retention_notes_for_commit ""
 }
 
 atlas_release_commit_matches() {
