@@ -1,0 +1,38 @@
+language "atlas/0.1"
+
+agent researcher {
+    provider = "local-research-model"
+
+    requests = [
+        "agent.model.invoke",
+        "artifact.read",
+        "artifact.write"
+    ]
+
+    policy = "ai.local.research.v1"
+}
+
+task summarize {
+    agent = researcher
+
+    input  = artifact("./input/report.md")
+    output = artifact("./output/summary.md")
+
+    goal = """
+    Produce a concise summary of the supplied report.
+    Distinguish supported claims from uncertain claims.
+    """
+
+    approval = policy
+    receipt  = required
+
+    limits {
+        timeout    = 5m
+        attempts   = 2
+        max_tokens = 12000
+    }
+}
+
+workflow main {
+    run summarize
+}

@@ -1,0 +1,75 @@
+(* Atlas Language 0.1 candidate grammar. *)
+
+program          = spacing, language_decl, spacing,
+                   { declaration, spacing }, end_of_file ;
+
+language_decl    = "language", required_spacing, string ;
+
+declaration      = agent_decl | task_decl | workflow_decl ;
+
+agent_decl       = "agent", required_spacing, identifier, spacing,
+                   "{", spacing, { assignment, spacing }, "}" ;
+
+task_decl        = "task", required_spacing, identifier, spacing,
+                   "{", spacing,
+                   { assignment | limits_block, spacing }, "}" ;
+
+workflow_decl    = "workflow", required_spacing, identifier, spacing,
+                   "{", spacing, { run_statement, spacing }, "}" ;
+
+assignment       = identifier, spacing, "=", spacing, value ;
+limits_block     = "limits", spacing, "{", spacing,
+                   { assignment, spacing }, "}" ;
+run_statement    = "run", required_spacing, identifier ;
+
+value            = multiline_string
+                 | string
+                 | duration
+                 | integer
+                 | boolean
+                 | list
+                 | artifact_call
+                 | identifier ;
+
+list             = "[", spacing,
+                   [ value, spacing, { ",", spacing, value, spacing } ],
+                   "]" ;
+
+artifact_call    = "artifact", spacing, "(", spacing, string, spacing, ")" ;
+
+boolean          = "true" | "false" ;
+duration         = integer, ( "ms" | "s" | "m" | "h" ) ;
+integer          = digit, { digit } ;
+
+identifier       = identifier_start, { identifier_continue } ;
+identifier_start = letter | "_" ;
+identifier_continue = letter | digit | "_" ;
+
+(* language, agent, task, workflow, limits, run, artifact, true, false,
+   policy, and required are reserved and may not be declaration identifiers. *)
+
+string           = '"', { string_character | escape }, '"' ;
+multiline_string = '"""', { multiline_character }, '"""' ;
+escape           = "\\", ( '"' | "\\" | "n" | "r" | "t" ) ;
+
+spacing          = { whitespace | comment } ;
+required_spacing = ( whitespace | comment ), spacing ;
+comment          = "//", { non_newline_character }, [ newline ] ;
+whitespace       = " " | "\t" | newline ;
+newline          = "\n" | "\r\n" ;
+
+letter           = "A" | "B" | "C" | "D" | "E" | "F" | "G"
+                 | "H" | "I" | "J" | "K" | "L" | "M" | "N"
+                 | "O" | "P" | "Q" | "R" | "S" | "T" | "U"
+                 | "V" | "W" | "X" | "Y" | "Z"
+                 | "a" | "b" | "c" | "d" | "e" | "f" | "g"
+                 | "h" | "i" | "j" | "k" | "l" | "m" | "n"
+                 | "o" | "p" | "q" | "r" | "s" | "t" | "u"
+                 | "v" | "w" | "x" | "y" | "z" ;
+digit            = "0" | "1" | "2" | "3" | "4"
+                 | "5" | "6" | "7" | "8" | "9" ;
+
+(* string_character excludes quote, backslash, newline, and control bytes. *)
+(* multiline_character excludes the closing triple-quote sequence. *)
+(* non_newline_character excludes CR and LF. *)
+(* end_of_file is the end of the UTF-8 source stream. *)

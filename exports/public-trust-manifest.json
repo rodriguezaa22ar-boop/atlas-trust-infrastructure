@@ -4,11 +4,11 @@
   "repositories": {
     "private": {
       "name": "atlas-lab-toolkit",
-      "role": "private implementation and operator runtime source"
+      "role": "private operator context, runtime artifacts, configuration, and retained private history"
     },
     "public": {
       "name": "atlas-trust-infrastructure",
-      "role": "public trust and reviewer surface"
+      "role": "public trust contracts, shell-native implementation, schemas, tests, examples, verification, and reviewer surface"
     }
   },
   "allow_paths": [
@@ -67,6 +67,7 @@
   ],
   "forbidden_content_classes": [
     "credentials",
+    "approval credentials",
     "tokens",
     "private keys",
     "session cookies",
@@ -75,6 +76,11 @@
     "raw packet captures",
     "full request bodies",
     "full response bodies",
+    "raw model inputs",
+    "raw prompts",
+    "raw model outputs",
+    "environment-resolved endpoints",
+    "operator history",
     "unredacted runtime evidence",
     "host-specific private lab identifiers"
   ],

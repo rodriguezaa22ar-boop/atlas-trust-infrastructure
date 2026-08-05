@@ -1,0 +1,103 @@
+{
+  "schema_version": "atlas.execution_plan.v1",
+  "contract_status": "candidate",
+  "language_version": "atlas/0.1",
+  "execution_status": "not_implemented",
+  "compiler": {
+    "name": "atlas-lang",
+    "status": "not_implemented"
+  },
+  "source": {
+    "reference": "./examples/language/hello.atlas",
+    "entrypoint": "main",
+    "digest_status": "deferred"
+  },
+  "contracts": {
+    "capability_manifest": {
+      "reference": "capabilities.yaml",
+      "digest_status": "deferred"
+    },
+    "adapter_registry": {
+      "reference": "adapters/registry.yaml",
+      "digest_status": "deferred"
+    },
+    "policy": {
+      "policy_ref": "ai.local.research.v1",
+      "runtime_evaluator": "shell-jq",
+      "evaluator_ref": "tools/atlas/lib/policy.sh",
+      "rego_contract_ref": "policy/atlas.authz.rego",
+      "digest_status": "deferred"
+    },
+    "project_configuration": {
+      "status": "not_supplied",
+      "digest_status": "deferred"
+    }
+  },
+  "workflow": {
+    "id": "main",
+    "execution_order": "sequential",
+    "steps": [
+      {
+        "id": "summarize",
+        "agent": "researcher",
+        "provider": {
+          "reference": "local-research-model",
+          "binding_status": "unresolved"
+        },
+        "requested_capabilities": [
+          "agent.model.invoke",
+          "artifact.read",
+          "artifact.write"
+        ],
+        "policy_ref": "ai.local.research.v1",
+        "approval_mode": "policy",
+        "inputs": [
+          {
+            "kind": "artifact",
+            "path": "./input/report.md"
+          }
+        ],
+        "outputs": [
+          {
+            "kind": "artifact",
+            "path": "./output/summary.md"
+          }
+        ],
+        "instruction": {
+          "source_field": "goal",
+          "raw_text_embedded": false
+        },
+        "limits": {
+          "timeout_seconds": 300,
+          "maximum_attempts": 2,
+          "maximum_tokens": 12000
+        },
+        "receipt_required": true
+      }
+    ]
+  },
+  "expected_evidence": [
+    "policy_decision",
+    "approval_binding",
+    "adapter_identity",
+    "input_digest",
+    "output_digest",
+    "model_reference",
+    "run_outcome"
+  ],
+  "privacy": {
+    "metadata_only": true,
+    "raw_goal_embedded": false,
+    "raw_prompt_embedded": false,
+    "raw_model_output_embedded": false,
+    "secrets_embedded": false,
+    "environment_values_embedded": false
+  },
+  "known_limitations": [
+    "This is a hand-reviewed candidate structural fixture, not compiler output.",
+    "The requested capabilities and provider binding are unresolved in AL-001.",
+    "No parser, policy preflight, approval enforcement, adapter, or execution runtime is implemented.",
+    "Portable canonicalization, authoritative plan hashing, and cross-platform determinism are deferred.",
+    "The plan does not prove model-output correctness or external authorization."
+  ]
+}

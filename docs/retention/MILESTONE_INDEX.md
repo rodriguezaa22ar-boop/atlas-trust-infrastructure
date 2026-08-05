@@ -182,6 +182,7 @@ changes, verification output, repo state, and boundaries for that milestone.
 - `validation`: approval-gated validation planning, execution state, and retest governance.
 - `findings`: finding lifecycle, accepted risk, and review governance.
 - `agent-governance`: repository guidance that constrains future agent work.
+- `language-contract`: non-executing source, plan, and proof-language contracts.
 - `docs-only`: operator-facing documentation with no runtime behavior change.
 
 ## Update Rule
@@ -191,3 +192,4 @@ or in the immediately following retention note commit. The test suite checks
 that every retained milestone note is represented here with its retention tag.
 | [191](milestones/MILESTONE_191.md) | pending | External Receipt Safety Regression | receipt-safety | no | Hardens external-project receipt review with negative fixtures and failure explanations while preserving metadata-only receipt semantics. | pending | `atlas-retention-m191` |
 | [197](milestones/MILESTONE_197.md) | pending | Retained Release Evidence Refresh Path | release-trust | no | Defines the safe docs/tests-only runbook for refreshing retained release evidence without forcing production-ready or rewriting historical evidence. | pending | `atlas-retention-m197` |
+| [AL-001](milestones/LANGUAGE_AL_001.md) | pending | Atlas Language Charter and Execution-Plan Boundary | language-contract | no | Defines non-executing language authority, source, plan, security, identity, and canonicalization boundaries before compiler or runtime implementation. | pending | not tagged |

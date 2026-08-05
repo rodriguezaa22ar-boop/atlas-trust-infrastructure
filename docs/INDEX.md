@@ -227,6 +227,24 @@ This includes raw prompts, browser/session/cookie material, and unredacted evide
   checkpoints, batch verification, batch replay, and reviewer queries while
   preserving file-backed source-of-truth receipts.
 
+## Atlas Language
+
+- [language/ATLAS_LANGUAGE_CHARTER.md](language/ATLAS_LANGUAGE_CHARTER.md):
+  AL-001 mission, north star, non-goals, invariants, and maturity boundary.
+- [language/LANGUAGE_SPEC_V0_1.md](language/LANGUAGE_SPEC_V0_1.md): candidate
+  `atlas/0.1` declarations, properties, values, and static semantics.
+- [language/GRAMMAR_V0_1.ebnf](language/GRAMMAR_V0_1.ebnf): candidate formal
+  grammar and lexical forms.
+- [language/EXECUTION_MODEL.md](language/EXECUTION_MODEL.md): non-executing
+  parse/check/compile stages and the later governance-to-receipt sequence.
+- [language/SECURITY_MODEL.md](language/SECURITY_MODEL.md): language authority,
+  fail-closed, policy-baseline, and proof boundaries.
+- [language/KNOWN_LIMITATIONS.md](language/KNOWN_LIMITATIONS.md): explicitly
+  unimplemented compiler, runtime, canonicalization, and workflow features.
+- [../examples/language/hello.atlas](../examples/language/hello.atlas) and
+  [../examples/language/hello.plan.json](../examples/language/hello.plan.json):
+  synthetic source and schema-valid candidate structural plan fixture.
+
 ## Governance
 
 - [governance/CAPABILITY_MANIFEST_M172.md](governance/CAPABILITY_MANIFEST_M172.md):
@@ -431,6 +449,10 @@ This includes raw prompts, browser/session/cookie material, and unredacted evide
   M131 receipt JSON Schema for metadata-only proof records.
 - [../schemas/generic-external-event.v1.schema.json](../schemas/generic-external-event.v1.schema.json):
   M143 local-file generic external event input schema for receipt import.
+- [../schemas/atlas.execution_plan.v1.schema.json](../schemas/atlas.execution_plan.v1.schema.json):
+  AL-001 candidate machine-validation contract for execution-plan structure.
+- [schemas/ATLAS_EXECUTION_PLAN_V1.md](schemas/ATLAS_EXECUTION_PLAN_V1.md):
+  explanatory contract, identity boundary, and deferred canonicalization rules.
 - [schemas/receipt-canonicalization.v1.md](schemas/receipt-canonicalization.v1.md):
   M137 deterministic receipt hash canonicalization contract.
 - [schemas/SCHEMA_FREEZE_CANDIDATE.md](schemas/SCHEMA_FREEZE_CANDIDATE.md):
