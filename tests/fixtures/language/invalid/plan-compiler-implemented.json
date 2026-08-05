@@ -1,0 +1,8 @@
+{
+  "schema_version": "atlas.language_safety_fixture.v1",
+  "base": "examples/language/hello.plan.json",
+  "rule": "compiler_remains_not_implemented",
+  "description": "AL-002 cannot claim that an Atlas Language compiler exists.",
+  "path": ["compiler", "status"],
+  "value": "implemented"
+}

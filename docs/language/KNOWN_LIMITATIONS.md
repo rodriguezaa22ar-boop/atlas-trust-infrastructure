@@ -1,9 +1,9 @@
 # Atlas Language Known Limitations
 
-## AL-001 Boundary
+## Current AL-002 Boundary
 
-AL-001 is a documentation and candidate-contract milestone. It does not
-implement or demonstrate:
+AL-001 defined the documentation and candidate-contract boundary. AL-002 adds
+schema and repository safety regressions but does not implement or demonstrate:
 
 - a Rust workspace or compiler;
 - a lexer, parser, name resolver, type checker, or diagnostics engine;
@@ -32,17 +32,24 @@ allows the plan, approval exists, an adapter is registered, or execution is
 safe or available.
 
 The example uses proposed `agent.model.invoke`, `artifact.read`, and
-`artifact.write` capability references. AL-001 does not add those capabilities
-to the authoritative manifest. A future checker or preflight must deny them
-until a separate approved milestone registers them.
+`artifact.write` capability references. AL-001 and AL-002 do not add those
+capabilities to the authoritative manifest. AL-002 does not implement
+capability, policy, provider, or adapter reference resolution. A future checker
+or preflight must deny unresolved references until a separate approved
+milestone registers them.
+
+The negative fixtures are single-mutation schema regressions. They prove that
+the current candidate schema rejects the named unsafe shapes; they do not prove
+that a source parser, semantic checker, policy engine, or runtime exists.
 
 ## Hashing and Determinism
 
-AL-001 does not specify canonical plan bytes. The example therefore omits
-`plan_hash`, contract digests, compiler artifact digests, and a source digest.
-Their structural fields may be reserved by the candidate schema, but no value
-is authoritative until the applicable canonicalization and identity contracts
-are frozen and backed by golden vectors.
+AL-001 and AL-002 do not specify canonical plan bytes. The example therefore
+omits `plan_hash`, contract digests, compiler artifact digests, and a source
+digest. The AL-002 candidate schema rejects `canonicalization` and `plan_hash`
+instead of reserving executable-looking fields. A later milestone may add them
+only after the applicable canonicalization and identity contracts are frozen
+and backed by golden vectors. Until then there is no authoritative `plan_hash`.
 
 ## Runtime and Proof
 

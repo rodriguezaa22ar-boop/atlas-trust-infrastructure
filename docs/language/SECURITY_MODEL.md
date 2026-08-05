@@ -20,7 +20,7 @@ validated policy contract/reference, not the runtime authority. Making a Rego
 bundle authoritative is a future target state that requires an explicit
 migration milestone, parity tests, and a single source-of-truth decision.
 
-AL-001 changes no policy behavior.
+AL-001 and AL-002 change no policy behavior.
 
 ## Fail-Closed Source Rules
 
@@ -50,6 +50,27 @@ records atomically.
 Approvals must later bind the precise plan, step, inputs, target, policy
 decision, approver, and expiry. A changed or expired binding must be rejected.
 
+## AL-002 Machine-Checked Protections
+
+`bin/dev-language-safety` validates the positive candidate plan and applies
+each single-mutation fixture under `tests/fixtures/language/invalid/`. Every
+authority grant, self-issued approval, inline policy decision, shell command,
+credential-shaped provider value, resolved endpoint, runtime timestamp,
+process identifier, temporary or machine path, resolved runtime binding, Rego
+authority claim, unknown field, and premature `plan_hash` mutation must fail
+schema validation.
+
+The schema locks compiler and execution status to `not_implemented`, provider
+binding status to `unresolved`, approval mode to external policy evaluation,
+and policy evaluation to the current Shell/JQ baseline. It rejects
+`canonicalization` and `plan_hash` fields until a later milestone freezes that
+contract.
+
+Unknown capability, policy, provider, and adapter references still fail closed:
+AL-002 implements no resolver and no execution path, so a candidate plan cannot
+turn an unresolved reference into authority. A later checker must resolve those
+references against the external authoritative contracts before preflight.
+
 ## Proof Boundary
 
 Atlas may later verify schema validity, referenced contract identity, hash
@@ -58,8 +79,9 @@ continuity. It does not thereby prove factual correctness, legal authority,
 complete event coverage, model correctness, external-system truth, compliance,
 or tamper-proof storage.
 
-## AL-001 Security Posture
+## Current Security Posture
 
-AL-001 is non-executing. It introduces no parser, compiler, adapter, network
+AL-002 is non-executing. It introduces no parser, compiler, adapter, network
 request, credential handling, model invocation, approval engine, or runtime
-state. The synthetic fixture is not an authorization and cannot be executed.
+state. The synthetic fixture and its safety mutations are not authorizations
+and cannot be executed.

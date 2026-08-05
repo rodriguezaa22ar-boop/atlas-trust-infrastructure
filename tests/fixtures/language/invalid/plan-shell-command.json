@@ -1,0 +1,8 @@
+{
+  "schema_version": "atlas.language_safety_fixture.v1",
+  "base": "examples/language/hello.plan.json",
+  "rule": "arbitrary_shell_commands_are_forbidden",
+  "description": "A language plan step cannot embed a shell command or executable expression.",
+  "path": ["workflow", "steps", 0, "command"],
+  "value": "uname"
+}

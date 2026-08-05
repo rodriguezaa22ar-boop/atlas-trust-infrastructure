@@ -24,6 +24,7 @@ shellcheck -x \
 	"$ROOT/bin/dev-schema" \
 	"$ROOT/bin/dev-governance" \
 	"$ROOT/bin/dev-host-check" \
+	"$ROOT/bin/dev-language-safety" \
 	"$ROOT/bin/dev-portability" \
 	"$ROOT/bin/dev-stress" \
 	"$ROOT/bin/dev-qa" \

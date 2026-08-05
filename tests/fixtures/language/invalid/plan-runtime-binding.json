@@ -1,0 +1,8 @@
+{
+  "schema_version": "atlas.language_safety_fixture.v1",
+  "base": "examples/language/hello.plan.json",
+  "rule": "runtime_bindings_are_not_plan_identity",
+  "description": "A candidate plan cannot claim that its logical provider has been runtime-resolved.",
+  "path": ["workflow", "steps", 0, "provider", "binding_status"],
+  "value": "resolved"
+}

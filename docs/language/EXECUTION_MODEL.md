@@ -2,8 +2,9 @@
 
 ## Status
 
-AL-001 defines the intended trust boundaries between language stages. It adds
-no executable language stage.
+AL-001 defines the intended trust boundaries between language stages. AL-002
+adds machine-checked safety regressions for those boundaries. Neither milestone
+adds an executable language stage.
 
 ## Stage Model
 
@@ -34,7 +35,7 @@ immutable plan and input identities.
 
 Execution must be a separate, explicit action. It must revalidate the plan,
 policy decision, approval, inputs, limits, and adapter registration before a
-bounded adapter can run. Execution is not implemented by AL-001.
+bounded adapter can run. Execution is not implemented by AL-001 or AL-002.
 
 ## Read-Only and Mutating Boundaries
 
@@ -50,9 +51,9 @@ events, receipts, caches, or hidden state.
 
 The stable boundary is intended to be a versioned execution plan, not the
 compiler's syntax tree. AL-001 defines a candidate structural schema and a
-hand-reviewed fixture. It does not define compiler output or guarantee that
-all proposed capability, provider, adapter, or policy references currently
-resolve.
+hand-reviewed fixture. AL-002 protects that fixture with negative schema
+mutations. Neither milestone defines compiler output or guarantees that all
+proposed capability, provider, adapter, or policy references currently resolve.
 
 The plan records logical intended behavior. It excludes raw instructions,
 secrets, environment-resolved endpoints, machine paths, timestamps, and other
@@ -72,10 +73,11 @@ plan identity = deterministic intended behavior
 runtime binding identity = actual non-secret execution binding
 ```
 
-AL-001 defines neither hash. An authoritative portable `plan_hash` requires a
-later canonicalization contract specifying exact bytes, exclusions, Unicode,
-numbers, optional fields, and self-hash handling. The candidate fixture omits
-`plan_hash` and makes no cross-platform determinism claim.
+AL-001 and AL-002 define neither hash. An authoritative portable `plan_hash`
+requires a later canonicalization contract specifying exact bytes, exclusions,
+Unicode, numbers, optional fields, and self-hash handling. The AL-002 schema
+rejects `canonicalization` and `plan_hash`; the candidate fixture makes no
+cross-platform determinism claim.
 
 ## Events and Receipts
 

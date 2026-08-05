@@ -6,9 +6,9 @@
 Language compilation and Atlas governance preflight. Its executable JSON Schema
 is [`schemas/atlas.execution_plan.v1.schema.json`](../../schemas/atlas.execution_plan.v1.schema.json).
 
-AL-001 defines structure only. A schema-valid plan is not authorization,
-compiler output, an approval, an executable request, or proof that referenced
-capabilities and adapters exist.
+AL-001 defines structure; AL-002 adds safety regressions around that structure.
+A schema-valid plan is not authorization, compiler output, an approval, an
+executable request, or proof that referenced capabilities and adapters exist.
 
 ## Required Structure
 
@@ -26,9 +26,10 @@ capabilities and adapters exist.
 | `privacy` | Required metadata-only and no-raw-content declarations. |
 | `known_limitations` | Claims the plan explicitly does not make. |
 
-Unknown fields are rejected. Artifact paths must begin with `./` and cannot
-contain `..` traversal. Limits are positive and bounded. Required receipts
-cannot be disabled.
+Unknown fields are rejected. Artifact paths must begin with `./`, cannot
+contain `..` traversal, and cannot use candidate temporary directories.
+Logical references exclude URI endpoints and credential-shaped values. Limits
+are positive and bounded. Required receipts cannot be disabled.
 
 ## Source-to-Plan Mapping
 
@@ -64,14 +65,12 @@ identity.
 
 ## Canonicalization and `plan_hash`
 
-`canonicalization` and `plan_hash` are optional reserved fields. When
-`plan_hash` appears, the schema requires a canonicalization reference and
-contract digest. Schema acceptance alone does not make that hash authoritative.
+AL-002 rejects both fields. `canonicalization` and `plan_hash` are not accepted
+by the current candidate schema because no canonical byte contract exists.
 
-AL-001 freezes no canonical byte representation. Its fixture omits both fields.
-Portable authoritative plan hashing remains deferred until a later milestone
-defines exact bytes, publishes golden vectors, and demonstrates cross-platform
-parity.
+AL-001 and AL-002 freeze no canonical byte representation. Portable
+authoritative plan hashing remains deferred until a later milestone defines
+exact bytes, publishes golden vectors, and demonstrates cross-platform parity.
 
 ## Validation
 
@@ -84,3 +83,14 @@ with:
 ```
 
 Validation proves only structural conformance to this candidate schema.
+
+AL-002 additionally runs:
+
+```bash
+./bin/dev-language-safety
+```
+
+The safety gate applies each documented negative mutation to the valid fixture
+and requires the resulting plan to fail schema validation. It also checks the
+non-execution and current-policy documentation locks without creating runtime
+state.

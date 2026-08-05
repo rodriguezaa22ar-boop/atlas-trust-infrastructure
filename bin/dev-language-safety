@@ -1,0 +1,177 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+SCHEMA="${1:-$ROOT/schemas/atlas.execution_plan.v1.schema.json}"
+VALID_PLAN="${2:-$ROOT/examples/language/hello.plan.json}"
+FIXTURE_DIR="${3:-$ROOT/tests/fixtures/language/invalid}"
+SECURITY_MODEL="$ROOT/docs/language/SECURITY_MODEL.md"
+EXECUTION_MODEL="$ROOT/docs/language/EXECUTION_MODEL.md"
+KNOWN_LIMITATIONS="$ROOT/docs/language/KNOWN_LIMITATIONS.md"
+LANGUAGE_SPEC="$ROOT/docs/language/LANGUAGE_SPEC_V0_1.md"
+SCHEMA_DOC="$ROOT/docs/schemas/ATLAS_EXECUTION_PLAN_V1.md"
+
+fail() {
+	printf 'language-safety: fail %s\n' "$*" >&2
+	exit 1
+}
+
+require_command() {
+	command -v "$1" >/dev/null 2>&1 || fail "missing required command $1"
+}
+
+require_literal() {
+	local literal="$1"
+	local path="$2"
+
+	grep -F -q -- "$literal" "$path" || fail "missing '$literal' in $path"
+}
+
+require_command check-jsonschema
+require_command find
+require_command grep
+require_command jq
+require_command mktemp
+require_command sort
+require_command uniq
+
+for path in \
+	"$SCHEMA" \
+	"$VALID_PLAN" \
+	"$SECURITY_MODEL" \
+	"$EXECUTION_MODEL" \
+	"$KNOWN_LIMITATIONS" \
+	"$LANGUAGE_SPEC" \
+	"$SCHEMA_DOC"; do
+	[ -f "$path" ] || fail "missing $path"
+done
+[ -d "$FIXTURE_DIR" ] || fail "missing $FIXTURE_DIR"
+
+jq -e . "$SCHEMA" >/dev/null 2>&1 || fail "invalid schema JSON $SCHEMA"
+check-jsonschema --check-metaschema "$SCHEMA" >/dev/null 2>&1 ||
+	fail "schema metaschema validation failed $SCHEMA"
+
+jq -e '
+  .additionalProperties == false and
+  .properties.execution_status.const == "not_implemented" and
+  (.properties | has("plan_hash") | not) and
+  (.properties | has("canonicalization") | not) and
+  (.properties.privacy.required | index("authority_grants_embedded")) and
+  (.properties.privacy.required | index("approval_decisions_embedded")) and
+  (.properties.privacy.required | index("runtime_values_embedded")) and
+  .properties.privacy.properties.authority_grants_embedded.const == false and
+  .properties.privacy.properties.approval_decisions_embedded.const == false and
+  .properties.privacy.properties.runtime_values_embedded.const == false and
+  .["$defs"].compiler.additionalProperties == false and
+  .["$defs"].compiler.properties.status.const == "not_implemented" and
+  .["$defs"].providerBinding.additionalProperties == false and
+  .["$defs"].providerBinding.properties.binding_status.const == "unresolved" and
+  .["$defs"].step.additionalProperties == false and
+  (.["$defs"].step.properties | has("requested_capabilities")) and
+  (.["$defs"].step.properties | has("granted_capabilities") | not) and
+  (.["$defs"].step.properties | has("approval_decision") | not) and
+  .["$defs"].step.properties.approval_mode.const == "policy" and
+  .["$defs"].policyContract.properties.runtime_evaluator.const == "shell-jq"
+' "$SCHEMA" >/dev/null || fail "schema does not preserve AL-002 authority and non-execution locks"
+
+jq -e . "$VALID_PLAN" >/dev/null 2>&1 || fail "invalid positive fixture JSON $VALID_PLAN"
+check-jsonschema --schemafile "$SCHEMA" "$VALID_PLAN" >/dev/null 2>&1 ||
+	fail "positive fixture failed schema validation $VALID_PLAN"
+
+required_fixtures=(
+	plan-claims-rego-authority.json
+	plan-compiler-implemented.json
+	plan-contains-machine-path.json
+	plan-contains-process-id.json
+	plan-contains-runtime-timestamp.json
+	plan-contains-temporary-path.json
+	plan-embeds-endpoint.json
+	plan-embeds-secret.json
+	plan-grants-capability.json
+	plan-inline-policy-authority.json
+	plan-premature-plan-hash.json
+	plan-runtime-binding.json
+	plan-self-approves.json
+	plan-shell-command.json
+	plan-unknown-field.json
+)
+
+mapfile -t fixture_paths < <(
+	find "$FIXTURE_DIR" -maxdepth 1 -type f -name '*.json' -print | LC_ALL=C sort
+)
+[ "${#fixture_paths[@]}" -eq "${#required_fixtures[@]}" ] ||
+	fail "expected ${#required_fixtures[@]} negative fixtures, found ${#fixture_paths[@]}"
+
+for name in "${required_fixtures[@]}"; do
+	[ -f "$FIXTURE_DIR/$name" ] || fail "missing negative fixture $name"
+done
+
+duplicate_rule="$({ jq -r '.rule // empty' "${fixture_paths[@]}"; } | LC_ALL=C sort | uniq -d | head -n 1)"
+[ -z "$duplicate_rule" ] || fail "duplicate negative fixture rule $duplicate_rule"
+
+tmp_dir="$(mktemp -d)"
+trap 'rm -rf "$tmp_dir"' EXIT
+
+for fixture in "${fixture_paths[@]}"; do
+	fixture_name="${fixture##*/}"
+	jq -e '
+    .schema_version == "atlas.language_safety_fixture.v1" and
+    .base == "examples/language/hello.plan.json" and
+    (.rule | type == "string" and length > 0) and
+    (.description | type == "string" and length > 0) and
+    (.path | type == "array" and length > 0) and
+    has("value") and
+    (keys | sort) == ["base", "description", "path", "rule", "schema_version", "value"]
+  ' "$fixture" >/dev/null || fail "invalid negative fixture contract $fixture_name"
+
+	if jq -e --slurpfile fixture "$fixture" \
+		'getpath($fixture[0].path) == $fixture[0].value' "$VALID_PLAN" >/dev/null; then
+		fail "negative fixture does not change the valid plan $fixture_name"
+	fi
+
+	generated="$tmp_dir/${fixture_name%.json}.plan.json"
+	jq --slurpfile fixture "$fixture" \
+		'setpath($fixture[0].path; $fixture[0].value)' "$VALID_PLAN" >"$generated"
+
+	if check-jsonschema --schemafile "$SCHEMA" "$generated" >/dev/null 2>&1; then
+		fail "unsafe fixture unexpectedly passed schema $fixture_name"
+	fi
+done
+
+require_literal 'Source requests authority but never grants it.' "$SECURITY_MODEL"
+require_literal 'Agents are requesters, not authorities.' "$SECURITY_MODEL"
+require_literal 'The implemented Atlas runtime evaluator is the Shell/JQ logic' "$SECURITY_MODEL"
+require_literal 'future target state' "$SECURITY_MODEL"
+require_literal 'AL-002 is non-executing.' "$SECURITY_MODEL"
+# shellcheck disable=SC2016 # Markdown backticks are literal, not shell expressions.
+require_literal 'Future `parse`, `check`, `compile --stdout`, `explain`, and `verify` operations' "$EXECUTION_MODEL"
+require_literal 'must be read-only' "$EXECUTION_MODEL"
+# shellcheck disable=SC2016 # Markdown backticks are literal, not shell expressions.
+require_literal '`compile` produces an' "$EXECUTION_MODEL"
+require_literal 'inspectable plan and does not execute.' "$EXECUTION_MODEL"
+# shellcheck disable=SC2016 # Markdown backticks are literal, not shell expressions.
+require_literal 'an authoritative `plan_hash`' "$KNOWN_LIMITATIONS"
+require_literal 'capabilities to the authoritative manifest. AL-002 does not implement' "$KNOWN_LIMITATIONS"
+require_literal 'capability, policy, provider, or adapter reference resolution.' "$KNOWN_LIMITATIONS"
+require_literal 'do not define canonical plan bytes and therefore MUST NOT' "$LANGUAGE_SPEC"
+# shellcheck disable=SC2016 # Markdown backticks are literal, not shell expressions.
+require_literal 'claim an authoritative portable `plan_hash`' "$LANGUAGE_SPEC"
+require_literal 'AL-002 rejects both fields' "$SCHEMA_DOC"
+
+for forbidden_claim in \
+	'Rego is currently authoritative' \
+	'Rego is the current runtime authority' \
+	'Atlas Language currently executes workflows' \
+	'The Atlas Language compiler exists' \
+	'The Atlas Language runtime exists' \
+	'Plan hashes are portable and authoritative' \
+	'Source declarations grant permissions' \
+	'Agents can approve their own actions'; do
+	if grep -F -i -R -n -- "$forbidden_claim" \
+		"$ROOT/docs/language" "$SCHEMA_DOC" >/dev/null 2>&1; then
+		fail "contradictory documentation claim: $forbidden_claim"
+	fi
+done
+
+printf 'language-safety: ok\n'

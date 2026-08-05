@@ -114,5 +114,5 @@ environment-resolved endpoints, machine-specific paths, temporary directories,
 runtime timestamps, process identifiers, and network-assigned addresses.
 Actual non-secret runtime bindings belong in later run events and receipts.
 
-AL-001 does not define canonical plan bytes and therefore MUST NOT claim an
-authoritative portable `plan_hash`.
+AL-001 and AL-002 do not define canonical plan bytes and therefore MUST NOT
+claim an authoritative portable `plan_hash`.

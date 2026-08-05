@@ -1,0 +1,8 @@
+{
+  "schema_version": "atlas.language_safety_fixture.v1",
+  "base": "examples/language/hello.plan.json",
+  "rule": "resolved_endpoints_are_runtime_only",
+  "description": "A logical provider identity cannot be replaced by an environment-resolved endpoint.",
+  "path": ["workflow", "steps", 0, "provider", "reference"],
+  "value": "http://127.0.0.1:11434"
+}

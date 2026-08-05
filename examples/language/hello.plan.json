@@ -91,7 +91,10 @@
     "raw_prompt_embedded": false,
     "raw_model_output_embedded": false,
     "secrets_embedded": false,
-    "environment_values_embedded": false
+    "environment_values_embedded": false,
+    "authority_grants_embedded": false,
+    "approval_decisions_embedded": false,
+    "runtime_values_embedded": false
   },
   "known_limitations": [
     "This is a hand-reviewed candidate structural fixture, not compiler output.",
