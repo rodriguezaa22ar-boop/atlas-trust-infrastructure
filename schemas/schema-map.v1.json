@@ -45,6 +45,13 @@
         "evidence/examples/evidence-envelope/release-verify.json"
       ],
       "invalid": []
+    },
+    {
+      "schema": "schemas/atlas.execution_plan.v1.schema.json",
+      "valid": [
+        "examples/language/hello.plan.json"
+      ],
+      "invalid": []
     }
   ]
 }

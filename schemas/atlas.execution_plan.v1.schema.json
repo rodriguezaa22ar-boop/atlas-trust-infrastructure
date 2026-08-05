@@ -1,0 +1,593 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atlas.local/schemas/atlas.execution_plan.v1.schema.json",
+  "title": "Atlas Execution Plan v1 Candidate",
+  "description": "AL-001 candidate structural contract. Validation does not grant authority or imply executable language support.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "contract_status",
+    "language_version",
+    "execution_status",
+    "compiler",
+    "source",
+    "contracts",
+    "workflow",
+    "expected_evidence",
+    "privacy",
+    "known_limitations"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "atlas.execution_plan.v1"
+    },
+    "contract_status": {
+      "const": "candidate"
+    },
+    "language_version": {
+      "const": "atlas/0.1"
+    },
+    "execution_status": {
+      "const": "not_implemented"
+    },
+    "compiler": {
+      "$ref": "#/$defs/compiler"
+    },
+    "source": {
+      "$ref": "#/$defs/source"
+    },
+    "contracts": {
+      "$ref": "#/$defs/contracts"
+    },
+    "workflow": {
+      "$ref": "#/$defs/workflow"
+    },
+    "expected_evidence": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "policy_decision",
+          "approval_binding",
+          "adapter_identity",
+          "input_digest",
+          "output_digest",
+          "model_reference",
+          "run_outcome"
+        ]
+      }
+    },
+    "privacy": {
+      "type": "object",
+      "required": [
+        "metadata_only",
+        "raw_goal_embedded",
+        "raw_prompt_embedded",
+        "raw_model_output_embedded",
+        "secrets_embedded",
+        "environment_values_embedded"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "metadata_only": {
+          "const": true
+        },
+        "raw_goal_embedded": {
+          "const": false
+        },
+        "raw_prompt_embedded": {
+          "const": false
+        },
+        "raw_model_output_embedded": {
+          "const": false
+        },
+        "secrets_embedded": {
+          "const": false
+        },
+        "environment_values_embedded": {
+          "const": false
+        }
+      }
+    },
+    "known_limitations": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "canonicalization": {
+      "$ref": "#/$defs/canonicalization"
+    },
+    "plan_hash": {
+      "$ref": "#/$defs/sha256"
+    }
+  },
+  "dependentRequired": {
+    "plan_hash": [
+      "canonicalization"
+    ]
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "identifier": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+    },
+    "externalReference": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]*$"
+    },
+    "workspacePath": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 1024,
+      "pattern": "^\\./[A-Za-z0-9._/-]+$",
+      "not": {
+        "pattern": "(^|/)\\.\\.(/|$)"
+      }
+    },
+    "compiler": {
+      "type": "object",
+      "required": [
+        "name",
+        "status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "const": "atlas-lang"
+        },
+        "status": {
+          "enum": [
+            "not_implemented",
+            "candidate",
+            "implemented"
+          ]
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "artifact_digest": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "implemented"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "version",
+              "artifact_digest"
+            ]
+          }
+        }
+      ]
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "reference",
+        "entrypoint",
+        "digest_status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "reference": {
+          "$ref": "#/$defs/workspacePath"
+        },
+        "entrypoint": {
+          "$ref": "#/$defs/identifier"
+        },
+        "digest_status": {
+          "enum": [
+            "deferred",
+            "recorded"
+          ]
+        },
+        "digest": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "digest_status": {
+                "const": "recorded"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "digest"
+            ]
+          }
+        }
+      ]
+    },
+    "contractReference": {
+      "type": "object",
+      "required": [
+        "reference",
+        "digest_status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "reference": {
+          "$ref": "#/$defs/externalReference"
+        },
+        "digest_status": {
+          "enum": [
+            "deferred",
+            "recorded"
+          ]
+        },
+        "digest": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "digest_status": {
+                "const": "recorded"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "digest"
+            ]
+          }
+        }
+      ]
+    },
+    "policyContract": {
+      "type": "object",
+      "required": [
+        "policy_ref",
+        "runtime_evaluator",
+        "evaluator_ref",
+        "rego_contract_ref",
+        "digest_status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "policy_ref": {
+          "$ref": "#/$defs/externalReference"
+        },
+        "runtime_evaluator": {
+          "const": "shell-jq"
+        },
+        "evaluator_ref": {
+          "$ref": "#/$defs/externalReference"
+        },
+        "rego_contract_ref": {
+          "$ref": "#/$defs/externalReference"
+        },
+        "digest_status": {
+          "enum": [
+            "deferred",
+            "recorded"
+          ]
+        },
+        "digest": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "digest_status": {
+                "const": "recorded"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "digest"
+            ]
+          }
+        }
+      ]
+    },
+    "projectConfiguration": {
+      "type": "object",
+      "required": [
+        "status",
+        "digest_status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "enum": [
+            "not_supplied",
+            "checked_in"
+          ]
+        },
+        "reference": {
+          "$ref": "#/$defs/workspacePath"
+        },
+        "digest_status": {
+          "enum": [
+            "deferred",
+            "recorded"
+          ]
+        },
+        "digest": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "checked_in"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "reference",
+              "digest"
+            ],
+            "properties": {
+              "digest_status": {
+                "const": "recorded"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "contracts": {
+      "type": "object",
+      "required": [
+        "capability_manifest",
+        "adapter_registry",
+        "policy",
+        "project_configuration"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "capability_manifest": {
+          "$ref": "#/$defs/contractReference"
+        },
+        "adapter_registry": {
+          "$ref": "#/$defs/contractReference"
+        },
+        "policy": {
+          "$ref": "#/$defs/policyContract"
+        },
+        "project_configuration": {
+          "$ref": "#/$defs/projectConfiguration"
+        }
+      }
+    },
+    "providerBinding": {
+      "type": "object",
+      "required": [
+        "reference",
+        "binding_status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "reference": {
+          "$ref": "#/$defs/externalReference"
+        },
+        "binding_status": {
+          "enum": [
+            "unresolved",
+            "resolved"
+          ]
+        },
+        "adapter_ref": {
+          "$ref": "#/$defs/externalReference"
+        },
+        "model_ref": {
+          "$ref": "#/$defs/externalReference"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "binding_status": {
+                "const": "resolved"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "adapter_ref"
+            ]
+          }
+        }
+      ]
+    },
+    "artifactReference": {
+      "type": "object",
+      "required": [
+        "kind",
+        "path"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "artifact"
+        },
+        "path": {
+          "$ref": "#/$defs/workspacePath"
+        }
+      }
+    },
+    "instructionReference": {
+      "type": "object",
+      "required": [
+        "source_field",
+        "raw_text_embedded"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "source_field": {
+          "const": "goal"
+        },
+        "raw_text_embedded": {
+          "const": false
+        }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "required": [
+        "timeout_seconds",
+        "maximum_attempts",
+        "maximum_tokens"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 86400
+        },
+        "maximum_attempts": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "maximum_tokens": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        }
+      }
+    },
+    "step": {
+      "type": "object",
+      "required": [
+        "id",
+        "agent",
+        "provider",
+        "requested_capabilities",
+        "policy_ref",
+        "approval_mode",
+        "inputs",
+        "outputs",
+        "instruction",
+        "limits",
+        "receipt_required"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "agent": {
+          "$ref": "#/$defs/identifier"
+        },
+        "provider": {
+          "$ref": "#/$defs/providerBinding"
+        },
+        "requested_capabilities": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/externalReference"
+          }
+        },
+        "policy_ref": {
+          "$ref": "#/$defs/externalReference"
+        },
+        "approval_mode": {
+          "const": "policy"
+        },
+        "inputs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/artifactReference"
+          }
+        },
+        "outputs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/artifactReference"
+          }
+        },
+        "instruction": {
+          "$ref": "#/$defs/instructionReference"
+        },
+        "limits": {
+          "$ref": "#/$defs/limits"
+        },
+        "receipt_required": {
+          "const": true
+        }
+      }
+    },
+    "workflow": {
+      "type": "object",
+      "required": [
+        "id",
+        "execution_order",
+        "steps"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "const": "main"
+        },
+        "execution_order": {
+          "const": "sequential"
+        },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/step"
+          }
+        }
+      }
+    },
+    "canonicalization": {
+      "type": "object",
+      "description": "Reserved for a later frozen canonicalization contract; AL-001 fixtures omit this object.",
+      "required": [
+        "id",
+        "contract_digest"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/externalReference"
+        },
+        "contract_digest": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    }
+  }
+}

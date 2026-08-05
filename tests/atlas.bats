@@ -12168,6 +12168,69 @@ EOF
   [[ "$output" == *"does not prove runtime safety or production deployability"* ]]
 }
 
+@test "release packets enumerate tracked retention notes deterministically" {
+  make_repo_clean_and_synced
+
+  language_note="docs/retention/milestones/LANGUAGE_AL_001.md"
+  milestone_note="docs/retention/milestones/MILESTONE_32.md"
+  untracked_note="docs/retention/milestones/LANGUAGE_UNTRACKED.md"
+  printf '# Untracked language note\n' >"$TEST_ROOT/toolkit/$untracked_note"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release packet retention-enumeration \
+    --json \
+    --qa-status pass \
+    --qa-note "retention enumeration regression" \
+    --allow-dirty
+
+  [ "$status" -eq 0 ]
+  packet_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "release_packet_json" { print $2; exit }')"
+  [ -f "$packet_path" ]
+
+  jq -e \
+    --arg language_note "$language_note" \
+    --arg milestone_note "$milestone_note" \
+    --arg untracked_note "$untracked_note" '
+      (.retention_notes | index($language_note)) != null and
+      (.retention_notes | index($milestone_note)) != null and
+      (.retention_notes | index($untracked_note)) == null and
+      .retention_notes == (.retention_notes | sort | unique) and
+      ([.retention_notes[] | select(. == $language_note)] | length) == 1 and
+      ([.retention_notes[] | select(. == $milestone_note)] | length) == 1
+    ' "$packet_path"
+}
+
+@test "release verification requires tracked language milestone notes" {
+  make_repo_clean_and_synced
+
+  language_note="docs/retention/milestones/LANGUAGE_AL_001.md"
+  incomplete_packet="$TEST_ROOT/incomplete-language-retention.json"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release packet language-retention \
+    --json \
+    --qa-status pass \
+    --qa-note "language retention verification regression"
+
+  [ "$status" -eq 0 ]
+  packet_path="$(printf '%s\n' "$output" | awk -F': ' '$1 == "release_packet_json" { print $2; exit }')"
+  [ -f "$packet_path" ]
+  jq -e --arg language_note "$language_note" \
+    '(.retention_notes | index($language_note)) != null' "$packet_path"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release verify "$packet_path"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Retention Note: ok $language_note"* ]]
+  [[ "$output" == *"release trust packet verified"* ]]
+
+  jq --arg language_note "$language_note" \
+    '.retention_notes |= map(select(. != $language_note))' \
+    "$packet_path" >"$incomplete_packet"
+
+  run "$TEST_ROOT/toolkit/tools/atlas/bin/atlas" release verify "$incomplete_packet"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Retention Note: fail missing $language_note"* ]]
+  [[ "$output" == *"release trust packet verification failed"* ]]
+}
+
 @test "atlas release packet writes and verifies metadata-only release trust packet" {
   make_repo_clean_and_synced
 
