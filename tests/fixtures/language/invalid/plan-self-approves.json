@@ -1,0 +1,8 @@
+{
+  "schema_version": "atlas.language_safety_fixture.v1",
+  "base": "examples/language/hello.plan.json",
+  "rule": "source_cannot_issue_approvals",
+  "description": "A plan cannot contain a self-issued approval decision.",
+  "path": ["workflow", "steps", 0, "approval_mode"],
+  "value": "approved"
+}

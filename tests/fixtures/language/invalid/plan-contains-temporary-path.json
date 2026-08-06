@@ -1,0 +1,8 @@
+{
+  "schema_version": "atlas.language_safety_fixture.v1",
+  "base": "examples/language/hello.plan.json",
+  "rule": "temporary_paths_are_runtime_only",
+  "description": "A deterministic artifact reference cannot point into a temporary workspace directory.",
+  "path": ["workflow", "steps", 0, "outputs", 0, "path"],
+  "value": "./tmp/summary.md"
+}

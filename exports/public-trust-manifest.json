@@ -80,6 +80,10 @@
     "raw prompts",
     "raw model outputs",
     "environment-resolved endpoints",
+    "self-granted capabilities",
+    "self-issued approvals",
+    "runtime timestamps and process identifiers",
+    "temporary and host-specific execution paths",
     "operator history",
     "unredacted runtime evidence",
     "host-specific private lab identifiers"

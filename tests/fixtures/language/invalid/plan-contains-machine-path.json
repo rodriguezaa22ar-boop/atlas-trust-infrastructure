@@ -1,0 +1,8 @@
+{
+  "schema_version": "atlas.language_safety_fixture.v1",
+  "base": "examples/language/hello.plan.json",
+  "rule": "machine_paths_are_forbidden",
+  "description": "A deterministic plan cannot contain an absolute host-specific source path.",
+  "path": ["source", "reference"],
+  "value": "/home/example/mission.atlas"
+}

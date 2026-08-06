@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://atlas.local/schemas/atlas.execution_plan.v1.schema.json",
   "title": "Atlas Execution Plan v1 Candidate",
-  "description": "AL-001 candidate structural contract. Validation does not grant authority or imply executable language support.",
+  "description": "AL-002 safety-hardened candidate structural contract. Validation does not grant authority or imply compiler, runtime, adapter, approval, or execution support.",
   "type": "object",
   "required": [
     "schema_version",
@@ -67,7 +67,10 @@
         "raw_prompt_embedded",
         "raw_model_output_embedded",
         "secrets_embedded",
-        "environment_values_embedded"
+        "environment_values_embedded",
+        "authority_grants_embedded",
+        "approval_decisions_embedded",
+        "runtime_values_embedded"
       ],
       "additionalProperties": false,
       "properties": {
@@ -88,6 +91,15 @@
         },
         "environment_values_embedded": {
           "const": false
+        },
+        "authority_grants_embedded": {
+          "const": false
+        },
+        "approval_decisions_embedded": {
+          "const": false
+        },
+        "runtime_values_embedded": {
+          "const": false
         }
       }
     },
@@ -99,18 +111,7 @@
         "type": "string",
         "minLength": 1
       }
-    },
-    "canonicalization": {
-      "$ref": "#/$defs/canonicalization"
-    },
-    "plan_hash": {
-      "$ref": "#/$defs/sha256"
     }
-  },
-  "dependentRequired": {
-    "plan_hash": [
-      "canonicalization"
-    ]
   },
   "$defs": {
     "sha256": {
@@ -121,20 +122,41 @@
       "type": "string",
       "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
     },
-    "externalReference": {
+    "logicalReference": {
       "type": "string",
       "minLength": 1,
       "maxLength": 256,
-      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]*$"
+      "pattern": "^[A-Za-z][A-Za-z0-9._-]*$",
+      "not": {
+        "pattern": "^(secret|token|credential|password|api[_-]?key|sk[-_]|gh[pousr]_|github_pat_|AKIA|ASIA)([A-Za-z0-9._-]*)$"
+      }
+    },
+    "repositoryPath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*$",
+      "not": {
+        "pattern": "(^|/)\\.\\.(/|$)"
+      }
     },
     "workspacePath": {
       "type": "string",
       "minLength": 3,
       "maxLength": 1024,
       "pattern": "^\\./[A-Za-z0-9._/-]+$",
-      "not": {
-        "pattern": "(^|/)\\.\\.(/|$)"
-      }
+      "allOf": [
+        {
+          "not": {
+            "pattern": "(^|/)\\.\\.(/|$)"
+          }
+        },
+        {
+          "not": {
+            "pattern": "^\\./(tmp|\\.tmp|var/tmp)(/|$)"
+          }
+        }
+      ]
     },
     "compiler": {
       "type": "object",
@@ -148,37 +170,9 @@
           "const": "atlas-lang"
         },
         "status": {
-          "enum": [
-            "not_implemented",
-            "candidate",
-            "implemented"
-          ]
-        },
-        "version": {
-          "type": "string",
-          "minLength": 1
-        },
-        "artifact_digest": {
-          "$ref": "#/$defs/sha256"
+          "const": "not_implemented"
         }
-      },
-      "allOf": [
-        {
-          "if": {
-            "properties": {
-              "status": {
-                "const": "implemented"
-              }
-            }
-          },
-          "then": {
-            "required": [
-              "version",
-              "artifact_digest"
-            ]
-          }
-        }
-      ]
+      }
     },
     "source": {
       "type": "object",
@@ -231,7 +225,7 @@
       "additionalProperties": false,
       "properties": {
         "reference": {
-          "$ref": "#/$defs/externalReference"
+          "$ref": "#/$defs/repositoryPath"
         },
         "digest_status": {
           "enum": [
@@ -272,16 +266,16 @@
       "additionalProperties": false,
       "properties": {
         "policy_ref": {
-          "$ref": "#/$defs/externalReference"
+          "$ref": "#/$defs/logicalReference"
         },
         "runtime_evaluator": {
           "const": "shell-jq"
         },
         "evaluator_ref": {
-          "$ref": "#/$defs/externalReference"
+          "$ref": "#/$defs/repositoryPath"
         },
         "rego_contract_ref": {
-          "$ref": "#/$defs/externalReference"
+          "$ref": "#/$defs/repositoryPath"
         },
         "digest_status": {
           "enum": [
@@ -393,37 +387,12 @@
       "additionalProperties": false,
       "properties": {
         "reference": {
-          "$ref": "#/$defs/externalReference"
+          "$ref": "#/$defs/logicalReference"
         },
         "binding_status": {
-          "enum": [
-            "unresolved",
-            "resolved"
-          ]
-        },
-        "adapter_ref": {
-          "$ref": "#/$defs/externalReference"
-        },
-        "model_ref": {
-          "$ref": "#/$defs/externalReference"
+          "const": "unresolved"
         }
-      },
-      "allOf": [
-        {
-          "if": {
-            "properties": {
-              "binding_status": {
-                "const": "resolved"
-              }
-            }
-          },
-          "then": {
-            "required": [
-              "adapter_ref"
-            ]
-          }
-        }
-      ]
+      }
     },
     "artifactReference": {
       "type": "object",
@@ -514,11 +483,11 @@
           "minItems": 1,
           "uniqueItems": true,
           "items": {
-            "$ref": "#/$defs/externalReference"
+            "$ref": "#/$defs/logicalReference"
           }
         },
         "policy_ref": {
-          "$ref": "#/$defs/externalReference"
+          "$ref": "#/$defs/logicalReference"
         },
         "approval_mode": {
           "const": "policy"
@@ -569,23 +538,6 @@
           "items": {
             "$ref": "#/$defs/step"
           }
-        }
-      }
-    },
-    "canonicalization": {
-      "type": "object",
-      "description": "Reserved for a later frozen canonicalization contract; AL-001 fixtures omit this object.",
-      "required": [
-        "id",
-        "contract_digest"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "id": {
-          "$ref": "#/$defs/externalReference"
-        },
-        "contract_digest": {
-          "$ref": "#/$defs/sha256"
         }
       }
     }

@@ -1,0 +1,8 @@
+{
+  "schema_version": "atlas.language_safety_fixture.v1",
+  "base": "examples/language/hello.plan.json",
+  "rule": "authoritative_plan_hash_is_deferred",
+  "description": "A candidate plan cannot carry a plan hash before canonicalization is frozen.",
+  "path": ["plan_hash"],
+  "value": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}

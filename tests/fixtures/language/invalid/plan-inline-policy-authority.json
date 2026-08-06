@@ -1,0 +1,8 @@
+{
+  "schema_version": "atlas.language_safety_fixture.v1",
+  "base": "examples/language/hello.plan.json",
+  "rule": "policies_are_external_references",
+  "description": "A plan cannot embed an inline policy decision that grants authority.",
+  "path": ["workflow", "steps", 0, "policy"],
+  "value": {"decision": "allow"}
+}

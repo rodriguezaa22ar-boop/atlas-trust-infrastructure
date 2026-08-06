@@ -238,12 +238,16 @@ This includes raw prompts, browser/session/cookie material, and unredacted evide
 - [language/EXECUTION_MODEL.md](language/EXECUTION_MODEL.md): non-executing
   parse/check/compile stages and the later governance-to-receipt sequence.
 - [language/SECURITY_MODEL.md](language/SECURITY_MODEL.md): language authority,
-  fail-closed, policy-baseline, and proof boundaries.
+  fail-closed, policy-baseline, proof boundaries, and AL-002 machine-checked
+  safety protections.
 - [language/KNOWN_LIMITATIONS.md](language/KNOWN_LIMITATIONS.md): explicitly
   unimplemented compiler, runtime, canonicalization, and workflow features.
 - [../examples/language/hello.atlas](../examples/language/hello.atlas) and
   [../examples/language/hello.plan.json](../examples/language/hello.plan.json):
   synthetic source and schema-valid candidate structural plan fixture.
+- [../tests/fixtures/language/README.md](../tests/fixtures/language/README.md):
+  AL-002 single-mutation negative fixtures enforced by
+  `bin/dev-language-safety`.
 
 ## Governance
 

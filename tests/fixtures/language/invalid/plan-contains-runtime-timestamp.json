@@ -1,0 +1,8 @@
+{
+  "schema_version": "atlas.language_safety_fixture.v1",
+  "base": "examples/language/hello.plan.json",
+  "rule": "runtime_timestamps_are_runtime_only",
+  "description": "A deterministic plan cannot contain an execution timestamp.",
+  "path": ["runtime_timestamp"],
+  "value": "2026-08-05T09:00:00Z"
+}

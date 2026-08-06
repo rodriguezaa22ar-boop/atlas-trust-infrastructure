@@ -23,6 +23,7 @@ setup() {
     "$TEST_ROOT/toolkit/bin/dev-evidence" \
     "$TEST_ROOT/toolkit/bin/dev-governance" \
     "$TEST_ROOT/toolkit/bin/dev-host-check" \
+    "$TEST_ROOT/toolkit/bin/dev-language-safety" \
     "$TEST_ROOT/toolkit/bin/dev-policy" \
     "$TEST_ROOT/toolkit/bin/dev-portability" \
     "$TEST_ROOT/toolkit/bin/dev-schema" \
@@ -3848,6 +3849,66 @@ write_test_slsa_reference() {
   run "$TEST_ROOT/toolkit/bin/dev-schema" "$bad_map"
   [ "$status" -ne 0 ]
   [[ "$output" == *"schema: fail expected valid example failed"* ]]
+}
+
+@test "AL-002 language safety gate rejects authority and runtime mutations read-only" {
+  schema="$TEST_ROOT/toolkit/schemas/atlas.execution_plan.v1.schema.json"
+  valid_plan="$TEST_ROOT/toolkit/examples/language/hello.plan.json"
+  fixture_dir="$TEST_ROOT/toolkit/tests/fixtures/language/invalid"
+  milestone="$TEST_ROOT/toolkit/docs/retention/milestones/LANGUAGE_AL_002.md"
+  before_status="$(git -C "$TEST_ROOT/toolkit" status --porcelain=v1)"
+
+  [ -f "$schema" ]
+  [ -f "$valid_plan" ]
+  [ -d "$fixture_dir" ]
+  [ -f "$milestone" ]
+  [ "$(find "$fixture_dir" -maxdepth 1 -type f -name '*.json' | wc -l | tr -d ' ')" -eq 15 ]
+
+  jq -e '
+    .properties.execution_status.const == "not_implemented" and
+    (.properties | has("plan_hash") | not) and
+    (.properties | has("canonicalization") | not) and
+    .["$defs"].compiler.properties.status.const == "not_implemented" and
+    .["$defs"].providerBinding.properties.binding_status.const == "unresolved" and
+    .["$defs"].policyContract.properties.runtime_evaluator.const == "shell-jq" and
+    (.["$defs"].step.properties | has("granted_capabilities") | not) and
+    (.["$defs"].step.properties | has("approval_decision") | not)
+  ' "$schema"
+
+  run "$TEST_ROOT/toolkit/bin/dev-language-safety"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"language-safety: ok"* ]]
+  [ "$(git -C "$TEST_ROOT/toolkit" status --porcelain=v1)" = "$before_status" ]
+  [ ! -e "$TEST_ROOT/toolkit/state" ]
+  [ ! -e "$TEST_ROOT/toolkit/sessions" ]
+  [ ! -e "$TEST_ROOT/toolkit/reports" ]
+  [ ! -e "$TEST_ROOT/toolkit/releases" ]
+}
+
+@test "AL-002 language safety gate fails when an authority field is admitted" {
+  schema="$TEST_ROOT/toolkit/schemas/atlas.execution_plan.v1.schema.json"
+  weakened_schema="$TEST_ROOT/al-002-weakened-schema.json"
+
+  jq '
+    .["$defs"].step.properties.granted_capabilities = {
+      type: "array",
+      items: {"$ref": "#/$defs/logicalReference"}
+    }
+  ' "$schema" >"$weakened_schema"
+
+  run "$TEST_ROOT/toolkit/bin/dev-language-safety" "$weakened_schema"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"schema does not preserve AL-002 authority and non-execution locks"* ]]
+}
+
+@test "AL-002 language safety gate rejects contradictory authority claims" {
+  security_model="$TEST_ROOT/toolkit/docs/language/SECURITY_MODEL.md"
+
+  printf '\nRego is currently authoritative.\n' >>"$security_model"
+
+  run "$TEST_ROOT/toolkit/bin/dev-language-safety"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"contradictory documentation claim: Rego is currently authoritative"* ]]
 }
 
 @test "atlas receipt replay validates chain failures and stays read-only" {
